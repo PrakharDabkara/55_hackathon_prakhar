@@ -33,6 +33,7 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Do not install dependencies the brief does not call for without asking.
 - Keep docs short. Update `CHANGELOG.md` under `Unreleased` in each PR.
 - When unsure, ask instead of guessing.
+
 ## Working style
 
 After every task, end your reply with a short section (max 12 lines):
