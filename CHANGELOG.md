@@ -15,3 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database access with `pg` and `node-pg-migrate` (ADR-0007); migrations for extensions and the `shops` table with a GiST index.
 - `findShopsWithinRadius` in the shops module, with a Testcontainers integration test.
 - GitHub Actions CI: lint, typecheck, unit and integration tests; `.nvmrc` (Node 20).
+
+### Changed
+
+- Node 24 LTS (`.nvmrc`, CI, `engines`) and Testcontainers 12.x; versions recorded in ADR-0008.

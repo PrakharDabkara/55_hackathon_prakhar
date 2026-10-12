@@ -199,6 +199,7 @@ kahanmilega/
 | Login | Phone OTP, simulated (code shown in the dev log) | Real flow without SMS cost |
 | Models | Claude Haiku 5.5 for query and reply parsing and the digest; Sonnet 5.5 only if evals show Haiku falls short | Cheapest model that passes the evals |
 | Embeddings | OpenAI text-embedding-3-small, stored in pgvector | Anthropic has no embeddings API; no extra database |
+| Runtime and data | Node 24 LTS; PostgreSQL 18 + PostGIS 3.6 + pgvector 0.8.x; Redis 8.8 | Node 20 is end of life; the Postgres 17 image cannot install pgvector via apt (ADR-0008) |
 
 ## Build plan (17 days; Oct 30 is buffer)
 
@@ -210,8 +211,8 @@ Phases end at gates; nothing moves on until the gate passes. If a gate slips, ph
 - Harden (Day 13–15) → gate: load targets met
 - Ship (Day 16–17) → submit
 
-- [ ] Day 1 · Setup: repo, README, CLAUDE.md, ADRs, PR template; copy Claude Code session logs; telemetry on
-- [ ] Day 2 · CI and data: GitHub Actions (lint, types, unit tests); local Docker Compose with Postgres (PostGIS, pgvector) and Redis; schema and migrations; first geo-query tests
+- [x] Day 1 · Setup: repo, README, CLAUDE.md, ADRs, PR template; copy Claude Code session logs; telemetry on
+- [x] Day 2 · CI and data: GitHub Actions (lint, types, unit tests); local Docker Compose with Postgres (PostGIS, pgvector) and Redis; schema and migrations; first geo-query tests
 - [ ] Day 3 · Cloud skeleton: AWS account with IAM user and billing alert; EC2 with Docker Compose and HTTPS; deploy on every merge to main; structured logs with request IDs. Gate
 - [ ] Day 4 · Identity and shops: simulated phone OTP, roles, one-minute shop onboarding (map pin, categories, no catalogue)
 - [ ] Day 5 · Catalog and search v1: item list with synonyms; radius search over learned stock
