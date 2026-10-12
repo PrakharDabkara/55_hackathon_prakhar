@@ -30,8 +30,12 @@ Others have reached the same problem, which confirms it is real (checked Oct 12,
 
 ```sh
 npm install
-npm run lint
-npm test
+cp .env.example .env     # then adjust if a port is taken
+npm run db:up            # Postgres (PostGIS + pgvector) and Redis
+npm run db:migrate
+npm run lint && npm run typecheck
+npm run test:unit
+npm run test:integration # needs Docker (Testcontainers)
 ```
 
 Architecture decisions are in [docs/adr/](docs/adr/).
