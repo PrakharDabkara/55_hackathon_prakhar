@@ -13,7 +13,13 @@
   "scripts": {
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:up": "docker compose up -d --build --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "node --env-file=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up -m apps/api/migrations",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run --exclude \"**/*.int.test.ts\" --passWithNoTests",
+    "test:integration": "vitest run int.test --passWithNoTests"
   },
   "devDependencies": {
     "eslint": "^10.12.0",
