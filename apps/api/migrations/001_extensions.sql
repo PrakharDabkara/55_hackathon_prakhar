@@ -1,0 +1,7 @@
+-- Up Migration
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Down Migration
+DROP EXTENSION IF EXISTS vector;
+DROP EXTENSION IF EXISTS postgis;
