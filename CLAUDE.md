@@ -33,3 +33,13 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Do not install dependencies the brief does not call for without asking.
 - Keep docs short. Update `CHANGELOG.md` under `Unreleased` in each PR.
 - When unsure, ask instead of guessing.
+## Working style
+
+After every task, end your reply with a short section (max 12 lines):
+
+- **What:** what changed and which files
+- **How:** the approach and key steps
+- **Why:** why this approach, and which alternative was rejected and why
+- **Learn:** one concept Prakhar should understand from this task
+
+Append the same section to `docs/journey/YYYY-MM-DD.md` (today's date; create the file if missing).
