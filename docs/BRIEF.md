@@ -182,6 +182,7 @@ kahanmilega/
     adr/                 # one file per decision
     runbook.md
     evals.md
+    journey/             # daily What/How/Why/Learn log
   .github/workflows/     # CI and deploy
   CLAUDE.md
   README.md
