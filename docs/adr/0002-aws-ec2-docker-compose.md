@@ -1,6 +1,6 @@
 # 0002. AWS: one EC2 instance with Docker Compose
 
-Status: Accepted · 2026-10-12
+Status: Superseded by [0009](0009-free-tier-hosting.md) · 2026-10-13 (was Accepted · 2026-10-12). AWS is now the post-hackathon target.
 
 ## Context
 
