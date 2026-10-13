@@ -22,3 +22,30 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run test:integration
+
+  deploy:
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Migrations first, so new code never meets an old schema.
+      - name: Run migrations on Neon
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: npx node-pg-migrate up -m apps/api/migrations
+      # Deploy exactly the commit that passed CI.
+      - name: Trigger Render deploy
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error -X POST "${DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}" > /dev/null
