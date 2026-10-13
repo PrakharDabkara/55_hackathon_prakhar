@@ -5,8 +5,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().min(0).max(65535).default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   DATABASE_URL: z.url(),
-  GIT_SHA: z.string().min(1).optional(),
-  RENDER_GIT_COMMIT: z.string().min(1).optional(),
+  GIT_SHA: z.string().optional(),
+  RENDER_GIT_COMMIT: z.string().optional(),
 });
 
 export interface Config {
@@ -16,6 +16,9 @@ export interface Config {
   databaseUrl: string;
   gitSha: string;
 }
+
+/** The Docker build bakes in GIT_SHA=unknown when no build arg is passed; treat it and blanks as unset. */
+const known = (v: string | undefined) => (v && v !== 'unknown' ? v : undefined);
 
 /** Validates env vars once at startup. Throws a message naming every bad variable, never its value. */
 export function loadConfig(env: Record<string, string | undefined>): Config {
@@ -30,6 +33,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     port: e.PORT,
     logLevel: e.LOG_LEVEL,
     databaseUrl: e.DATABASE_URL,
-    gitSha: e.GIT_SHA ?? e.RENDER_GIT_COMMIT ?? 'unknown',
+    gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }
