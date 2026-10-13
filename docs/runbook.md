@@ -1,3 +1,54 @@
-# Runbook
+# Runbook (v1)
 
-To be written on Day 15 (operations).
+Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
+
+## How a deploy works
+
+1. A PR merges to `main`.
+2. The `ci` job runs lint, typecheck, unit and integration tests.
+3. The `deploy` job (same workflow, `production` environment) runs only if `ci` passed:
+   1. `node-pg-migrate up` against Neon, using the `NEON_DIRECT_URL` secret.
+   2. A POST to the Render deploy hook (`RENDER_DEPLOY_HOOK_URL`) with `&ref=<commit sha>`, so Render builds exactly the tested commit.
+4. Render builds `infra/api/Dockerfile`, starts the container, waits for `GET /health` to return 200, then switches traffic.
+
+Auto-deploy on Render is off. A push alone never deploys.
+
+Manual redeploy: GitHub → Actions → re-run the `deploy` job, or Render dashboard → the service → Manual Deploy.
+
+Migrations run before the new code, so every migration must work with the previous release too (add first, remove later).
+
+## Roll back
+
+Code: Render dashboard → `kahanmilega-api` → Events (or Deploys) → pick the last good deploy → Rollback. It redeploys that image; the next merge to `main` deploys forward again, so revert the bad commit on `main` too.
+
+Database: migrations are not rolled back with the code. If a migration is the problem, write a new forward migration. Neon also keeps point-in-time history for a short window on the free plan (Neon console → Branches → Restore), which is a last resort.
+
+## Where the logs are
+
+- Render dashboard → `kahanmilega-api` → Logs. One JSON object per line (pino).
+- Every request line has `req.id`, which is the `x-request-id` the caller sent or one we generated, and is echoed in the response header. Search the id in the Logs filter to follow one request.
+- Locally: `docker logs <container>` or the terminal running `npm run dev -w @kahanmilega/api`.
+
+## What the probes mean
+
+| Endpoint      | Meaning                                                                                              | Depends on | Failing means                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------ |
+| `GET /health` | Liveness: the process is up. Returns `status`, `sha` (deployed commit), `uptimeSeconds`.             | Nothing    | Restart the container. Render uses this as its health check.                                     |
+| `GET /ready`  | Readiness: Postgres answers `SELECT 1` within 2 s. Returns 503 `{"status":"unavailable"}` otherwise. | Postgres   | Do not send traffic. The cause is in the logs (`readiness check failed`), never in the response. |
+
+To check what is live: `curl https://<service>.onrender.com/health` and compare `sha` with the commit on `main`.
+
+## Free-tier behaviour
+
+- The API sleeps after about 15 minutes idle; the first request wakes it (tens of seconds). Hit `/health` a minute before a demo.
+- Neon also sleeps; the first `/ready` after idle can take a few seconds.
+
+## Secrets: where each lives
+
+| Secret                          | Set in                                  | Used by        |
+| ------------------------------- | --------------------------------------- | -------------- |
+| `DATABASE_URL` (Neon pooled)    | Render service env                      | API at runtime |
+| `NEON_DIRECT_URL` (Neon direct) | GitHub `production` environment secrets | CD migrations  |
+| `RENDER_DEPLOY_HOOK_URL`        | GitHub `production` environment secrets | CD deploy step |
+
+Nothing secret is committed; `.env.example` lists names only.

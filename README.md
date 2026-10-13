@@ -2,7 +2,7 @@
 
 > "Where will I find it?" Ask your neighbourhood for an item and see which nearby shops have it, and at what price.
 
-**Status:** Day 1 (setup). No application code yet. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
+**Status:** Day 3 (deploy skeleton). API serves `/health` and `/ready`; deploys to Render on merge to main. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
 
 ## Problem
 
@@ -36,6 +36,9 @@ npm run db:migrate
 npm run lint && npm run typecheck
 npm run test:unit
 npm run test:integration # needs Docker (Testcontainers)
+npm run dev -w @kahanmilega/api   # build and run the API on PORT (needs .env)
 ```
+
+Deploys and rollbacks: [docs/runbook.md](docs/runbook.md).
 
 Architecture decisions are in [docs/adr/](docs/adr/).

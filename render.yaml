@@ -18,3 +18,18 @@ services:
       # Neon pooled connection string. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false
+      # Not read by the API yet; the BullMQ queues arrive on Day 6-7. See ADR-0010.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: kahanmilega-redis
+          property: connectionString
+
+  - type: keyvalue
+    name: kahanmilega-redis
+    plan: free
+    region: singapore
+    # BullMQ needs noeviction: an evicted queue key silently loses jobs.
+    maxmemoryPolicy: noeviction
+    # Empty list: reachable only over Render's private network, not the internet.
+    ipAllowList: []

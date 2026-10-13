@@ -113,7 +113,7 @@ One Node.js + TypeScript API, built as a modular monolith, serves every client; 
 - **Clients:** seeker web app (search, map, live answers); shopkeeper web app (pings, one-tap replies); WhatsApp channel (simulated for the demo); MCP server (tools for AI assistants). All call the one API.
 - **API modules:** identity, shops, catalog, search, requests, messaging, realtime (SSE), ai, analytics. Modules import only each other's public index.
 - **Behind the API:** workers (fan-out pings, expiry, end-of-day digest); Postgres + PostGIS + pgvector (shops, stock, requests, distance queries, embeddings); Redis (cache, job queues via BullMQ, live events via pub/sub); Claude API (understands queries and shop replies).
-- **Around it:** GitHub Actions CI/CD, Docker, AWS, OpenTelemetry logs, metrics and traces.
+- **Around it:** GitHub Actions CI/CD, Docker, free-tier hosting (Render, Neon; ADR-0009; AWS after the hackathon), OpenTelemetry logs, metrics and traces.
 
 The web app is a React PWA with Leaflet maps on OpenStreetMap tiles. Logs are structured JSON (pino) with a request ID on every line, and the same ID follows a search through its pings, replies and map updates.
 
@@ -194,7 +194,7 @@ kahanmilega/
 | Decision | Choice | Why |
 | --- | --- | --- |
 | Architecture | Modular monolith | One deployable, clear module boundaries, split later if needed |
-| Cloud | AWS: one EC2 instance running Docker Compose (API, workers, Postgres with PostGIS and pgvector, Redis, Caddy for HTTPS); images built in GitHub Actions | Real cloud and CI/CD skills, low cost, supports long-lived SSE connections. After the hackathon: managed database and Redis, then containers behind a load balancer |
+| Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code shown in the dev log) | Real flow without SMS cost |
 | Models | Claude Haiku 5.5 for query and reply parsing and the digest; Sonnet 5.5 only if evals show Haiku falls short | Cheapest model that passes the evals |
@@ -205,7 +205,7 @@ kahanmilega/
 
 Phases end at gates; nothing moves on until the gate passes. If a gate slips, phase-2 features are cut, never tests or deployment.
 
-- Foundations (Day 1–3) → gate: CI green, app live on AWS
+- Foundations (Day 1–3) → gate: CI green, app live on Render
 - Marketplace (Day 4–8) → gate: end-to-end demo with simulated shops
 - AI layer (Day 9–12) → gate: evals pass in CI
 - Harden (Day 13–15) → gate: load targets met
@@ -213,7 +213,7 @@ Phases end at gates; nothing moves on until the gate passes. If a gate slips, ph
 
 - [x] Day 1 · Setup: repo, README, CLAUDE.md, ADRs, PR template; copy Claude Code session logs; telemetry on
 - [x] Day 2 · CI and data: GitHub Actions (lint, types, unit tests); local Docker Compose with Postgres (PostGIS, pgvector) and Redis; schema and migrations; first geo-query tests
-- [ ] Day 3 · Cloud skeleton: AWS account with IAM user and billing alert; EC2 with Docker Compose and HTTPS; deploy on every merge to main; structured logs with request IDs. Gate
+- [ ] Day 3 · Cloud skeleton: Render + Neon free tier (ADR-0009); `/health` and `/ready`; Docker image; deploy on every merge to main; structured logs with request IDs. Gate
 - [ ] Day 4 · Identity and shops: simulated phone OTP, roles, one-minute shop onboarding (map pin, categories, no catalogue)
 - [ ] Day 5 · Catalog and search v1: item list with synonyms; radius search over learned stock
 - [ ] Day 6 · Requests: state machine; expiry worker on a Redis queue
