@@ -1,0 +1,20 @@
+# Render Blueprint. See docs/adr/0009-free-tier-hosting.md and docs/runbook.md.
+services:
+  - type: web
+    name: kahanmilega-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./infra/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # Deploys come from the CD job (deploy hook), never from a push.
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Neon pooled connection string. Set it in the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
