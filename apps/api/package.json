@@ -6,6 +6,7 @@
   "dependencies": {
     "bullmq": "^6.3.13",
     "express": "^5.3.0",
+    "ioredis": "^6.0.0",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
