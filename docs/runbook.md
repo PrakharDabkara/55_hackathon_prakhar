@@ -36,7 +36,7 @@ Database: migrations are not rolled back with the code. If a migration is the pr
 | `GET /health` | Liveness: the process is up. Returns `status`, `sha` (deployed commit), `uptimeSeconds`.             | Nothing    | Restart the container. Render uses this as its health check.                                     |
 | `GET /ready`  | Readiness: Postgres answers `SELECT 1` within 2 s. Returns 503 `{"status":"unavailable"}` otherwise. | Postgres   | Do not send traffic. The cause is in the logs (`readiness check failed`), never in the response. |
 
-To check what is live: `curl https://<service>.onrender.com/health` and compare `sha` with the commit on `main`.
+To check what is live: `curl https://<service>.onrender.com/health` and compare `sha` with the commit on `main`. `sha` comes from `GIT_SHA`, else Render's `RENDER_GIT_COMMIT`, else `unknown`.
 
 ## Free-tier behaviour
 

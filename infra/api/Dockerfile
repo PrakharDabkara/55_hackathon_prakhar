@@ -26,7 +26,7 @@ RUN npm ci --omit=dev -w @kahanmilega/api
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
-ARG GIT_SHA=unknown
+ARG GIT_SHA=
 ENV GIT_SHA=${GIT_SHA}
 WORKDIR /app
 COPY --from=deps --chown=node:node /app/node_modules node_modules
