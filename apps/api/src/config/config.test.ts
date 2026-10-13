@@ -26,6 +26,11 @@ describe('loadConfig', () => {
     expect(loadConfig(valid).gitSha).toBe('unknown');
   });
 
+  it('treats a blank or "unknown" GIT_SHA (the Docker build default) as unset', () => {
+    expect(loadConfig({ ...valid, GIT_SHA: '', RENDER_GIT_COMMIT: 'b' }).gitSha).toBe('b');
+    expect(loadConfig({ ...valid, GIT_SHA: 'unknown', RENDER_GIT_COMMIT: 'b' }).gitSha).toBe('b');
+  });
+
   it('fails fast and names every bad variable', () => {
     expect(() => loadConfig({ PORT: 'abc', NODE_ENV: 'staging' })).toThrowError(
       /DATABASE_URL[\s\S]*PORT[\s\S]*NODE_ENV|PORT[\s\S]*DATABASE_URL|NODE_ENV[\s\S]*DATABASE_URL/,
