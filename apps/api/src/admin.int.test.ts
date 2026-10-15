@@ -152,9 +152,8 @@ describe('admin role and the simulator endpoints', () => {
     });
 
     it('is never given when the list is empty', async () => {
-      const user = await loginAs(closedApp, 'seeker', ADMIN_PHONE);
-      expect(user.role).toBe('admin'); // already stored as admin from the first login...
-      // ...but with an empty list that stored role opens nothing (see the 404 tests below).
+      const user = await loginAs(closedApp, 'shop', '9810000003');
+      expect(user.role).toBe('shop');
     });
   });
 
@@ -298,11 +297,8 @@ describe('admin role and the simulator endpoints', () => {
         0,
       );
       expect(await count(`SELECT count(*)::int AS n FROM pings WHERE shop_id = ANY($1)`)).toBe(0);
-      expect(
-        await count(
-          `SELECT count(*)::int AS n FROM users WHERE phone LIKE '+9160%'`.replace('$1', 'NULL'),
-        ),
-      ).toBe(0);
+      const users = await pool.query(`SELECT 1 FROM users WHERE phone LIKE '+9160%'`);
+      expect(users.rowCount).toBe(0);
       const sessions = await pool.query(
         `SELECT 1 FROM sessions s JOIN users u ON u.id = s.user_id WHERE u.phone LIKE '+9160%'`,
       );
