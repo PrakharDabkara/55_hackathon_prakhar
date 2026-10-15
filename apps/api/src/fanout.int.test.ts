@@ -328,9 +328,9 @@ describe('fan-out, ping answers and the price check', () => {
 
   describe('the request view', () => {
     it('sorts by price when a target is set, or as asked with ?sort=', async () => {
-      const near = await makeShop('Near dear', 0.2, ['grocery']);
-      const far = await makeShop('Far cheap', 1.5, ['grocery']);
-      const req = await ask({ q: 'curd', targetPricePaise: 5000 });
+      const near = await makeShop('Near dear', 0.2, ['personal_care']);
+      const far = await makeShop('Far cheap', 1.5, ['personal_care']);
+      const req = await ask({ q: 'comb', targetPricePaise: 5000 });
       // Cap the race: wait for both pings, answer the far one first so it becomes ANSWERED...
       const nearPing = (
         await waitFor(
@@ -464,7 +464,7 @@ describe('fan-out, ping answers and the price check', () => {
     });
 
     it('logs and moves on when no shop qualifies', async () => {
-      const id = await pingingRequest('sunscreen'); // personal_care: no such shop exists
+      const id = await pingingRequest('torch'); // electrical: no such shop exists
       const result = await fanOutPings(
         fanCtx(),
         id,
