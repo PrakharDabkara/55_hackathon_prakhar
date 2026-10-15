@@ -1,7 +1,7 @@
 import { pino } from 'pino';
-import pg from 'pg';
 import { createApp } from './app.js';
 import { loadConfig } from './config/config.js';
+import { createPool } from './db/pool.js';
 import { registerShutdown } from './shutdown.js';
 import { startWorkers } from './workers/index.js';
 
@@ -10,10 +10,8 @@ const logger = pino({
   level: config.logLevel,
   redact: ['req.headers.authorization', 'req.headers.cookie'],
 });
-const pool = new pg.Pool({ connectionString: config.databaseUrl });
-// An idle client erroring (e.g. Neon closing a connection) must not crash the process.
-// Log the message only: pg errors carry the whole client object.
-pool.on('error', (err) => logger.error({ reason: err.message }, 'idle database client error'));
+// createPool logs an idle client dying (Neon suspending after idle, a restart) instead of crashing.
+const pool = createPool(config.databaseUrl, logger);
 
 const workers = startWorkers({ config, db: pool, logger });
 

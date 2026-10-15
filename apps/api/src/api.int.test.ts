@@ -1,19 +1,12 @@
-import path from 'node:path';
 import { Writable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
-import { GenericContainer } from 'testcontainers';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { CATEGORIES } from '@kahanmilega/shared';
-import { runner } from 'node-pg-migrate';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import type { Config } from './config/config.js';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const IMAGE = 'kahanmilega-postgres:test';
+import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
 const config: Config = {
   nodeEnv: 'test',
@@ -44,30 +37,19 @@ let phoneCounter = 0;
 const nextPhone = () => `98000${String(10000 + phoneCounter++)}`;
 
 describe('identity and shops API', () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDatabase;
   let pool: Pool;
   let app: ReturnType<typeof createApp>;
 
   beforeAll(async () => {
-    await GenericContainer.fromDockerfile(path.join(repoRoot, 'infra/postgres')).build(IMAGE, {
-      deleteOnExit: false,
-    });
-    container = await new PostgreSqlContainer(IMAGE).start();
-    const databaseUrl = container.getConnectionUri();
-    await runner({
-      databaseUrl,
-      dir: path.join(repoRoot, 'apps/api/migrations'),
-      direction: 'up',
-      migrationsTable: 'pgmigrations',
-      log: () => {},
-    });
-    pool = new Pool({ connectionString: databaseUrl });
+    testDb = await startPostgres();
+    pool = testDb.pool;
     app = createApp({ config, logger: pino({ level: 'debug' }, logSink), db: pool });
   }, 300_000);
 
+  // The helper closes the pool, waits for Postgres to see every connection go, then stops it.
   afterAll(async () => {
-    await pool?.end();
-    await container?.stop();
+    await testDb?.stop();
   });
 
   async function inboxCode(phone: string): Promise<string> {

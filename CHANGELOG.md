@@ -42,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A database connection lost while idle (Neon suspending after idle, a Postgres restart: code 57P01) no longer crashes the process: every pool comes from `createPool`, which logs the code and message (never the credentials) and lets the pool reconnect; `withTransaction` survives a connection lost between two queries. Integration tests close the pool, wait for Postgres to see the connections go, then stop the container (this had failed CI on `main` after PR #12).
+
 - Catalog: removed 36 ambiguous generic terms ("clip", "pen", "switch", "powder" and others; listed in the PR) and added a paper clips item; trigram search no longer guesses for a generic word or a near-tie between items; re-seeding deletes terms dropped from the file.
 
 - `/health` reported `sha: unknown` on Render: the Dockerfile default `GIT_SHA=unknown` shadowed `RENDER_GIT_COMMIT`. Blank/`unknown` now count as unset.

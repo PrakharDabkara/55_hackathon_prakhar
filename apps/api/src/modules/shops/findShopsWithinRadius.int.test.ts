@@ -1,14 +1,7 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { GenericContainer } from 'testcontainers';
-import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { runner } from 'node-pg-migrate';
-import { Pool } from 'pg';
+import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { startPostgres, type TestDatabase } from '../../testing/startPostgres.js';
 import { findShopsWithinRadius } from './index.js';
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../..');
-const IMAGE = 'kahanmilega-postgres:test';
 
 // A point in Indore (Rajwada). One degree of latitude is ~111 km, so a shop
 // `km` kilometres due north sits `km` kilometres away.
@@ -23,25 +16,12 @@ const fixtures = [
 ];
 
 describe('findShopsWithinRadius', () => {
-  let container: StartedPostgreSqlContainer;
+  let testDb: TestDatabase;
   let pool: Pool;
 
   beforeAll(async () => {
-    await GenericContainer.fromDockerfile(path.join(repoRoot, 'infra/postgres')).build(IMAGE, {
-      deleteOnExit: false,
-    });
-    container = await new PostgreSqlContainer(IMAGE).start();
-    const databaseUrl = container.getConnectionUri();
-
-    await runner({
-      databaseUrl,
-      dir: path.join(repoRoot, 'apps/api/migrations'),
-      direction: 'up',
-      migrationsTable: 'pgmigrations',
-      log: () => {},
-    });
-
-    pool = new Pool({ connectionString: databaseUrl });
+    testDb = await startPostgres();
+    pool = testDb.pool;
     for (const { name, km } of fixtures) {
       await pool.query(
         `INSERT INTO shops (name, phone, categories, location)
@@ -53,8 +33,7 @@ describe('findShopsWithinRadius', () => {
   }, 300_000);
 
   afterAll(async () => {
-    await pool?.end();
-    await container?.stop();
+    await testDb?.stop();
   });
 
   it('returns only shops within 2000 m, nearest first', async () => {
