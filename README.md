@@ -51,4 +51,16 @@ Open **https://kahanmilega-api.onrender.com/app/shop** on a phone (the free serv
 2. The first time, give the shop a name, pick 1 or 2 categories and tap **Meri location use karein**.
 3. Questions from customers appear on the card by themselves. Tap **Haan hai** (add a price if you like) or **Nahi hai**.
 
-To make a question appear, create a customer request from a terminal; the commands are in [docs/runbook.md](docs/runbook.md#send-a-test-question-to-a-shop). Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).
+To make a question appear, create a customer request from a terminal; the commands are in [docs/runbook.md](docs/runbook.md#send-a-test-question-to-a-shop). ## Try the customer app
+
+Open **https://kahanmilega-api.onrender.com/app/** (the shop app is at `/app/shop`). The free server sleeps when idle, so the first load can take a minute.
+
+1. Log in with any Indian mobile number: **OTP bhejo**, **Demo OTP bharein**, **Login karein**.
+2. Tap **Demo location (Indore)**, type `chini` (or `aata`, `namak`), optionally add a price you have seen, and tap **Dhoondho**.
+3. Pins and rows appear as shops answer. For answers without real shopkeepers, run the simulator from your laptop (one admin phone must be set in `ADMIN_PHONES` on the server, see [the runbook](docs/runbook.md#run-the-simulator-against-the-live-site)):
+
+```sh
+npm run simulate -- --target https://kahanmilega-api.onrender.com --admin-phone 98xxxxxxxx --count 200 --speed 10 --centre 22.7196,75.8577
+```
+
+Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).

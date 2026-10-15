@@ -46,6 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simulator endpoints (admin only): `POST /admin/sim/shops`, `DELETE /admin/sim/shops`, `GET /admin/sim/events`.
 - `apps/simulator`, `npm run simulate`: fake shops (Node built-ins only) that answer real pings through the real answer endpoint over one admin stream. Runbook: "Run the simulator against the live site".
 - Config `ADMIN_PHONES`; `.env.example` and `render.yaml` (no value; set by hand).
+- Customer app (Day 8b) at `/app/` (the shop app stays at `/app/shop`): login with Demo mode, a search box "क्या चाहिए?" with an optional price seen elsewhere and location (phone, manual, or a labelled "Demo location (Indore)"), a friendly message for an unresolved item, and a results screen with a Leaflet map on OpenStreetMap tiles (green pins for live answers, blue for learned stock, inline SVG, attribution shown), a list with price, saving badge, distance, freshness and a "Raasta" directions link, Sasta / Paas sorting, a status line ("10 dukaanon se poocha · 7 ne haan kaha · 3 ka jawab baaki"), a countdown, live updates over SSE with a 15 s fallback poll and a live dot, and "Ho gaya" to close. ADR-0019.
+- API: results carry each shop's `lat` and `lng` (the seeker's own position is never sent to shops); `GET /requests/:id` returns `pingStats {sent, yes, no, pending}`.
+- CSP: `img-src` also allows `https://tile.openstreetmap.org`; scripts and styles stay `'self'` only.
+- `POST /admin/sim/shops` accepts an optional `categories` list; the simulator has `categories` and `eager` options for tests and demos.
+- Playwright end-to-end test (`npm run test:e2e`, `e2e/`) and a separate CI job `e2e`: Postgres, Redis, the API with `ADMIN_PHONES`, five simulated grocery shops, Chromium at 360 px; the screenshot is uploaded as an artifact. Deploy now waits for it.
+- Dependencies (approved): `leaflet`, `@types/leaflet`, `@playwright/test`.
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
 
 ### Fixed
