@@ -218,6 +218,8 @@ describe('admin role and the simulator endpoints', () => {
       ['a negative radius', { ...body, radiusM: -5 }],
       ['no seed', { ...body, seed: undefined }],
       ['a text seed', { ...body, seed: 'abc' }],
+      ['an empty category list', { ...body, categories: [] }],
+      ['an unknown category', { ...body, categories: ['jewellery'] }],
     ])('refuses %s with 400', async (_name, bad) => {
       const res = await create(bad);
       expect(res.status).toBe(400);
@@ -249,6 +251,15 @@ describe('admin role and the simulator endpoints', () => {
         expect(r.metres).toBeLessThanOrEqual(1501);
         expect(r.categories.length).toBeGreaterThanOrEqual(1);
       }
+      await wipe();
+    });
+
+    it('can be limited to some categories, so a demo can have grocery shops only', async () => {
+      const res = await create({ ...body, count: 8, categories: ['grocery'] });
+      expect(res.status).toBe(201);
+      const { rows } = await pool.query(`SELECT categories FROM shops WHERE is_simulated`);
+      expect(rows).toHaveLength(8);
+      for (const r of rows) expect(r.categories).toEqual(['grocery']);
       await wipe();
     });
 

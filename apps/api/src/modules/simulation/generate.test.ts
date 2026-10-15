@@ -79,4 +79,24 @@ describe('generateShops', () => {
     expect(new Set(phones).size).toBe(500);
     for (const p of phones) expect(p).toMatch(/^\+9160\d{8}$/);
   });
+
+  describe('with a category filter', () => {
+    it('makes only shops of those categories (one category each when only one is allowed)', () => {
+      const grocery = generateShops({ ...input, count: 100, categories: ['grocery'] });
+      for (const s of grocery) expect(s.categories).toEqual(['grocery']);
+      const two = generateShops({ ...input, count: 200, categories: ['hardware', 'electrical'] });
+      for (const s of two) {
+        for (const c of s.categories) expect(['hardware', 'electrical']).toContain(c);
+      }
+      expect(new Set(two.map((s) => s.categories[0]))).toEqual(new Set(['hardware', 'electrical']));
+    });
+
+    it('is still deterministic, and names fit the category', () => {
+      const a = generateShops({ ...input, count: 30, categories: ['grocery'] });
+      expect(a).toEqual(generateShops({ ...input, count: 30, categories: ['grocery'] }));
+      expect(
+        a.every((s) => /Kirana|General|Provision|Stores?|Mart|Bhandar|Dairy/i.test(s.name)),
+      ).toBe(true);
+    });
+  });
 });

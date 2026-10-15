@@ -177,6 +177,35 @@ describe('the simulator against a real API', () => {
     await sim.stop(); // twice is fine
   }, 60_000);
 
+  it('can be told to make grocery shops only and to answer every ping with a yes', async () => {
+    await Promise.all(running.splice(0).map((s) => s.stop()));
+    const sim = await runSimulator({
+      ...options([]),
+      count: 5,
+      seed: 21,
+      categories: ['grocery'],
+      eager: true,
+      stateFile: path.join(path.dirname(stateFile), 'eager.json'),
+    });
+    running.push(sim);
+    const cats = await testDb.pool.query(`SELECT categories FROM shops WHERE is_simulated`);
+    expect(cats.rows).toHaveLength(5);
+    for (const r of cats.rows) expect(r.categories).toEqual(['grocery']);
+
+    const seeker = await loginAs(app, 'seeker', String(phone++));
+    const asked = await request(app)
+      .post('/requests')
+      .set({ Authorization: `Bearer ${seeker.token}` })
+      .send({ q: 'namak', lat: ORIGIN.lat, lng: ORIGIN.lng });
+    expect(asked.body.state).toBe('PINGING');
+    await waitFor(
+      async () => sim.stats().answered,
+      (n) => n >= 5,
+      15_000,
+    );
+    expect(sim.stats()).toMatchObject({ yes: 5, no: 0, skipped: 0 });
+  }, 60_000);
+
   it('explains itself when the phone is not an admin', async () => {
     await expect(
       runSimulator({
