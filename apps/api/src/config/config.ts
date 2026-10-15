@@ -50,7 +50,11 @@ const schema = z
     // Which model answers when the dictionary cannot (ADR-0020). Default fake outside production,
     // so nothing leaves the machine by accident; production must choose.
     LLM_PROVIDER: z.enum(['gemini', 'fake']).optional(),
-    GEMINI_API_KEY: z.string().min(1).optional(),
+    // An empty value (as .env.example ships it) means not set.
+    GEMINI_API_KEY: z
+      .string()
+      .optional()
+      .transform((key) => (key === '' ? undefined : key)),
     // Names come from `npm run ai:models`, which lists what the key can use.
     GEMINI_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
     GEMINI_EMBED_MODEL: z.string().min(1).default('gemini-embedding-001'),
