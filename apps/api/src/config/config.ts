@@ -11,6 +11,8 @@ const schema = z
     // Only 'simulated' exists: the code is read from a demo inbox. 'sms' is not implemented, so it fails fast.
     // Unset defaults to simulated in development and test, but production must say so (fail closed).
     OTP_MODE: z.literal('simulated').optional(),
+    // Lowest similarity at which a typo still counts as a match. Floor 0.3 is pg_trgm's own default.
+    TRIGRAM_THRESHOLD: z.coerce.number().min(0.3).max(1).default(0.4),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -26,6 +28,7 @@ export interface Config {
   logLevel: string;
   databaseUrl: string;
   otpMode: 'simulated';
+  trigramThreshold: number;
   gitSha: string;
 }
 
@@ -46,6 +49,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     logLevel: e.LOG_LEVEL,
     databaseUrl: e.DATABASE_URL,
     otpMode: e.OTP_MODE ?? 'simulated',
+    trigramThreshold: e.TRIGRAM_THRESHOLD,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

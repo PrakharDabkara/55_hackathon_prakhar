@@ -6,6 +6,7 @@ import { healthRouter } from './http/health.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { identityRouter } from './modules/identity/index.js';
+import { searchRouter } from './modules/search/index.js';
 import { shopsRouter } from './modules/shops/index.js';
 import type { Database } from './db/queryable.js';
 
@@ -42,6 +43,7 @@ export function createApp({ config, logger, db, readyTimeoutMs = 2000 }: AppDeps
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
   app.use(identityRouter({ db, logger, otpMode: config.otpMode }));
   app.use(shopsRouter({ db }));
+  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold }));
   app.use(notFound);
   app.use(errorHandler(logger));
 
