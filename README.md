@@ -42,3 +42,13 @@ npm run dev -w @kahanmilega/api   # build and run the API on PORT (needs .env)
 Deploys and rollbacks: [docs/runbook.md](docs/runbook.md).
 
 Architecture decisions are in [docs/adr/](docs/adr/).
+
+## Try the shop app
+
+Open **https://kahanmilega-api.onrender.com/app/shop** on a phone (the free server sleeps when idle, so the first load can take a minute).
+
+1. Enter any Indian mobile number, tap **OTP bhejo**, then **Demo OTP bharein** (Demo mode: no SMS is sent) and **Login karein**.
+2. The first time, give the shop a name, pick 1 or 2 categories and tap **Meri location use karein**.
+3. Questions from customers appear on the card by themselves. Tap **Haan hai** (add a price if you like) or **Nahi hai**.
+
+To make a question appear, create a customer request from a terminal; the commands are in [docs/runbook.md](docs/runbook.md#send-a-test-question-to-a-shop). Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).

@@ -1,5 +1,5 @@
 import { cleanup, render } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { userEvent } from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach } from 'vitest';
 import { LangProvider, type Lang } from '../i18n/index.js';

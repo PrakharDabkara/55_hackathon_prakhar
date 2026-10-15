@@ -1,0 +1,16 @@
+{
+  "name": "KahanMilega Dukaan",
+  "short_name": "KahanMilega",
+  "description": "Customers ask. You tap Haan hai or Nahi hai.",
+  "start_url": "/app/shop",
+  "scope": "/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "hi",
+  "theme_color": "#0a6b35",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

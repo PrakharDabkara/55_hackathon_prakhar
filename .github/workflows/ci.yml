@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # The web app must build: the Docker image ships its output.
+      - run: npm run build -w @kahanmilega/web
       - run: npm run test:unit
       - run: npm run test:integration
 
