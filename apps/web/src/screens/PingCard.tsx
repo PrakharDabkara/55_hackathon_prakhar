@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { useT } from '../i18n/index.js';
-import type { Band } from '../i18n/strings.js';
+import type { Band, Label } from '../i18n/strings.js';
 import type { AnswerBody, ShopPing } from '../lib/api.js';
 import { formatRupees, rupeesToPaise } from '../lib/money.js';
+
+function Words({ label }: { label: Label }) {
+  return (
+    <>
+      <span className="label-main">{label.main}</span>
+      {label.sub && <span className="label-sub">{label.sub}</span>}
+    </>
+  );
+}
 
 interface Props {
   ping: ShopPing;
@@ -62,7 +71,7 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
             disabled={busy}
             onClick={() => setStep('details')}
           >
-            {t.yes}
+            <Words label={t.yes} />
           </button>
           <button
             type="button"
@@ -70,7 +79,7 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
             disabled={busy}
             onClick={() => onAnswer({ answer: 'no' })}
           >
-            {t.no}
+            <Words label={t.no} />
           </button>
         </div>
       ) : (
@@ -96,7 +105,10 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
               {t.badPrice}
             </p>
           )}
-          <div className="chips">
+          <div className="chips-title" id="quantity-title">
+            <Words label={t.quantityTitle} />
+          </div>
+          <div className="chips" role="group" aria-labelledby="quantity-title">
             {(['few', 'plenty'] as const).map((value) => (
               <button
                 key={value}
