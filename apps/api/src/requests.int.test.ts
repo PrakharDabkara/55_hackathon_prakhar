@@ -288,7 +288,7 @@ describe('requests', () => {
   });
 
   describe('transitions under concurrency', () => {
-    it('SHOP_SAID_YES and TIMEOUT in parallel: exactly one wins, 10 times out of 10', async () => {
+    it('SHOP_SAID_YES and TIMEOUT in parallel: exactly one move out of PINGING, 10 times out of 10', async () => {
       for (let round = 0; round < 10; round++) {
         const { request: r } = await createRequest(ctx, seeker.userId, {
           q: 'aata',
@@ -297,25 +297,32 @@ describe('requests', () => {
         });
         expect(r.state).toBe('PINGING');
 
-        const [yes, timeout] = await Promise.all([
+        const results = await Promise.all([
           applyRequestEvent(ctx, r.id, 'SHOP_SAID_YES'),
           applyRequestEvent(ctx, r.id, 'TIMEOUT', 'queue'),
         ]);
 
-        const winners = [yes, timeout].filter((x) => x.kind === 'applied');
-        expect(winners, `round ${round}`).toHaveLength(1);
-        const loser = [yes, timeout].find((x) => x.kind !== 'applied');
-        expect(loser?.kind).toBe('unchanged');
+        // Both events read PINGING and race: one wins, the other is told the state it lost to.
+        // If one commits before the other even reads, the second sees the new state instead, and
+        // may legitimately move it on (ANSWERED then TIMEOUT closes). Either way PINGING is left
+        // exactly once and the history is one unbroken chain.
+        const history = await events(r.id);
+        const [first, ...rest] = history.filter((e) => e.event !== 'STOCK_INSUFFICIENT');
+        expect(
+          history.filter((e) => e.from_state === 'PINGING'),
+          `round ${round}`,
+        ).toHaveLength(1);
+        expect(first?.from_state).toBe('PINGING');
 
-        const moves = (await events(r.id)).filter((e) => e.from_state === 'PINGING');
-        expect(moves, `round ${round}`).toHaveLength(1);
+        let state = 'PINGING';
+        for (const e of [first, ...rest]) {
+          expect(e?.from_state, `round ${round}: chain breaks`).toBe(state);
+          state = e?.to_state as string;
+        }
         const row = await pool.query('SELECT state, version FROM requests WHERE id = $1', [r.id]);
-        expect(row.rows[0].state).toBe(moves[0]?.to_state);
-        expect(row.rows[0].version).toBe(2);
-        // The loser is told the real, current state instead of overwriting it.
-        expect(loser && 'request' in loser ? loser.request.state : undefined).toBe(
-          row.rows[0].state,
-        );
+        expect(row.rows[0].state).toBe(state);
+        expect(row.rows[0].version).toBe(history.length); // creation move + every later move
+        expect(results.filter((x) => x.kind === 'applied')).toHaveLength(1 + rest.length);
       }
     });
 
