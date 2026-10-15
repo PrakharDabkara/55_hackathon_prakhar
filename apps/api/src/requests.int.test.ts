@@ -313,7 +313,9 @@ describe('requests', () => {
         expect(row.rows[0].state).toBe(moves[0]?.to_state);
         expect(row.rows[0].version).toBe(2);
         // The loser is told the real, current state instead of overwriting it.
-        expect(loser?.request.state).toBe(row.rows[0].state);
+        expect(loser && 'request' in loser ? loser.request.state : undefined).toBe(
+          row.rows[0].state,
+        );
       }
     });
 

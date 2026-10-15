@@ -246,7 +246,7 @@ Phases end at gates; nothing moves on until the gate passes. Scope is frozen as 
 - [x] Day 3 · Cloud skeleton: Render + Neon free tier (ADR-0009); `/health` and `/ready`; Docker image; deploy on every merge to main; structured logs with request IDs. Gate
 - [x] Day 4 (Oct 15) · Identity and shops: simulated OTP, sessions, roles, shop onboarding API
 - [x] Day 5 (Oct 16) · Catalog and search v1: items with synonyms; radius search over learned stock
-- [ ] Day 6 (Oct 17) · Requests: state machine; expiry worker on a Redis queue
+- [x] Day 6 (Oct 17) · Requests: state machine; expiry worker on a Redis queue
 - [ ] Day 7 (Oct 18) · Fan-out: ping queue, de-duplication, shop ping card, each yes added to learned stock
 - [ ] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate
 - [ ] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call

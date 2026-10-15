@@ -66,7 +66,7 @@ describe('loadConfig', () => {
   it('WORKERS_ENABLED is true/false, and workers need REDIS_URL', () => {
     expect(loadConfig({ ...valid, WORKERS_ENABLED: 'false' }).workersEnabled).toBe(false);
     expect(() => loadConfig({ ...valid, WORKERS_ENABLED: 'yes' })).toThrowError(/WORKERS_ENABLED/);
-    const { REDIS_URL: _unused, ...noRedis } = valid;
+    const noRedis = { DATABASE_URL: valid.DATABASE_URL };
     expect(() => loadConfig(noRedis)).toThrowError(/REDIS_URL/);
     const off = loadConfig({ ...noRedis, WORKERS_ENABLED: 'false' });
     expect(off.redisUrl).toBeNull();

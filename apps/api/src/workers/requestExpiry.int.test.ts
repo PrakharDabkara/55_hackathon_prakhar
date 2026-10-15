@@ -112,7 +112,9 @@ describe('request expiry worker', () => {
     const req = await insertRequest(1000);
     await expiry.schedule(req.id, req.expiresAt);
     await expiry.queue.remove(`expire-${req.id}`);
-    expect(await expiry.queue.getDelayed()).toHaveLength(0);
+    // The repeatable sweeper is itself a delayed job; only the expire job must be gone.
+    const left = (await expiry.queue.getDelayed()).filter((j) => j.name === 'expire');
+    expect(left).toHaveLength(0);
 
     const state = await waitFor(
       () => stateOf(req.id),

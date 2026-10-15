@@ -6,6 +6,7 @@ import { healthRouter } from './http/health.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { identityRouter } from './modules/identity/index.js';
+import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
 import { searchRouter } from './modules/search/index.js';
 import { shopsRouter } from './modules/shops/index.js';
 import type { Database } from './db/queryable.js';
@@ -15,9 +16,10 @@ interface AppDeps {
   logger: Logger;
   db: Database;
   readyTimeoutMs?: number;
+  requestHooks?: RequestHooks;
 }
 
-export function createApp({ config, logger, db, readyTimeoutMs = 2000 }: AppDeps) {
+export function createApp({ config, logger, db, readyTimeoutMs = 2000, requestHooks }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -44,6 +46,18 @@ export function createApp({ config, logger, db, readyTimeoutMs = 2000 }: AppDeps
   app.use(identityRouter({ db, logger, otpMode: config.otpMode }));
   app.use(shopsRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold }));
+  app.use(
+    requestsRouter({
+      db,
+      logger,
+      config: {
+        minStockResults: config.minStockResults,
+        ttlMinutes: config.requestTtlMinutes,
+        trigramThreshold: config.trigramThreshold,
+      },
+      ...(requestHooks && { hooks: requestHooks }),
+    }),
+  );
   app.use(notFound);
   app.use(errorHandler(logger));
 

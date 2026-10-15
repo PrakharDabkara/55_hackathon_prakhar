@@ -1,0 +1,57 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { ApiError, parse } from '../../http/errors.js';
+import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
+import { closeRequest, createRequest, getRequestStatus, type RequestsContext } from './service.js';
+
+const createBody = z.object({
+  q: z.string().trim().min(1).max(200),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  radiusM: z.number().int().min(1).max(5000).optional(),
+});
+
+const idempotencyKey = z.string().trim().min(1).max(128);
+
+export function requestsRouter(deps: RequestsContext): Router {
+  const router = Router();
+  const requireAuth = createRequireAuth(deps.db);
+  // The HTTP logger carries the request id, so transition lines join the search that caused them.
+  const ctxFor = (log: RequestsContext['logger'] | undefined): RequestsContext => ({
+    ...deps,
+    logger: log ?? deps.logger,
+  });
+
+  router.post('/requests', requireAuth, requireRole('seeker'), async (req, res) => {
+    const body = parse(createBody, req.body);
+    const header = req.header('idempotency-key');
+    const key = header === undefined ? undefined : parse(idempotencyKey, header);
+    const { created, request } = await createRequest(ctxFor(req.log), authOf(req).user.id, {
+      ...body,
+      ...(key && { idempotencyKey: key }),
+    });
+    res.status(created ? 201 : 200).json(request);
+  });
+
+  router.get('/requests/:id', requireAuth, async (req, res) => {
+    const request = await getRequestStatus(
+      ctxFor(req.log),
+      authOf(req).user.id,
+      String(req.params['id']),
+    );
+    if (!request) throw new ApiError(404, 'not_found', 'No such request');
+    res.json(request);
+  });
+
+  router.post('/requests/:id/close', requireAuth, async (req, res) => {
+    const request = await closeRequest(
+      ctxFor(req.log),
+      authOf(req).user.id,
+      String(req.params['id']),
+    );
+    if (!request) throw new ApiError(404, 'not_found', 'No such request');
+    res.json(request);
+  });
+
+  return router;
+}

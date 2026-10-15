@@ -3,6 +3,7 @@ import pg from 'pg';
 import { createApp } from './app.js';
 import { loadConfig } from './config/config.js';
 import { registerShutdown } from './shutdown.js';
+import { startRequestExpiry } from './workers/requestExpiry.js';
 
 const config = loadConfig(process.env);
 const logger = pino({
@@ -14,9 +15,19 @@ const pool = new pg.Pool({ connectionString: config.databaseUrl });
 // Log the message only: pg errors carry the whole client object.
 pool.on('error', (err) => logger.error({ reason: err.message }, 'idle database client error'));
 
-const app = createApp({ config, logger, db: pool });
+const expiry =
+  config.workersEnabled && config.redisUrl
+    ? startRequestExpiry({ redisUrl: config.redisUrl, db: pool, logger })
+    : null;
+
+const app = createApp({
+  config,
+  logger,
+  db: pool,
+  ...(expiry && { requestHooks: { scheduleExpiry: expiry.schedule } }),
+});
 const server = app.listen(config.port, '0.0.0.0', () => {
   logger.info({ port: config.port, sha: config.gitSha }, 'api listening');
 });
 
-registerShutdown({ server, pool, logger });
+registerShutdown({ server, closeables: expiry ? [expiry] : [], pool, logger });
