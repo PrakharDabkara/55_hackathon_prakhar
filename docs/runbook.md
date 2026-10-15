@@ -1,4 +1,4 @@
-# Runbook (v3)
+# Runbook (v4)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -138,3 +138,30 @@ npm run test:e2e            # builds the apps, starts the API on port 3100, runs
 ```
 
 The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin phone (`9810000999`), and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.
+
+## AI configuration (query understanding)
+
+Item matching tries a dictionary, trigram similarity, embeddings and then an LLM (ADR-0021). The model is Google's Gemini free tier behind a provider port (ADR-0020).
+
+**Free-tier privacy rule.** Google may review free-tier prompts. The code sends only the customer's query text (cut to 100 characters) and catalog item names. Never add phone numbers, user ids, locations, prices or shop data to a prompt. `ai_calls` stores tokens, latency and outcome, never prompt text.
+
+| Variable                             | Where                                                                     | Meaning                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `LLM_PROVIDER`                       | Render env, `.env`                                                        | `gemini` or `fake`. **Required in production**: the API refuses to start without it. `fake` (the local default) never calls the network. |
+| `GEMINI_API_KEY`                     | Render env (secret), GitHub `production` environment secret, local `.env` | Required when the provider is `gemini`. Never commit it.                                                                                 |
+| `GEMINI_MODEL`, `GEMINI_EMBED_MODEL` | Render env, `.env`                                                        | Defaults `gemini-3.1-flash-lite` and `gemini-embedding-001`.                                                                             |
+| `EMBED_THRESHOLD`, `EMBED_MARGIN`    | Render env, `.env`                                                        | Defaults 0.70 and 0.04. Re-tune with `npm run eval:resolve` after any model change.                                                      |
+
+Commands (they read the key from your `.env` or the environment; none prints it):
+
+```sh
+npm run ai:models             # lists the models your key can use; pick names from here
+LLM_PROVIDER=gemini npm run ai:embed-catalog   # embeds items whose text changed (about 2 minutes the first time)
+LLM_PROVIDER=gemini npm run eval:resolve       # 81 labelled queries through the whole pipeline
+```
+
+`EVAL_PAUSE_MS=1200` spaces the eval calls to stay inside free-tier limits; `EVAL_KINDS=variant,ambiguous` runs only some kinds. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database.
+
+**Watching it.** `GET /admin/ai/stats` (admin token): answers by step, LLM fallback and cache-hit rates, average tokens per LLM call, p95 latency, errors, invalid outputs and breaker skips, for 24 hours and 7 days. The breaker opens after 5 failed calls in a row and AI is skipped for 60 seconds; searches keep working from the dictionary. A 429 in the logs (`AI call failed`, `status: 429`) means a free-tier rate limit.
+
+**After a big catalog change:** run `npm run seed:catalog`, then `npm run ai:embed-catalog`, and clear stale answers with `TRUNCATE query_cache`. Review `suggested_synonyms` (`SELECT term, i.slug FROM suggested_synonyms s JOIN items i ON i.id = s.item_id`) and add good pairs to `catalog.seed.json` by hand.

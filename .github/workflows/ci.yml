@@ -83,6 +83,19 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
         run: npm run seed:catalog
+      # Embeds catalog items whose text changed (a second run costs nothing). Skipped, with a
+      # warning, until the GEMINI_API_KEY secret exists.
+      - name: Embed catalog on Neon
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::warning::GEMINI_API_KEY is not set in the production environment; skipping catalog embeddings"
+          else
+            npm run ai:embed-catalog
+          fi
       # Deploy exactly the commit that passed CI.
       - name: Trigger Render deploy
         env:

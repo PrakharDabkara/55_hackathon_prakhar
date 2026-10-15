@@ -14,9 +14,20 @@ if (config.llmProvider !== 'gemini') {
 }
 const logger = pino({ level: 'info' });
 const pool = createPool(config.databaseUrl, pino({ level: 'warn' }));
-const ai = aiFromConfig({ config, db: pool, logger: pino({ level: 'warn' }) });
+// Free-tier embedding limits are per minute: small batches, a pause between them, and a patient
+// retry (20 s, 40 s, 80 s) if a limit is still hit.
+const ai = aiFromConfig({
+  config,
+  db: pool,
+  logger: pino({ level: 'warn' }),
+  client: { retries: 3, backoffMs: 20_000 },
+});
 try {
-  const { embedded, skipped } = await embedCatalog(pool, ai, { logger });
+  const { embedded, skipped } = await embedCatalog(pool, ai, {
+    logger,
+    batchSize: 20,
+    pauseMs: 15_000,
+  });
   console.log(
     `embedded ${embedded} items, ${skipped} already up to date (model ${ai.client.embedModel})`,
   );

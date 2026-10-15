@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import seed from '../apps/api/src/modules/catalog/catalog.seed.json' with { type: 'json' };
-import { scoreCase, summarise, type Case } from './resolveScore.ts';
+import { scoreCase, summarise, type Case } from '../apps/api/src/evalScore.js';
 
 const lines = readFileSync(new URL('./resolve.jsonl', import.meta.url), 'utf8')
   .split('\n')

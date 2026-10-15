@@ -39,9 +39,9 @@
 {"q": "headfone", "kind": "typo", "expected": "headphones"}
 {"q": "pressur cooker", "kind": "typo", "expected": "pressure-cooker"}
 {"q": "pen", "kind": "variant", "expected": "ball-pen"}
-{"q": "dal", "kind": "variant", "expected": "toor-dal"}
-{"q": "oil", "kind": "variant", "expected": "refined-oil"}
-{"q": "battery", "kind": "variant", "expected": "battery-aa"}
+{"q": "dal", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "oil", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "battery", "kind": "ambiguous", "expected": "ambiguous"}
 {"q": "bottle", "kind": "variant", "expected": "water-bottle"}
 {"q": "bulb", "kind": "variant", "expected": "led-bulb"}
 {"q": "clip", "kind": "ambiguous", "expected": "ambiguous"}

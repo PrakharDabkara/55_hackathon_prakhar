@@ -230,8 +230,8 @@ kahanmilega/
 | Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code at a demo inbox endpoint); opaque hashed session tokens (ADR-0013) | Real flow without SMS cost; sessions can be revoked |
-| Models | Claude Haiku 5.5 for query and reply parsing, the digest and the errand agent; Sonnet 5.5 only if evals show Haiku falls short | Cheapest model that passes the evals |
-| Embeddings | OpenAI text-embedding-3-small, stored in pgvector | Anthropic has no embeddings API; no extra database |
+| Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier, behind an `LlmProvider` port (ADR-0020), for query understanding now. Claude Haiku 5.5 stays the plan for reply parsing, the digest and the errand agent, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |
+| Embeddings | Gemini `gemini-embedding-001` (768 dimensions), stored in pgvector (ADR-0020). Replaces OpenAI text-embedding-3-small for now | No paid API; free-tier Gemini serves both generation and embeddings; no extra database |
 | Runtime and data | Node 24 LTS; PostgreSQL 18 + PostGIS 3.6 + pgvector 0.8.x; Redis 8.8 | Node 20 is end of life; the Postgres 17 image cannot install pgvector via apt (ADR-0008) |
 
 ## Build plan (18 days; Oct 30 is buffer)
@@ -251,7 +251,7 @@ Phases end at gates; nothing moves on until the gate passes. Scope is frozen as 
 - [x] Day 6 (Oct 17) · Requests: state machine; expiry worker on a Redis queue
 - [x] Day 7 (Oct 18) · Fan-out: ping queue, de-duplication, shop ping card, each yes added to learned stock
 - [x] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate: end-to-end demo with simulated shops (a Playwright test in CI: search, pins appear, a shop says haan)
-- [ ] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
+- [x] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
 - [ ] Day 10 (Oct 21) · Reply parsing and eval runner; accuracy gates in CI
 - [ ] Day 11 (Oct 22) · MCP server: the 5 tools with contract tests
 - [ ] Day 12 (Oct 23) · Errand agent v1: task → items, tool-use loop, guardrails; tested with a fake LLM

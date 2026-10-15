@@ -57,9 +57,9 @@ const schema = z
     // The size of items.embedding (migration 008). Changing it needs a new migration.
     EMBED_DIM: z.coerce.number().int().min(8).max(3072).default(768),
     // An embedding answers a query when the best item is at least this similar (cosine)...
-    EMBED_THRESHOLD: z.coerce.number().gt(0).lte(1).default(0.8),
+    EMBED_THRESHOLD: z.coerce.number().gt(0).lte(1).default(0.7),
     // ...and ahead of the second best by at least this much.
-    EMBED_MARGIN: z.coerce.number().min(0).lt(1).default(0.03),
+    EMBED_MARGIN: z.coerce.number().min(0).lt(1).default(0.04),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
