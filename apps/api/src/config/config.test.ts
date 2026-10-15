@@ -21,6 +21,8 @@ describe('loadConfig', () => {
       redisUrl: valid.REDIS_URL,
       minStockResults: 3,
       requestTtlMinutes: 15,
+      maxPingsPerRequest: 10,
+      pingDedupeMinutes: 30,
       workersEnabled: true,
     });
   });

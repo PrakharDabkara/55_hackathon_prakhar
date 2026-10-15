@@ -1,0 +1,83 @@
+import { freshnessLabel, type LearnedStockResult, type QuantityHint } from '../shops/index.js';
+
+export type SortKey = 'distance' | 'price';
+
+/** A shop that said yes to this very request. */
+export interface LiveAnswer {
+  shopId: string;
+  name: string;
+  distanceM: number;
+  pricePaise: number | null;
+  quantityHint: QuantityHint | null;
+  answeredAt: Date;
+}
+
+export interface RequestResult {
+  shopId: string;
+  name: string;
+  distanceM: number;
+  pricePaise: number | null;
+  quantityHint: QuantityHint | null;
+  lastConfirmedAt: Date;
+  freshness: string;
+  /** `live`: said yes to this request. `learned`: remembered from an earlier yes. */
+  source: 'live' | 'learned';
+  /** Target minus price, only when the price is below the target. */
+  savingsPaise?: number;
+}
+
+export function liveLabel(answeredAt: Date, now: Date): string {
+  const minutes = Math.max(0, Math.floor((now.getTime() - answeredAt.getTime()) / 60_000));
+  if (minutes < 1) return 'Confirmed just now';
+  if (minutes < 60) return `Confirmed ${minutes} min ago`;
+  if (minutes < 24 * 60) return `Confirmed ${Math.floor(minutes / 60)} h ago`;
+  return freshnessLabel(answeredAt, now);
+}
+
+interface Input {
+  live: LiveAnswer[];
+  learned: LearnedStockResult[];
+  targetPricePaise: number | null;
+  /** Default: price when a target price is set, else distance. */
+  sort: SortKey | undefined;
+  now: Date;
+}
+
+/** Live answers plus learned stock, one row per shop (live wins), sorted, with savings. */
+export function buildResults({
+  live,
+  learned,
+  targetPricePaise,
+  sort,
+  now,
+}: Input): RequestResult[] {
+  const rows = new Map<string, RequestResult>();
+
+  for (const l of learned) rows.set(l.shopId, { ...l, source: 'learned' });
+  for (const a of live) {
+    rows.set(a.shopId, {
+      shopId: a.shopId,
+      name: a.name,
+      distanceM: a.distanceM,
+      pricePaise: a.pricePaise,
+      quantityHint: a.quantityHint,
+      lastConfirmedAt: a.answeredAt,
+      freshness: liveLabel(a.answeredAt, now),
+      source: 'live',
+    });
+  }
+
+  const results = [...rows.values()].map((r) =>
+    targetPricePaise !== null && r.pricePaise !== null && r.pricePaise < targetPricePaise
+      ? { ...r, savingsPaise: targetPricePaise - r.pricePaise }
+      : r,
+  );
+
+  const key = sort ?? (targetPricePaise !== null ? 'price' : 'distance');
+  const byDistance = (a: RequestResult, b: RequestResult) => a.distanceM - b.distanceM;
+  // Unknown prices sort after known ones.
+  const price = (r: RequestResult) => r.pricePaise ?? Number.POSITIVE_INFINITY;
+  return results.sort(
+    key === 'price' ? (a, b) => price(a) - price(b) || byDistance(a, b) : byDistance,
+  );
+}
