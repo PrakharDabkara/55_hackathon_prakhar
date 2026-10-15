@@ -4,6 +4,9 @@ export interface LearnedStockResult {
   shopId: string;
   name: string;
   distanceM: number;
+  /** Where the shop is. Shops are public businesses, so this is shown to seekers. */
+  lat: number;
+  lng: number;
   pricePaise: number | null;
   quantityHint: QuantityHint | null;
   lastConfirmedAt: Date;

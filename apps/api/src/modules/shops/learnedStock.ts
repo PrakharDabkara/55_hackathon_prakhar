@@ -10,6 +10,8 @@ interface Row {
   shop_id: string;
   name: string;
   distance_m: number;
+  lat: number;
+  lng: number;
   price_paise: number | null;
   quantity_hint: QuantityHint | null;
   last_confirmed_at: Date;
@@ -31,6 +33,7 @@ export async function findLearnedStock(
   const { rows } = await db.query<Row>(
     `WITH origin AS (SELECT ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography AS point)
      SELECT s.id AS shop_id, s.name, ST_Distance(s.location, origin.point) AS distance_m,
+            ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
             st.price_paise, st.quantity_hint, st.last_confirmed_at
        FROM shop_stock st
        JOIN shops s ON s.id = st.shop_id, origin
@@ -44,6 +47,8 @@ export async function findLearnedStock(
       shopId: r.shop_id,
       name: r.name,
       distanceM: Math.round(r.distance_m),
+      lat: r.lat,
+      lng: r.lng,
       pricePaise: r.price_paise,
       quantityHint: r.quantity_hint,
       lastConfirmedAt: r.last_confirmed_at,

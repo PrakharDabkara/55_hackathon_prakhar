@@ -7,6 +7,8 @@ export interface LiveAnswer {
   shopId: string;
   name: string;
   distanceM: number;
+  lat: number;
+  lng: number;
   pricePaise: number | null;
   quantityHint: QuantityHint | null;
   answeredAt: Date;
@@ -16,6 +18,8 @@ export interface RequestResult {
   shopId: string;
   name: string;
   distanceM: number;
+  lat: number;
+  lng: number;
   pricePaise: number | null;
   quantityHint: QuantityHint | null;
   lastConfirmedAt: Date;
@@ -59,6 +63,8 @@ export function buildResults({
       shopId: a.shopId,
       name: a.name,
       distanceM: a.distanceM,
+      lat: a.lat,
+      lng: a.lng,
       pricePaise: a.pricePaise,
       quantityHint: a.quantityHint,
       lastConfirmedAt: a.answeredAt,

@@ -7,7 +7,13 @@ export {
   findUnpingedRequestIds,
   getRequestStatus,
 } from './service.js';
-export type { CreateRequestInput, RequestHooks, RequestView, RequestsContext } from './service.js';
+export type {
+  CreateRequestInput,
+  PingStats,
+  RequestHooks,
+  RequestView,
+  RequestsContext,
+} from './service.js';
 export { requestsRouter } from './router.js';
 export { answerPing, fanOutPings, listShopPings } from './pings.js';
 export type { PingClaims, FanOutResult } from './pings.js';
