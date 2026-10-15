@@ -2,6 +2,8 @@ import type { Logger } from 'pino';
 
 interface ShutdownDeps {
   server: { close(cb: (err?: Error) => void): unknown };
+  /** Run first: ends long-lived connections (event streams), which `server.close` would wait for. */
+  drain?: (() => void)[];
   /** Background workers; closed after the server stops and before the pool, which they use. */
   closeables?: { close(): Promise<void> }[];
   pool: { end(): Promise<void> };
@@ -14,6 +16,7 @@ interface ShutdownDeps {
 /** On SIGTERM/SIGINT: stop accepting connections, close workers and the db pool, exit. Forces exit 1 if it hangs. */
 export function registerShutdown({
   server,
+  drain = [],
   closeables = [],
   pool,
   logger,
@@ -35,6 +38,7 @@ export function registerShutdown({
     force.unref();
 
     try {
+      for (const end of drain) end();
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
       });

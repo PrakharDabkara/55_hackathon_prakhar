@@ -1,0 +1,153 @@
+import { describe, expect, it } from 'vitest';
+import { decide, makeProfile, type ShopProfile } from './decision.ts';
+import { createRng, hashSeed } from './rng.ts';
+
+const profile = (overrides: Partial<ShopProfile> = {}): ShopProfile => ({
+  replyProbability: 0.6,
+  alwaysNo: false,
+  ...overrides,
+});
+const ping = { pingId: 'p1', shopId: 's1', refPricePaise: 5000 };
+
+describe('createRng', () => {
+  it('gives the same numbers for the same seed, different ones for another', () => {
+    const a = createRng(7);
+    const b = createRng(7);
+    const c = createRng(8);
+    const run = (r: () => number) => Array.from({ length: 5 }, r);
+    expect(run(a)).toEqual(run(b));
+    expect(run(createRng(7))).not.toEqual(run(c));
+  });
+
+  it('stays in [0, 1)', () => {
+    const r = createRng(1);
+    for (let i = 0; i < 10_000; i++) {
+      const x = r();
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThan(1);
+    }
+  });
+});
+
+describe('hashSeed', () => {
+  it('is stable and depends on every part', () => {
+    expect(hashSeed(1, 'shop-a')).toBe(hashSeed(1, 'shop-a'));
+    expect(hashSeed(1, 'shop-a')).not.toBe(hashSeed(2, 'shop-a'));
+    expect(hashSeed(1, 'shop-a')).not.toBe(hashSeed(1, 'shop-b'));
+  });
+});
+
+describe('makeProfile', () => {
+  it('draws a reply probability between 0.3 and 0.9', () => {
+    const rng = createRng(1);
+    for (let i = 0; i < 2000; i++) {
+      const p = makeProfile(rng);
+      expect(p.replyProbability).toBeGreaterThanOrEqual(0.3);
+      expect(p.replyProbability).toBeLessThanOrEqual(0.9);
+    }
+  });
+
+  it('makes about 5 % of shops always say no', () => {
+    const rng = createRng(2);
+    const n = 5000;
+    const no = Array.from({ length: n }, () => makeProfile(rng)).filter((p) => p.alwaysNo).length;
+    expect(no / n).toBeGreaterThan(0.035);
+    expect(no / n).toBeLessThan(0.065);
+  });
+
+  it('is the same for the same shop every run (seeded by seed and shop id)', () => {
+    expect(makeProfile(createRng(hashSeed(5, 'shop-1')))).toEqual(
+      makeProfile(createRng(hashSeed(5, 'shop-1'))),
+    );
+  });
+});
+
+describe('decide', () => {
+  it('replies about as often as the profile says, and otherwise says nothing', () => {
+    const rng = createRng(3);
+    const n = 5000;
+    const replied = Array.from({ length: n }, () => decide(profile(), ping, rng, 1)).filter(
+      (d) => d.kind === 'answer',
+    ).length;
+    expect(replied / n).toBeGreaterThan(0.57);
+    expect(replied / n).toBeLessThan(0.63);
+  });
+
+  it('waits between 5 and 90 seconds, divided by the speed', () => {
+    for (const speed of [1, 10, 1000]) {
+      const rng = createRng(4);
+      for (let i = 0; i < 500; i++) {
+        const d = decide(profile({ replyProbability: 1 }), ping, rng, speed);
+        if (d.kind !== 'answer') throw new Error('a shop with probability 1 must reply');
+        expect(d.delayMs).toBeGreaterThanOrEqual(5000 / speed);
+        expect(d.delayMs).toBeLessThanOrEqual(90_000 / speed);
+      }
+    }
+  });
+
+  it('quotes the reference price plus or minus 30 %, as whole paise in 50 paise steps', () => {
+    const rng = createRng(5);
+    const prices: number[] = [];
+    for (let i = 0; i < 2000; i++) {
+      const d = decide(profile({ replyProbability: 1 }), ping, rng, 1);
+      if (d.kind === 'answer' && d.body.answer === 'yes') prices.push(d.body.pricePaise as number);
+    }
+    for (const p of prices) {
+      expect(Number.isInteger(p)).toBe(true);
+      expect(p % 50).toBe(0);
+      expect(p).toBeGreaterThanOrEqual(5000 * 0.7 - 50);
+      expect(p).toBeLessThanOrEqual(5000 * 1.3 + 50);
+    }
+    expect(Math.min(...prices)).toBeLessThan(5000 * 0.8); // really varies, both ways
+    expect(Math.max(...prices)).toBeGreaterThan(5000 * 1.2);
+  });
+
+  it('never quotes zero or less, even for a very cheap item', () => {
+    const rng = createRng(6);
+    for (let i = 0; i < 500; i++) {
+      const d = decide(profile({ replyProbability: 1 }), { ...ping, refPricePaise: 200 }, rng, 1);
+      if (d.kind === 'answer' && d.body.pricePaise !== undefined) {
+        expect(d.body.pricePaise).toBeGreaterThanOrEqual(50);
+      }
+    }
+  });
+
+  it('says yes without a price when the item has no reference price', () => {
+    const d = decide(
+      profile({ replyProbability: 1 }),
+      { ...ping, refPricePaise: null },
+      createRng(7),
+      1,
+    );
+    expect(d).toMatchObject({ kind: 'answer', body: { answer: 'yes' } });
+    if (d.kind === 'answer') expect(d.body.pricePaise).toBeUndefined();
+  });
+
+  it('adds a "few" or "plenty" hint to some yes answers, not all', () => {
+    const rng = createRng(8);
+    const yes = Array.from({ length: 2000 }, () =>
+      decide(profile({ replyProbability: 1 }), ping, rng, 1),
+    ).flatMap((d) => (d.kind === 'answer' && d.body.answer === 'yes' ? [d.body] : []));
+    const hinted = yes.filter((b) => b.quantityHint !== undefined);
+    expect(hinted.length / yes.length).toBeGreaterThan(0.25);
+    expect(hinted.length / yes.length).toBeLessThan(0.55);
+    for (const b of hinted) expect(['few', 'plenty']).toContain(b.quantityHint);
+  });
+
+  it('a shop that always says no answers no, with no price and no hint', () => {
+    const rng = createRng(9);
+    for (let i = 0; i < 200; i++) {
+      const d = decide(profile({ alwaysNo: true, replyProbability: 1 }), ping, rng, 1);
+      expect(d).toMatchObject({ kind: 'answer', body: { answer: 'no' } });
+      if (d.kind === 'answer') expect(Object.keys(d.body)).toEqual(['answer']);
+    }
+  });
+
+  it('gives the same decision for the same seed', () => {
+    const run = () => {
+      const rng = createRng(hashSeed(1, 's1', 'p1'));
+      return decide(profile(), ping, rng, 10);
+    };
+    expect(run()).toEqual(run());
+  });
+});

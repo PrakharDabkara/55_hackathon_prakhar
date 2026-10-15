@@ -73,3 +73,44 @@ export async function updateShopByOwner(
   );
   return rows[0] ?? null;
 }
+
+export interface SimulatedShop extends NewShop {
+  ownerUserId: string;
+  phone: string;
+}
+
+/** Inserts simulated shops (is_simulated) in one statement; returns their ids in the input order. */
+export async function insertSimulatedShops(
+  db: Queryable,
+  shops: SimulatedShop[],
+): Promise<string[]> {
+  const { rows } = await db.query<{ id: string; owner_user_id: string }>(
+    `INSERT INTO shops (owner_user_id, name, phone, categories, location, is_simulated)
+     SELECT o, n, p, string_to_array(c, ','),
+            ST_SetSRID(ST_MakePoint(x, y), 4326)::geography, true
+       FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::float8[], $6::float8[])
+            AS t(o, n, p, c, x, y)
+     RETURNING id, owner_user_id`,
+    [
+      shops.map((s) => s.ownerUserId),
+      shops.map((s) => s.name),
+      shops.map((s) => s.phone),
+      shops.map((s) => s.categories.join(',')),
+      shops.map((s) => s.lng),
+      shops.map((s) => s.lat),
+    ],
+  );
+  const idByOwner = new Map(rows.map((r) => [r.owner_user_id, r.id]));
+  return shops.map((s) => idByOwner.get(s.ownerUserId) as string);
+}
+
+/**
+ * Deletes every simulated shop; its pings and stock go with it (ON DELETE CASCADE). Returns the
+ * owner user ids so the caller can delete the users too.
+ */
+export async function deleteSimulatedShops(db: Queryable): Promise<string[]> {
+  const { rows } = await db.query<{ owner_user_id: string | null }>(
+    `DELETE FROM shops WHERE is_simulated RETURNING owner_user_id`,
+  );
+  return rows.flatMap((r) => (r.owner_user_id ? [r.owner_user_id] : []));
+}

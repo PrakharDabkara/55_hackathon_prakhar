@@ -17,6 +17,25 @@ export function createRequireAuth(db: Queryable): RequestHandler {
   };
 }
 
+/**
+ * Admin only, and invisible to everyone else: anything but a live admin session answers 404, as if
+ * the route did not exist. Fails closed twice over: an empty ADMIN_PHONES list admits nobody, and a
+ * stored admin whose phone left the list loses access immediately.
+ */
+export function createRequireAdmin(db: Queryable, adminPhones: readonly string[]): RequestHandler {
+  const notFound = () => new ApiError(404, 'not_found', 'No such route');
+  return async (req, _res, next) => {
+    if (adminPhones.length === 0) throw notFound();
+    const match = /^Bearer (\S+)$/.exec(req.headers.authorization ?? '');
+    const auth = match?.[1] ? await authenticate(db, match[1]) : null;
+    if (!auth || auth.user.role !== 'admin' || !adminPhones.includes(auth.user.phone)) {
+      throw notFound();
+    }
+    req.auth = auth;
+    next();
+  };
+}
+
 /** 403 unless the logged-in user has one of the roles. Use after requireAuth. */
 export function requireRole(...roles: Role[]): RequestHandler {
   return (req, _res, next) => {

@@ -29,6 +29,47 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     createShop: vi.fn(async (input) => shop({ ...input })),
     listPings: vi.fn(async () => []),
     answerPing: vi.fn(async () => undefined),
+    eventTicket: vi.fn(async () => 'ticket-1'),
     ...overrides,
   };
+}
+
+/** An EventSource the test drives by hand. */
+export class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  static reset() {
+    FakeEventSource.instances = [];
+  }
+  static last(): FakeEventSource {
+    return FakeEventSource.instances[FakeEventSource.instances.length - 1] as FakeEventSource;
+  }
+
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  closed = false;
+  private listeners = new Map<string, ((event: { data: string }) => void)[]>();
+
+  constructor(readonly url: string) {
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: (event: { data: string }) => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  open() {
+    (this.onopen as (() => void) | null)?.();
+  }
+
+  fail() {
+    (this.onerror as (() => void) | null)?.();
+  }
+
+  emit(type: string, data: unknown = {}) {
+    for (const l of this.listeners.get(type) ?? []) l({ data: JSON.stringify(data) });
+  }
 }

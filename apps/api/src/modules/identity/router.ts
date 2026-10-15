@@ -11,6 +11,8 @@ interface IdentityDeps {
   db: Database;
   logger: Logger;
   otpMode: 'simulated';
+  /** Phones that become admin on login. */
+  adminPhones?: readonly string[];
 }
 
 const phoneField = z.string().transform((raw, ctx) => {
@@ -27,7 +29,7 @@ const verifyBody = z.object({
 });
 const inboxQuery = z.object({ phone: phoneField });
 
-export function identityRouter({ db, logger, otpMode }: IdentityDeps): Router {
+export function identityRouter({ db, logger, otpMode, adminPhones = [] }: IdentityDeps): Router {
   const router = Router();
   const requireAuth = createRequireAuth(db);
 
@@ -50,7 +52,7 @@ export function identityRouter({ db, logger, otpMode }: IdentityDeps): Router {
   router.post('/auth/otp/verify', async (req, res) => {
     const { phone, code, role } = parse(verifyBody, req.body);
     const log = req.log ?? logger;
-    const result = await verifyOtp(db, phone, code, role);
+    const result = await verifyOtp(db, phone, code, role, adminPhones);
     if (!result) {
       log.info({ phone: maskPhone(phone) }, 'otp verification failed');
       throw new ApiError(401, 'invalid_code', 'That code is wrong, expired or already used');

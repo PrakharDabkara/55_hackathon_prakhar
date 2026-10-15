@@ -69,6 +69,7 @@ const item = (slug: string, synonyms: string[], nameEn = slug, nameHi = `ना�
   category: 'grocery' as const,
   nameEn,
   nameHi,
+  refPricePaise: 1000,
   synonyms,
 });
 
@@ -102,5 +103,30 @@ describe('checkCatalog', () => {
     expect(() => checkCatalog(file(item('item-a', ['5 kg atta', 'x2', 'x3'])))).toThrowError(
       /5 kg atta/,
     );
+  });
+});
+
+describe('reference prices', () => {
+  it('says the prices are AI-estimated', () => {
+    expect(catalog.note).toMatch(/AI-estimated/i);
+    expect(catalog.note).toMatch(/refPricePaise|reference price/i);
+  });
+
+  it('gives every item a whole-number price in paise between ₹1 and ₹50,000', () => {
+    for (const item of catalog.items) {
+      expect(Number.isInteger(item.refPricePaise), item.slug).toBe(true);
+      expect(item.refPricePaise, item.slug).toBeGreaterThanOrEqual(100);
+      expect(item.refPricePaise, item.slug).toBeLessThanOrEqual(5_000_000);
+    }
+  });
+
+  it('is realistic for a few items anyone can sanity-check', () => {
+    const price = (slug: string) => catalog.items.find((i) => i.slug === slug)?.refPricePaise;
+    expect(price('matchbox')).toBeLessThanOrEqual(500);
+    expect(price('milk')).toBeGreaterThanOrEqual(2500);
+    expect(price('milk')).toBeLessThanOrEqual(8000);
+    expect(price('ceiling-fan')).toBeGreaterThan(price('table-fan') as number);
+    expect(price('basmati-rice')).toBeGreaterThan(price('rice') as number);
+    expect(price('drill-machine')).toBeGreaterThan(price('hammer') as number);
   });
 });

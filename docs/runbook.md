@@ -1,4 +1,4 @@
-# Runbook (v1)
+# Runbook (v2)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -78,3 +78,47 @@ curl -s -X POST $B/requests -H "authorization: Bearer $CUSTOMER" -H "$J" \
 ```
 
 Then answer on the phone and read the result as the customer: `curl -s $B/requests/<id> -H "authorization: Bearer $CUSTOMER"`.
+
+## Run the simulator against the live site
+
+The simulator makes fake shops around a point and answers real pings, so a seeker sees live answers without real shopkeepers. It needs an admin: a phone listed in `ADMIN_PHONES`.
+
+**One-time setup on Render.** Dashboard → `kahanmilega-api` → Environment → Add Environment Variable → key `ADMIN_PHONES`, value a 10-digit mobile number that no real shop or customer uses (for example `9876500099`; several numbers are comma-separated) → Save. Render redeploys. Without it the admin endpoints answer 404 to everyone. Logging in with that number gives it the admin role, so it cannot also be a shop or seeker account.
+
+**Start it** (wake the free instance first; it sleeps after 15 minutes idle):
+
+```sh
+B=https://kahanmilega-api.onrender.com
+curl -s $B/health
+npm run simulate -- --target $B --admin-phone 9876500099 --count 200 --speed 10 --centre 22.7196,75.8577
+```
+
+`--speed 10` makes replies ten times faster (5-90 s becomes 0.5-9 s); use `--speed 1` for realistic timing. It prints one line per answer and keeps running until Ctrl+C. The first run creates the shops and saves their tokens in `apps/simulator/.sim-state.json`; later runs with the same options reuse them. Starting without a matching state file first deletes all simulated shops on the server, then makes new ones. `--reset` forces that.
+
+**Ask for something and watch it get answered** (second terminal; use another phone for the customer, and an item you have not asked about in the last 30 minutes: `aata`, `chini`, `namak`, `doodh`):
+
+```sh
+B=https://kahanmilega-api.onrender.com
+J='content-type: application/json'
+login() { # phone role -> token
+  curl -s -X POST $B/auth/otp/request -H "$J" -d "{\"phone\":\"$1\"}" >/dev/null
+  CODE=$(curl -s "$B/dev/otp-inbox?phone=$1" | python3 -c 'import sys,json;print(json.load(sys.stdin)["code"])')
+  curl -s -X POST $B/auth/otp/verify -H "$J" -d "{\"phone\":\"$1\",\"code\":\"$CODE\",\"role\":\"$2\"}" \
+    | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])'
+}
+CUSTOMER=$(login 9876500011 seeker)
+
+# Open the live stream first (a one-time ticket in the URL, never the token), then ask.
+TICKET=$(curl -s -X POST $B/events/ticket -H "authorization: Bearer $CUSTOMER" | python3 -c 'import sys,json;print(json.load(sys.stdin)["ticket"])')
+curl -sN "$B/events?ticket=$TICKET" &
+
+ID=$(curl -s -X POST $B/requests -H "authorization: Bearer $CUSTOMER" -H "$J" \
+  -d '{"q":"chini","lat":22.7196,"lng":75.8577}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["id"])')
+
+# Each "request.updated" line is a hint; read the request to see the answers.
+watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | python3 -m json.tool | grep -E 'state|name|pricePaise|source'"
+```
+
+**Clean up.** Ctrl+C stops the simulator. The fake shops stay on the server (they also teach learned stock). To remove them, sign in as the admin and call `DELETE $B/admin/sim/shops`, or start the simulator with a different `--seed` and `--reset`, then stop it.
+
+**If it does not start.** `... is not an admin` means `ADMIN_PHONES` is not set or has not redeployed yet. `Too many OTP requests` means wait ten minutes. A refused stream with HTTP 503 means the API has no `REDIS_URL`.

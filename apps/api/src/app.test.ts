@@ -17,6 +17,7 @@ const config: Config = {
   maxPingsPerRequest: 10,
   pingDedupeMinutes: 30,
   workersEnabled: false,
+  adminPhones: [],
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });

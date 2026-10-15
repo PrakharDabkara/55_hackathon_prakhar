@@ -90,6 +90,31 @@ summary {
   font-size: 1.15rem;
 }
 
+.label-main,
+.label-sub {
+  display: block;
+}
+
+.label-main {
+  font-size: 1.5rem;
+  line-height: 1.3;
+}
+
+.label-sub {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.chips-title {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.chips-title .label-main {
+  font-size: 1.2rem;
+}
+
 .btn-yes {
   background: var(--green);
   color: #ffffff;
@@ -214,6 +239,15 @@ summary {
   border-color: var(--green);
   background: var(--green);
   color: #ffffff;
+}
+
+.live-dot {
+  float: right;
+  width: 10px;
+  height: 10px;
+  margin: 4px 2px 0 0;
+  border-radius: 50%;
+  background: var(--green);
 }
 
 .empty {

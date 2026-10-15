@@ -106,15 +106,21 @@ export async function verifyOtp(
   phone: string,
   code: string,
   role: Extract<Role, 'seeker' | 'shop'>,
+  adminPhones: readonly string[] = [],
 ): Promise<LoginResult | null> {
   if (!(await consumeOtp(db, phone, code))) return null;
 
   // First login creates the user with the requested role; later logins keep the stored role.
+  // A phone on the ADMIN_PHONES list is admin whatever it asked for, including an existing user
+  // whose phone was added to the list later.
+  const isAdmin = adminPhones.includes(phone);
   const { rows } = await db.query<User>(
     `INSERT INTO users (phone, role) VALUES ($1, $2)
-     ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone
+     ON CONFLICT (phone) DO UPDATE SET
+       phone = EXCLUDED.phone,
+       role = CASE WHEN $3::boolean THEN 'admin' ELSE users.role END
      RETURNING id, phone, role`,
-    [phone, role],
+    [phone, isAdmin ? 'admin' : role, isAdmin],
   );
   const user = rows[0] as User;
 
@@ -145,4 +151,60 @@ export async function revokeSession(db: Queryable, sessionId: string): Promise<v
   await db.query(`UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL`, [
     sessionId,
   ]);
+}
+
+/** Whether this user is an admin right now: stored role and a phone still on the list. */
+export async function isAdminUser(
+  db: Queryable,
+  userId: string,
+  adminPhones: readonly string[],
+): Promise<boolean> {
+  if (adminPhones.length === 0) return false;
+  const { rows } = await db.query<{ phone: string; role: Role }>(
+    `SELECT phone, role FROM users WHERE id = $1`,
+    [userId],
+  );
+  const user = rows[0];
+  return !!user && user.role === 'admin' && adminPhones.includes(user.phone);
+}
+
+export interface NewUserSession {
+  userId: string;
+  phone: string;
+  token: string;
+}
+
+/**
+ * Creates shop users with a session each in two statements, for the simulator. Returns null,
+ * creating nothing, if any phone already has a user.
+ */
+export async function createShopUsers(
+  db: Queryable,
+  phones: string[],
+): Promise<NewUserSession[] | null> {
+  const users = await db.query<{ id: string; phone: string }>(
+    `INSERT INTO users (phone, role) SELECT unnest($1::text[]), 'shop'
+     ON CONFLICT (phone) DO NOTHING RETURNING id, phone`,
+    [phones],
+  );
+  if (users.rows.length !== phones.length) return null;
+  const tokens = users.rows.map(() => generateToken());
+  await db.query(
+    `INSERT INTO sessions (token_hash, user_id, expires_at)
+     SELECT h, u, now() + make_interval(days => $3::int)
+       FROM unnest($1::text[], $2::uuid[]) AS t(h, u)`,
+    [tokens.map(hashToken), users.rows.map((u) => u.id), SESSION_TTL_DAYS],
+  );
+  const byPhone = new Map(
+    users.rows.map((u, i) => [u.phone, { id: u.id, token: tokens[i] as string }]),
+  );
+  return phones.map((phone) => {
+    const hit = byPhone.get(phone) as { id: string; token: string };
+    return { userId: hit.id, phone, token: hit.token };
+  });
+}
+
+export async function deleteUsers(db: Queryable, userIds: string[]): Promise<number> {
+  const { rowCount } = await db.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
+  return rowCount ?? 0;
 }

@@ -3,6 +3,12 @@ import type { Category } from '@kahanmilega/shared';
 /** The distance bands the API sends, as written there. */
 export type Band = 'under 1 km' | '1–2 km' | '2–5 km';
 
+/** A big line with an optional small line below it (Devanagari first, its Latin spelling under it). */
+export interface Label {
+  main: string;
+  sub?: string;
+}
+
 export interface Strings {
   appName: string;
   /** The label of the button that switches to the other language. */
@@ -37,9 +43,10 @@ export interface Strings {
   errCreateShop: string;
 
   // Ping card
-  yes: string;
-  no: string;
+  yes: Label;
+  no: Label;
   priceLabel: string;
+  quantityTitle: Label;
   few: string;
   plenty: string;
   send: string;
@@ -49,6 +56,7 @@ export interface Strings {
   loading: string;
   errSend: string;
   errOffline: string;
+  live: string;
   targetLine: (price: string) => string;
   quantityLine: (quantity: string) => string;
   customerDistance: (band: string) => string;
@@ -57,7 +65,7 @@ export interface Strings {
   bands: Record<Band, string>;
 }
 
-/** Hindi in the same Latin script the shopkeeper flow uses, so one tap needs no keyboard switch. */
+/** Hindi: the one-tap words are Devanagari with the Latin spelling below; running text stays Latin so no keyboard switch is needed. */
 export const hi: Strings = {
   appName: 'KahanMilega',
   switchLanguage: 'English',
@@ -88,11 +96,12 @@ export const hi: Strings = {
   startShop: 'Dukaan shuru karein',
   errCreateShop: 'Dukaan nahi ban paayi. Dobara try karein.',
 
-  yes: 'Haan hai',
-  no: 'Nahi hai',
+  yes: { main: 'हाँ है', sub: 'Haan hai' },
+  no: { main: 'नहीं है', sub: 'Nahi hai' },
   priceLabel: 'Aapka daam (₹)',
-  few: 'Thode',
-  plenty: 'Bahut',
+  quantityTitle: { main: 'कितना है?', sub: 'Kitna hai?' },
+  few: 'थोड़ा बचा है',
+  plenty: 'काफ़ी है',
   send: 'Bhejo',
   skip: 'Skip',
   badPrice: 'Daam sahi nahi hai. Jaise 45 ya 45.50 likhein (paise mein 2 ank se zyada nahi).',
@@ -100,6 +109,7 @@ export const hi: Strings = {
   loading: 'Ruko…',
   errSend: 'Jawab nahi ja paaya. Dobara try karein.',
   errOffline: 'Internet nahi mil raha. Dobara koshish ho rahi hai.',
+  live: 'Live',
   targetLine: (price) => `Customer ne ${price} mein dekha hai — kya aapke paas isse kam mein hai?`,
   quantityLine: (quantity) => `Matra: ${quantity}`,
   customerDistance: (band) => `Customer ${band} door hai`,
@@ -151,10 +161,11 @@ export const en: Strings = {
   startShop: 'Start my shop',
   errCreateShop: 'Could not create your shop. Please try again.',
 
-  yes: 'Yes, I have it',
-  no: 'No',
+  yes: { main: 'Yes, I have it' },
+  no: { main: 'No' },
   priceLabel: 'Your price (₹)',
-  few: 'A few',
+  quantityTitle: { main: 'How many are left?' },
+  few: 'Only a few left',
   plenty: 'Plenty',
   send: 'Send',
   skip: 'Skip',
@@ -163,6 +174,7 @@ export const en: Strings = {
   loading: 'Please wait…',
   errSend: 'Your answer did not go through. Please try again.',
   errOffline: 'No internet. Trying again.',
+  live: 'Live',
   targetLine: (price) => `A customer saw it for ${price}. Do you have it for less?`,
   quantityLine: (quantity) => `Quantity: ${quantity}`,
   customerDistance: (band) => `Customer is ${band} away`,

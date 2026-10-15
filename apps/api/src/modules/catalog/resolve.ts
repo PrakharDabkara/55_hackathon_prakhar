@@ -109,6 +109,15 @@ export async function resolveItem(
 }
 
 /** One catalog item by id, or null. */
+/** The AI-estimated shelf price of the item's usual pack, in paise, or null if the item has none. */
+export async function getRefPricePaise(db: Queryable, itemId: string): Promise<number | null> {
+  const { rows } = await db.query<{ ref_price_paise: number | null }>(
+    `SELECT ref_price_paise FROM items WHERE id = $1`,
+    [itemId],
+  );
+  return rows[0]?.ref_price_paise ?? null;
+}
+
 export async function getItem(db: Queryable, id: string): Promise<CatalogItem | null> {
   const { rows } = await db.query<ItemRow>(
     `SELECT id, slug, name_en, name_hi, category FROM items WHERE id = $1`,

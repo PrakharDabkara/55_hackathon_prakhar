@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '../db/queryable.js';
+import type { EventPublisher } from '../modules/realtime/index.js';
 import {
   expireRequest,
   findOverdueRequestIds,
@@ -32,6 +33,8 @@ interface Options {
   queueName?: string;
   /** Re-queue the ping fan-out for a request that never got its pings. */
   enqueueFanout?: (requestId: string) => Promise<void>;
+  /** Tells the seeker and the shops when a request expires. */
+  events?: EventPublisher;
 }
 
 /**
@@ -46,12 +49,13 @@ export function startRequestExpiry({
   sweepEveryMs = 60_000,
   queueName = EXPIRY_QUEUE,
   enqueueFanout,
+  events,
 }: Options): RequestExpiry {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
   const queue = new Queue(queueName, { connection: queueConnection });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'expiry queue error'));
-  const deps = { db, logger };
+  const deps = { db, logger, events };
 
   const sweepNow = async () => {
     const ids = await findOverdueRequestIds(db, SWEEP_BATCH);

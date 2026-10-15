@@ -1,12 +1,13 @@
 {
-  "version": 1,
-  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog.",
+  "version": 2,
+  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric.",
   "items": [
     {
       "slug": "wheat-flour",
       "category": "grocery",
       "nameEn": "wheat flour",
       "nameHi": "आटा",
+      "refPricePaise": 25000,
       "synonyms": ["aata", "atta", "gehun ka atta", "gehun ka aata", "chakki atta", "ata"]
     },
     {
@@ -14,6 +15,7 @@
       "category": "grocery",
       "nameEn": "rice",
       "nameHi": "चावल",
+      "refPricePaise": 6000,
       "synonyms": ["chawal", "chaval", "chaawal", "raw rice", "sada chawal"]
     },
     {
@@ -21,6 +23,7 @@
       "category": "grocery",
       "nameEn": "basmati rice",
       "nameHi": "बासमती चावल",
+      "refPricePaise": 13000,
       "synonyms": ["basmati", "basmati chawal", "basmati chaval", "basamati rice"]
     },
     {
@@ -28,6 +31,7 @@
       "category": "grocery",
       "nameEn": "sugar",
       "nameHi": "चीनी",
+      "refPricePaise": 4800,
       "synonyms": ["cheeni", "chini", "shakkar", "sakkar", "shakar"]
     },
     {
@@ -35,6 +39,7 @@
       "category": "grocery",
       "nameEn": "salt",
       "nameHi": "नमक",
+      "refPricePaise": 2800,
       "synonyms": ["namak", "namk", "tata namak", "iodised salt", "sendha namak"]
     },
     {
@@ -42,6 +47,7 @@
       "category": "grocery",
       "nameEn": "toor dal",
       "nameHi": "तुअर दाल",
+      "refPricePaise": 16000,
       "synonyms": ["arhar dal", "tur dal", "tuar dal", "arhar ki dal", "अरहर दाल"]
     },
     {
@@ -49,6 +55,7 @@
       "category": "grocery",
       "nameEn": "moong dal",
       "nameHi": "मूंग दाल",
+      "refPricePaise": 13000,
       "synonyms": ["mung dal", "moong ki dal", "mong dal", "yellow moong dal"]
     },
     {
@@ -56,6 +63,7 @@
       "category": "grocery",
       "nameEn": "chana dal",
       "nameHi": "चना दाल",
+      "refPricePaise": 9500,
       "synonyms": ["channa dal", "chane ki dal", "bengal gram dal", "chana daal"]
     },
     {
@@ -63,6 +71,7 @@
       "category": "grocery",
       "nameEn": "urad dal",
       "nameHi": "उड़द दाल",
+      "refPricePaise": 14000,
       "synonyms": ["udad dal", "urad ki dal", "black gram dal", "urad daal"]
     },
     {
@@ -70,6 +79,7 @@
       "category": "grocery",
       "nameEn": "masoor dal",
       "nameHi": "मसूर दाल",
+      "refPricePaise": 9500,
       "synonyms": ["masur dal", "lal dal", "red lentils", "masoor daal"]
     },
     {
@@ -77,6 +87,7 @@
       "category": "grocery",
       "nameEn": "rajma",
       "nameHi": "राजमा",
+      "refPricePaise": 15000,
       "synonyms": ["rajmah", "rajma dal", "kidney beans", "red kidney beans"]
     },
     {
@@ -84,6 +95,7 @@
       "category": "grocery",
       "nameEn": "chickpeas",
       "nameHi": "काबुली चना",
+      "refPricePaise": 13000,
       "synonyms": ["chole", "chhole", "kabuli chana", "safed chana", "chhole chana"]
     },
     {
@@ -91,6 +103,7 @@
       "category": "grocery",
       "nameEn": "poha",
       "nameHi": "पोहा",
+      "refPricePaise": 5500,
       "synonyms": ["pohe", "flattened rice", "chivda poha", "aval"]
     },
     {
@@ -98,6 +111,7 @@
       "category": "grocery",
       "nameEn": "semolina",
       "nameHi": "सूजी",
+      "refPricePaise": 5000,
       "synonyms": ["suji", "sooji", "rava", "rawa", "सूजी रवा"]
     },
     {
@@ -105,6 +119,7 @@
       "category": "grocery",
       "nameEn": "refined flour",
       "nameHi": "मैदा",
+      "refPricePaise": 4500,
       "synonyms": ["maida", "maidaa", "all purpose flour", "maida atta"]
     },
     {
@@ -112,6 +127,7 @@
       "category": "grocery",
       "nameEn": "gram flour",
       "nameHi": "बेसन",
+      "refPricePaise": 7500,
       "synonyms": ["besan", "beshan", "chickpea flour", "besan atta"]
     },
     {
@@ -119,6 +135,7 @@
       "category": "grocery",
       "nameEn": "refined oil",
       "nameHi": "रिफाइंड तेल",
+      "refPricePaise": 15000,
       "synonyms": ["refined tel", "sunflower oil", "soyabean oil", "cooking oil", "khane ka tel"]
     },
     {
@@ -126,6 +143,7 @@
       "category": "grocery",
       "nameEn": "mustard oil",
       "nameHi": "सरसों का तेल",
+      "refPricePaise": 17000,
       "synonyms": ["sarson ka tel", "sarso tel", "sarson tel", "kachi ghani oil"]
     },
     {
@@ -133,6 +151,7 @@
       "category": "grocery",
       "nameEn": "ghee",
       "nameHi": "घी",
+      "refPricePaise": 33000,
       "synonyms": ["desi ghee", "ghi", "clarified butter", "amul ghee"]
     },
     {
@@ -140,6 +159,7 @@
       "category": "grocery",
       "nameEn": "tea leaves",
       "nameHi": "चायपत्ती",
+      "refPricePaise": 13000,
       "synonyms": ["chai patti", "chaipatti", "chai ki patti", "tea powder", "chai patti packet"]
     },
     {
@@ -147,6 +167,7 @@
       "category": "grocery",
       "nameEn": "coffee powder",
       "nameHi": "कॉफी",
+      "refPricePaise": 18000,
       "synonyms": ["coffee", "kofi", "instant coffee", "nescafe"]
     },
     {
@@ -154,6 +175,7 @@
       "category": "grocery",
       "nameEn": "milk",
       "nameHi": "दूध",
+      "refPricePaise": 3400,
       "synonyms": ["doodh", "dudh", "packet milk", "amul milk", "toned milk"]
     },
     {
@@ -161,6 +183,7 @@
       "category": "grocery",
       "nameEn": "curd",
       "nameHi": "दही",
+      "refPricePaise": 3500,
       "synonyms": ["dahi", "dahee", "yogurt", "yoghurt"]
     },
     {
@@ -168,6 +191,7 @@
       "category": "grocery",
       "nameEn": "paneer",
       "nameHi": "पनीर",
+      "refPricePaise": 10000,
       "synonyms": ["panir", "cottage cheese", "paneer packet"]
     },
     {
@@ -175,6 +199,7 @@
       "category": "grocery",
       "nameEn": "butter",
       "nameHi": "मक्खन",
+      "refPricePaise": 5800,
       "synonyms": ["makhan", "amul butter", "makkhan", "butter packet"]
     },
     {
@@ -182,6 +207,7 @@
       "category": "grocery",
       "nameEn": "bread",
       "nameHi": "ब्रेड",
+      "refPricePaise": 4500,
       "synonyms": ["double roti", "pav", "sliced bread", "brown bread", "bread packet"]
     },
     {
@@ -189,6 +215,7 @@
       "category": "grocery",
       "nameEn": "eggs",
       "nameHi": "अंडे",
+      "refPricePaise": 8000,
       "synonyms": ["ande", "anda", "egg", "ande tray"]
     },
     {
@@ -196,6 +223,7 @@
       "category": "grocery",
       "nameEn": "biscuits",
       "nameHi": "बिस्कुट",
+      "refPricePaise": 1000,
       "synonyms": ["biscuit", "biskut", "biscuts", "parle g", "glucose biscuit"]
     },
     {
@@ -203,6 +231,7 @@
       "category": "grocery",
       "nameEn": "namkeen",
       "nameHi": "नमकीन",
+      "refPricePaise": 2000,
       "synonyms": ["namkin", "bhujia", "aloo bhujia", "sev namkeen"]
     },
     {
@@ -210,6 +239,7 @@
       "category": "grocery",
       "nameEn": "instant noodles",
       "nameHi": "नूडल्स",
+      "refPricePaise": 1400,
       "synonyms": ["maggi", "maggie", "maggi noodles", "noodle", "magi"]
     },
     {
@@ -217,6 +247,7 @@
       "category": "grocery",
       "nameEn": "jaggery",
       "nameHi": "गुड़",
+      "refPricePaise": 6000,
       "synonyms": ["gud", "gur", "gudh", "jaggery block"]
     },
     {
@@ -224,6 +255,7 @@
       "category": "grocery",
       "nameEn": "turmeric powder",
       "nameHi": "हल्दी",
+      "refPricePaise": 4500,
       "synonyms": ["haldi", "haldi powder", "haldee", "turmeric"]
     },
     {
@@ -231,6 +263,7 @@
       "category": "grocery",
       "nameEn": "red chilli powder",
       "nameHi": "लाल मिर्च पाउडर",
+      "refPricePaise": 5500,
       "synonyms": ["lal mirch", "lal mirch powder", "mirchi powder", "chilli powder", "laal mirchi"]
     },
     {
@@ -238,6 +271,7 @@
       "category": "grocery",
       "nameEn": "coriander powder",
       "nameHi": "धनिया पाउडर",
+      "refPricePaise": 4500,
       "synonyms": ["dhaniya powder", "dhania powder", "dhaniya", "dhania"]
     },
     {
@@ -245,6 +279,7 @@
       "category": "grocery",
       "nameEn": "cumin seeds",
       "nameHi": "जीरा",
+      "refPricePaise": 9000,
       "synonyms": ["jeera", "zeera", "jira", "cumin", "jeera seeds"]
     },
     {
@@ -252,6 +287,7 @@
       "category": "grocery",
       "nameEn": "garam masala",
       "nameHi": "गरम मसाला",
+      "refPricePaise": 6000,
       "synonyms": ["garam masala powder", "garm masala", "everest garam masala"]
     },
     {
@@ -259,6 +295,7 @@
       "category": "grocery",
       "nameEn": "onion",
       "nameHi": "प्याज",
+      "refPricePaise": 3500,
       "synonyms": ["pyaz", "pyaaz", "onions", "kanda", "pyaj"]
     },
     {
@@ -266,6 +303,7 @@
       "category": "grocery",
       "nameEn": "potato",
       "nameHi": "आलू",
+      "refPricePaise": 3000,
       "synonyms": ["aloo", "alu", "aalu", "potatoes", "batata"]
     },
     {
@@ -273,6 +311,7 @@
       "category": "grocery",
       "nameEn": "tomato",
       "nameHi": "टमाटर",
+      "refPricePaise": 4000,
       "synonyms": ["tamatar", "tamater", "tomatoes", "tamatar kilo"]
     },
     {
@@ -280,6 +319,7 @@
       "category": "grocery",
       "nameEn": "oats",
       "nameHi": "ओट्स",
+      "refPricePaise": 10000,
       "synonyms": ["oat", "rolled oats", "quaker oats", "oats packet"]
     },
     {
@@ -287,6 +327,7 @@
       "category": "grocery",
       "nameEn": "cornflakes",
       "nameHi": "कॉर्नफ्लेक्स",
+      "refPricePaise": 16000,
       "synonyms": ["corn flakes", "kellogs", "kellogg's", "cornflake", "breakfast cereal"]
     },
     {
@@ -294,6 +335,7 @@
       "category": "grocery",
       "nameEn": "honey",
       "nameHi": "शहद",
+      "refPricePaise": 20000,
       "synonyms": ["shahad", "madhu", "sahad", "dabur honey"]
     },
     {
@@ -301,6 +343,7 @@
       "category": "grocery",
       "nameEn": "tomato ketchup",
       "nameHi": "टमाटर केचप",
+      "refPricePaise": 12000,
       "synonyms": ["ketchup", "kechup", "sauce bottle", "tomato sauce"]
     },
     {
@@ -308,6 +351,7 @@
       "category": "grocery",
       "nameEn": "pasta",
       "nameHi": "पास्ता",
+      "refPricePaise": 6000,
       "synonyms": ["macaroni", "penne", "pasta packet", "pastaa"]
     },
     {
@@ -315,6 +359,7 @@
       "category": "hardware",
       "nameEn": "hammer",
       "nameHi": "हथौड़ा",
+      "refPricePaise": 25000,
       "synonyms": ["hathoda", "hathauda", "hathodi", "claw hammer", "hamer"]
     },
     {
@@ -322,6 +367,7 @@
       "category": "hardware",
       "nameEn": "screwdriver",
       "nameHi": "पेचकस",
+      "refPricePaise": 12000,
       "synonyms": ["pechkas", "screw driver", "pench kas", "screwdriver set", "pechkash"]
     },
     {
@@ -329,6 +375,7 @@
       "category": "hardware",
       "nameEn": "pliers",
       "nameHi": "प्लास",
+      "refPricePaise": 25000,
       "synonyms": ["plas", "pliers cutter", "pilas", "combination plier", "पाना पक्कड़"]
     },
     {
@@ -336,6 +383,7 @@
       "category": "hardware",
       "nameEn": "spanner",
       "nameHi": "पाना",
+      "refPricePaise": 30000,
       "synonyms": ["pana", "spaner", "ring spanner", "spanner set"]
     },
     {
@@ -343,6 +391,7 @@
       "category": "hardware",
       "nameEn": "adjustable wrench",
       "nameHi": "अडजस्टेबल पाना",
+      "refPricePaise": 35000,
       "synonyms": ["adjustable spanner", "pipe wrench", "adjustable pana", "multi wrench"]
     },
     {
@@ -350,6 +399,7 @@
       "category": "hardware",
       "nameEn": "nails",
       "nameHi": "कील",
+      "refPricePaise": 12000,
       "synonyms": ["keel", "keele", "wire nails", "keel packet"]
     },
     {
@@ -357,6 +407,7 @@
       "category": "hardware",
       "nameEn": "screws",
       "nameHi": "पेंच",
+      "refPricePaise": 10000,
       "synonyms": ["pench", "screw", "wood screws", "screws packet", "skru"]
     },
     {
@@ -364,6 +415,7 @@
       "category": "hardware",
       "nameEn": "nuts and bolts",
       "nameHi": "नट बोल्ट",
+      "refPricePaise": 15000,
       "synonyms": ["nut bolt", "nat bolt", "nut bolt set", "नट बोल्ट सेट"]
     },
     {
@@ -371,6 +423,7 @@
       "category": "hardware",
       "nameEn": "drill machine",
       "nameHi": "ड्रिल मशीन",
+      "refPricePaise": 220000,
       "synonyms": ["dril machine", "electric drill", "hand drill", "dreel"]
     },
     {
@@ -378,6 +431,7 @@
       "category": "hardware",
       "nameEn": "drill bits",
       "nameHi": "ड्रिल बिट",
+      "refPricePaise": 25000,
       "synonyms": ["drill bit", "dril bit", "masonry bit", "wall drill bit", "drill bit set"]
     },
     {
@@ -385,6 +439,7 @@
       "category": "hardware",
       "nameEn": "measuring tape",
       "nameHi": "मापने का फीता",
+      "refPricePaise": 15000,
       "synonyms": ["measure tape", "inch tape", "fita", "naap tape", "steel tape"]
     },
     {
@@ -392,6 +447,7 @@
       "category": "hardware",
       "nameEn": "hacksaw",
       "nameHi": "आरी",
+      "refPricePaise": 22000,
       "synonyms": ["aari", "hack saw", "hacksaw blade", "lohe ki aari", "haksaw"]
     },
     {
@@ -399,6 +455,7 @@
       "category": "hardware",
       "nameEn": "hand saw",
       "nameHi": "हाथ आरी",
+      "refPricePaise": 30000,
       "synonyms": ["wood saw", "lakdi ki aari", "handsaw", "hath aari"]
     },
     {
@@ -406,6 +463,7 @@
       "category": "hardware",
       "nameEn": "wall paint",
       "nameHi": "दीवार का पेंट",
+      "refPricePaise": 60000,
       "synonyms": ["asian paints", "emulsion", "deewar paint", "wall colour"]
     },
     {
@@ -413,6 +471,7 @@
       "category": "hardware",
       "nameEn": "paint brush",
       "nameHi": "पेंट ब्रश",
+      "refPricePaise": 6000,
       "synonyms": ["paint brush 2 inch", "rang brush", "painting brush", "pent brush", "wall brush"]
     },
     {
@@ -420,6 +479,7 @@
       "category": "hardware",
       "nameEn": "paint roller",
       "nameHi": "पेंट रोलर",
+      "refPricePaise": 15000,
       "synonyms": ["roller brush", "wall roller", "rolar", "paint rolar"]
     },
     {
@@ -427,6 +487,7 @@
       "category": "hardware",
       "nameEn": "sandpaper",
       "nameHi": "रेगमाल",
+      "refPricePaise": 2000,
       "synonyms": ["regmal", "sand paper", "reg maal", "smoothing paper", "sandpaper sheet"]
     },
     {
@@ -434,6 +495,7 @@
       "category": "hardware",
       "nameEn": "wood glue",
       "nameHi": "फेविकोल",
+      "refPricePaise": 8000,
       "synonyms": ["fevicol", "fevicol sh", "feviqol", "white glue", "lakdi ka gond"]
     },
     {
@@ -441,6 +503,7 @@
       "category": "hardware",
       "nameEn": "super glue",
       "nameHi": "फेविक्विक",
+      "refPricePaise": 2000,
       "synonyms": ["fevikwik", "feviquick", "fevi quick", "instant glue", "quick fix glue"]
     },
     {
@@ -448,6 +511,7 @@
       "category": "hardware",
       "nameEn": "padlock",
       "nameHi": "ताला",
+      "refPricePaise": 18000,
       "synonyms": ["tala", "taala", "lock", "godrej lock", "tale"]
     },
     {
@@ -455,6 +519,7 @@
       "category": "hardware",
       "nameEn": "door hinge",
       "nameHi": "कब्ज़ा",
+      "refPricePaise": 6000,
       "synonyms": ["kabja", "kabza", "hinge", "kijja", "darwaza hinge"]
     },
     {
@@ -462,6 +527,7 @@
       "category": "hardware",
       "nameEn": "door handle",
       "nameHi": "दरवाज़े का हैंडल",
+      "refPricePaise": 35000,
       "synonyms": ["handle", "darwaza handle", "darwaje ka handle", "door pull", "handel"]
     },
     {
@@ -469,6 +535,7 @@
       "category": "hardware",
       "nameEn": "tower bolt",
       "nameHi": "कुंडी",
+      "refPricePaise": 7000,
       "synonyms": ["kundi", "kundee", "latch", "sakal", "aldrop"]
     },
     {
@@ -476,6 +543,7 @@
       "category": "hardware",
       "nameEn": "wall plug",
       "nameHi": "रॉल प्लग",
+      "refPricePaise": 5000,
       "synonyms": ["rawl plug", "rawal plug", "wall rawl plug", "gitti plug", "plastic plug"]
     },
     {
@@ -483,6 +551,7 @@
       "category": "hardware",
       "nameEn": "cable ties",
       "nameHi": "केबल टाई",
+      "refPricePaise": 5000,
       "synonyms": ["zip tie", "cable tie", "zip ties", "plastic tie", "kebal tai"]
     },
     {
@@ -490,6 +559,7 @@
       "category": "hardware",
       "nameEn": "rope",
       "nameHi": "रस्सी",
+      "refPricePaise": 10000,
       "synonyms": ["rassi", "rasi", "nylon rope", "jute rope", "doree"]
     },
     {
@@ -497,6 +567,7 @@
       "category": "hardware",
       "nameEn": "tarpaulin",
       "nameHi": "तिरपाल",
+      "refPricePaise": 40000,
       "synonyms": ["tirpal", "tirpaal", "tarpal", "plastic sheet cover", "trapal"]
     },
     {
@@ -504,6 +575,7 @@
       "category": "hardware",
       "nameEn": "wire brush",
       "nameHi": "तार का ब्रश",
+      "refPricePaise": 8000,
       "synonyms": ["taar brush", "steel brush", "wire brush hand", "taar ka brush", "jang brush"]
     },
     {
@@ -511,6 +583,7 @@
       "category": "hardware",
       "nameEn": "pvc pipe",
       "nameHi": "पीवीसी पाइप",
+      "refPricePaise": 25000,
       "synonyms": ["pipe", "pvc paip", "plastic pipe", "paani ka pipe", "pvc pipe 1 inch"]
     },
     {
@@ -518,6 +591,7 @@
       "category": "hardware",
       "nameEn": "water tap",
       "nameHi": "नल",
+      "refPricePaise": 25000,
       "synonyms": ["nal", "tonti", "tap", "nalka", "pani ka tap"]
     },
     {
@@ -525,6 +599,7 @@
       "category": "hardware",
       "nameEn": "teflon tape",
       "nameHi": "टेफ्लॉन टेप",
+      "refPricePaise": 2000,
       "synonyms": ["plumbing tape", "teflon", "thread seal tape", "ptfe tape", "teflon fita"]
     },
     {
@@ -532,6 +607,7 @@
       "category": "hardware",
       "nameEn": "m seal",
       "nameHi": "एम सील",
+      "refPricePaise": 5000,
       "synonyms": ["mseal", "m-seal putty", "epoxy putty", "pidilite m seal", "emseal"]
     },
     {
@@ -539,6 +615,7 @@
       "category": "hardware",
       "nameEn": "putty knife",
       "nameHi": "पुट्टी चाकू",
+      "refPricePaise": 7000,
       "synonyms": ["scraper", "putti knife", "wall scraper", "putty scraper", "patti chaku"]
     },
     {
@@ -546,6 +623,7 @@
       "category": "hardware",
       "nameEn": "wall putty",
       "nameHi": "वॉल पुट्टी",
+      "refPricePaise": 70000,
       "synonyms": ["putty", "birla putty", "putti", "wall putti", "jk putty"]
     },
     {
@@ -553,6 +631,7 @@
       "category": "hardware",
       "nameEn": "spirit level",
       "nameHi": "स्पिरिट लेवल",
+      "refPricePaise": 20000,
       "synonyms": ["water level", "level tool", "spirit leval", "bubble level"]
     },
     {
@@ -560,6 +639,7 @@
       "category": "hardware",
       "nameEn": "crowbar",
       "nameHi": "सब्बल",
+      "refPricePaise": 50000,
       "synonyms": ["sabbal", "crow bar", "lohe ka sabbal", "pinch bar", "kauwa bar"]
     },
     {
@@ -567,6 +647,7 @@
       "category": "hardware",
       "nameEn": "tool box",
       "nameHi": "टूल बॉक्स",
+      "refPricePaise": 60000,
       "synonyms": ["toolbox", "tool kit", "tool set box", "tul box"]
     },
     {
@@ -574,6 +655,7 @@
       "category": "electrical",
       "nameEn": "led bulb",
       "nameHi": "एलईडी बल्ब",
+      "refPricePaise": 10000,
       "synonyms": ["bulb", "led bulb 9 watt", "bulb led", "balb", "एलईडी बल्ब 9 वॉट"]
     },
     {
@@ -581,6 +663,7 @@
       "category": "electrical",
       "nameEn": "tube light",
       "nameHi": "ट्यूबलाइट",
+      "refPricePaise": 35000,
       "synonyms": ["tubelight", "tube lite", "led tube", "tube light 20w", "tyoob light"]
     },
     {
@@ -588,6 +671,7 @@
       "category": "electrical",
       "nameEn": "extension board",
       "nameHi": "एक्सटेंशन बोर्ड",
+      "refPricePaise": 35000,
       "synonyms": ["extension cord", "power strip", "extension", "board plug", "surge board"]
     },
     {
@@ -595,6 +679,7 @@
       "category": "electrical",
       "nameEn": "electric switch",
       "nameHi": "बिजली स्विच",
+      "refPricePaise": 4000,
       "synonyms": ["sawitch", "bijli switch", "modular switch"]
     },
     {
@@ -602,6 +687,7 @@
       "category": "electrical",
       "nameEn": "wall socket",
       "nameHi": "सॉकेट",
+      "refPricePaise": 6000,
       "synonyms": ["socket", "plug socket", "5 amp socket", "6 amp socket", "soket"]
     },
     {
@@ -609,6 +695,7 @@
       "category": "electrical",
       "nameEn": "plug top",
       "nameHi": "प्लग टॉप",
+      "refPricePaise": 3000,
       "synonyms": ["3 pin plug", "pin top", "plug pin", "plag"]
     },
     {
@@ -616,6 +703,7 @@
       "category": "electrical",
       "nameEn": "copper wire",
       "nameHi": "तांबे का तार",
+      "refPricePaise": 140000,
       "synonyms": ["taar", "tar", "bijli ka taar", "electric wire", "copper tar"]
     },
     {
@@ -623,6 +711,7 @@
       "category": "electrical",
       "nameEn": "mcb switch",
       "nameHi": "एमसीबी",
+      "refPricePaise": 25000,
       "synonyms": ["mcb", "circuit breaker", "mcb 16 amp", "fuse mcb", "emsibi"]
     },
     {
@@ -630,6 +719,7 @@
       "category": "electrical",
       "nameEn": "fuse",
       "nameHi": "फ्यूज़",
+      "refPricePaise": 2000,
       "synonyms": ["fuse wire", "fyooz", "fiuz", "cartridge fuse", "fuse carrier"]
     },
     {
@@ -637,6 +727,7 @@
       "category": "electrical",
       "nameEn": "ceiling fan",
       "nameHi": "छत का पंखा",
+      "refPricePaise": 180000,
       "synonyms": ["pankha", "panka", "ceiling pankha", "chhat ka pankha"]
     },
     {
@@ -644,6 +735,7 @@
       "category": "electrical",
       "nameEn": "table fan",
       "nameHi": "टेबल पंखा",
+      "refPricePaise": 150000,
       "synonyms": ["table pankha", "desk fan", "chota pankha", "table pankha small", "tebal fan"]
     },
     {
@@ -651,6 +743,7 @@
       "category": "electrical",
       "nameEn": "fan regulator",
       "nameHi": "फैन रेगुलेटर",
+      "refPricePaise": 20000,
       "synonyms": [
         "regulator",
         "fan speed regulator",
@@ -664,6 +757,7 @@
       "category": "electrical",
       "nameEn": "aa battery",
       "nameHi": "एए बैटरी",
+      "refPricePaise": 2000,
       "synonyms": ["pencil cell", "aa cell", "battery aa", "double a battery", "batri aa"]
     },
     {
@@ -671,6 +765,7 @@
       "category": "electrical",
       "nameEn": "aaa battery",
       "nameHi": "एएए बैटरी",
+      "refPricePaise": 2000,
       "synonyms": ["aaa cell", "battery aaa", "triple a battery", "remote cell", "remote battery"]
     },
     {
@@ -678,6 +773,7 @@
       "category": "electrical",
       "nameEn": "torch",
       "nameHi": "टॉर्च",
+      "refPricePaise": 25000,
       "synonyms": ["torch light", "torch led", "tarch", "flashlight", "rechargeable torch"]
     },
     {
@@ -685,6 +781,7 @@
       "category": "electrical",
       "nameEn": "electrical tape",
       "nameHi": "इंसुलेशन टेप",
+      "refPricePaise": 3000,
       "synonyms": [
         "insulation tape",
         "black tape",
@@ -698,6 +795,7 @@
       "category": "electrical",
       "nameEn": "bulb holder",
       "nameHi": "बल्ब होल्डर",
+      "refPricePaise": 4000,
       "synonyms": ["bulb holder", "lamp holder", "holdar", "pin holder"]
     },
     {
@@ -705,6 +803,7 @@
       "category": "electrical",
       "nameEn": "multi plug adapter",
       "nameHi": "मल्टी प्लग",
+      "refPricePaise": 10000,
       "synonyms": ["multi plug", "travel adapter", "3 in 1 plug", "multiplug"]
     },
     {
@@ -712,6 +811,7 @@
       "category": "electrical",
       "nameEn": "electric iron",
       "nameHi": "इस्त्री",
+      "refPricePaise": 90000,
       "synonyms": ["istri", "press", "iron press", "dry iron", "kapde press"]
     },
     {
@@ -719,6 +819,7 @@
       "category": "electrical",
       "nameEn": "immersion rod",
       "nameHi": "इमर्शन रॉड",
+      "refPricePaise": 50000,
       "synonyms": [
         "water heater rod",
         "heater rod",
@@ -732,6 +833,7 @@
       "category": "electrical",
       "nameEn": "night lamp",
       "nameHi": "नाइट लैंप",
+      "refPricePaise": 15000,
       "synonyms": ["night bulb", "zero watt", "zero watt bulb", "night light", "nait lamp"]
     },
     {
@@ -739,6 +841,7 @@
       "category": "electrical",
       "nameEn": "door bell",
       "nameHi": "डोरबेल",
+      "refPricePaise": 25000,
       "synonyms": ["calling bell", "bell switch", "darwaza ghanti", "doorbell", "ghanti"]
     },
     {
@@ -746,6 +849,7 @@
       "category": "electrical",
       "nameEn": "voltage tester",
       "nameHi": "टेस्टर",
+      "refPricePaise": 6000,
       "synonyms": ["tester", "neon tester", "line tester", "current tester", "pen tester"]
     },
     {
@@ -753,6 +857,7 @@
       "category": "stationery",
       "nameEn": "notebook",
       "nameHi": "कॉपी",
+      "refPricePaise": 6000,
       "synonyms": ["copy", "copi", "exercise book", "school copy", "notebook 200 pages"]
     },
     {
@@ -760,6 +865,7 @@
       "category": "stationery",
       "nameEn": "ball pen",
       "nameHi": "बॉल पेन",
+      "refPricePaise": 1000,
       "synonyms": ["ballpen", "reynolds pen", "pen blue", "bol pen"]
     },
     {
@@ -767,6 +873,7 @@
       "category": "stationery",
       "nameEn": "gel pen",
       "nameHi": "जेल पेन",
+      "refPricePaise": 2000,
       "synonyms": ["gel pen black", "jel pen", "pilot pen", "smooth pen", "gel pen blue"]
     },
     {
@@ -774,6 +881,7 @@
       "category": "stationery",
       "nameEn": "pencil",
       "nameHi": "पेंसिल",
+      "refPricePaise": 500,
       "synonyms": ["pencil hb", "pensil", "lead pencil", "natraj pencil", "pencel"]
     },
     {
@@ -781,6 +889,7 @@
       "category": "stationery",
       "nameEn": "eraser",
       "nameHi": "मिटाने वाला रबर",
+      "refPricePaise": 500,
       "synonyms": ["rabar", "rubber eraser", "mitane wala rubber", "eraser white"]
     },
     {
@@ -788,6 +897,7 @@
       "category": "stationery",
       "nameEn": "sharpener",
       "nameHi": "पेंसिल शार्पनर",
+      "refPricePaise": 1000,
       "synonyms": [
         "pencil sharpener",
         "sharpner",
@@ -801,6 +911,7 @@
       "category": "stationery",
       "nameEn": "ruler",
       "nameHi": "स्केल",
+      "refPricePaise": 2000,
       "synonyms": ["scale", "skel", "plastic scale", "steel ruler", "ruler 30 cm"]
     },
     {
@@ -808,6 +919,7 @@
       "category": "stationery",
       "nameEn": "geometry box",
       "nameHi": "ज्यामिति बॉक्स",
+      "refPricePaise": 12000,
       "synonyms": ["compass box", "geometry", "pencil box", "jyamiti box", "maths box"]
     },
     {
@@ -815,6 +927,7 @@
       "category": "stationery",
       "nameEn": "marker pen",
       "nameHi": "मार्कर",
+      "refPricePaise": 3000,
       "synonyms": ["marker", "permanent marker", "white board marker", "markar", "marker black"]
     },
     {
@@ -822,6 +935,7 @@
       "category": "stationery",
       "nameEn": "highlighter",
       "nameHi": "हाईलाइटर",
+      "refPricePaise": 4000,
       "synonyms": [
         "highlighter pen",
         "hilighter",
@@ -835,6 +949,7 @@
       "category": "stationery",
       "nameEn": "glue stick",
       "nameHi": "ग्लू स्टिक",
+      "refPricePaise": 3000,
       "synonyms": ["gluestick", "glu stick", "paper glue", "stick glue", "gum stick"]
     },
     {
@@ -842,6 +957,7 @@
       "category": "stationery",
       "nameEn": "scissors",
       "nameHi": "कैंची",
+      "refPricePaise": 6000,
       "synonyms": ["kainchi", "kenchi", "kanchi", "paper scissors", "cissors"]
     },
     {
@@ -849,6 +965,7 @@
       "category": "stationery",
       "nameEn": "stapler",
       "nameHi": "स्टेपलर",
+      "refPricePaise": 8000,
       "synonyms": ["stepler", "stapler machine", "stapler small", "pin machine", "stapular"]
     },
     {
@@ -856,6 +973,7 @@
       "category": "stationery",
       "nameEn": "paper clips",
       "nameHi": "पेपर क्लिप",
+      "refPricePaise": 2000,
       "synonyms": ["paper clip", "paperclip", "gem clips", "kagaz ki clip", "paper clip box"]
     },
     {
@@ -863,6 +981,7 @@
       "category": "stationery",
       "nameEn": "staple pins",
       "nameHi": "स्टेपल पिन",
+      "refPricePaise": 1500,
       "synonyms": ["staples", "stapler pin", "pins stapler", "pin 10", "staple pin box"]
     },
     {
@@ -870,6 +989,7 @@
       "category": "stationery",
       "nameEn": "chart paper",
       "nameHi": "चार्ट पेपर",
+      "refPricePaise": 1500,
       "synonyms": ["chart", "chart sheet", "colour chart paper", "white chart", "chart papar"]
     },
     {
@@ -877,6 +997,7 @@
       "category": "stationery",
       "nameEn": "a4 paper",
       "nameHi": "ए4 पेपर",
+      "refPricePaise": 35000,
       "synonyms": ["a4 sheets", "a4 ream", "printing paper", "a4 papar", "copier paper"]
     },
     {
@@ -884,6 +1005,7 @@
       "category": "stationery",
       "nameEn": "sketch pens",
       "nameHi": "स्केच पेन",
+      "refPricePaise": 8000,
       "synonyms": ["sketch pen", "colour pens", "sketchpen", "felt pens", "sketch pen set"]
     },
     {
@@ -891,6 +1013,7 @@
       "category": "stationery",
       "nameEn": "crayons",
       "nameHi": "मोम रंग",
+      "refPricePaise": 5000,
       "synonyms": ["wax crayons", "crayon", "mom rang", "colour crayons", "crayon box"]
     },
     {
@@ -898,6 +1021,7 @@
       "category": "stationery",
       "nameEn": "colour pencils",
       "nameHi": "रंगीन पेंसिल",
+      "refPricePaise": 7000,
       "synonyms": [
         "color pencils",
         "rangeen pencil",
@@ -911,6 +1035,7 @@
       "category": "stationery",
       "nameEn": "water colours",
       "nameHi": "पानी के रंग",
+      "refPricePaise": 6000,
       "synonyms": ["watercolour", "water colour box", "poster colour", "paani ke rang", "paint box"]
     },
     {
@@ -918,6 +1043,7 @@
       "category": "stationery",
       "nameEn": "drawing book",
       "nameHi": "ड्राइंग बुक",
+      "refPricePaise": 5000,
       "synonyms": ["sketch book", "sketchbook", "drawing copy", "drawing copi", "drawing file"]
     },
     {
@@ -925,6 +1051,7 @@
       "category": "stationery",
       "nameEn": "file folder",
       "nameHi": "फाइल",
+      "refPricePaise": 4000,
       "synonyms": ["file", "folder", "document file", "fyle", "plastic file"]
     },
     {
@@ -932,6 +1059,7 @@
       "category": "stationery",
       "nameEn": "sticky notes",
       "nameHi": "स्टिकी नोट्स",
+      "refPricePaise": 5000,
       "synonyms": ["post it", "post-it", "sticky note pad", "chipkane wale note", "memo pad"]
     },
     {
@@ -939,6 +1067,7 @@
       "category": "stationery",
       "nameEn": "cello tape",
       "nameHi": "सेलो टेप",
+      "refPricePaise": 2000,
       "synonyms": ["cellotape", "tape roll", "sellotape", "transparent tape", "selo tape"]
     },
     {
@@ -946,6 +1075,7 @@
       "category": "stationery",
       "nameEn": "double sided tape",
       "nameHi": "डबल टेप",
+      "refPricePaise": 4000,
       "synonyms": ["double tape", "dubal tape", "double side tape", "foam tape", "dosri tape"]
     },
     {
@@ -953,6 +1083,7 @@
       "category": "stationery",
       "nameEn": "school bag",
       "nameHi": "स्कूल बैग",
+      "refPricePaise": 60000,
       "synonyms": ["bastaa", "basta", "school basta", "skool bag"]
     },
     {
@@ -960,6 +1091,7 @@
       "category": "stationery",
       "nameEn": "modeling clay",
       "nameHi": "मिट्टी क्ले",
+      "refPricePaise": 6000,
       "synonyms": ["clay", "play clay", "plasticine", "mitti clay", "clay colours"]
     },
     {
@@ -967,6 +1099,7 @@
       "category": "stationery",
       "nameEn": "thermocol sheet",
       "nameHi": "थर्मोकोल",
+      "refPricePaise": 3000,
       "synonyms": ["thermocol", "thermacol", "styrofoam sheet", "thermocol board"]
     },
     {
@@ -974,6 +1107,7 @@
       "category": "stationery",
       "nameEn": "cardboard",
       "nameHi": "गत्ता",
+      "refPricePaise": 2500,
       "synonyms": ["gatta", "card board", "cardboard sheet", "gatte ki sheet", "gata"]
     },
     {
@@ -981,6 +1115,7 @@
       "category": "stationery",
       "nameEn": "glitter",
       "nameHi": "ग्लिटर",
+      "refPricePaise": 3000,
       "synonyms": ["glitter powder", "glitar", "chamak", "sparkle powder", "glitter tube"]
     },
     {
@@ -988,6 +1123,7 @@
       "category": "stationery",
       "nameEn": "art brush",
       "nameHi": "आर्ट ब्रश",
+      "refPricePaise": 5000,
       "synonyms": [
         "painting brush small",
         "art brush set",
@@ -1001,6 +1137,7 @@
       "category": "stationery",
       "nameEn": "correction fluid",
       "nameHi": "व्हाइटनर",
+      "refPricePaise": 3500,
       "synonyms": ["whitener", "white ink", "correction pen", "wite ner"]
     },
     {
@@ -1008,6 +1145,7 @@
       "category": "mobile_accessories",
       "nameEn": "phone charger",
       "nameHi": "फोन चार्जर",
+      "refPricePaise": 40000,
       "synonyms": ["charger", "mobile charger", "fone charger", "charjar", "adapter charger"]
     },
     {
@@ -1015,6 +1153,7 @@
       "category": "mobile_accessories",
       "nameEn": "usb c cable",
       "nameHi": "टाइप सी केबल",
+      "refPricePaise": 20000,
       "synonyms": ["type c cable", "type-c cable", "c type cable", "usb type c", "tipe c cable"]
     },
     {
@@ -1022,6 +1161,7 @@
       "category": "mobile_accessories",
       "nameEn": "lightning cable",
       "nameHi": "आईफोन केबल",
+      "refPricePaise": 40000,
       "synonyms": [
         "iphone cable",
         "iphone charger cable",
@@ -1035,6 +1175,7 @@
       "category": "mobile_accessories",
       "nameEn": "micro usb cable",
       "nameHi": "माइक्रो यूएसबी केबल",
+      "refPricePaise": 15000,
       "synonyms": ["micro usb", "v8 cable", "android cable", "micro cable", "purana charger cable"]
     },
     {
@@ -1042,6 +1183,7 @@
       "category": "mobile_accessories",
       "nameEn": "earphones",
       "nameHi": "ईयरफोन",
+      "refPricePaise": 25000,
       "synonyms": ["earphone", "handsfree", "hands free", "headphone wire wala", "iyarfon"]
     },
     {
@@ -1049,6 +1191,7 @@
       "category": "mobile_accessories",
       "nameEn": "bluetooth earbuds",
       "nameHi": "ब्लूटूथ ईयरबड्स",
+      "refPricePaise": 120000,
       "synonyms": ["earbuds", "airpods", "wireless earphones", "bluetooth earphone", "tws"]
     },
     {
@@ -1056,6 +1199,7 @@
       "category": "mobile_accessories",
       "nameEn": "power bank",
       "nameHi": "पावर बैंक",
+      "refPricePaise": 110000,
       "synonyms": [
         "powerbank",
         "power bank 10000",
@@ -1069,6 +1213,7 @@
       "category": "mobile_accessories",
       "nameEn": "phone cover",
       "nameHi": "फोन कवर",
+      "refPricePaise": 25000,
       "synonyms": ["mobile cover", "back cover", "phone case", "mobile case", "fone cover"]
     },
     {
@@ -1076,6 +1221,7 @@
       "category": "mobile_accessories",
       "nameEn": "screen guard",
       "nameHi": "स्क्रीन गार्ड",
+      "refPricePaise": 20000,
       "synonyms": [
         "tempered glass",
         "screen protector",
@@ -1089,6 +1235,7 @@
       "category": "mobile_accessories",
       "nameEn": "memory card",
       "nameHi": "मेमोरी कार्ड",
+      "refPricePaise": 50000,
       "synonyms": ["sd card", "micro sd", "memory card 32gb", "memori card", "mobile memory card"]
     },
     {
@@ -1096,6 +1243,7 @@
       "category": "mobile_accessories",
       "nameEn": "pen drive",
       "nameHi": "पेन ड्राइव",
+      "refPricePaise": 45000,
       "synonyms": ["pendrive", "usb drive", "flash drive", "pen dreev", "usb pendrive"]
     },
     {
@@ -1103,6 +1251,7 @@
       "category": "mobile_accessories",
       "nameEn": "otg cable",
       "nameHi": "ओटीजी केबल",
+      "refPricePaise": 15000,
       "synonyms": ["otg", "otg connector", "otg adapter", "otg wire", "usb otg"]
     },
     {
@@ -1110,6 +1259,7 @@
       "category": "mobile_accessories",
       "nameEn": "car charger",
       "nameHi": "कार चार्जर",
+      "refPricePaise": 35000,
       "synonyms": [
         "car mobile charger",
         "gaadi ka charger",
@@ -1123,6 +1273,7 @@
       "category": "mobile_accessories",
       "nameEn": "mobile stand",
       "nameHi": "मोबाइल स्टैंड",
+      "refPricePaise": 20000,
       "synonyms": [
         "phone stand",
         "phone holder",
@@ -1136,6 +1287,7 @@
       "category": "mobile_accessories",
       "nameEn": "bluetooth speaker",
       "nameHi": "ब्लूटूथ स्पीकर",
+      "refPricePaise": 120000,
       "synonyms": [
         "speaker",
         "portable speaker",
@@ -1149,6 +1301,7 @@
       "category": "mobile_accessories",
       "nameEn": "headphones",
       "nameHi": "हेडफोन",
+      "refPricePaise": 90000,
       "synonyms": ["headphone", "over ear headphones", "head phone", "headfon", "gaming headphones"]
     },
     {
@@ -1156,6 +1309,7 @@
       "category": "mobile_accessories",
       "nameEn": "selfie stick",
       "nameHi": "सेल्फी स्टिक",
+      "refPricePaise": 35000,
       "synonyms": ["selfy stick", "selfie stik", "tripod stick", "monopod", "selfi stick"]
     },
     {
@@ -1163,6 +1317,7 @@
       "category": "mobile_accessories",
       "nameEn": "sim ejector",
       "nameHi": "सिम पिन",
+      "refPricePaise": 2000,
       "synonyms": ["sim pin", "sim tool", "sim card pin", "sim nikalne ki pin", "sim ejector pin"]
     },
     {
@@ -1170,6 +1325,7 @@
       "category": "household_kitchen",
       "nameEn": "bottle brush",
       "nameHi": "बोतल ब्रश",
+      "refPricePaise": 6000,
       "synonyms": [
         "bottle cleaning brush",
         "bottel brush",
@@ -1183,6 +1339,7 @@
       "category": "household_kitchen",
       "nameEn": "water bottle",
       "nameHi": "पानी की बोतल",
+      "refPricePaise": 10000,
       "synonyms": ["paani ki bottle", "pani bottle", "plastic bottle", "fridge bottle"]
     },
     {
@@ -1190,6 +1347,7 @@
       "category": "household_kitchen",
       "nameEn": "steel bottle",
       "nameHi": "स्टील की बोतल",
+      "refPricePaise": 30000,
       "synonyms": [
         "steel botal",
         "copper bottle",
@@ -1203,6 +1361,7 @@
       "category": "household_kitchen",
       "nameEn": "lunch box",
       "nameHi": "टिफिन",
+      "refPricePaise": 35000,
       "synonyms": ["tiffin", "tifin", "lunchbox", "tiffin box", "school tiffin"]
     },
     {
@@ -1210,6 +1369,7 @@
       "category": "household_kitchen",
       "nameEn": "pressure cooker",
       "nameHi": "प्रेशर कुकर",
+      "refPricePaise": 150000,
       "synonyms": ["cooker", "presure cooker", "pressure cooker small", "hawkins cooker", "kukar"]
     },
     {
@@ -1217,6 +1377,7 @@
       "category": "household_kitchen",
       "nameEn": "kadhai",
       "nameHi": "कड़ाही",
+      "refPricePaise": 50000,
       "synonyms": ["kadai", "karahi", "kadahi", "iron kadhai", "wok"]
     },
     {
@@ -1224,6 +1385,7 @@
       "category": "household_kitchen",
       "nameEn": "tawa",
       "nameHi": "तवा",
+      "refPricePaise": 35000,
       "synonyms": ["tava", "roti tawa", "non stick tawa", "tawaa", "dosa tawa"]
     },
     {
@@ -1231,6 +1393,7 @@
       "category": "household_kitchen",
       "nameEn": "frying pan",
       "nameHi": "फ्राइंग पैन",
+      "refPricePaise": 45000,
       "synonyms": ["fry pan", "non stick pan", "frypan", "tadka pan"]
     },
     {
@@ -1238,6 +1401,7 @@
       "category": "household_kitchen",
       "nameEn": "steel plate",
       "nameHi": "स्टील की थाली",
+      "refPricePaise": 12000,
       "synonyms": ["thali", "steel thali", "khana plate", "steel plate set", "thaali"]
     },
     {
@@ -1245,6 +1409,7 @@
       "category": "household_kitchen",
       "nameEn": "steel glass",
       "nameHi": "स्टील का गिलास",
+      "refPricePaise": 6000,
       "synonyms": ["glass steel", "gilas", "gilaas", "steel gilas", "water glass"]
     },
     {
@@ -1252,6 +1417,7 @@
       "category": "household_kitchen",
       "nameEn": "spoon set",
       "nameHi": "चम्मच",
+      "refPricePaise": 20000,
       "synonyms": ["chammach", "chamach", "spoons", "steel spoon", "chamcha"]
     },
     {
@@ -1259,6 +1425,7 @@
       "category": "household_kitchen",
       "nameEn": "kitchen knife",
       "nameHi": "चाकू",
+      "refPricePaise": 15000,
       "synonyms": ["chaku", "chaaku", "chaaqu", "sabzi knife", "knife"]
     },
     {
@@ -1266,6 +1433,7 @@
       "category": "household_kitchen",
       "nameEn": "peeler",
       "nameHi": "छीलने वाला",
+      "refPricePaise": 5000,
       "synonyms": ["vegetable peeler", "chheelne wala", "peler", "potato peeler", "chilka peeler"]
     },
     {
@@ -1273,6 +1441,7 @@
       "category": "household_kitchen",
       "nameEn": "container set",
       "nameHi": "डिब्बा सेट",
+      "refPricePaise": 40000,
       "synonyms": ["storage container", "plastic dabba", "kitchen dabba"]
     },
     {
@@ -1280,6 +1449,7 @@
       "category": "household_kitchen",
       "nameEn": "thermos flask",
       "nameHi": "थर्मस",
+      "refPricePaise": 60000,
       "synonyms": ["thermos", "flask", "hot flask", "tea flask", "thermas"]
     },
     {
@@ -1287,6 +1457,7 @@
       "category": "household_kitchen",
       "nameEn": "broom",
       "nameHi": "झाड़ू",
+      "refPricePaise": 12000,
       "synonyms": ["jhadu", "jhaadu", "jhadoo", "phool jhadu", "safai jhadu"]
     },
     {
@@ -1294,6 +1465,7 @@
       "category": "household_kitchen",
       "nameEn": "floor mop",
       "nameHi": "पोछा",
+      "refPricePaise": 35000,
       "synonyms": ["pocha", "pochha", "mop", "pocha stick", "mop stick"]
     },
     {
@@ -1301,6 +1473,7 @@
       "category": "household_kitchen",
       "nameEn": "dustbin",
       "nameHi": "कूड़ेदान",
+      "refPricePaise": 25000,
       "synonyms": ["kude ka dabba", "kooda dan", "dustbin plastic", "kachra dabba", "dastbin"]
     },
     {
@@ -1308,6 +1481,7 @@
       "category": "household_kitchen",
       "nameEn": "plastic bucket",
       "nameHi": "बाल्टी",
+      "refPricePaise": 15000,
       "synonyms": ["balti", "baalti", "bucket", "plastic balti", "baltee"]
     },
     {
@@ -1315,6 +1489,7 @@
       "category": "household_kitchen",
       "nameEn": "plastic mug",
       "nameHi": "मग",
+      "refPricePaise": 4000,
       "synonyms": ["mug", "bathroom mug", "plastic mugga", "mugga", "mag"]
     },
     {
@@ -1322,6 +1497,7 @@
       "category": "household_kitchen",
       "nameEn": "detergent powder",
       "nameHi": "कपड़े धोने का पाउडर",
+      "refPricePaise": 12000,
       "synonyms": ["surf", "surf excel", "washing powder", "kapde dhone ka powder", "ariel"]
     },
     {
@@ -1329,6 +1505,7 @@
       "category": "household_kitchen",
       "nameEn": "dishwash liquid",
       "nameHi": "बर्तन धोने का लिक्विड",
+      "refPricePaise": 11000,
       "synonyms": ["vim", "vim liquid", "bartan dhone ka sabun", "dish wash", "dishwash gel"]
     },
     {
@@ -1336,6 +1513,7 @@
       "category": "household_kitchen",
       "nameEn": "floor cleaner",
       "nameHi": "फर्श क्लीनर",
+      "refPricePaise": 12000,
       "synonyms": ["phenyl", "phenol", "lizol", "pocha liquid", "floor safai liquid"]
     },
     {
@@ -1343,6 +1521,7 @@
       "category": "household_kitchen",
       "nameEn": "toilet cleaner",
       "nameHi": "टॉयलेट क्लीनर",
+      "refPricePaise": 10000,
       "synonyms": ["harpic", "toilet safai", "toilet clener", "bathroom cleaner", "toilet acid"]
     },
     {
@@ -1350,6 +1529,7 @@
       "category": "household_kitchen",
       "nameEn": "scrub pad",
       "nameHi": "स्क्रब पैड",
+      "refPricePaise": 2000,
       "synonyms": ["scotch brite", "steel scrubber", "bartan scrubber", "scrubber", "jhama"]
     },
     {
@@ -1357,6 +1537,7 @@
       "category": "household_kitchen",
       "nameEn": "garbage bags",
       "nameHi": "कचरा थैली",
+      "refPricePaise": 8000,
       "synonyms": ["dustbin bags", "kachra bag", "garbage bag", "kude ki thaili", "dustbin liner"]
     },
     {
@@ -1364,6 +1545,7 @@
       "category": "household_kitchen",
       "nameEn": "aluminium foil",
       "nameHi": "एल्युमिनियम फॉयल",
+      "refPricePaise": 10000,
       "synonyms": ["silver foil", "foil paper", "aluminum foil", "roti foil", "alu foil"]
     },
     {
@@ -1371,6 +1553,7 @@
       "category": "household_kitchen",
       "nameEn": "matchbox",
       "nameHi": "माचिस",
+      "refPricePaise": 200,
       "synonyms": ["machis", "maachis", "diyasalai", "match box", "machhis"]
     },
     {
@@ -1378,6 +1561,7 @@
       "category": "household_kitchen",
       "nameEn": "candle",
       "nameHi": "मोमबत्ती",
+      "refPricePaise": 2000,
       "synonyms": ["mombatti", "mom batti", "mombati", "white candle", "candles"]
     },
     {
@@ -1385,6 +1569,7 @@
       "category": "household_kitchen",
       "nameEn": "mosquito coil",
       "nameHi": "मच्छर कॉइल",
+      "refPricePaise": 6000,
       "synonyms": [
         "machhar coil",
         "macchar coil",
@@ -1398,6 +1583,7 @@
       "category": "household_kitchen",
       "nameEn": "incense sticks",
       "nameHi": "अगरबत्ती",
+      "refPricePaise": 5000,
       "synonyms": ["agarbati", "agarbathi", "dhoop", "incense", "pooja agarbatti"]
     },
     {
@@ -1405,6 +1591,7 @@
       "category": "household_kitchen",
       "nameEn": "clothes hangers",
       "nameHi": "हैंगर",
+      "refPricePaise": 10000,
       "synonyms": ["hanger", "hengar", "kapde ka hanger", "plastic hanger", "hangers"]
     },
     {
@@ -1412,6 +1599,7 @@
       "category": "household_kitchen",
       "nameEn": "clothes clips",
       "nameHi": "कपड़े की क्लिप",
+      "refPricePaise": 4000,
       "synonyms": ["kapde ki clip", "cloth clips", "clothes pegs"]
     },
     {
@@ -1419,6 +1607,7 @@
       "category": "household_kitchen",
       "nameEn": "gas lighter",
       "nameHi": "गैस लाइटर",
+      "refPricePaise": 8000,
       "synonyms": [
         "lighter",
         "gas lighter long",
@@ -1432,6 +1621,7 @@
       "category": "household_kitchen",
       "nameEn": "tissue paper",
       "nameHi": "टिश्यू पेपर",
+      "refPricePaise": 5000,
       "synonyms": ["tissue", "tissues", "paper napkin", "tisu"]
     },
     {
@@ -1439,6 +1629,7 @@
       "category": "personal_care",
       "nameEn": "bath soap",
       "nameHi": "साबुन",
+      "refPricePaise": 3500,
       "synonyms": ["sabun", "sabun bar", "lux soap", "nahane ka sabun", "saboon"]
     },
     {
@@ -1446,6 +1637,7 @@
       "category": "personal_care",
       "nameEn": "shampoo",
       "nameHi": "शैम्पू",
+      "refPricePaise": 18000,
       "synonyms": ["shampu", "shampoo sachet", "head and shoulders", "sampoo", "shampoo bottle"]
     },
     {
@@ -1453,6 +1645,7 @@
       "category": "personal_care",
       "nameEn": "toothpaste",
       "nameHi": "टूथपेस्ट",
+      "refPricePaise": 9000,
       "synonyms": ["colgate", "tooth paste", "dant manjan", "manjan"]
     },
     {
@@ -1460,6 +1653,7 @@
       "category": "personal_care",
       "nameEn": "toothbrush",
       "nameHi": "टूथब्रश",
+      "refPricePaise": 4000,
       "synonyms": ["tooth brush", "brush dant", "colgate brush", "dant brush", "toothbrus"]
     },
     {
@@ -1467,6 +1661,7 @@
       "category": "personal_care",
       "nameEn": "hair oil",
       "nameHi": "बालों का तेल",
+      "refPricePaise": 10000,
       "synonyms": ["baal tel", "coconut oil", "nariyal tel", "parachute oil", "bal ka tel"]
     },
     {
@@ -1474,6 +1669,7 @@
       "category": "personal_care",
       "nameEn": "face wash",
       "nameHi": "फेस वॉश",
+      "refPricePaise": 15000,
       "synonyms": ["facewash", "face wash gel", "chehra dhone ka", "fash wash", "face wassh"]
     },
     {
@@ -1481,6 +1677,7 @@
       "category": "personal_care",
       "nameEn": "body lotion",
       "nameHi": "बॉडी लोशन",
+      "refPricePaise": 25000,
       "synonyms": ["lotion", "moisturiser", "cold cream", "vaseline lotion"]
     },
     {
@@ -1488,6 +1685,7 @@
       "category": "personal_care",
       "nameEn": "deodorant",
       "nameHi": "डियोडरेंट",
+      "refPricePaise": 20000,
       "synonyms": ["deo", "deodrant", "body spray", "perfume spray", "deo spray"]
     },
     {
@@ -1495,6 +1693,7 @@
       "category": "personal_care",
       "nameEn": "razor",
       "nameHi": "रेज़र",
+      "refPricePaise": 5000,
       "synonyms": ["shaving razor", "gillette", "rezar", "razer"]
     },
     {
@@ -1502,6 +1701,7 @@
       "category": "personal_care",
       "nameEn": "shaving cream",
       "nameHi": "शेविंग क्रीम",
+      "refPricePaise": 10000,
       "synonyms": ["shaving foam", "shave cream", "daadhi cream", "saving cream", "shaving gel"]
     },
     {
@@ -1509,6 +1709,7 @@
       "category": "personal_care",
       "nameEn": "sanitary pads",
       "nameHi": "सैनिटरी पैड",
+      "refPricePaise": 5000,
       "synonyms": ["whisper", "sanitary napkin", "period pads", "stayfree"]
     },
     {
@@ -1516,6 +1717,7 @@
       "category": "personal_care",
       "nameEn": "hand wash",
       "nameHi": "हैंडवॉश",
+      "refPricePaise": 9900,
       "synonyms": [
         "handwash",
         "liquid soap",
@@ -1529,6 +1731,7 @@
       "category": "personal_care",
       "nameEn": "comb",
       "nameHi": "कंघी",
+      "refPricePaise": 2000,
       "synonyms": ["kanghi", "kangi", "hair comb", "kanghaa", "kangha"]
     },
     {
@@ -1536,6 +1739,7 @@
       "category": "personal_care",
       "nameEn": "talcum powder",
       "nameHi": "टैल्कम पाउडर",
+      "refPricePaise": 12000,
       "synonyms": ["tailkam", "baby powder", "pond's powder", "body powder"]
     },
     {
@@ -1543,6 +1747,7 @@
       "category": "personal_care",
       "nameEn": "sunscreen",
       "nameHi": "सनस्क्रीन",
+      "refPricePaise": 30000,
       "synonyms": ["sunscreen lotion", "sun cream", "sunblock", "suncream", "sunscrin"]
     },
     {
@@ -1550,6 +1755,7 @@
       "category": "personal_care",
       "nameEn": "cotton buds",
       "nameHi": "कान सफाई",
+      "refPricePaise": 5000,
       "synonyms": ["ear buds", "q tips", "cotton ear bud", "kaan saaf karne wala", "cotton bud"]
     },
     {
@@ -1557,6 +1763,7 @@
       "category": "personal_care",
       "nameEn": "nail cutter",
       "nameHi": "नेल कटर",
+      "refPricePaise": 4000,
       "synonyms": [
         "nakhun katne wala",
         "nail clipper",
@@ -1570,6 +1777,7 @@
       "category": "personal_care",
       "nameEn": "hand sanitizer",
       "nameHi": "सैनिटाइज़र",
+      "refPricePaise": 8000,
       "synonyms": ["sanitizer", "sanitiser", "hand sanitiser", "sanitizer bottle", "sanitaijar"]
     },
     {
@@ -1577,6 +1785,7 @@
       "category": "personal_care",
       "nameEn": "petroleum jelly",
       "nameHi": "वैसलीन",
+      "refPricePaise": 10000,
       "synonyms": ["vaseline", "vasline", "petroleum jelly", "lip balm", "vaseline jelly"]
     },
     {
@@ -1584,6 +1793,7 @@
       "category": "personal_care",
       "nameEn": "kajal",
       "nameHi": "काजल",
+      "refPricePaise": 9900,
       "synonyms": ["kajol", "kaajal", "eye kajal", "lakme kajal", "kajal pencil"]
     },
     {
@@ -1591,6 +1801,7 @@
       "category": "general_store",
       "nameEn": "cold drink",
       "nameHi": "कोल्ड ड्रिंक",
+      "refPricePaise": 4000,
       "synonyms": ["cold drinks", "coke", "pepsi", "thanda", "soft drink"]
     },
     {
@@ -1598,6 +1809,7 @@
       "category": "general_store",
       "nameEn": "mineral water",
       "nameHi": "मिनरल वाटर",
+      "refPricePaise": 2000,
       "synonyms": [
         "sealed water bottle",
         "bisleri",
@@ -1611,6 +1823,7 @@
       "category": "general_store",
       "nameEn": "chips",
       "nameHi": "चिप्स",
+      "refPricePaise": 2000,
       "synonyms": ["lays", "wafers", "potato chips", "kurkure", "chip packet"]
     },
     {
@@ -1618,6 +1831,7 @@
       "category": "general_store",
       "nameEn": "chocolate",
       "nameHi": "चॉकलेट",
+      "refPricePaise": 4000,
       "synonyms": ["choclate", "dairy milk", "chocolates", "chocolate bar", "cadbury"]
     },
     {
@@ -1625,6 +1839,7 @@
       "category": "general_store",
       "nameEn": "ice cream",
       "nameHi": "आइसक्रीम",
+      "refPricePaise": 3000,
       "synonyms": ["icecream", "ice-cream cup", "kulfi", "ice cream cone", "aaiskrim"]
     },
     {
@@ -1632,6 +1847,7 @@
       "category": "general_store",
       "nameEn": "chewing gum",
       "nameHi": "च्युइंग गम",
+      "refPricePaise": 500,
       "synonyms": ["bubble gum", "chewing gam", "chuing gum", "mint gum"]
     },
     {
@@ -1639,6 +1855,7 @@
       "category": "general_store",
       "nameEn": "fruit juice",
       "nameHi": "फलों का जूस",
+      "refPricePaise": 2500,
       "synonyms": ["juice", "juice packet", "real juice", "maaza"]
     },
     {
@@ -1646,6 +1863,7 @@
       "category": "general_store",
       "nameEn": "umbrella",
       "nameHi": "छाता",
+      "refPricePaise": 35000,
       "synonyms": ["chhata", "chata", "chhatri", "barish ka chata", "umbrela"]
     },
     {
@@ -1653,6 +1871,7 @@
       "category": "general_store",
       "nameEn": "raincoat",
       "nameHi": "रेनकोट",
+      "refPricePaise": 40000,
       "synonyms": ["rain coat", "barsati", "barsaati", "rainkot", "plastic raincoat"]
     },
     {
@@ -1660,6 +1879,7 @@
       "category": "general_store",
       "nameEn": "plastic bags",
       "nameHi": "पॉलीथिन",
+      "refPricePaise": 3000,
       "synonyms": ["polythene", "polythin", "carry bag", "thaili", "thaila"]
     },
     {
@@ -1667,6 +1887,7 @@
       "category": "general_store",
       "nameEn": "rubber bands",
       "nameHi": "रबर बैंड",
+      "refPricePaise": 2000,
       "synonyms": ["rubber band", "rubber ring", "elastic band", "reeber band"]
     },
     {
@@ -1674,6 +1895,7 @@
       "category": "general_store",
       "nameEn": "safety pins",
       "nameHi": "सेफ्टी पिन",
+      "refPricePaise": 1500,
       "synonyms": ["safety pin", "sefti pin", "kapde ki pin", "safti pin"]
     },
     {
@@ -1681,6 +1903,7 @@
       "category": "general_store",
       "nameEn": "needle and thread",
       "nameHi": "सुई धागा",
+      "refPricePaise": 2000,
       "synonyms": ["sui dhaga", "needle thread", "dhaga", "sui", "sewing kit"]
     },
     {
@@ -1688,6 +1911,7 @@
       "category": "general_store",
       "nameEn": "playing cards",
       "nameHi": "ताश",
+      "refPricePaise": 6000,
       "synonyms": ["tash", "taash", "cards", "deck of cards", "patte"]
     }
   ]

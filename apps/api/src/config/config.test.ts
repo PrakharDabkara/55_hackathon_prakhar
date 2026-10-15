@@ -24,6 +24,35 @@ describe('loadConfig', () => {
       maxPingsPerRequest: 10,
       pingDedupeMinutes: 30,
       workersEnabled: true,
+      adminPhones: [],
+    });
+  });
+
+  describe('ADMIN_PHONES', () => {
+    it('is empty by default, so there is no admin (fails closed)', () => {
+      expect(loadConfig(valid).adminPhones).toEqual([]);
+      expect(loadConfig({ ...valid, ADMIN_PHONES: '' }).adminPhones).toEqual([]);
+      expect(loadConfig({ ...valid, ADMIN_PHONES: ' , ,' }).adminPhones).toEqual([]);
+    });
+
+    it('reads a comma-separated list and normalises each phone', () => {
+      const config = loadConfig({
+        ...valid,
+        ADMIN_PHONES: '9876543210, +91 98765 43211 ,09876543212',
+      });
+      expect(config.adminPhones).toEqual(['+919876543210', '+919876543211', '+919876543212']);
+    });
+
+    it('fails fast on a bad phone, naming the variable and never its value', () => {
+      let message = '';
+      try {
+        loadConfig({ ...valid, ADMIN_PHONES: '9876543210,12345' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/ADMIN_PHONES/);
+      expect(message).not.toContain('12345');
+      expect(message).not.toContain('9876543210');
     });
   });
 

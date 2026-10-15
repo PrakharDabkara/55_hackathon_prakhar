@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { Config } from '../config/config.js';
 import type { Database } from '../db/queryable.js';
+import type { EventPublisher } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
 import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
@@ -18,11 +19,14 @@ export function startWorkers({
   config,
   db,
   logger,
+  events,
   sweepEveryMs,
 }: {
   config: Config;
   db: Database;
   logger: Logger;
+  /** Realtime hints for pings sent and requests expired by the workers. */
+  events?: EventPublisher;
   sweepEveryMs?: number;
 }): Workers | null {
   if (!config.workersEnabled || !config.redisUrl) return null;
@@ -32,12 +36,14 @@ export function startWorkers({
     db,
     logger,
     config: { maxPings: config.maxPingsPerRequest, dedupeMinutes: config.pingDedupeMinutes },
+    ...(events && { events }),
   });
   const expiry = startRequestExpiry({
     redisUrl: config.redisUrl,
     db,
     logger,
     enqueueFanout: fanout.enqueue,
+    ...(events && { events }),
     ...(sweepEveryMs !== undefined && { sweepEveryMs }),
   });
 

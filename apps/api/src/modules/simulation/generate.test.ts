@@ -1,0 +1,82 @@
+import { CATEGORIES } from '@kahanmilega/shared';
+import { describe, expect, it } from 'vitest';
+import { generateShops } from './generate.js';
+
+const centre = { lat: 22.7196, lng: 75.8577 };
+const input = { count: 200, centre, radiusM: 3000, seed: 42 };
+
+/** Great-circle distance in metres; plenty accurate at 3 km. */
+function metres(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLng = (b.lng - a.lng) * rad;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6_371_000 * Math.asin(Math.sqrt(h));
+}
+
+describe('generateShops', () => {
+  it('is deterministic: the same seed gives the same shops, a different seed different ones', () => {
+    expect(generateShops(input)).toEqual(generateShops(input));
+    expect(generateShops({ ...input, seed: 43 })).not.toEqual(generateShops(input));
+  });
+
+  it('makes exactly the number asked for', () => {
+    for (const count of [1, 20, 500])
+      expect(generateShops({ ...input, count })).toHaveLength(count);
+  });
+
+  it('puts every shop inside the radius', () => {
+    for (const s of generateShops(input)) {
+      expect(metres(centre, s)).toBeLessThanOrEqual(input.radiusM + 1);
+    }
+  });
+
+  it('spreads shops over the area, not in one clump', () => {
+    const far = generateShops(input).filter((s) => metres(centre, s) > input.radiusM / 2);
+    expect(far.length).toBeGreaterThan(input.count / 2); // a disc has 75% of its area beyond half the radius
+  });
+
+  it('gives each shop one or two distinct valid categories', () => {
+    for (const s of generateShops(input)) {
+      expect(s.categories.length).toBeGreaterThanOrEqual(1);
+      expect(s.categories.length).toBeLessThanOrEqual(2);
+      expect(new Set(s.categories).size).toBe(s.categories.length);
+      for (const c of s.categories) expect(CATEGORIES).toContain(c);
+    }
+  });
+
+  it('mixes all 8 categories, with groceries the most common (as on a real street)', () => {
+    const shops = generateShops({ ...input, count: 500 });
+    const primary = new Map<string, number>();
+    for (const s of shops)
+      primary.set(s.categories[0] as string, (primary.get(s.categories[0] as string) ?? 0) + 1);
+    expect([...primary.keys()].sort()).toEqual([...CATEGORIES].sort());
+    const top = [...primary.entries()].sort((a, b) => b[1] - a[1])[0];
+    expect(top?.[0]).toBe('grocery');
+  });
+
+  it('gives Indian-style shop names that fit the first category', () => {
+    const shops = generateShops({ ...input, count: 500 });
+    for (const s of shops) {
+      expect(s.name.length).toBeGreaterThan(5);
+      expect(s.name.length).toBeLessThanOrEqual(80);
+      expect(s.name).toMatch(/^[A-Za-z][A-Za-z &'.-]+$/);
+    }
+    const grocery = shops.filter((s) => s.categories[0] === 'grocery').map((s) => s.name);
+    expect(grocery.some((n) => /Kirana|General|Provision|Stores?|Mart|Bhandar/i.test(n))).toBe(
+      true,
+    );
+    const hardware = shops.filter((s) => s.categories[0] === 'hardware').map((s) => s.name);
+    expect(hardware.some((n) => /Hardware|Paints|Tools/i.test(n))).toBe(true);
+    expect(new Set(shops.map((s) => s.name)).size).toBeGreaterThan(100); // varied, not one name 500 times
+  });
+
+  it('gives each shop a unique valid phone in a reserved block, so no real user is hit', () => {
+    const shops = generateShops({ ...input, count: 500 });
+    const phones = shops.map((s) => s.phone);
+    expect(new Set(phones).size).toBe(500);
+    for (const p of phones) expect(p).toMatch(/^\+9160\d{8}$/);
+  });
+});

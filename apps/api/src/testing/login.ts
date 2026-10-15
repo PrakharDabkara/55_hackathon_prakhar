@@ -9,5 +9,9 @@ export async function loginAs(app: App, role: 'seeker' | 'shop', phone: string) 
   const res = await request(app)
     .post('/auth/otp/verify')
     .send({ phone, code: inbox.body.code, role });
-  return { token: res.body.token as string, userId: res.body.user.id as string };
+  return {
+    token: res.body.token as string,
+    userId: res.body.user.id as string,
+    role: res.body.user.role as string,
+  };
 }
