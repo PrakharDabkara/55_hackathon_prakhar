@@ -1,7 +1,7 @@
 import type { Logger } from 'pino';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
-import { getItem } from '../catalog/index.js';
+import { getItem, getRefPricePaise } from '../catalog/index.js';
 import {
   findLearnedStock,
   findShopsWithinRadius,
@@ -95,7 +95,7 @@ export async function fanOutPings(
   const giveBack = () =>
     Promise.all(claimed.map((shopId) => claims.release(shopId, request.itemId)));
 
-  let sent: { id: string; ownerUserId: string | null }[] | null;
+  let sent: { id: string; shopId: string; ownerUserId: string | null; simulated: boolean }[] | null;
   try {
     sent = await withTransaction(db, async (tx) => {
       const live = await tx.query<{ ok: boolean }>(
@@ -103,17 +103,28 @@ export async function fanOutPings(
         [requestId],
       );
       if (!live.rows[0]?.ok) return null;
-      const inserted = await tx.query<{ id: string; owner_user_id: string | null }>(
+      const inserted = await tx.query<{
+        id: string;
+        shop_id: string;
+        owner_user_id: string | null;
+        is_simulated: boolean;
+      }>(
         `WITH ins AS (
            INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
            SELECT $1, shop_id, $3, 'SENT', now() FROM unnest($2::uuid[]) AS shop_id
            ON CONFLICT (request_id, shop_id) DO NOTHING
            RETURNING id, shop_id
          )
-         SELECT ins.id, s.owner_user_id FROM ins JOIN shops s ON s.id = ins.shop_id`,
+         SELECT ins.id, ins.shop_id, s.owner_user_id, s.is_simulated
+           FROM ins JOIN shops s ON s.id = ins.shop_id`,
         [requestId, claimed, request.itemId],
       );
-      return inserted.rows.map((r) => ({ id: r.id, ownerUserId: r.owner_user_id }));
+      return inserted.rows.map((r) => ({
+        id: r.id,
+        shopId: r.shop_id,
+        ownerUserId: r.owner_user_id,
+        simulated: r.is_simulated,
+      }));
     });
   } catch (err) {
     await giveBack();
@@ -130,12 +141,31 @@ export async function fanOutPings(
     'ping fan-out',
   );
   // After the commit: a shop told about a ping must be able to fetch it.
+  const refPricePaise = sent.some((p) => p.simulated) ? await getRefPricePaise(db, item.id) : null;
   for (const ping of sent) {
-    if (!ping.ownerUserId) continue;
-    deps.events?.publish(
-      { to: { userId: ping.ownerUserId }, type: 'ping.created', data: { pingId: ping.id } },
-      logger,
-    );
+    if (ping.ownerUserId) {
+      deps.events?.publish(
+        { to: { userId: ping.ownerUserId }, type: 'ping.created', data: { pingId: ping.id } },
+        logger,
+      );
+    }
+    // The simulator listens on one admin stream for every simulated shop, so it gets what it
+    // needs to decide: which shop, which item, and the reference price.
+    if (ping.simulated) {
+      deps.events?.publish(
+        {
+          to: { admin: true },
+          type: 'ping.created',
+          data: {
+            pingId: ping.id,
+            shopId: ping.shopId,
+            item: { slug: item.slug, nameEn: item.nameEn },
+            refPricePaise,
+          },
+        },
+        logger,
+      );
+    }
   }
   return { targets: targets.length, sent: sent.length };
 }

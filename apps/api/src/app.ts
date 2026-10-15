@@ -9,6 +9,7 @@ import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
+import { simulationRouter } from './modules/simulation/index.js';
 import { searchRouter } from './modules/search/index.js';
 import { shopsRouter } from './modules/shops/index.js';
 import type { Database } from './db/queryable.js';
@@ -58,8 +59,12 @@ export function createApp({
   app.use(express.json({ limit: '10kb' }));
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
   app.use(webRouter({ distDir: webDistDir, logger }));
-  app.use(identityRouter({ db, logger, otpMode: config.otpMode }));
+  app.use(identityRouter({ db, logger, otpMode: config.otpMode, adminPhones: config.adminPhones }));
   app.use(realtimeRouter({ db, realtime }));
+  // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
+  if (config.adminPhones.length > 0) {
+    app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
+  }
   app.use(shopsRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold }));
   app.use(

@@ -69,6 +69,7 @@ const item = (slug: string, synonyms: string[], nameEn = slug, nameHi = `ना�
   category: 'grocery' as const,
   nameEn,
   nameHi,
+  refPricePaise: 1000,
   synonyms,
 });
 

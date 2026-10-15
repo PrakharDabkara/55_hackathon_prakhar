@@ -17,16 +17,18 @@ export async function seedCatalog(
   checkCatalog(catalog);
   return withTransaction(db, async (tx) => {
     const { rows } = await tx.query<{ id: string; slug: string }>(
-      `INSERT INTO items (slug, name_en, name_hi, category)
-       SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[])
+      `INSERT INTO items (slug, name_en, name_hi, category, ref_price_paise)
+       SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[])
        ON CONFLICT (slug) DO UPDATE
-         SET name_en = EXCLUDED.name_en, name_hi = EXCLUDED.name_hi, category = EXCLUDED.category
+         SET name_en = EXCLUDED.name_en, name_hi = EXCLUDED.name_hi, category = EXCLUDED.category,
+             ref_price_paise = EXCLUDED.ref_price_paise
        RETURNING id, slug`,
       [
         catalog.items.map((i) => i.slug),
         catalog.items.map((i) => i.nameEn),
         catalog.items.map((i) => i.nameHi),
         catalog.items.map((i) => i.category),
+        catalog.items.map((i) => i.refPricePaise),
       ],
     );
     const idBySlug = new Map(rows.map((r) => [r.slug, r.id]));

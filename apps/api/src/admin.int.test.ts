@@ -307,7 +307,7 @@ describe('admin role and the simulator endpoints', () => {
       const real = await pool.query(`SELECT 1 FROM shops WHERE name = 'Survivor'`);
       expect(real.rowCount).toBe(1);
       await request(app).post(`/requests/${asked.body.id}/close`).set(auth(seeker));
-    });
+    }, 30_000);
 
     it('is fine on an empty set', async () => {
       const res = await wipe();

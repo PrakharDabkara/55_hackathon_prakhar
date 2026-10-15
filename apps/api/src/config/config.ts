@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalisePhone } from '../modules/identity/index.js';
 
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
@@ -24,6 +25,28 @@ const schema = z
     PING_DEDUPE_MINUTES: z.coerce.number().int().min(1).default(30),
     // Run the request-expiry worker inside the API process.
     WORKERS_ENABLED: bool.default(true),
+    // Phones that become admin on login. Empty (the default) means no admin exists and every
+    // admin endpoint answers 404: fail closed. The simulator needs one; set it by hand on the host.
+    ADMIN_PHONES: z
+      .string()
+      .default('')
+      .transform((raw, ctx) => {
+        const phones: string[] = [];
+        for (const part of raw.split(',').map((p) => p.trim())) {
+          if (!part) continue;
+          const phone = normalisePhone(part);
+          if (!phone) {
+            // The message never repeats the value: it is a phone number.
+            ctx.addIssue({
+              code: 'custom',
+              message: 'must be a comma-separated list of Indian mobile numbers',
+            });
+            return z.NEVER;
+          }
+          phones.push(phone);
+        }
+        return phones;
+      }),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -53,6 +76,8 @@ export interface Config {
   maxPingsPerRequest: number;
   pingDedupeMinutes: number;
   workersEnabled: boolean;
+  /** E.164 phones that get the admin role on login. Empty: no admin. */
+  adminPhones: string[];
   gitSha: string;
 }
 
@@ -80,6 +105,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     maxPingsPerRequest: e.MAX_PINGS_PER_REQUEST,
     pingDedupeMinutes: e.PING_DEDUPE_MINUTES,
     workersEnabled: e.WORKERS_ENABLED,
+    adminPhones: e.ADMIN_PHONES,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }
