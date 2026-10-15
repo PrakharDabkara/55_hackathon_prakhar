@@ -1,0 +1,1687 @@
+{
+  "version": 1,
+  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog.",
+  "items": [
+    {
+      "slug": "wheat-flour",
+      "category": "grocery",
+      "nameEn": "wheat flour",
+      "nameHi": "आटा",
+      "synonyms": ["aata", "atta", "gehun ka atta", "gehun ka aata", "chakki atta", "ata"]
+    },
+    {
+      "slug": "rice",
+      "category": "grocery",
+      "nameEn": "rice",
+      "nameHi": "चावल",
+      "synonyms": ["chawal", "chaval", "chaawal", "raw rice", "sada chawal"]
+    },
+    {
+      "slug": "basmati-rice",
+      "category": "grocery",
+      "nameEn": "basmati rice",
+      "nameHi": "बासमती चावल",
+      "synonyms": ["basmati", "basmati chawal", "basmati chaval", "basamati rice"]
+    },
+    {
+      "slug": "sugar",
+      "category": "grocery",
+      "nameEn": "sugar",
+      "nameHi": "चीनी",
+      "synonyms": ["cheeni", "chini", "shakkar", "sakkar", "shakar"]
+    },
+    {
+      "slug": "salt",
+      "category": "grocery",
+      "nameEn": "salt",
+      "nameHi": "नमक",
+      "synonyms": ["namak", "namk", "tata namak", "iodised salt", "sendha namak"]
+    },
+    {
+      "slug": "toor-dal",
+      "category": "grocery",
+      "nameEn": "toor dal",
+      "nameHi": "तुअर दाल",
+      "synonyms": ["arhar dal", "tur dal", "tuar dal", "arhar ki dal", "अरहर दाल"]
+    },
+    {
+      "slug": "moong-dal",
+      "category": "grocery",
+      "nameEn": "moong dal",
+      "nameHi": "मूंग दाल",
+      "synonyms": ["mung dal", "moong ki dal", "mong dal", "yellow moong dal"]
+    },
+    {
+      "slug": "chana-dal",
+      "category": "grocery",
+      "nameEn": "chana dal",
+      "nameHi": "चना दाल",
+      "synonyms": ["channa dal", "chane ki dal", "bengal gram dal", "chana daal"]
+    },
+    {
+      "slug": "urad-dal",
+      "category": "grocery",
+      "nameEn": "urad dal",
+      "nameHi": "उड़द दाल",
+      "synonyms": ["udad dal", "urad ki dal", "black gram dal", "urad daal"]
+    },
+    {
+      "slug": "masoor-dal",
+      "category": "grocery",
+      "nameEn": "masoor dal",
+      "nameHi": "मसूर दाल",
+      "synonyms": ["masur dal", "lal dal", "red lentils", "masoor daal"]
+    },
+    {
+      "slug": "rajma",
+      "category": "grocery",
+      "nameEn": "rajma",
+      "nameHi": "राजमा",
+      "synonyms": ["rajmah", "rajma dal", "kidney beans", "red kidney beans"]
+    },
+    {
+      "slug": "kabuli-chana",
+      "category": "grocery",
+      "nameEn": "chickpeas",
+      "nameHi": "काबुली चना",
+      "synonyms": ["chole", "chhole", "kabuli chana", "safed chana", "chhole chana"]
+    },
+    {
+      "slug": "poha",
+      "category": "grocery",
+      "nameEn": "poha",
+      "nameHi": "पोहा",
+      "synonyms": ["pohe", "flattened rice", "chivda poha", "aval"]
+    },
+    {
+      "slug": "suji",
+      "category": "grocery",
+      "nameEn": "semolina",
+      "nameHi": "सूजी",
+      "synonyms": ["suji", "sooji", "rava", "rawa", "सूजी रवा"]
+    },
+    {
+      "slug": "maida",
+      "category": "grocery",
+      "nameEn": "refined flour",
+      "nameHi": "मैदा",
+      "synonyms": ["maida", "maidaa", "all purpose flour", "maida atta"]
+    },
+    {
+      "slug": "besan",
+      "category": "grocery",
+      "nameEn": "gram flour",
+      "nameHi": "बेसन",
+      "synonyms": ["besan", "beshan", "chickpea flour", "besan atta"]
+    },
+    {
+      "slug": "refined-oil",
+      "category": "grocery",
+      "nameEn": "refined oil",
+      "nameHi": "रिफाइंड तेल",
+      "synonyms": ["refined tel", "sunflower oil", "soyabean oil", "cooking oil", "khane ka tel"]
+    },
+    {
+      "slug": "mustard-oil",
+      "category": "grocery",
+      "nameEn": "mustard oil",
+      "nameHi": "सरसों का तेल",
+      "synonyms": ["sarson ka tel", "sarso tel", "sarson tel", "kachi ghani oil"]
+    },
+    {
+      "slug": "ghee",
+      "category": "grocery",
+      "nameEn": "ghee",
+      "nameHi": "घी",
+      "synonyms": ["desi ghee", "ghi", "clarified butter", "amul ghee"]
+    },
+    {
+      "slug": "tea-leaves",
+      "category": "grocery",
+      "nameEn": "tea leaves",
+      "nameHi": "चायपत्ती",
+      "synonyms": ["chai patti", "chaipatti", "chai ki patti", "tea powder", "chai patti packet"]
+    },
+    {
+      "slug": "coffee",
+      "category": "grocery",
+      "nameEn": "coffee powder",
+      "nameHi": "कॉफी",
+      "synonyms": ["coffee", "kofi", "instant coffee", "nescafe"]
+    },
+    {
+      "slug": "milk",
+      "category": "grocery",
+      "nameEn": "milk",
+      "nameHi": "दूध",
+      "synonyms": ["doodh", "dudh", "packet milk", "amul milk", "toned milk"]
+    },
+    {
+      "slug": "curd",
+      "category": "grocery",
+      "nameEn": "curd",
+      "nameHi": "दही",
+      "synonyms": ["dahi", "dahee", "yogurt", "yoghurt"]
+    },
+    {
+      "slug": "paneer",
+      "category": "grocery",
+      "nameEn": "paneer",
+      "nameHi": "पनीर",
+      "synonyms": ["panir", "cottage cheese", "paneer packet"]
+    },
+    {
+      "slug": "butter",
+      "category": "grocery",
+      "nameEn": "butter",
+      "nameHi": "मक्खन",
+      "synonyms": ["makhan", "amul butter", "makkhan", "butter packet"]
+    },
+    {
+      "slug": "bread",
+      "category": "grocery",
+      "nameEn": "bread",
+      "nameHi": "ब्रेड",
+      "synonyms": ["double roti", "pav", "sliced bread", "brown bread", "bread packet"]
+    },
+    {
+      "slug": "eggs",
+      "category": "grocery",
+      "nameEn": "eggs",
+      "nameHi": "अंडे",
+      "synonyms": ["ande", "anda", "egg", "ande tray"]
+    },
+    {
+      "slug": "biscuits",
+      "category": "grocery",
+      "nameEn": "biscuits",
+      "nameHi": "बिस्कुट",
+      "synonyms": ["biscuit", "biskut", "biscuts", "parle g", "glucose biscuit"]
+    },
+    {
+      "slug": "namkeen",
+      "category": "grocery",
+      "nameEn": "namkeen",
+      "nameHi": "नमकीन",
+      "synonyms": ["namkin", "bhujia", "aloo bhujia", "sev namkeen"]
+    },
+    {
+      "slug": "noodles",
+      "category": "grocery",
+      "nameEn": "instant noodles",
+      "nameHi": "नूडल्स",
+      "synonyms": ["maggi", "maggie", "maggi noodles", "noodle", "magi"]
+    },
+    {
+      "slug": "jaggery",
+      "category": "grocery",
+      "nameEn": "jaggery",
+      "nameHi": "गुड़",
+      "synonyms": ["gud", "gur", "gudh", "jaggery block"]
+    },
+    {
+      "slug": "turmeric-powder",
+      "category": "grocery",
+      "nameEn": "turmeric powder",
+      "nameHi": "हल्दी",
+      "synonyms": ["haldi", "haldi powder", "haldee", "turmeric"]
+    },
+    {
+      "slug": "red-chilli-powder",
+      "category": "grocery",
+      "nameEn": "red chilli powder",
+      "nameHi": "लाल मिर्च पाउडर",
+      "synonyms": ["lal mirch", "lal mirch powder", "mirchi powder", "chilli powder", "laal mirchi"]
+    },
+    {
+      "slug": "coriander-powder",
+      "category": "grocery",
+      "nameEn": "coriander powder",
+      "nameHi": "धनिया पाउडर",
+      "synonyms": ["dhaniya powder", "dhania powder", "dhaniya", "dhania"]
+    },
+    {
+      "slug": "cumin-seeds",
+      "category": "grocery",
+      "nameEn": "cumin seeds",
+      "nameHi": "जीरा",
+      "synonyms": ["jeera", "zeera", "jira", "cumin", "jeera seeds"]
+    },
+    {
+      "slug": "garam-masala",
+      "category": "grocery",
+      "nameEn": "garam masala",
+      "nameHi": "गरम मसाला",
+      "synonyms": ["garam masala powder", "garm masala", "masala", "everest garam masala"]
+    },
+    {
+      "slug": "onion",
+      "category": "grocery",
+      "nameEn": "onion",
+      "nameHi": "प्याज",
+      "synonyms": ["pyaz", "pyaaz", "onions", "kanda", "pyaj"]
+    },
+    {
+      "slug": "potato",
+      "category": "grocery",
+      "nameEn": "potato",
+      "nameHi": "आलू",
+      "synonyms": ["aloo", "alu", "aalu", "potatoes", "batata"]
+    },
+    {
+      "slug": "tomato",
+      "category": "grocery",
+      "nameEn": "tomato",
+      "nameHi": "टमाटर",
+      "synonyms": ["tamatar", "tamater", "tomatoes", "tamatar kilo"]
+    },
+    {
+      "slug": "oats",
+      "category": "grocery",
+      "nameEn": "oats",
+      "nameHi": "ओट्स",
+      "synonyms": ["oat", "rolled oats", "quaker oats", "oats packet"]
+    },
+    {
+      "slug": "cornflakes",
+      "category": "grocery",
+      "nameEn": "cornflakes",
+      "nameHi": "कॉर्नफ्लेक्स",
+      "synonyms": ["corn flakes", "kellogs", "kellogg's", "cornflake", "breakfast cereal"]
+    },
+    {
+      "slug": "honey",
+      "category": "grocery",
+      "nameEn": "honey",
+      "nameHi": "शहद",
+      "synonyms": ["shahad", "madhu", "sahad", "dabur honey"]
+    },
+    {
+      "slug": "tomato-ketchup",
+      "category": "grocery",
+      "nameEn": "tomato ketchup",
+      "nameHi": "टमाटर केचप",
+      "synonyms": ["ketchup", "kechup", "sauce bottle", "tomato sauce"]
+    },
+    {
+      "slug": "pasta",
+      "category": "grocery",
+      "nameEn": "pasta",
+      "nameHi": "पास्ता",
+      "synonyms": ["macaroni", "penne", "pasta packet", "pastaa"]
+    },
+    {
+      "slug": "hammer",
+      "category": "hardware",
+      "nameEn": "hammer",
+      "nameHi": "हथौड़ा",
+      "synonyms": ["hathoda", "hathauda", "hathodi", "claw hammer", "hamer"]
+    },
+    {
+      "slug": "screwdriver",
+      "category": "hardware",
+      "nameEn": "screwdriver",
+      "nameHi": "पेचकस",
+      "synonyms": ["pechkas", "screw driver", "pench kas", "screwdriver set", "pechkash"]
+    },
+    {
+      "slug": "pliers",
+      "category": "hardware",
+      "nameEn": "pliers",
+      "nameHi": "प्लास",
+      "synonyms": ["plas", "pliers cutter", "pilas", "combination plier", "पाना पक्कड़"]
+    },
+    {
+      "slug": "spanner",
+      "category": "hardware",
+      "nameEn": "spanner",
+      "nameHi": "पाना",
+      "synonyms": ["pana", "spaner", "wrench", "ring spanner", "spanner set"]
+    },
+    {
+      "slug": "adjustable-wrench",
+      "category": "hardware",
+      "nameEn": "adjustable wrench",
+      "nameHi": "अडजस्टेबल पाना",
+      "synonyms": ["adjustable spanner", "pipe wrench", "adjustable pana", "multi wrench"]
+    },
+    {
+      "slug": "nails",
+      "category": "hardware",
+      "nameEn": "nails",
+      "nameHi": "कील",
+      "synonyms": ["keel", "keele", "nail", "wire nails", "keel packet"]
+    },
+    {
+      "slug": "screws",
+      "category": "hardware",
+      "nameEn": "screws",
+      "nameHi": "पेंच",
+      "synonyms": ["pench", "screw", "wood screws", "screws packet", "skru"]
+    },
+    {
+      "slug": "nuts-and-bolts",
+      "category": "hardware",
+      "nameEn": "nuts and bolts",
+      "nameHi": "नट बोल्ट",
+      "synonyms": ["nut bolt", "nat bolt", "bolt", "nut bolt set", "नट बोल्ट सेट"]
+    },
+    {
+      "slug": "drill-machine",
+      "category": "hardware",
+      "nameEn": "drill machine",
+      "nameHi": "ड्रिल मशीन",
+      "synonyms": ["drill", "dril machine", "electric drill", "hand drill", "dreel"]
+    },
+    {
+      "slug": "drill-bits",
+      "category": "hardware",
+      "nameEn": "drill bits",
+      "nameHi": "ड्रिल बिट",
+      "synonyms": ["drill bit", "dril bit", "masonry bit", "wall drill bit", "drill bit set"]
+    },
+    {
+      "slug": "measuring-tape",
+      "category": "hardware",
+      "nameEn": "measuring tape",
+      "nameHi": "मापने का फीता",
+      "synonyms": ["measure tape", "inch tape", "fita", "naap tape", "steel tape"]
+    },
+    {
+      "slug": "hacksaw",
+      "category": "hardware",
+      "nameEn": "hacksaw",
+      "nameHi": "आरी",
+      "synonyms": ["aari", "hack saw", "hacksaw blade", "lohe ki aari", "haksaw"]
+    },
+    {
+      "slug": "hand-saw",
+      "category": "hardware",
+      "nameEn": "hand saw",
+      "nameHi": "हाथ आरी",
+      "synonyms": ["wood saw", "lakdi ki aari", "handsaw", "hath aari"]
+    },
+    {
+      "slug": "wall-paint",
+      "category": "hardware",
+      "nameEn": "wall paint",
+      "nameHi": "दीवार का पेंट",
+      "synonyms": ["paint", "asian paints", "emulsion", "deewar paint", "wall colour"]
+    },
+    {
+      "slug": "paint-brush",
+      "category": "hardware",
+      "nameEn": "paint brush",
+      "nameHi": "पेंट ब्रश",
+      "synonyms": ["paint brush 2 inch", "rang brush", "painting brush", "pent brush", "wall brush"]
+    },
+    {
+      "slug": "paint-roller",
+      "category": "hardware",
+      "nameEn": "paint roller",
+      "nameHi": "पेंट रोलर",
+      "synonyms": ["roller brush", "wall roller", "rolar", "paint rolar"]
+    },
+    {
+      "slug": "sandpaper",
+      "category": "hardware",
+      "nameEn": "sandpaper",
+      "nameHi": "रेगमाल",
+      "synonyms": ["regmal", "sand paper", "reg maal", "smoothing paper", "sandpaper sheet"]
+    },
+    {
+      "slug": "wood-glue",
+      "category": "hardware",
+      "nameEn": "wood glue",
+      "nameHi": "फेविकोल",
+      "synonyms": ["fevicol", "fevicol sh", "feviqol", "white glue", "lakdi ka gond"]
+    },
+    {
+      "slug": "super-glue",
+      "category": "hardware",
+      "nameEn": "super glue",
+      "nameHi": "फेविक्विक",
+      "synonyms": ["fevikwik", "feviquick", "fevi quick", "instant glue", "quick fix glue"]
+    },
+    {
+      "slug": "padlock",
+      "category": "hardware",
+      "nameEn": "padlock",
+      "nameHi": "ताला",
+      "synonyms": ["tala", "taala", "lock", "godrej lock", "tale"]
+    },
+    {
+      "slug": "door-hinge",
+      "category": "hardware",
+      "nameEn": "door hinge",
+      "nameHi": "कब्ज़ा",
+      "synonyms": ["kabja", "kabza", "hinge", "kijja", "darwaza hinge"]
+    },
+    {
+      "slug": "door-handle",
+      "category": "hardware",
+      "nameEn": "door handle",
+      "nameHi": "दरवाज़े का हैंडल",
+      "synonyms": ["handle", "darwaza handle", "darwaje ka handle", "door pull", "handel"]
+    },
+    {
+      "slug": "tower-bolt",
+      "category": "hardware",
+      "nameEn": "tower bolt",
+      "nameHi": "कुंडी",
+      "synonyms": ["kundi", "kundee", "latch", "sakal", "aldrop"]
+    },
+    {
+      "slug": "wall-plug",
+      "category": "hardware",
+      "nameEn": "wall plug",
+      "nameHi": "रॉल प्लग",
+      "synonyms": ["rawl plug", "rawal plug", "wall rawl plug", "gitti plug", "plastic plug"]
+    },
+    {
+      "slug": "cable-ties",
+      "category": "hardware",
+      "nameEn": "cable ties",
+      "nameHi": "केबल टाई",
+      "synonyms": ["zip tie", "cable tie", "zip ties", "plastic tie", "kebal tai"]
+    },
+    {
+      "slug": "rope",
+      "category": "hardware",
+      "nameEn": "rope",
+      "nameHi": "रस्सी",
+      "synonyms": ["rassi", "rasi", "nylon rope", "jute rope", "doree"]
+    },
+    {
+      "slug": "tarpaulin",
+      "category": "hardware",
+      "nameEn": "tarpaulin",
+      "nameHi": "तिरपाल",
+      "synonyms": ["tirpal", "tirpaal", "tarpal", "plastic sheet cover", "trapal"]
+    },
+    {
+      "slug": "wire-brush",
+      "category": "hardware",
+      "nameEn": "wire brush",
+      "nameHi": "तार का ब्रश",
+      "synonyms": ["taar brush", "steel brush", "wire brush hand", "taar ka brush", "jang brush"]
+    },
+    {
+      "slug": "pvc-pipe",
+      "category": "hardware",
+      "nameEn": "pvc pipe",
+      "nameHi": "पीवीसी पाइप",
+      "synonyms": ["pipe", "pvc paip", "plastic pipe", "paani ka pipe", "pvc pipe 1 inch"]
+    },
+    {
+      "slug": "water-tap",
+      "category": "hardware",
+      "nameEn": "water tap",
+      "nameHi": "नल",
+      "synonyms": ["nal", "tonti", "tap", "nalka", "pani ka tap"]
+    },
+    {
+      "slug": "teflon-tape",
+      "category": "hardware",
+      "nameEn": "teflon tape",
+      "nameHi": "टेफ्लॉन टेप",
+      "synonyms": ["plumbing tape", "teflon", "thread seal tape", "ptfe tape", "teflon fita"]
+    },
+    {
+      "slug": "m-seal",
+      "category": "hardware",
+      "nameEn": "m seal",
+      "nameHi": "एम सील",
+      "synonyms": ["mseal", "m-seal putty", "epoxy putty", "pidilite m seal", "emseal"]
+    },
+    {
+      "slug": "putty-knife",
+      "category": "hardware",
+      "nameEn": "putty knife",
+      "nameHi": "पुट्टी चाकू",
+      "synonyms": ["scraper", "putti knife", "wall scraper", "putty scraper", "patti chaku"]
+    },
+    {
+      "slug": "wall-putty",
+      "category": "hardware",
+      "nameEn": "wall putty",
+      "nameHi": "वॉल पुट्टी",
+      "synonyms": ["putty", "birla putty", "putti", "wall putti", "jk putty"]
+    },
+    {
+      "slug": "spirit-level",
+      "category": "hardware",
+      "nameEn": "spirit level",
+      "nameHi": "स्पिरिट लेवल",
+      "synonyms": ["water level", "level tool", "spirit leval", "bubble level"]
+    },
+    {
+      "slug": "crowbar",
+      "category": "hardware",
+      "nameEn": "crowbar",
+      "nameHi": "सब्बल",
+      "synonyms": ["sabbal", "crow bar", "lohe ka sabbal", "pinch bar", "kauwa bar"]
+    },
+    {
+      "slug": "tool-box",
+      "category": "hardware",
+      "nameEn": "tool box",
+      "nameHi": "टूल बॉक्स",
+      "synonyms": ["toolbox", "tool kit", "tool set box", "tul box"]
+    },
+    {
+      "slug": "led-bulb",
+      "category": "electrical",
+      "nameEn": "led bulb",
+      "nameHi": "एलईडी बल्ब",
+      "synonyms": ["bulb", "led bulb 9 watt", "bulb led", "balb", "एलईडी बल्ब 9 वॉट"]
+    },
+    {
+      "slug": "tube-light",
+      "category": "electrical",
+      "nameEn": "tube light",
+      "nameHi": "ट्यूबलाइट",
+      "synonyms": ["tubelight", "tube lite", "led tube", "tube light 20w", "tyoob light"]
+    },
+    {
+      "slug": "extension-board",
+      "category": "electrical",
+      "nameEn": "extension board",
+      "nameHi": "एक्सटेंशन बोर्ड",
+      "synonyms": ["extension cord", "power strip", "extension", "board plug", "surge board"]
+    },
+    {
+      "slug": "electric-switch",
+      "category": "electrical",
+      "nameEn": "electric switch",
+      "nameHi": "स्विच",
+      "synonyms": ["switch", "switch board", "sawitch", "bijli switch", "modular switch"]
+    },
+    {
+      "slug": "wall-socket",
+      "category": "electrical",
+      "nameEn": "wall socket",
+      "nameHi": "सॉकेट",
+      "synonyms": ["socket", "plug socket", "5 amp socket", "6 amp socket", "soket"]
+    },
+    {
+      "slug": "plug-top",
+      "category": "electrical",
+      "nameEn": "plug top",
+      "nameHi": "प्लग",
+      "synonyms": ["plug", "3 pin plug", "pin top", "plug pin", "plag"]
+    },
+    {
+      "slug": "copper-wire",
+      "category": "electrical",
+      "nameEn": "copper wire",
+      "nameHi": "तांबे का तार",
+      "synonyms": ["taar", "tar", "bijli ka taar", "electric wire", "copper tar"]
+    },
+    {
+      "slug": "mcb",
+      "category": "electrical",
+      "nameEn": "mcb switch",
+      "nameHi": "एमसीबी",
+      "synonyms": ["mcb", "circuit breaker", "mcb 16 amp", "fuse mcb", "emsibi"]
+    },
+    {
+      "slug": "fuse",
+      "category": "electrical",
+      "nameEn": "fuse",
+      "nameHi": "फ्यूज़",
+      "synonyms": ["fuse wire", "fyooz", "fiuz", "cartridge fuse", "fuse carrier"]
+    },
+    {
+      "slug": "ceiling-fan",
+      "category": "electrical",
+      "nameEn": "ceiling fan",
+      "nameHi": "छत का पंखा",
+      "synonyms": ["pankha", "panka", "ceiling pankha", "fan", "chhat ka pankha"]
+    },
+    {
+      "slug": "table-fan",
+      "category": "electrical",
+      "nameEn": "table fan",
+      "nameHi": "टेबल पंखा",
+      "synonyms": ["table pankha", "desk fan", "chota pankha", "table pankha small", "tebal fan"]
+    },
+    {
+      "slug": "fan-regulator",
+      "category": "electrical",
+      "nameEn": "fan regulator",
+      "nameHi": "फैन रेगुलेटर",
+      "synonyms": [
+        "regulator",
+        "fan speed regulator",
+        "pankha regulator",
+        "regulater",
+        "fan regulater"
+      ]
+    },
+    {
+      "slug": "battery-aa",
+      "category": "electrical",
+      "nameEn": "aa battery",
+      "nameHi": "एए बैटरी",
+      "synonyms": ["pencil cell", "aa cell", "battery aa", "double a battery", "batri aa"]
+    },
+    {
+      "slug": "battery-aaa",
+      "category": "electrical",
+      "nameEn": "aaa battery",
+      "nameHi": "एएए बैटरी",
+      "synonyms": ["aaa cell", "battery aaa", "triple a battery", "remote cell", "remote battery"]
+    },
+    {
+      "slug": "torch",
+      "category": "electrical",
+      "nameEn": "torch",
+      "nameHi": "टॉर्च",
+      "synonyms": ["torch light", "torch led", "tarch", "flashlight", "rechargeable torch"]
+    },
+    {
+      "slug": "electrical-tape",
+      "category": "electrical",
+      "nameEn": "electrical tape",
+      "nameHi": "इंसुलेशन टेप",
+      "synonyms": [
+        "insulation tape",
+        "black tape",
+        "electric tape",
+        "bijli tape",
+        "insulation fita"
+      ]
+    },
+    {
+      "slug": "bulb-holder",
+      "category": "electrical",
+      "nameEn": "bulb holder",
+      "nameHi": "बल्ब होल्डर",
+      "synonyms": ["holder", "bulb holder", "lamp holder", "holdar", "pin holder"]
+    },
+    {
+      "slug": "multi-plug-adapter",
+      "category": "electrical",
+      "nameEn": "multi plug adapter",
+      "nameHi": "मल्टी प्लग",
+      "synonyms": ["multi plug", "travel adapter", "adapter", "3 in 1 plug", "multiplug"]
+    },
+    {
+      "slug": "electric-iron",
+      "category": "electrical",
+      "nameEn": "electric iron",
+      "nameHi": "इस्त्री",
+      "synonyms": ["istri", "press", "iron press", "dry iron", "kapde press"]
+    },
+    {
+      "slug": "immersion-rod",
+      "category": "electrical",
+      "nameEn": "immersion rod",
+      "nameHi": "इमर्शन रॉड",
+      "synonyms": [
+        "water heater rod",
+        "heater rod",
+        "geyser rod",
+        "immersion heater",
+        "paani garam rod"
+      ]
+    },
+    {
+      "slug": "night-lamp",
+      "category": "electrical",
+      "nameEn": "night lamp",
+      "nameHi": "नाइट लैंप",
+      "synonyms": ["night bulb", "zero watt", "zero watt bulb", "night light", "nait lamp"]
+    },
+    {
+      "slug": "door-bell",
+      "category": "electrical",
+      "nameEn": "door bell",
+      "nameHi": "डोरबेल",
+      "synonyms": ["calling bell", "bell switch", "darwaza ghanti", "doorbell", "ghanti"]
+    },
+    {
+      "slug": "voltage-tester",
+      "category": "electrical",
+      "nameEn": "voltage tester",
+      "nameHi": "टेस्टर",
+      "synonyms": ["tester", "neon tester", "line tester", "current tester", "pen tester"]
+    },
+    {
+      "slug": "notebook",
+      "category": "stationery",
+      "nameEn": "notebook",
+      "nameHi": "कॉपी",
+      "synonyms": ["copy", "copi", "exercise book", "school copy", "notebook 200 pages"]
+    },
+    {
+      "slug": "ball-pen",
+      "category": "stationery",
+      "nameEn": "ball pen",
+      "nameHi": "बॉल पेन",
+      "synonyms": ["pen", "ballpen", "reynolds pen", "pen blue", "bol pen"]
+    },
+    {
+      "slug": "gel-pen",
+      "category": "stationery",
+      "nameEn": "gel pen",
+      "nameHi": "जेल पेन",
+      "synonyms": ["gel pen black", "jel pen", "pilot pen", "smooth pen", "gel pen blue"]
+    },
+    {
+      "slug": "pencil",
+      "category": "stationery",
+      "nameEn": "pencil",
+      "nameHi": "पेंसिल",
+      "synonyms": ["pencil hb", "pensil", "lead pencil", "natraj pencil", "pencel"]
+    },
+    {
+      "slug": "eraser",
+      "category": "stationery",
+      "nameEn": "eraser",
+      "nameHi": "रबर",
+      "synonyms": ["rubber", "rabar", "rubber eraser", "mitane wala rubber", "eraser white"]
+    },
+    {
+      "slug": "sharpener",
+      "category": "stationery",
+      "nameEn": "sharpener",
+      "nameHi": "कटर",
+      "synonyms": [
+        "pencil sharpener",
+        "sharpner",
+        "pencil chheelne wala",
+        "patti sharpener",
+        "sharpener metal"
+      ]
+    },
+    {
+      "slug": "ruler",
+      "category": "stationery",
+      "nameEn": "ruler",
+      "nameHi": "स्केल",
+      "synonyms": ["scale", "skel", "plastic scale", "steel ruler", "ruler 30 cm"]
+    },
+    {
+      "slug": "geometry-box",
+      "category": "stationery",
+      "nameEn": "geometry box",
+      "nameHi": "ज्यामिति बॉक्स",
+      "synonyms": ["compass box", "geometry", "pencil box", "jyamiti box", "maths box"]
+    },
+    {
+      "slug": "marker-pen",
+      "category": "stationery",
+      "nameEn": "marker pen",
+      "nameHi": "मार्कर",
+      "synonyms": ["marker", "permanent marker", "white board marker", "markar", "marker black"]
+    },
+    {
+      "slug": "highlighter",
+      "category": "stationery",
+      "nameEn": "highlighter",
+      "nameHi": "हाईलाइटर",
+      "synonyms": [
+        "highlighter pen",
+        "hilighter",
+        "neon marker",
+        "highlighter yellow",
+        "hi lighter"
+      ]
+    },
+    {
+      "slug": "glue-stick",
+      "category": "stationery",
+      "nameEn": "glue stick",
+      "nameHi": "ग्लू स्टिक",
+      "synonyms": ["gluestick", "glu stick", "paper glue", "stick glue", "gum stick"]
+    },
+    {
+      "slug": "scissors",
+      "category": "stationery",
+      "nameEn": "scissors",
+      "nameHi": "कैंची",
+      "synonyms": ["kainchi", "kenchi", "kanchi", "paper scissors", "cissors"]
+    },
+    {
+      "slug": "stapler",
+      "category": "stationery",
+      "nameEn": "stapler",
+      "nameHi": "स्टेपलर",
+      "synonyms": ["stepler", "stapler machine", "stapler small", "pin machine", "stapular"]
+    },
+    {
+      "slug": "staple-pins",
+      "category": "stationery",
+      "nameEn": "staple pins",
+      "nameHi": "स्टेपल पिन",
+      "synonyms": ["staples", "stapler pin", "pins stapler", "pin 10", "staple pin box"]
+    },
+    {
+      "slug": "chart-paper",
+      "category": "stationery",
+      "nameEn": "chart paper",
+      "nameHi": "चार्ट पेपर",
+      "synonyms": ["chart", "chart sheet", "colour chart paper", "white chart", "chart papar"]
+    },
+    {
+      "slug": "a4-paper",
+      "category": "stationery",
+      "nameEn": "a4 paper",
+      "nameHi": "ए4 पेपर",
+      "synonyms": ["a4 sheets", "a4 ream", "printing paper", "a4 papar", "copier paper"]
+    },
+    {
+      "slug": "sketch-pens",
+      "category": "stationery",
+      "nameEn": "sketch pens",
+      "nameHi": "स्केच पेन",
+      "synonyms": ["sketch pen", "colour pens", "sketchpen", "felt pens", "sketch pen set"]
+    },
+    {
+      "slug": "crayons",
+      "category": "stationery",
+      "nameEn": "crayons",
+      "nameHi": "मोम रंग",
+      "synonyms": ["wax crayons", "crayon", "mom rang", "colour crayons", "crayon box"]
+    },
+    {
+      "slug": "colour-pencils",
+      "category": "stationery",
+      "nameEn": "colour pencils",
+      "nameHi": "रंगीन पेंसिल",
+      "synonyms": [
+        "color pencils",
+        "rangeen pencil",
+        "colored pencils",
+        "color pencil box",
+        "crayola pencil"
+      ]
+    },
+    {
+      "slug": "water-colours",
+      "category": "stationery",
+      "nameEn": "water colours",
+      "nameHi": "पानी के रंग",
+      "synonyms": ["watercolour", "water colour box", "poster colour", "paani ke rang", "paint box"]
+    },
+    {
+      "slug": "drawing-book",
+      "category": "stationery",
+      "nameEn": "drawing book",
+      "nameHi": "ड्राइंग बुक",
+      "synonyms": ["sketch book", "sketchbook", "drawing copy", "drawing copi", "drawing file"]
+    },
+    {
+      "slug": "file-folder",
+      "category": "stationery",
+      "nameEn": "file folder",
+      "nameHi": "फाइल",
+      "synonyms": ["file", "folder", "document file", "fyle", "plastic file"]
+    },
+    {
+      "slug": "sticky-notes",
+      "category": "stationery",
+      "nameEn": "sticky notes",
+      "nameHi": "स्टिकी नोट्स",
+      "synonyms": ["post it", "post-it", "sticky note pad", "chipkane wale note", "memo pad"]
+    },
+    {
+      "slug": "cello-tape",
+      "category": "stationery",
+      "nameEn": "cello tape",
+      "nameHi": "सेलो टेप",
+      "synonyms": ["cellotape", "tape roll", "sellotape", "transparent tape", "selo tape"]
+    },
+    {
+      "slug": "double-sided-tape",
+      "category": "stationery",
+      "nameEn": "double sided tape",
+      "nameHi": "डबल टेप",
+      "synonyms": ["double tape", "dubal tape", "double side tape", "foam tape", "dosri tape"]
+    },
+    {
+      "slug": "school-bag",
+      "category": "stationery",
+      "nameEn": "school bag",
+      "nameHi": "स्कूल बैग",
+      "synonyms": ["bag", "bastaa", "basta", "school basta", "skool bag"]
+    },
+    {
+      "slug": "modeling-clay",
+      "category": "stationery",
+      "nameEn": "modeling clay",
+      "nameHi": "मिट्टी क्ले",
+      "synonyms": ["clay", "play clay", "plasticine", "mitti clay", "clay colours"]
+    },
+    {
+      "slug": "thermocol-sheet",
+      "category": "stationery",
+      "nameEn": "thermocol sheet",
+      "nameHi": "थर्मोकोल",
+      "synonyms": ["thermocol", "thermacol", "styrofoam sheet", "thermocol board"]
+    },
+    {
+      "slug": "cardboard",
+      "category": "stationery",
+      "nameEn": "cardboard",
+      "nameHi": "गत्ता",
+      "synonyms": ["gatta", "card board", "cardboard sheet", "gatte ki sheet", "gata"]
+    },
+    {
+      "slug": "glitter",
+      "category": "stationery",
+      "nameEn": "glitter",
+      "nameHi": "ग्लिटर",
+      "synonyms": ["glitter powder", "glitar", "chamak", "sparkle powder", "glitter tube"]
+    },
+    {
+      "slug": "art-brush",
+      "category": "stationery",
+      "nameEn": "art brush",
+      "nameHi": "आर्ट ब्रश",
+      "synonyms": [
+        "painting brush small",
+        "art brush set",
+        "chitrakari brush",
+        "drawing brush",
+        "paint brush small"
+      ]
+    },
+    {
+      "slug": "whitener",
+      "category": "stationery",
+      "nameEn": "correction fluid",
+      "nameHi": "व्हाइटनर",
+      "synonyms": ["whitener", "white ink", "correction pen", "wite ner"]
+    },
+    {
+      "slug": "phone-charger",
+      "category": "mobile_accessories",
+      "nameEn": "phone charger",
+      "nameHi": "फोन चार्जर",
+      "synonyms": ["charger", "mobile charger", "fone charger", "charjar", "adapter charger"]
+    },
+    {
+      "slug": "usb-c-cable",
+      "category": "mobile_accessories",
+      "nameEn": "usb c cable",
+      "nameHi": "टाइप सी केबल",
+      "synonyms": ["type c cable", "type-c cable", "c type cable", "usb type c", "tipe c cable"]
+    },
+    {
+      "slug": "lightning-cable",
+      "category": "mobile_accessories",
+      "nameEn": "lightning cable",
+      "nameHi": "आईफोन केबल",
+      "synonyms": [
+        "iphone cable",
+        "iphone charger cable",
+        "lightning wire",
+        "apple cable",
+        "iphone ka cable"
+      ]
+    },
+    {
+      "slug": "micro-usb-cable",
+      "category": "mobile_accessories",
+      "nameEn": "micro usb cable",
+      "nameHi": "माइक्रो यूएसबी केबल",
+      "synonyms": ["micro usb", "v8 cable", "android cable", "micro cable", "purana charger cable"]
+    },
+    {
+      "slug": "earphones",
+      "category": "mobile_accessories",
+      "nameEn": "earphones",
+      "nameHi": "ईयरफोन",
+      "synonyms": ["earphone", "handsfree", "hands free", "headphone wire wala", "iyarfon"]
+    },
+    {
+      "slug": "bluetooth-earbuds",
+      "category": "mobile_accessories",
+      "nameEn": "bluetooth earbuds",
+      "nameHi": "ब्लूटूथ ईयरबड्स",
+      "synonyms": ["earbuds", "airpods", "wireless earphones", "bluetooth earphone", "tws"]
+    },
+    {
+      "slug": "power-bank",
+      "category": "mobile_accessories",
+      "nameEn": "power bank",
+      "nameHi": "पावर बैंक",
+      "synonyms": [
+        "powerbank",
+        "power bank 10000",
+        "battery bank",
+        "mobile power bank",
+        "pawar bank"
+      ]
+    },
+    {
+      "slug": "phone-cover",
+      "category": "mobile_accessories",
+      "nameEn": "phone cover",
+      "nameHi": "फोन कवर",
+      "synonyms": ["mobile cover", "back cover", "phone case", "mobile case", "fone cover"]
+    },
+    {
+      "slug": "screen-guard",
+      "category": "mobile_accessories",
+      "nameEn": "screen guard",
+      "nameHi": "स्क्रीन गार्ड",
+      "synonyms": [
+        "tempered glass",
+        "screen protector",
+        "glass guard",
+        "scrin gard",
+        "mobile glass"
+      ]
+    },
+    {
+      "slug": "memory-card",
+      "category": "mobile_accessories",
+      "nameEn": "memory card",
+      "nameHi": "मेमोरी कार्ड",
+      "synonyms": ["sd card", "micro sd", "memory card 32gb", "memori card", "mobile memory card"]
+    },
+    {
+      "slug": "pen-drive",
+      "category": "mobile_accessories",
+      "nameEn": "pen drive",
+      "nameHi": "पेन ड्राइव",
+      "synonyms": ["pendrive", "usb drive", "flash drive", "pen dreev", "usb pendrive"]
+    },
+    {
+      "slug": "otg-cable",
+      "category": "mobile_accessories",
+      "nameEn": "otg cable",
+      "nameHi": "ओटीजी केबल",
+      "synonyms": ["otg", "otg connector", "otg adapter", "otg wire", "usb otg"]
+    },
+    {
+      "slug": "car-charger",
+      "category": "mobile_accessories",
+      "nameEn": "car charger",
+      "nameHi": "कार चार्जर",
+      "synonyms": [
+        "car mobile charger",
+        "gaadi ka charger",
+        "car adapter",
+        "vehicle charger",
+        "car chargar"
+      ]
+    },
+    {
+      "slug": "mobile-stand",
+      "category": "mobile_accessories",
+      "nameEn": "mobile stand",
+      "nameHi": "मोबाइल स्टैंड",
+      "synonyms": [
+        "phone stand",
+        "phone holder",
+        "mobile holder",
+        "desk phone stand",
+        "mobile stend"
+      ]
+    },
+    {
+      "slug": "bluetooth-speaker",
+      "category": "mobile_accessories",
+      "nameEn": "bluetooth speaker",
+      "nameHi": "ब्लूटूथ स्पीकर",
+      "synonyms": [
+        "speaker",
+        "portable speaker",
+        "bluetooth spiker",
+        "wireless speaker",
+        "bt speaker"
+      ]
+    },
+    {
+      "slug": "headphones",
+      "category": "mobile_accessories",
+      "nameEn": "headphones",
+      "nameHi": "हेडफोन",
+      "synonyms": ["headphone", "over ear headphones", "head phone", "headfon", "gaming headphones"]
+    },
+    {
+      "slug": "selfie-stick",
+      "category": "mobile_accessories",
+      "nameEn": "selfie stick",
+      "nameHi": "सेल्फी स्टिक",
+      "synonyms": ["selfy stick", "selfie stik", "tripod stick", "monopod", "selfi stick"]
+    },
+    {
+      "slug": "sim-ejector",
+      "category": "mobile_accessories",
+      "nameEn": "sim ejector",
+      "nameHi": "सिम पिन",
+      "synonyms": ["sim pin", "sim tool", "sim card pin", "sim nikalne ki pin", "sim ejector pin"]
+    },
+    {
+      "slug": "bottle-brush",
+      "category": "household_kitchen",
+      "nameEn": "bottle brush",
+      "nameHi": "बोतल ब्रश",
+      "synonyms": [
+        "bottle cleaning brush",
+        "bottel brush",
+        "botal brush",
+        "bottle cleaner brush",
+        "bottle saaf karne ka brush"
+      ]
+    },
+    {
+      "slug": "water-bottle",
+      "category": "household_kitchen",
+      "nameEn": "water bottle",
+      "nameHi": "पानी की बोतल",
+      "synonyms": ["paani ki bottle", "pani bottle", "botal", "plastic bottle", "fridge bottle"]
+    },
+    {
+      "slug": "steel-bottle",
+      "category": "household_kitchen",
+      "nameEn": "steel bottle",
+      "nameHi": "स्टील की बोतल",
+      "synonyms": [
+        "steel botal",
+        "copper bottle",
+        "steel water bottle",
+        "sipper bottle",
+        "steel ki bottle"
+      ]
+    },
+    {
+      "slug": "lunch-box",
+      "category": "household_kitchen",
+      "nameEn": "lunch box",
+      "nameHi": "टिफिन",
+      "synonyms": ["tiffin", "tifin", "lunchbox", "tiffin box", "school tiffin"]
+    },
+    {
+      "slug": "pressure-cooker",
+      "category": "household_kitchen",
+      "nameEn": "pressure cooker",
+      "nameHi": "प्रेशर कुकर",
+      "synonyms": ["cooker", "presure cooker", "pressure cooker small", "hawkins cooker", "kukar"]
+    },
+    {
+      "slug": "kadhai",
+      "category": "household_kitchen",
+      "nameEn": "kadhai",
+      "nameHi": "कड़ाही",
+      "synonyms": ["kadai", "karahi", "kadahi", "iron kadhai", "wok"]
+    },
+    {
+      "slug": "tawa",
+      "category": "household_kitchen",
+      "nameEn": "tawa",
+      "nameHi": "तवा",
+      "synonyms": ["tava", "roti tawa", "non stick tawa", "tawaa", "dosa tawa"]
+    },
+    {
+      "slug": "frying-pan",
+      "category": "household_kitchen",
+      "nameEn": "frying pan",
+      "nameHi": "फ्राइंग पैन",
+      "synonyms": ["fry pan", "non stick pan", "frypan", "pan", "tadka pan"]
+    },
+    {
+      "slug": "steel-plate",
+      "category": "household_kitchen",
+      "nameEn": "steel plate",
+      "nameHi": "स्टील की थाली",
+      "synonyms": ["thali", "steel thali", "khana plate", "steel plate set", "thaali"]
+    },
+    {
+      "slug": "steel-glass",
+      "category": "household_kitchen",
+      "nameEn": "steel glass",
+      "nameHi": "स्टील का गिलास",
+      "synonyms": ["glass steel", "gilas", "gilaas", "steel gilas", "water glass"]
+    },
+    {
+      "slug": "spoon-set",
+      "category": "household_kitchen",
+      "nameEn": "spoon set",
+      "nameHi": "चम्मच",
+      "synonyms": ["chammach", "chamach", "spoons", "steel spoon", "chamcha"]
+    },
+    {
+      "slug": "kitchen-knife",
+      "category": "household_kitchen",
+      "nameEn": "kitchen knife",
+      "nameHi": "चाकू",
+      "synonyms": ["chaku", "chaaku", "chaaqu", "sabzi knife", "knife"]
+    },
+    {
+      "slug": "peeler",
+      "category": "household_kitchen",
+      "nameEn": "peeler",
+      "nameHi": "छीलने वाला",
+      "synonyms": ["vegetable peeler", "chheelne wala", "peler", "potato peeler", "chilka peeler"]
+    },
+    {
+      "slug": "container-set",
+      "category": "household_kitchen",
+      "nameEn": "container set",
+      "nameHi": "डिब्बा सेट",
+      "synonyms": ["dabba", "dabbe", "storage container", "plastic dabba", "kitchen dabba"]
+    },
+    {
+      "slug": "thermos-flask",
+      "category": "household_kitchen",
+      "nameEn": "thermos flask",
+      "nameHi": "थर्मस",
+      "synonyms": ["thermos", "flask", "hot flask", "tea flask", "thermas"]
+    },
+    {
+      "slug": "broom",
+      "category": "household_kitchen",
+      "nameEn": "broom",
+      "nameHi": "झाड़ू",
+      "synonyms": ["jhadu", "jhaadu", "jhadoo", "phool jhadu", "safai jhadu"]
+    },
+    {
+      "slug": "floor-mop",
+      "category": "household_kitchen",
+      "nameEn": "floor mop",
+      "nameHi": "पोछा",
+      "synonyms": ["pocha", "pochha", "mop", "pocha stick", "mop stick"]
+    },
+    {
+      "slug": "dustbin",
+      "category": "household_kitchen",
+      "nameEn": "dustbin",
+      "nameHi": "कूड़ेदान",
+      "synonyms": ["kude ka dabba", "kooda dan", "dustbin plastic", "kachra dabba", "dastbin"]
+    },
+    {
+      "slug": "plastic-bucket",
+      "category": "household_kitchen",
+      "nameEn": "plastic bucket",
+      "nameHi": "बाल्टी",
+      "synonyms": ["balti", "baalti", "bucket", "plastic balti", "baltee"]
+    },
+    {
+      "slug": "plastic-mug",
+      "category": "household_kitchen",
+      "nameEn": "plastic mug",
+      "nameHi": "मग",
+      "synonyms": ["mug", "bathroom mug", "plastic mugga", "mugga", "mag"]
+    },
+    {
+      "slug": "detergent-powder",
+      "category": "household_kitchen",
+      "nameEn": "detergent powder",
+      "nameHi": "कपड़े धोने का पाउडर",
+      "synonyms": ["surf", "surf excel", "washing powder", "kapde dhone ka powder", "ariel"]
+    },
+    {
+      "slug": "dishwash-liquid",
+      "category": "household_kitchen",
+      "nameEn": "dishwash liquid",
+      "nameHi": "बर्तन धोने का लिक्विड",
+      "synonyms": ["vim", "vim liquid", "bartan dhone ka sabun", "dish wash", "dishwash gel"]
+    },
+    {
+      "slug": "floor-cleaner",
+      "category": "household_kitchen",
+      "nameEn": "floor cleaner",
+      "nameHi": "फर्श क्लीनर",
+      "synonyms": ["phenyl", "phenol", "lizol", "pocha liquid", "floor safai liquid"]
+    },
+    {
+      "slug": "toilet-cleaner",
+      "category": "household_kitchen",
+      "nameEn": "toilet cleaner",
+      "nameHi": "टॉयलेट क्लीनर",
+      "synonyms": ["harpic", "toilet safai", "toilet clener", "bathroom cleaner", "toilet acid"]
+    },
+    {
+      "slug": "scrub-pad",
+      "category": "household_kitchen",
+      "nameEn": "scrub pad",
+      "nameHi": "स्क्रब पैड",
+      "synonyms": ["scotch brite", "steel scrubber", "bartan scrubber", "scrubber", "jhama"]
+    },
+    {
+      "slug": "garbage-bags",
+      "category": "household_kitchen",
+      "nameEn": "garbage bags",
+      "nameHi": "कचरा थैली",
+      "synonyms": ["dustbin bags", "kachra bag", "garbage bag", "kude ki thaili", "dustbin liner"]
+    },
+    {
+      "slug": "aluminium-foil",
+      "category": "household_kitchen",
+      "nameEn": "aluminium foil",
+      "nameHi": "एल्युमिनियम फॉयल",
+      "synonyms": ["silver foil", "foil paper", "aluminum foil", "roti foil", "alu foil"]
+    },
+    {
+      "slug": "matchbox",
+      "category": "household_kitchen",
+      "nameEn": "matchbox",
+      "nameHi": "माचिस",
+      "synonyms": ["machis", "maachis", "diyasalai", "match box", "machhis"]
+    },
+    {
+      "slug": "candle",
+      "category": "household_kitchen",
+      "nameEn": "candle",
+      "nameHi": "मोमबत्ती",
+      "synonyms": ["mombatti", "mom batti", "mombati", "white candle", "candles"]
+    },
+    {
+      "slug": "mosquito-coil",
+      "category": "household_kitchen",
+      "nameEn": "mosquito coil",
+      "nameHi": "मच्छर कॉइल",
+      "synonyms": [
+        "machhar coil",
+        "macchar coil",
+        "good knight",
+        "mosquito repellent",
+        "machhar agarbatti"
+      ]
+    },
+    {
+      "slug": "agarbatti",
+      "category": "household_kitchen",
+      "nameEn": "incense sticks",
+      "nameHi": "अगरबत्ती",
+      "synonyms": ["agarbati", "agarbathi", "dhoop", "incense", "pooja agarbatti"]
+    },
+    {
+      "slug": "clothes-hangers",
+      "category": "household_kitchen",
+      "nameEn": "clothes hangers",
+      "nameHi": "हैंगर",
+      "synonyms": ["hanger", "hengar", "kapde ka hanger", "plastic hanger", "hangers"]
+    },
+    {
+      "slug": "clothes-clips",
+      "category": "household_kitchen",
+      "nameEn": "clothes clips",
+      "nameHi": "कपड़े की क्लिप",
+      "synonyms": ["clips", "clip", "kapde ki clip", "cloth clips", "clothes pegs"]
+    },
+    {
+      "slug": "gas-lighter",
+      "category": "household_kitchen",
+      "nameEn": "gas lighter",
+      "nameHi": "गैस लाइटर",
+      "synonyms": [
+        "lighter",
+        "gas lighter long",
+        "chulha lighter",
+        "gas ka lighter",
+        "lighter gas stove"
+      ]
+    },
+    {
+      "slug": "tissue-paper",
+      "category": "household_kitchen",
+      "nameEn": "tissue paper",
+      "nameHi": "टिश्यू पेपर",
+      "synonyms": ["tissue", "tissues", "napkin", "paper napkin", "tisu"]
+    },
+    {
+      "slug": "soap",
+      "category": "personal_care",
+      "nameEn": "bath soap",
+      "nameHi": "साबुन",
+      "synonyms": ["sabun", "sabun bar", "lux soap", "nahane ka sabun", "saboon"]
+    },
+    {
+      "slug": "shampoo",
+      "category": "personal_care",
+      "nameEn": "shampoo",
+      "nameHi": "शैम्पू",
+      "synonyms": ["shampu", "shampoo sachet", "head and shoulders", "sampoo", "shampoo bottle"]
+    },
+    {
+      "slug": "toothpaste",
+      "category": "personal_care",
+      "nameEn": "toothpaste",
+      "nameHi": "टूथपेस्ट",
+      "synonyms": ["paste", "colgate", "tooth paste", "dant manjan", "manjan"]
+    },
+    {
+      "slug": "toothbrush",
+      "category": "personal_care",
+      "nameEn": "toothbrush",
+      "nameHi": "टूथब्रश",
+      "synonyms": ["tooth brush", "brush dant", "colgate brush", "dant brush", "toothbrus"]
+    },
+    {
+      "slug": "hair-oil",
+      "category": "personal_care",
+      "nameEn": "hair oil",
+      "nameHi": "बालों का तेल",
+      "synonyms": ["baal tel", "coconut oil", "nariyal tel", "parachute oil", "bal ka tel"]
+    },
+    {
+      "slug": "face-wash",
+      "category": "personal_care",
+      "nameEn": "face wash",
+      "nameHi": "फेस वॉश",
+      "synonyms": ["facewash", "face wash gel", "chehra dhone ka", "fash wash", "face wassh"]
+    },
+    {
+      "slug": "body-lotion",
+      "category": "personal_care",
+      "nameEn": "body lotion",
+      "nameHi": "बॉडी लोशन",
+      "synonyms": ["lotion", "moisturiser", "cold cream", "vaseline lotion", "cream"]
+    },
+    {
+      "slug": "deodorant",
+      "category": "personal_care",
+      "nameEn": "deodorant",
+      "nameHi": "डियोडरेंट",
+      "synonyms": ["deo", "deodrant", "body spray", "perfume spray", "deo spray"]
+    },
+    {
+      "slug": "razor",
+      "category": "personal_care",
+      "nameEn": "razor",
+      "nameHi": "रेज़र",
+      "synonyms": ["shaving razor", "blade", "gillette", "rezar", "razer"]
+    },
+    {
+      "slug": "shaving-cream",
+      "category": "personal_care",
+      "nameEn": "shaving cream",
+      "nameHi": "शेविंग क्रीम",
+      "synonyms": ["shaving foam", "shave cream", "daadhi cream", "saving cream", "shaving gel"]
+    },
+    {
+      "slug": "sanitary-pads",
+      "category": "personal_care",
+      "nameEn": "sanitary pads",
+      "nameHi": "सैनिटरी पैड",
+      "synonyms": ["pads", "whisper", "sanitary napkin", "period pads", "stayfree"]
+    },
+    {
+      "slug": "hand-wash",
+      "category": "personal_care",
+      "nameEn": "hand wash",
+      "nameHi": "हैंडवॉश",
+      "synonyms": [
+        "handwash",
+        "liquid soap",
+        "hand wash bottle",
+        "haath dhone ka",
+        "hand wash refill"
+      ]
+    },
+    {
+      "slug": "comb",
+      "category": "personal_care",
+      "nameEn": "comb",
+      "nameHi": "कंघी",
+      "synonyms": ["kanghi", "kangi", "hair comb", "kanghaa", "kangha"]
+    },
+    {
+      "slug": "talcum-powder",
+      "category": "personal_care",
+      "nameEn": "talcum powder",
+      "nameHi": "पाउडर",
+      "synonyms": ["powder", "tailkam", "baby powder", "pond's powder", "body powder"]
+    },
+    {
+      "slug": "sunscreen",
+      "category": "personal_care",
+      "nameEn": "sunscreen",
+      "nameHi": "सनस्क्रीन",
+      "synonyms": ["sunscreen lotion", "sun cream", "sunblock", "suncream", "sunscrin"]
+    },
+    {
+      "slug": "cotton-buds",
+      "category": "personal_care",
+      "nameEn": "cotton buds",
+      "nameHi": "कान सफाई",
+      "synonyms": ["ear buds", "q tips", "cotton ear bud", "kaan saaf karne wala", "cotton bud"]
+    },
+    {
+      "slug": "nail-cutter",
+      "category": "personal_care",
+      "nameEn": "nail cutter",
+      "nameHi": "नेल कटर",
+      "synonyms": [
+        "nakhun katne wala",
+        "nail clipper",
+        "nailcutter",
+        "nakhoon cutter",
+        "nail kater"
+      ]
+    },
+    {
+      "slug": "hand-sanitizer",
+      "category": "personal_care",
+      "nameEn": "hand sanitizer",
+      "nameHi": "सैनिटाइज़र",
+      "synonyms": ["sanitizer", "sanitiser", "hand sanitiser", "sanitizer bottle", "sanitaijar"]
+    },
+    {
+      "slug": "vaseline",
+      "category": "personal_care",
+      "nameEn": "petroleum jelly",
+      "nameHi": "वैसलीन",
+      "synonyms": ["vaseline", "vasline", "petroleum jelly", "lip balm", "vaseline jelly"]
+    },
+    {
+      "slug": "kajal",
+      "category": "personal_care",
+      "nameEn": "kajal",
+      "nameHi": "काजल",
+      "synonyms": ["kajol", "kaajal", "eye kajal", "lakme kajal", "kajal pencil"]
+    },
+    {
+      "slug": "cold-drink",
+      "category": "general_store",
+      "nameEn": "cold drink",
+      "nameHi": "कोल्ड ड्रिंक",
+      "synonyms": ["cold drinks", "coke", "pepsi", "thanda", "soft drink"]
+    },
+    {
+      "slug": "mineral-water",
+      "category": "general_store",
+      "nameEn": "mineral water",
+      "nameHi": "मिनरल वाटर",
+      "synonyms": [
+        "sealed water bottle",
+        "bisleri",
+        "pani bottle packaged",
+        "packaged water",
+        "aquafina"
+      ]
+    },
+    {
+      "slug": "chips",
+      "category": "general_store",
+      "nameEn": "chips",
+      "nameHi": "चिप्स",
+      "synonyms": ["lays", "wafers", "potato chips", "kurkure", "chip packet"]
+    },
+    {
+      "slug": "chocolate",
+      "category": "general_store",
+      "nameEn": "chocolate",
+      "nameHi": "चॉकलेट",
+      "synonyms": ["choclate", "dairy milk", "chocolates", "chocolate bar", "cadbury"]
+    },
+    {
+      "slug": "ice-cream",
+      "category": "general_store",
+      "nameEn": "ice cream",
+      "nameHi": "आइसक्रीम",
+      "synonyms": ["icecream", "ice-cream cup", "kulfi", "ice cream cone", "aaiskrim"]
+    },
+    {
+      "slug": "chewing-gum",
+      "category": "general_store",
+      "nameEn": "chewing gum",
+      "nameHi": "च्युइंग गम",
+      "synonyms": ["gum", "bubble gum", "chewing gam", "chuing gum", "mint gum"]
+    },
+    {
+      "slug": "fruit-juice",
+      "category": "general_store",
+      "nameEn": "fruit juice",
+      "nameHi": "फलों का जूस",
+      "synonyms": ["juice", "juice packet", "real juice", "maaza", "slice"]
+    },
+    {
+      "slug": "umbrella",
+      "category": "general_store",
+      "nameEn": "umbrella",
+      "nameHi": "छाता",
+      "synonyms": ["chhata", "chata", "chhatri", "barish ka chata", "umbrela"]
+    },
+    {
+      "slug": "raincoat",
+      "category": "general_store",
+      "nameEn": "raincoat",
+      "nameHi": "रेनकोट",
+      "synonyms": ["rain coat", "barsati", "barsaati", "rainkot", "plastic raincoat"]
+    },
+    {
+      "slug": "plastic-bags",
+      "category": "general_store",
+      "nameEn": "plastic bags",
+      "nameHi": "पॉलीथिन",
+      "synonyms": ["polythene", "polythin", "carry bag", "thaili", "thaila"]
+    },
+    {
+      "slug": "rubber-bands",
+      "category": "general_store",
+      "nameEn": "rubber bands",
+      "nameHi": "रबर बैंड",
+      "synonyms": ["rubber band", "rubber ring", "band", "elastic band", "reeber band"]
+    },
+    {
+      "slug": "safety-pins",
+      "category": "general_store",
+      "nameEn": "safety pins",
+      "nameHi": "सेफ्टी पिन",
+      "synonyms": ["safety pin", "pin", "sefti pin", "kapde ki pin", "safti pin"]
+    },
+    {
+      "slug": "needle-thread",
+      "category": "general_store",
+      "nameEn": "needle and thread",
+      "nameHi": "सुई धागा",
+      "synonyms": ["sui dhaga", "needle thread", "dhaga", "sui", "sewing kit"]
+    },
+    {
+      "slug": "playing-cards",
+      "category": "general_store",
+      "nameEn": "playing cards",
+      "nameHi": "ताश",
+      "synonyms": ["tash", "taash", "cards", "deck of cards", "patte"]
+    }
+  ]
+}
