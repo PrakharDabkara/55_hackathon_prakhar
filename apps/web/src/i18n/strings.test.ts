@@ -17,6 +17,17 @@ describe('the two dictionaries', () => {
     }
   });
 
+  it('show the big answer words in Devanagari and the Latin spelling only in Hindi', () => {
+    for (const label of [hi.yes, hi.no, hi.quantityTitle]) {
+      expect(label.main).toMatch(/[ऀ-ॿ]/);
+      expect(label.sub).toMatch(/^[A-Za-z? ]+$/);
+    }
+    for (const label of [en.yes, en.no, en.quantityTitle]) {
+      expect(label.main).toMatch(/^[A-Za-z?, ]+$/);
+      expect(label.sub).toBeUndefined();
+    }
+  });
+
   it('name every shop category, in Devanagari for Hindi', () => {
     for (const c of CATEGORIES) {
       expect(hi.categories[c], c).toMatch(/[ऀ-ॿ]/);
@@ -25,8 +36,11 @@ describe('the two dictionaries', () => {
   });
 
   it('use the wording the shopkeeper flow promises', () => {
-    expect(hi.yes).toBe('Haan hai');
-    expect(hi.no).toBe('Nahi hai');
+    expect(hi.yes).toEqual({ main: 'हाँ है', sub: 'Haan hai' });
+    expect(hi.no).toEqual({ main: 'नहीं है', sub: 'Nahi hai' });
+    expect(hi.quantityTitle).toEqual({ main: 'कितना है?', sub: 'Kitna hai?' });
+    expect(hi.few).toBe('थोड़ा बचा है');
+    expect(hi.plenty).toBe('काफ़ी है');
     expect(hi.send).toBe('Bhejo');
     expect(hi.skip).toBe('Skip');
     expect(hi.useMyLocation).toBe('Meri location use karein');

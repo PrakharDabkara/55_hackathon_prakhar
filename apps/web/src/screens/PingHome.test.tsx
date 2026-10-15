@@ -19,7 +19,7 @@ describe('PingHome', () => {
     expect(
       await screen.findByText('Abhi koi sawaal nahi. Naye sawaal yahan apne aap aayenge.'),
     ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Haan hai' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Haan hai/ })).toBeNull();
   });
 
   it('shows one ping at a time, the newest first', async () => {
@@ -32,7 +32,7 @@ describe('PingHome', () => {
     renderApp(<PingHome api={api} />);
     expect(await screen.findByText('चावल')).toBeTruthy();
     expect(screen.queryByText('आटा')).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Haan hai' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /Haan hai/ })).toHaveLength(1);
   });
 
   it('polls every 5 seconds and shows a new ping when it arrives', async () => {
@@ -69,7 +69,7 @@ describe('PingHome', () => {
     const api = fakeApi({ listPings: vi.fn(async () => [ping({ id: 'p-9' })]), answerPing });
     const { user } = renderApp(<PingHome api={api} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Haan hai' }));
+    await user.click(await screen.findByRole('button', { name: /Haan hai/ }));
     await user.type(screen.getByLabelText(/Aapka daam/), '45');
     await user.click(screen.getByRole('button', { name: 'Bhejo' }));
 
@@ -89,11 +89,11 @@ describe('PingHome', () => {
       .mockResolvedValue([ping({ id: 'b' })]);
     const { user } = renderApp(<PingHome api={fakeApi({ listPings, answerPing })} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Haan hai' }));
+    await user.click(await screen.findByRole('button', { name: /Haan hai/ }));
     await user.click(screen.getByRole('button', { name: 'Skip' }));
     await waitFor(() => expect(answerPing).toHaveBeenCalledWith('a', { answer: 'yes' }));
 
-    await user.click(await screen.findByRole('button', { name: 'Nahi hai' }));
+    await user.click(await screen.findByRole('button', { name: /Nahi hai/ }));
     await waitFor(() => expect(answerPing).toHaveBeenCalledWith('b', { answer: 'no' }));
   });
 
@@ -103,7 +103,7 @@ describe('PingHome', () => {
       .mockResolvedValueOnce([ping({ id: 'a' })])
       .mockResolvedValue([]);
     const { user } = renderApp(<PingHome api={fakeApi({ listPings })} />);
-    await user.click(await screen.findByRole('button', { name: 'Nahi hai' }));
+    await user.click(await screen.findByRole('button', { name: /Nahi hai/ }));
     expect(await screen.findByText(/Abhi koi sawaal nahi/)).toBeTruthy();
   });
 
@@ -115,9 +115,9 @@ describe('PingHome', () => {
     const api = fakeApi({ listPings: vi.fn(async () => [ping()]), answerPing });
     const { user } = renderApp(<PingHome api={api} />);
 
-    await user.click(await screen.findByRole('button', { name: 'Nahi hai' }));
+    await user.click(await screen.findByRole('button', { name: /Nahi hai/ }));
     expect(await screen.findByRole('alert')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Nahi hai' }));
+    await user.click(screen.getByRole('button', { name: /Nahi hai/ }));
     await waitFor(() => expect(answerPing).toHaveBeenCalledTimes(2));
   });
 
@@ -125,7 +125,7 @@ describe('PingHome', () => {
     const answerPing = vi.fn().mockRejectedValue(new ApiError(409, 'ping_closed', 'too old'));
     const listPings = vi.fn().mockResolvedValueOnce([ping()]).mockResolvedValue([]);
     const { user } = renderApp(<PingHome api={fakeApi({ listPings, answerPing })} />);
-    await user.click(await screen.findByRole('button', { name: 'Nahi hai' }));
+    await user.click(await screen.findByRole('button', { name: /Nahi hai/ }));
     expect(await screen.findByText(/Abhi koi sawaal nahi/)).toBeTruthy();
   });
 });
