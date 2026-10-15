@@ -15,6 +15,9 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
+      # Demo login: the code is read from /dev/otp-inbox. Only 'simulated' exists (ADR-0013).
+      - key: OTP_MODE
+        value: simulated
       # Neon pooled connection string. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false

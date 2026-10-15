@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import type { Logger } from 'pino';
-import type { Queryable } from '../modules/shops/index.js';
+import type { Queryable } from '../db/queryable.js';
 
 interface HealthDeps {
   gitSha: string;

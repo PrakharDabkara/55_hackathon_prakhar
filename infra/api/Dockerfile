@@ -11,8 +11,9 @@ COPY apps/simulator/package.json apps/simulator/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 RUN npm ci
+COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN npm run build -w @kahanmilega/api
+RUN npm run build -w @kahanmilega/shared && npm run build -w @kahanmilega/api
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
@@ -30,6 +31,8 @@ ARG GIT_SHA=
 ENV GIT_SHA=${GIT_SHA}
 WORKDIR /app
 COPY --from=deps --chown=node:node /app/node_modules node_modules
+COPY --from=build --chown=node:node /app/packages/shared/dist packages/shared/dist
+COPY --chown=node:node packages/shared/package.json packages/shared/package.json
 COPY --from=build --chown=node:node /app/apps/api/dist apps/api/dist
 COPY --chown=node:node apps/api/package.json apps/api/package.json
 USER node

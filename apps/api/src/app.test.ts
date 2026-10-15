@@ -9,6 +9,7 @@ const config: Config = {
   port: 0,
   logLevel: 'silent',
   databaseUrl: 'postgres://unused',
+  otpMode: 'simulated',
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });
