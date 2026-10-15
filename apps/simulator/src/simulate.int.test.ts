@@ -39,7 +39,8 @@ describe('the simulator against a real API', () => {
     const config = testConfig({
       workersEnabled: true,
       redisUrl: redis.url,
-      adminPhones: [`+91${ADMIN_PHONE}`],
+      // A second admin: a phone may ask for only 3 login codes per 10 minutes.
+      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202'],
     });
     realtime = createRealtime({ redisUrl: redis.url, logger: quiet, heartbeatMs: 200 });
     workers = startWorkers({
@@ -181,6 +182,7 @@ describe('the simulator against a real API', () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
     const sim = await runSimulator({
       ...options([]),
+      adminPhone: '9810000202',
       count: 5,
       seed: 21,
       categories: ['grocery'],

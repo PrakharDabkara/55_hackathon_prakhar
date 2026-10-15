@@ -1,10 +1,12 @@
-import type { Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@kahanmilega/shared';
 
 export interface GenerateInput {
   count: number;
   centre: { lat: number; lng: number };
   radiusM: number;
   seed: number;
+  /** Make shops of these categories only. Default: the realistic mix of all eight. */
+  categories?: readonly Category[] | undefined;
 }
 
 export interface SimShopSpec {
@@ -116,8 +118,8 @@ const TEMPLATES: Record<Category, string[]> = {
 const pick = <T>(list: readonly T[], next: () => number): T =>
   list[Math.floor(next() * list.length)] as T;
 
-function pickCategory(next: () => number, not?: Category): Category {
-  const options = WEIGHTS.filter(([c]) => c !== not);
+function pickCategory(next: () => number, allowed: readonly Category[], not?: Category): Category {
+  const options = WEIGHTS.filter(([c]) => c !== not && allowed.includes(c));
   let roll = next() * options.reduce((sum, [, w]) => sum + w, 0);
   for (const [category, weight] of options) {
     roll -= weight;
@@ -133,14 +135,23 @@ const METRES_PER_DEGREE = 111_320;
  * evenly over the disc, each with a phone from a reserved block (+9160xxxxxxxx) that real users do
  * not use. Pure and deterministic: the same input always gives the same shops.
  */
-export function generateShops({ count, centre, radiusM, seed }: GenerateInput): SimShopSpec[] {
+export function generateShops({
+  count,
+  centre,
+  radiusM,
+  seed,
+  categories: allowed = CATEGORIES,
+}: GenerateInput): SimShopSpec[] {
   const next = rng(seed);
   const phones = new Set<string>();
   const shops: SimShopSpec[] = [];
 
   while (shops.length < count) {
-    const first = pickCategory(next);
-    const categories: Category[] = next() < 0.25 ? [first, pickCategory(next, first)] : [first];
+    const first = pickCategory(next, allowed);
+    const wantsSecond = next() < 0.25 && allowed.length > 1;
+    const categories: Category[] = wantsSecond
+      ? [first, pickCategory(next, allowed, first)]
+      : [first];
     const name = pick(TEMPLATES[first], next)
       .replace('{s}', pick(SURNAMES, next))
       .replace('{g}', pick(GODS, next));

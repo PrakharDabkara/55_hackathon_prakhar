@@ -16,6 +16,10 @@ export interface SimulatorOptions {
   stateFile: string;
   /** Ignore the state file and make the shops again. */
   reset?: boolean;
+  /** Make shops of these categories only (default: the realistic mix). */
+  categories?: string[];
+  /** Every shop answers every ping with a yes: for tests and demos that must not depend on luck. */
+  eager?: boolean;
   log?: (line: string) => void;
 }
 
@@ -92,6 +96,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
       centre: options.centre,
       radiusM: options.radiusM,
       seed,
+      ...(options.categories && { categories: options.categories }),
     });
     saveState(options.stateFile, {
       version: 1,
@@ -105,7 +110,9 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   for (const login of logins) {
     shops.set(login.shopId, {
       ...login,
-      profile: makeProfile(createRng(hashSeed(seed, login.shopId))),
+      profile: options.eager
+        ? { replyProbability: 1, alwaysNo: false }
+        : makeProfile(createRng(hashSeed(seed, login.shopId))),
     });
   }
 
