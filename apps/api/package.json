@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@kahanmilega/shared": "*",
     "bullmq": "^6.3.13",
     "express": "^5.3.0",
     "ioredis": "^6.0.0",
@@ -24,6 +25,6 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
-    "dev": "npm run build && node --env-file=../../.env dist/server.js"
+    "dev": "npm run build -w @kahanmilega/shared && npm run build && node --env-file=../../.env dist/server.js"
   }
 }

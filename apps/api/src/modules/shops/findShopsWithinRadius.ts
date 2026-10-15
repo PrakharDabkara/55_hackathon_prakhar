@@ -1,6 +1,4 @@
-import type { Pool, PoolClient } from 'pg';
-
-export type Queryable = Pick<Pool | PoolClient, 'query'>;
+import type { Queryable } from '../../db/queryable.js';
 
 export interface ShopWithDistance {
   id: string;

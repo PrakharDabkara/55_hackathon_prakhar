@@ -320,7 +320,7 @@ describe('identity and shops API', () => {
 
     it('validates the body', async () => {
       const { token } = await login('shop');
-      const bad: unknown[] = [
+      const bad: object[] = [
         { ...shopBody, name: '  ' },
         { ...shopBody, lat: 91 },
         { ...shopBody, lng: 181 },
