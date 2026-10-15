@@ -10,6 +10,8 @@ const IMAGE = 'kahanmilega-postgres:test';
 
 export interface TestDatabase {
   pool: Pool;
+  /** Connection string, for tests that open their own connections. */
+  url: string;
   stop: () => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ export async function startPostgres(): Promise<TestDatabase> {
   const pool = new Pool({ connectionString: databaseUrl });
   return {
     pool,
+    url: databaseUrl,
     stop: async () => {
       await pool.end();
       await container.stop();
