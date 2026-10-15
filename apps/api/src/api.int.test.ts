@@ -133,6 +133,21 @@ describe('identity and shops API', () => {
       expect(rows[0].ttl).toEqual({ minutes: 5 });
     });
 
+    it('holds the limit under concurrency: 10 parallel requests give 3 × 202 and 7 × 429', async () => {
+      const phone = nextPhone();
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () => request(app).post('/auth/otp/request').send({ phone })),
+      );
+      const statuses = results.map((r) => r.status);
+      expect(statuses.filter((s) => s === 202)).toHaveLength(3);
+      expect(statuses.filter((s) => s === 429)).toHaveLength(7);
+      const { rows } = await pool.query(
+        'SELECT count(*)::int AS n FROM otp_codes WHERE phone = $1',
+        [`+91${phone}`],
+      );
+      expect(rows[0].n).toBe(3);
+    });
+
     it('allows 3 requests per phone per 10 minutes, then 429', async () => {
       const phone = nextPhone();
       for (let i = 0; i < 3; i++) {
@@ -242,6 +257,25 @@ describe('identity and shops API', () => {
           .send({ phone, code: wrong, role: 'seeker' });
         expect(res.status).toBe(401);
       }
+      const res = await request(app).post('/auth/otp/verify').send({ phone, code, role: 'seeker' });
+      expect(res.status).toBe(401);
+    });
+
+    it('holds the attempt limit under concurrency: 10 parallel wrong guesses kill the code', async () => {
+      const phone = nextPhone();
+      await request(app).post('/auth/otp/request').send({ phone });
+      const code = await inboxCode(phone);
+      const wrong = code === '000000' ? '111111' : '000000';
+      const guesses = await Promise.all(
+        Array.from({ length: 10 }, () =>
+          request(app).post('/auth/otp/verify').send({ phone, code: wrong, role: 'seeker' }),
+        ),
+      );
+      expect(guesses.every((r) => r.status === 401)).toBe(true);
+      const { rows } = await pool.query('SELECT attempts FROM otp_codes WHERE phone = $1', [
+        `+91${phone}`,
+      ]);
+      expect(rows[0].attempts).toBe(5);
       const res = await request(app).post('/auth/otp/verify').send({ phone, code, role: 'seeker' });
       expect(res.status).toBe(401);
     });

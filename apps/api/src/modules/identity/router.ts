@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import type { Logger } from 'pino';
 import { z } from 'zod';
-import type { Queryable } from '../../db/queryable.js';
+import type { Database } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth } from './middleware.js';
 import { maskPhone, normalisePhone } from './phone.js';
 import { latestDevCode, requestOtp, revokeSession, verifyOtp } from './service.js';
 
 interface IdentityDeps {
-  db: Queryable;
+  db: Database;
   logger: Logger;
   otpMode: 'simulated';
 }
