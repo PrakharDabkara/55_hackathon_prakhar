@@ -31,7 +31,9 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
     await pool.query('UPDATE items SET embedding = NULL, embedding_source_hash = NULL');
   });
 
-  function setup(opts: { allow?: boolean; timeoutMs?: number; threshold?: number; margin?: number } = {}) {
+  function setup(
+    opts: { allow?: boolean; timeoutMs?: number; threshold?: number; margin?: number } = {},
+  ) {
     const provider = createFakeProvider({ dim: DIM });
     const ai: AiContext = createAi({
       provider,
@@ -47,30 +49,41 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
   const resolve = (ai: AiContext, q: string, extra: { userId?: string } = {}) =>
     resolveItem(pool, q, { threshold: 0.4, ai, requestId: 'req-test', ...extra });
   const matchedBy = async (q: string) =>
-    (await pool.query(`SELECT matched_by, item_id FROM search_queries WHERE raw_text = $1`, [q])).rows[0];
+    (await pool.query(`SELECT matched_by, item_id FROM search_queries WHERE raw_text = $1`, [q]))
+      .rows[0];
   const calls = async () =>
-    (await pool.query<{ purpose: string; outcome: string; request_id: string }>(
-      `SELECT purpose, outcome, request_id FROM ai_calls ORDER BY created_at, id`,
-    )).rows;
+    (
+      await pool.query<{ purpose: string; outcome: string; request_id: string }>(
+        `SELECT purpose, outcome, request_id FROM ai_calls ORDER BY created_at, id`,
+      )
+    ).rows;
   const cached = async (text: string) =>
     (await pool.query(`SELECT * FROM query_cache WHERE normalised = $1`, [text])).rows[0];
 
   describe('steps that cost nothing', () => {
     it('a) the cache answers first, with no AI call, for a resolved item, an ambiguous query or "none"', async () => {
       const { provider, ai } = setup();
-      await pool.query(`INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzcache', $1, 'llm')`, [ids['sugar']]);
+      await pool.query(
+        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzcache', $1, 'llm')`,
+        [ids['sugar']],
+      );
       await pool.query(
         `INSERT INTO query_cache (normalised, item_id, method, question, options) VALUES ('zzamb', NULL, 'llm', 'Kaunsa?', $1)`,
         [JSON.stringify([ids['paper-clips'], ids['clothes-clips']])],
       );
-      await pool.query(`INSERT INTO query_cache (normalised, item_id, method) VALUES ('zznone', NULL, 'llm')`);
+      await pool.query(
+        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zznone', NULL, 'llm')`,
+      );
 
       const hit = await resolve(ai, 'zzcache');
       expect(hit).toMatchObject({ matchedBy: 'cache', item: { slug: 'sugar' } });
       const amb = await resolve(ai, 'zzamb');
       expect(amb.item).toBeNull();
       expect(amb.ambiguous?.question).toBe('Kaunsa?');
-      expect(amb.ambiguous?.options.map((o) => o.nameEn).sort()).toEqual(['clothes clips', 'paper clips']);
+      expect(amb.ambiguous?.options.map((o) => o.nameEn).sort()).toEqual([
+        'clothes clips',
+        'paper clips',
+      ]);
       const none = await resolve(ai, 'zznone');
       expect(none).toMatchObject({ item: null, matchedBy: 'cache' });
       expect(none.ambiguous).toBeUndefined();
@@ -81,7 +94,11 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
     it('b) an exact synonym, with the quantity pulled out', async () => {
       const { provider, ai } = setup();
       const r = await resolve(ai, 'aata 5 kilo');
-      expect(r).toMatchObject({ matchedBy: 'synonym', item: { slug: 'wheat-flour' }, quantity: { quantity: 5, unit: 'kg' } });
+      expect(r).toMatchObject({
+        matchedBy: 'synonym',
+        item: { slug: 'wheat-flour' },
+        quantity: { quantity: 5, unit: 'kg' },
+      });
       expect(provider.calls).toEqual([]);
       expect((await matchedBy('aata 5 kilo')).matched_by).toBe('synonym');
     });
@@ -112,7 +129,10 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       await setEmbeddings(pool, { 'ball-pen': vec({ 1: 1 }), 'gel-pen': vec({ 2: 1 }) });
       provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
       await resolve(ai, 'zzq ballpoint');
-      expect(await cached('zzq ballpoint')).toMatchObject({ item_id: ids['ball-pen'], method: 'embedding' });
+      expect(await cached('zzq ballpoint')).toMatchObject({
+        item_id: ids['ball-pen'],
+        method: 'embedding',
+      });
       provider.calls.length = 0;
       const again = await resolve(ai, 'zzq ballpoint');
       expect(again).toMatchObject({ matchedBy: 'cache', item: { slug: 'ball-pen' } });
@@ -181,20 +201,38 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       provider.onGenerate(() => ({ itemId: ids['gel-pen'], needsClarification: false }));
       await resolve(ai, 'zzq pen again');
       provider.calls.length = 0;
-      expect(await resolve(ai, 'zzq pen again')).toMatchObject({ matchedBy: 'cache', item: { slug: 'gel-pen' } });
+      expect(await resolve(ai, 'zzq pen again')).toMatchObject({
+        matchedBy: 'cache',
+        item: { slug: 'gel-pen' },
+      });
       expect(provider.calls).toEqual([]);
     });
 
     it('sees a shortlist of at most 10 candidates, merged from trigram and embeddings, without duplicates', async () => {
       const { provider, ai } = setup();
-      const slugs = ['ball-pen', 'gel-pen', 'marker-pen', 'pencil', 'eraser', 'ruler', 'scissors', 'stapler', 'sketch-pens', 'crayons', 'notebook', 'glue-stick'];
+      const slugs = [
+        'ball-pen',
+        'gel-pen',
+        'marker-pen',
+        'pencil',
+        'eraser',
+        'ruler',
+        'scissors',
+        'stapler',
+        'sketch-pens',
+        'crayons',
+        'notebook',
+        'glue-stick',
+      ];
       const weights: Record<string, number[]> = {};
-      slugs.forEach((s, i) => (weights[s] = vec({ 1: 1 - i * 0.02, 10 + i: 0.3 })));
+      slugs.forEach((s, i) => (weights[s] = vec({ 1: 1 - i * 0.02, [10 + i]: 0.3 })));
       await setEmbeddings(pool, weights);
       provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
       let shortlist: string[] = [];
       provider.onGenerate((o) => {
-        shortlist = [...(o.user as string).matchAll(/"id":"([0-9a-f-]{36})"/g)].map((m) => m[1] as string);
+        shortlist = [...(o.user as string).matchAll(/"id":"([0-9a-f-]{36})"/g)].map(
+          (m) => m[1] as string,
+        );
         return { itemId: null, needsClarification: false };
       });
       await resolve(ai, 'zzq stationery thing');
@@ -205,7 +243,11 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
 
     it('can ask a question with options, and the answer is cached for next time', async () => {
       const { provider, ai } = setup();
-      await setEmbeddings(pool, { 'paper-clips': vec({ 1: 1 }), 'clothes-clips': vec({ 1: 0.97, 2: 0.2 }), 'hair-clip': vec({ 3: 1 }) });
+      await setEmbeddings(pool, {
+        'paper-clips': vec({ 1: 1 }),
+        'clothes-clips': vec({ 1: 0.97, 2: 0.2 }),
+        'hair-clip': vec({ 3: 1 }),
+      });
       provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
       provider.onGenerate(() => ({
         itemId: null,
@@ -218,8 +260,16 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       expect(r.ambiguous).toEqual({
         question: 'Kaunsa clip chahiye?',
         options: [
-          { itemId: ids['paper-clips'], nameEn: 'paper clips', nameHi: expect.stringMatching(/[ऀ-ॿ]/) },
-          { itemId: ids['clothes-clips'], nameEn: 'clothes clips', nameHi: expect.stringMatching(/[ऀ-ॿ]/) },
+          {
+            itemId: ids['paper-clips'],
+            nameEn: 'paper clips',
+            nameHi: expect.stringMatching(/[ऀ-ॿ]/),
+          },
+          {
+            itemId: ids['clothes-clips'],
+            nameEn: 'clothes clips',
+            nameHi: expect.stringMatching(/[ऀ-ॿ]/),
+          },
         ],
       });
       const row = await matchedBy('zzq clip');
@@ -244,18 +294,32 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
     it.each([
       ['an item that is not in the shortlist', { itemId: UNKNOWN_ID, needsClarification: false }],
       ['an item id the model made up', { itemId: 'sugar', needsClarification: false }],
-      ['an option that is not in the shortlist', { itemId: null, needsClarification: true, question: 'Q?', optionIds: [UNKNOWN_ID, UNKNOWN_ID.replace('9', '8')] }],
-    ])('rejects %s: unresolved, logged invalid_output, nothing cached or suggested', async (_n, answer) => {
-      const { provider, ai } = setup();
-      await near(provider);
-      provider.onGenerate(() => answer);
-      const r = await resolve(ai, 'zzq bad answer');
-      expect(r).toMatchObject({ item: null, matchedBy: null });
-      expect(r.ambiguous).toBeUndefined();
-      expect((await calls()).at(-1)).toMatchObject({ purpose: 'resolve_query', outcome: 'invalid_output' });
-      expect(await cached('zzq bad answer')).toBeUndefined();
-      expect((await pool.query('SELECT 1 FROM suggested_synonyms')).rowCount).toBe(0);
-    });
+      [
+        'an option that is not in the shortlist',
+        {
+          itemId: null,
+          needsClarification: true,
+          question: 'Q?',
+          optionIds: [UNKNOWN_ID, UNKNOWN_ID.replace('9', '8')],
+        },
+      ],
+    ])(
+      'rejects %s: unresolved, logged invalid_output, nothing cached or suggested',
+      async (_n, answer) => {
+        const { provider, ai } = setup();
+        await near(provider);
+        provider.onGenerate(() => answer);
+        const r = await resolve(ai, 'zzq bad answer');
+        expect(r).toMatchObject({ item: null, matchedBy: null });
+        expect(r.ambiguous).toBeUndefined();
+        expect((await calls()).at(-1)).toMatchObject({
+          purpose: 'resolve_query',
+          outcome: 'invalid_output',
+        });
+        expect(await cached('zzq bad answer')).toBeUndefined();
+        expect((await pool.query('SELECT 1 FROM suggested_synonyms')).rowCount).toBe(0);
+      },
+    );
 
     it('an answer in the wrong shape is also invalid_output', async () => {
       const { provider, ai } = setup();
@@ -307,7 +371,9 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       await resolve(ai, 'zzq plain pen', { userId: 'b6a1c0de-user-id-1234' });
       const sent = JSON.stringify(provider.calls);
       expect(sent).not.toContain('b6a1c0de');
-      expect(sent).not.toMatch(/\+91|\blat\b|\blng\b|latitude|longitude|\bshops?\b|\bphone\b|\bprice\b/i);
+      expect(sent).not.toMatch(
+        /\+91|\blat\b|\blng\b|latitude|longitude|\bshops?\b|\bphone\b|\bprice\b/i,
+      );
     });
 
     it('the audit table has no column that could hold prompt text', async () => {
@@ -315,7 +381,18 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'ai_calls' ORDER BY column_name`,
       );
       expect(rows.map((r) => r.column_name)).toEqual(
-        ['created_at', 'id', 'input_tokens', 'latency_ms', 'model', 'outcome', 'output_tokens', 'provider', 'purpose', 'request_id'].sort(),
+        [
+          'created_at',
+          'id',
+          'input_tokens',
+          'latency_ms',
+          'model',
+          'outcome',
+          'output_tokens',
+          'provider',
+          'purpose',
+          'request_id',
+        ].sort(),
       );
     });
   });
@@ -392,8 +469,13 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
 
     it('applies only to a known user, and the cache still answers over the limit', async () => {
       const { provider, ai } = setup({ allow: false });
-      await pool.query(`INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzq cached over limit', $1, 'llm')`, [ids['sugar']]);
-      expect((await resolve(ai, 'zzq cached over limit', { userId: 'busy-user' })).item?.slug).toBe('sugar');
+      await pool.query(
+        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzq cached over limit', $1, 'llm')`,
+        [ids['sugar']],
+      );
+      expect((await resolve(ai, 'zzq cached over limit', { userId: 'busy-user' })).item?.slug).toBe(
+        'sugar',
+      );
       expect(provider.calls).toEqual([]);
     });
   });
