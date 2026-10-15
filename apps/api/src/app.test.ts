@@ -11,6 +11,10 @@ const config: Config = {
   databaseUrl: 'postgres://unused',
   otpMode: 'simulated',
   trigramThreshold: 0.4,
+  redisUrl: null,
+  minStockResults: 3,
+  requestTtlMinutes: 15,
+  workersEnabled: false,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });
