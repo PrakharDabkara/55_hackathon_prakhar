@@ -1,5 +1,13 @@
 export { normaliseQuery } from './normalise.js';
 export type { NormalisedQuery, Quantity, Unit } from './normalise.js';
+export { embedCatalog } from './embedCatalog.js';
+export { resolveForCustomer } from './resolveForCustomer.js';
 export { getItem, getRefPricePaise, resolveItem } from './resolve.js';
-export type { CatalogItem, MatchedBy, Resolution } from './resolve.js';
+export type {
+  AmbiguousChoice,
+  CatalogItem,
+  MatchedBy,
+  Resolution,
+  ResolveOptions,
+} from './resolve.js';
 export { loadSeedCatalog, seedCatalog } from './seed.js';

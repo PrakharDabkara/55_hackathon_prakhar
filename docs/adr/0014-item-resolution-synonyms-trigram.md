@@ -1,6 +1,6 @@
 # 0014. Item resolution: synonyms + trigram before AI
 
-Status: Accepted · 2026-10-15
+Status: Accepted · 2026-10-15. Extended by [ADR-0021](0021-cheapest-first-resolution.md): steps 1 to 3 below still run first; the unresolved case now goes on to a cache, embeddings and an LLM.
 
 ## Context
 

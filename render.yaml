@@ -36,6 +36,20 @@ services:
       # by hand in the dashboard. Empty means no admin exists and the admin endpoints answer 404.
       - key: ADMIN_PHONES
         sync: false
+      # AI query understanding (ADR-0020). Free-tier prompts may be reviewed by Google: only query
+      # text and catalog item names are sent. The key is set by hand in the dashboard.
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.1-flash-lite
+      - key: GEMINI_EMBED_MODEL
+        value: gemini-embedding-001
+      - key: EMBED_THRESHOLD
+        value: '0.7'
+      - key: EMBED_MARGIN
+        value: '0.04'
       # Neon pooled connection string. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false

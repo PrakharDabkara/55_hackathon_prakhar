@@ -52,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /admin/sim/shops` accepts an optional `categories` list; the simulator has `categories` and `eager` options for tests and demos.
 - Playwright end-to-end test (`npm run test:e2e`, `e2e/`) and a separate CI job `e2e`: Postgres, Redis, the API with `ADMIN_PHONES`, five simulated grocery shops, Chromium at 360 px; the screenshot is uploaded as an artifact. Deploy now waits for it.
 - Dependencies (approved): `leaflet`, `@types/leaflet`, `@playwright/test`.
+- AI query understanding (Day 9, ADR-0020 and ADR-0021): an `LlmProvider` port in `modules/ai` with a Gemini free-tier adapter (`@google/genai`, JSON schema output, temperature 0) and a scripted fake; 8 s timeout, one retry on 429 and 5xx, a circuit breaker per call kind (5 failures, 60 s), and a per-user limit of 30 LLM resolutions per hour (Redis, fails open). AI failure degrades to "unresolved", never to a failed search.
+- Migration 008: `ai_calls` (tokens, latency, outcome, request id; no prompt text), `items.embedding vector(768)` with an HNSW cosine index and a source hash, `query_cache`, `suggested_synonyms`, and `search_queries.matched_by` now also `cache`, `embedding`, `llm`.
+- Resolution pipeline: cache, exact synonym, trigram, embeddings (`EMBED_THRESHOLD`, `EMBED_MARGIN`), then an LLM shown a shortlist of at most 10 candidates whose answer must name only shortlisted ids; successful answers are cached and LLM matches are queued as suggested synonyms. The query is capped, stripped of control characters and delimited as data. Only query text and catalog names are ever sent.
+- API: `422 item_ambiguous` with a question and options from `POST /requests` and `GET /search`; both accept `itemId`. The seeker app shows the question with big option buttons. `GET /admin/ai/stats` (admin only).
+- Scripts: `npm run ai:models` (lists the models a key can use), `npm run ai:embed-catalog` (also run by the deploy job when `GEMINI_API_KEY` is set), `npm run eval:resolve` with `evals/resolve.jsonl` (81 labelled queries; reports in `evals/reports/`).
+- Config `LLM_PROVIDER` (required in production), `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_EMBED_MODEL`, `EMBED_DIM`, `EMBED_THRESHOLD`, `EMBED_MARGIN`. Dependency (approved): `@google/genai`.
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
 
 ### Fixed

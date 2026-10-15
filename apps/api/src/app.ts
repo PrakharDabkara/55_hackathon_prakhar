@@ -6,6 +6,7 @@ import { healthRouter } from './http/health.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
+import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
@@ -22,6 +23,8 @@ interface AppDeps {
   requestHooks?: RequestHooks;
   /** Live events. Without it, realtime is off (no Redis): tickets answer 503 and events go nowhere. */
   realtime?: Realtime;
+  /** Embeddings and the LLM for item resolution. Without it only the free steps run. */
+  ai?: AiContext;
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
 }
@@ -33,6 +36,7 @@ export function createApp({
   readyTimeoutMs = 2000,
   requestHooks,
   realtime = createRealtime({ redisUrl: null, logger }),
+  ai,
   webDistDir = DEFAULT_WEB_DIST,
 }: AppDeps) {
   const app = express();
@@ -64,9 +68,10 @@ export function createApp({
   // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
   if (config.adminPhones.length > 0) {
     app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
+    app.use(aiAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(shopsRouter({ db }));
-  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold }));
+  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai }));
   app.use(
     requestsRouter({
       db,
@@ -78,6 +83,7 @@ export function createApp({
       },
       ...(requestHooks && { hooks: requestHooks }),
       events: realtime.events,
+      ...(ai && { ai }),
     }),
   );
   app.use(notFound);

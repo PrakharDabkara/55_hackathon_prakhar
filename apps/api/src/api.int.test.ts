@@ -22,6 +22,13 @@ const config: Config = {
   pingDedupeMinutes: 30,
   workersEnabled: false,
   adminPhones: [],
+  llmProvider: 'fake',
+  geminiApiKey: null,
+  geminiModel: 'gemini-3.1-flash-lite',
+  geminiEmbedModel: 'gemini-embedding-001',
+  embedDim: 768,
+  embedThreshold: 0.8,
+  embedMargin: 0.03,
   gitSha: 'test',
 };
 

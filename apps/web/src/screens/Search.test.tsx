@@ -130,4 +130,83 @@ describe('Search', () => {
     const button = screen.getByRole('button', { name: 'Dhoondho' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
+
+  describe('when the item could be several things', () => {
+    const ambiguous = new ApiError(422, 'item_ambiguous', 'Which one?', {
+      question: 'Kaunsa clip chahiye?',
+      options: [
+        { itemId: 'item-paper', nameEn: 'paper clips', nameHi: 'पेपर क्लिप' },
+        { itemId: 'item-clothes', nameEn: 'clothes clips', nameHi: 'कपड़े की क्लिप' },
+      ],
+    });
+
+    async function ask(
+      api = fakeSeekerApi({ createRequest: vi.fn().mockRejectedValueOnce(ambiguous) }),
+    ) {
+      const onFound = vi.fn();
+      const view = renderApp(<Search api={api} onFound={onFound} />);
+      await view.user.type(screen.getByLabelText('क्या चाहिए?'), 'clip');
+      await view.user.type(screen.getByLabelText(/Maine ₹__ mein dekha hai/), '20');
+      await view.user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+      await view.user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+      return { ...view, api, onFound };
+    }
+
+    it('asks the question and offers each option as a big button, Hindi name first', async () => {
+      await ask();
+      expect(await screen.findByText('Kaunsa clip chahiye?')).toBeTruthy();
+      const paper = screen.getByRole('button', { name: /पेपर क्लिप/ });
+      expect(paper.textContent).toContain('paper clips');
+      expect(paper.querySelector('.label-main')?.textContent).toBe('पेपर क्लिप');
+      expect(paper.querySelector('.label-sub')?.textContent).toBe('paper clips');
+      expect(screen.getByRole('button', { name: /कपड़े की क्लिप/ })).toBeTruthy();
+      expect(screen.queryByRole('alert')).toBeNull(); // a question, not an error
+    });
+
+    it('tapping an option searches again with its itemId, the same text, price and place', async () => {
+      const api = fakeSeekerApi({
+        createRequest: vi
+          .fn()
+          .mockRejectedValueOnce(ambiguous)
+          .mockResolvedValueOnce(seekerRequest()),
+      });
+      const { user, onFound } = await ask(api);
+      await user.click(await screen.findByRole('button', { name: /कपड़े की क्लिप/ }));
+      await waitFor(() => expect(api.createRequest).toHaveBeenCalledTimes(2));
+      expect(api.createRequest).toHaveBeenLastCalledWith({
+        q: 'clip',
+        lat: 22.7196,
+        lng: 75.8577,
+        targetPricePaise: 2000,
+        itemId: 'item-clothes',
+      });
+      expect(onFound).toHaveBeenCalledWith(seekerRequest(), { lat: 22.7196, lng: 75.8577 });
+    });
+
+    it('clears the question once the customer starts typing something else', async () => {
+      const { user } = await ask();
+      await screen.findByText('Kaunsa clip chahiye?');
+      await user.type(screen.getByLabelText('क्या चाहिए?'), 's');
+      expect(screen.queryByText('Kaunsa clip chahiye?')).toBeNull();
+    });
+
+    it('shows the question text as plain text, never as markup', async () => {
+      const hostile = new ApiError(422, 'item_ambiguous', 'x', {
+        question: '<img src=x onerror=alert(1)>Which?',
+        options: [
+          { itemId: 'a', nameEn: 'a', nameHi: 'अ' },
+          { itemId: 'b', nameEn: 'b', nameHi: 'ब' },
+        ],
+      });
+      await ask(fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(hostile) }));
+      expect(await screen.findByText(/<img src=x/)).toBeTruthy();
+      expect(document.querySelector('img')).toBeNull();
+    });
+
+    it('falls back to the generic error if the 422 has no usable options', async () => {
+      const broken = new ApiError(422, 'item_ambiguous', 'x', { question: 'Q?', options: [] });
+      await ask(fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(broken) }));
+      expect((await screen.findByRole('alert')).textContent).toMatch(/Kuch gadbad/);
+    });
+  });
 });
