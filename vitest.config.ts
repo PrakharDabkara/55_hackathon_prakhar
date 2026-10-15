@@ -10,7 +10,8 @@ export default defineConfig({
       ),
     },
   },
+  esbuild: { jsx: 'automatic' },
   test: {
-    include: ['{apps,packages,evals}/**/*.test.ts'],
+    include: ['{apps,packages,evals}/**/*.test.{ts,tsx}'],
   },
 });
