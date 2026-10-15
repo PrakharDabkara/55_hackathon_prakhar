@@ -10,6 +10,7 @@ const config: Config = {
   logLevel: 'silent',
   databaseUrl: 'postgres://unused',
   otpMode: 'simulated',
+  trigramThreshold: 0.4,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });

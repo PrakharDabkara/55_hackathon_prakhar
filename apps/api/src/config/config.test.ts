@@ -14,6 +14,7 @@ describe('loadConfig', () => {
       databaseUrl: valid.DATABASE_URL,
       gitSha: 'unknown',
       otpMode: 'simulated',
+      trigramThreshold: 0.4,
     });
   });
 
@@ -33,6 +34,15 @@ describe('loadConfig', () => {
   it('fails fast on any other OTP_MODE (sms is not implemented)', () => {
     expect(() => loadConfig({ ...valid, OTP_MODE: 'sms' })).toThrowError(/OTP_MODE/);
     expect(() => loadConfig({ ...valid, OTP_MODE: '' })).toThrowError(/OTP_MODE/);
+  });
+
+  it('reads TRIGRAM_THRESHOLD, between 0.3 and 1', () => {
+    expect(loadConfig({ ...valid, TRIGRAM_THRESHOLD: '0.55' }).trigramThreshold).toBe(0.55);
+    for (const bad of ['0.2', '1.1', 'abc']) {
+      expect(() => loadConfig({ ...valid, TRIGRAM_THRESHOLD: bad })).toThrowError(
+        /TRIGRAM_THRESHOLD/,
+      );
+    }
   });
 
   it('coerces PORT to a number', () => {
