@@ -13,7 +13,17 @@ describe('loadConfig', () => {
       logLevel: 'info',
       databaseUrl: valid.DATABASE_URL,
       gitSha: 'unknown',
+      otpMode: 'simulated',
     });
+  });
+
+  it('accepts OTP_MODE=simulated', () => {
+    expect(loadConfig({ ...valid, OTP_MODE: 'simulated' }).otpMode).toBe('simulated');
+  });
+
+  it('fails fast on any other OTP_MODE (sms is not implemented)', () => {
+    expect(() => loadConfig({ ...valid, OTP_MODE: 'sms' })).toThrowError(/OTP_MODE/);
+    expect(() => loadConfig({ ...valid, OTP_MODE: '' })).toThrowError(/OTP_MODE/);
   });
 
   it('coerces PORT to a number', () => {
