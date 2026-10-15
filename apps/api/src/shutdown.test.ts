@@ -32,6 +32,22 @@ function setup(opts: { closeHangs?: boolean } = {}) {
 }
 
 describe('registerShutdown', () => {
+  it('ends long-lived streams first, because server.close waits for open connections', async () => {
+    const calls: string[] = [];
+    const proc = new EventEmitter();
+    registerShutdown({
+      server: { close: (cb) => (calls.push('server.close'), cb()) },
+      drain: [() => calls.push('drain')],
+      pool: { end: async () => void calls.push('pool.end') },
+      logger: pino({ level: 'silent' }),
+      exit: (code) => void calls.push(`exit:${code}`),
+      process: proc as never,
+    });
+    proc.emit('SIGTERM');
+    await vi.waitFor(() => expect(calls).toContain('exit:0'));
+    expect(calls).toEqual(['drain', 'server.close', 'pool.end', 'exit:0']);
+  });
+
   it('stops accepting, closes the pool, then exits 0 on SIGTERM', async () => {
     const { calls, proc } = setup();
     proc.emit('SIGTERM');
