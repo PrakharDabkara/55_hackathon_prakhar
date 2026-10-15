@@ -11,3 +11,8 @@ coverage/
 
 # Simulator: tokens of the fake shops
 apps/simulator/.sim-state*.json
+
+# Playwright
+e2e/artifacts/
+playwright-report/
+test-results/
