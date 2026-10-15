@@ -8,7 +8,9 @@ import {
   recordStockYes,
   type QuantityHint,
 } from '../shops/index.js';
+import type { EventPublisher } from '../realtime/index.js';
 import { distanceBand } from './distanceBand.js';
+import { announceTransition } from './events.js';
 import {
   applyEventIn,
   findRequest,
@@ -44,7 +46,12 @@ export interface FanOutResult {
  * first share-locks the request, so a request that ends meanwhile cannot be left with open pings.
  */
 export async function fanOutPings(
-  deps: { db: Database; logger: Logger; config: { maxPings: number } },
+  deps: {
+    db: Database;
+    logger: Logger;
+    config: { maxPings: number };
+    events?: EventPublisher | undefined;
+  },
   requestId: string,
   claims: PingClaims,
 ): Promise<FanOutResult> {
@@ -88,7 +95,7 @@ export async function fanOutPings(
   const giveBack = () =>
     Promise.all(claimed.map((shopId) => claims.release(shopId, request.itemId)));
 
-  let sent: number | null;
+  let sent: { id: string; ownerUserId: string | null }[] | null;
   try {
     sent = await withTransaction(db, async (tx) => {
       const live = await tx.query<{ ok: boolean }>(
@@ -96,14 +103,17 @@ export async function fanOutPings(
         [requestId],
       );
       if (!live.rows[0]?.ok) return null;
-      const inserted = await tx.query(
-        `INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
-         SELECT $1, shop_id, $3, 'SENT', now() FROM unnest($2::uuid[]) AS shop_id
-         ON CONFLICT (request_id, shop_id) DO NOTHING
-         RETURNING id`,
+      const inserted = await tx.query<{ id: string; owner_user_id: string | null }>(
+        `WITH ins AS (
+           INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
+           SELECT $1, shop_id, $3, 'SENT', now() FROM unnest($2::uuid[]) AS shop_id
+           ON CONFLICT (request_id, shop_id) DO NOTHING
+           RETURNING id, shop_id
+         )
+         SELECT ins.id, s.owner_user_id FROM ins JOIN shops s ON s.id = ins.shop_id`,
         [requestId, claimed, request.itemId],
       );
-      return inserted.rows.length;
+      return inserted.rows.map((r) => ({ id: r.id, ownerUserId: r.owner_user_id }));
     });
   } catch (err) {
     await giveBack();
@@ -116,10 +126,18 @@ export async function fanOutPings(
     return { targets: targets.length, sent: 0, skipped: 'not_live' };
   }
   logger.info(
-    { requestId, considered: asked, deduped: asked - claimed.length, sent },
+    { requestId, considered: asked, deduped: asked - claimed.length, sent: sent.length },
     'ping fan-out',
   );
-  return { targets: targets.length, sent };
+  // After the commit: a shop told about a ping must be able to fetch it.
+  for (const ping of sent) {
+    if (!ping.ownerUserId) continue;
+    deps.events?.publish(
+      { to: { userId: ping.ownerUserId }, type: 'ping.created', data: { pingId: ping.id } },
+      logger,
+    );
+  }
+  return { targets: targets.length, sent: sent.length };
 }
 
 export interface ShopPing {
@@ -220,7 +238,7 @@ const toAnswer = (p: PingRow): PingAnswer => ({
  * Returns null when the ping is not this owner's.
  */
 export async function answerPing(
-  deps: { db: Database; logger: Logger },
+  deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
   ownerUserId: string,
   pingId: string,
   input: AnswerInput,
@@ -266,7 +284,7 @@ export async function answerPing(
       const current = (await tx.query<PingRow>(`${PING} WHERE p.id = $1`, [pingId]))
         .rows[0] as PingRow;
       if (current.state === 'YES' || current.state === 'NO')
-        return { answer: toAnswer(current), moves };
+        return { answer: toAnswer(current), moves, fresh: false };
       throw new ApiError(409, 'ping_closed', 'This ping is too old to answer');
     }
 
@@ -280,11 +298,34 @@ export async function answerPing(
       });
       if (!row.late) moves.push(await applyEventIn(tx, row.request_id, 'SHOP_SAID_YES'));
     }
-    return { answer: toAnswer(row), moves };
+    return { answer: toAnswer(row), moves, fresh: true };
   });
 
   if (!outcome) return null;
-  for (const move of outcome.moves) logTransition(deps.logger, move);
+  for (const move of outcome.moves) {
+    logTransition(deps.logger, move);
+    announceTransition(deps.events, move, deps.logger);
+  }
+  // A repeated answer changed nothing, so it announces nothing.
+  if (outcome.fresh) {
+    // This shop's ping is finished (it may have it open on another phone).
+    deps.events?.publish(
+      { to: { userId: ownerUserId }, type: 'ping.closed', data: { pingId } },
+      deps.logger,
+    );
+    // A live yes changes what the seeker sees even when the request was already ANSWERED.
+    const last = outcome.moves.at(-1);
+    if (outcome.answer.state === 'YES' && !outcome.answer.late && last?.kind === 'unchanged') {
+      deps.events?.publish(
+        {
+          to: { userId: last.request.userId },
+          type: 'request.updated',
+          data: { requestId: last.request.id, state: last.request.state },
+        },
+        deps.logger,
+      );
+    }
+  }
   deps.logger.info(
     { pingId, answer: outcome.answer.state, late: outcome.answer.late },
     'ping answered',

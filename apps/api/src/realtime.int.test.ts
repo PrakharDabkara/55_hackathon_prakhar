@@ -180,6 +180,7 @@ describe('realtime over SSE', () => {
     });
 
     it('never reach the logs, nor does the bearer token', async () => {
+      const before = realtime.connectionCount();
       const { ticket } = await ticketFor(seekerB);
       const stream = await openSse(`${base}/events?ticket=${ticket}`);
       await waitFor(
@@ -189,7 +190,8 @@ describe('realtime over SSE', () => {
       stream.close();
       await waitFor(
         async () => realtime.connectionCount(),
-        (n) => n === 0,
+        (n) => n === before,
+        3000,
       );
       await settle();
       const logs = logLines.join('\n');
@@ -213,16 +215,19 @@ describe('realtime over SSE', () => {
     });
 
     it('removes the connection when the client goes away', async () => {
+      await settle(); // let streams closed by earlier tests finish closing
       const before = realtime.connectionCount();
       const stream = await listen(seekerB);
       await waitFor(
         async () => realtime.connectionCount(),
         (n) => n === before + 1,
+        3000,
       );
       stream.close();
       await waitFor(
         async () => realtime.connectionCount(),
         (n) => n === before,
+        3000,
       );
       expect(realtime.connectionCount()).toBe(before);
     });
@@ -341,14 +346,19 @@ describe('realtime over SSE', () => {
       for (const e of pingCreated) expect(await e.atPublish).toBe('SENT');
 
       // A yes: request.updated shows the committed state, ping.closed a finished ping.
-      const pingId = pingCreated[0]?.data['pingId'] as string;
+      const mine = await pool.query<{ id: string }>(
+        `SELECT p.id FROM pings p JOIN shops s ON s.id = p.shop_id
+          WHERE p.request_id = $1 AND s.owner_user_id = $2`,
+        [r1.id, shop.userId],
+      );
+      const pingId = mine.rows[0]?.id as string;
       await answerPing({ db: pool, logger: quiet, events: publisher }, shop.userId, pingId, {
         answer: 'yes',
       });
       const updated = seen.find((e) => e.type === 'request.updated');
       expect(updated?.data).toEqual({ requestId: r1.id, state: 'ANSWERED' });
       expect(await updated?.atPublish).toBe('ANSWERED');
-      const closed = seen.find((e) => e.type === 'ping.closed');
+      const closed = seen.find((e) => e.type === 'ping.closed' && e.data['pingId'] === pingId);
       expect(await closed?.atPublish).toBe('YES');
 
       // A timeout: the request is EXPIRED and its open ping NO_REPLY by the time anyone hears.

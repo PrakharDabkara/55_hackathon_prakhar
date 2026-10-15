@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '../db/queryable.js';
+import type { EventPublisher } from '../modules/realtime/index.js';
 import { fanOutPings } from '../modules/requests/index.js';
 import { createPingDedupe, type RedisLike } from './pingDedupe.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
@@ -19,6 +20,7 @@ interface Options {
   db: Database;
   logger: Logger;
   config: { maxPings: number; dedupeMinutes: number };
+  events?: EventPublisher;
   queueName?: string;
 }
 
@@ -32,6 +34,7 @@ export function startPingFanout({
   db,
   logger,
   config,
+  events,
   queueName = FANOUT_QUEUE,
 }: Options): PingFanout {
   const queueConnection = connect(redisUrl, logger);
@@ -54,7 +57,7 @@ export function startPingFanout({
     queueName,
     async (job) => {
       await fanOutPings(
-        { db, logger, config: { maxPings: config.maxPings } },
+        { db, logger, config: { maxPings: config.maxPings }, events },
         (job.data as { requestId: string }).requestId,
         dedupe,
       );

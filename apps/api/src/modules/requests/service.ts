@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
+import type { EventPublisher } from '../realtime/index.js';
 import { getItem, resolveItem, type CatalogItem, type Quantity } from '../catalog/index.js';
 import { findLearnedStock, type LearnedStockResult } from '../shops/index.js';
 import {
@@ -31,6 +32,8 @@ export interface RequestsContext {
   logger: Logger;
   config: { minStockResults: number; ttlMinutes: number; trigramThreshold: number };
   hooks?: RequestHooks;
+  /** Realtime hints to the seeker and the shops (ADR-0018). Published after commits only. */
+  events?: EventPublisher | undefined;
 }
 
 export interface CreateRequestInput {
@@ -225,7 +228,7 @@ export async function closeRequest(
 
 /** Feeds an event into a request (Day 7: SHOP_SAID_YES). */
 export async function applyRequestEvent(
-  ctx: Pick<RequestsContext, 'db' | 'logger'>,
+  ctx: Pick<RequestsContext, 'db' | 'logger' | 'events'>,
   requestId: string,
   event: RequestEvent,
   reason: TransitionReason | null = null,
@@ -235,7 +238,7 @@ export async function applyRequestEvent(
 
 /** Fires TIMEOUT if the request is live and past its deadline. Used by the queue job and the sweeper. */
 export async function expireRequest(
-  deps: Pick<RequestsContext, 'db' | 'logger'>,
+  deps: Pick<RequestsContext, 'db' | 'logger' | 'events'>,
   requestId: string,
   reason: Extract<TransitionReason, 'queue' | 'sweeper'>,
 ): Promise<ApplyResult> {

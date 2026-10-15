@@ -1,6 +1,8 @@
 import type { Logger } from 'pino';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import type { Quantity } from '../catalog/index.js';
+import type { EventPublisher } from '../realtime/index.js';
+import { announceTransition } from './events.js';
 import { transition, type RequestEvent, type RequestState } from './stateMachine.js';
 
 export type TransitionReason = 'user' | 'queue' | 'sweeper' | 'lazy';
@@ -88,6 +90,8 @@ export type ApplyResult =
       from: RequestState;
       event: RequestEvent;
       reason: TransitionReason | null;
+      /** Pings that went NO_REPLY because the request left PINGING, with their shop owners. */
+      closedPings: { id: string; ownerUserId: string | null }[];
     }
   /** Nothing moved: a no-op event, or someone else moved the request first. `request` is the current state. */
   | { kind: 'unchanged'; request: RequestRecord }
@@ -136,14 +140,19 @@ export async function applyEventIn(
     [requestId, current.state, result.to, event, reason],
   );
   // The request is over for shops too: pings still waiting become NO_REPLY, in this same transaction.
+  let closedPings: { id: string; ownerUserId: string | null }[] = [];
   if (current.state === 'PINGING') {
-    await tx.query(
-      `UPDATE pings SET state = 'NO_REPLY' WHERE request_id = $1 AND state IN ('QUEUED', 'SENT')`,
+    const closed = await tx.query<{ id: string; owner_user_id: string | null }>(
+      `UPDATE pings p SET state = 'NO_REPLY'
+         FROM shops s
+        WHERE p.request_id = $1 AND p.state IN ('QUEUED', 'SENT') AND s.id = p.shop_id
+        RETURNING p.id, s.owner_user_id`,
       [requestId],
     );
+    closedPings = closed.rows.map((r) => ({ id: r.id, ownerUserId: r.owner_user_id }));
   }
   const updated = (await findRequest(tx, requestId)) as RequestRecord;
-  return { kind: 'applied', request: updated, from: current.state, event, reason };
+  return { kind: 'applied', request: updated, from: current.state, event, reason, closedPings };
 }
 
 /** One log line per transition: ids and states only, never the query text or the location. */
@@ -163,13 +172,14 @@ export function logTransition(logger: Logger, result: ApplyResult): void {
 
 /** Applies one event in its own transaction and logs the transition after it commits. */
 export async function applyEvent(
-  deps: { db: Database; logger: Logger },
+  deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
   requestId: string,
   event: RequestEvent,
   reason: TransitionReason | null = null,
 ): Promise<ApplyResult> {
   const result = await withTransaction(deps.db, (tx) => applyEventIn(tx, requestId, event, reason));
   logTransition(deps.logger, result);
+  announceTransition(deps.events, result, deps.logger);
   return result;
 }
 
