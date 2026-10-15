@@ -8,3 +8,6 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Simulator: tokens of the fake shops
+apps/simulator/.sim-state*.json
