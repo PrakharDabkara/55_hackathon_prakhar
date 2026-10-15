@@ -5,6 +5,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** Extra fields the server put in the error, such as a question and options. */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -93,16 +95,19 @@ export function createCaller({ getToken, onUnauthorized, fetchImpl = fetch }: Cl
     if (!res.ok) {
       let code = 'unknown';
       let message = res.statusText || 'Request failed';
+      let details: Record<string, unknown> = {};
       try {
-        const data = (await res.json()) as { error?: { code?: string; message?: string } };
-        code = data.error?.code ?? code;
-        message = data.error?.message ?? message;
+        const data = (await res.json()) as { error?: Record<string, unknown> };
+        const { code: c, message: m, ...rest } = data.error ?? {};
+        code = typeof c === 'string' ? c : code;
+        message = typeof m === 'string' ? m : message;
+        details = rest;
       } catch {
         // Not JSON (a proxy error page, say): keep the defaults.
       }
       // A wrong OTP is also a 401; only an expired or revoked login should end the session.
       if (res.status === 401 && code === 'unauthorized') onUnauthorized();
-      throw new ApiError(res.status, code, message);
+      throw new ApiError(res.status, code, message, details);
     }
     return (res.status === 204 ? undefined : await res.json()) as T;
   }

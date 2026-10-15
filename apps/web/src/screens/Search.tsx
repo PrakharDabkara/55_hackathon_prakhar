@@ -1,8 +1,27 @@
 import { useState, type FormEvent } from 'react';
+import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { rupeesToPaise } from '../lib/money.js';
 import type { NewRequest, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
+
+interface Choice {
+  question: string;
+  options: { itemId: string; nameEn: string; nameHi: string }[];
+}
+
+/** The server's question, if the error really carries one we can show. */
+function choiceFrom(error: ApiError): Choice | null {
+  const { question, options } = error.details;
+  if (typeof question !== 'string' || question === '' || !Array.isArray(options)) return null;
+  const valid = options.filter(
+    (o): o is Choice['options'][number] =>
+      typeof o?.itemId === 'string' &&
+      typeof o?.nameEn === 'string' &&
+      typeof o?.nameHi === 'string',
+  );
+  return valid.length >= 2 ? { question, options: valid } : null;
+}
 
 interface Props {
   api: SeekerApi;
@@ -30,6 +49,7 @@ export function Search({ api, onFound }: Props) {
   const [locationFailed, setLocationFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [choice, setChoice] = useState<Choice | null>(null);
 
   const latValue = coordinate(lat, 90);
   const lngValue = coordinate(lng, 180);
@@ -64,10 +84,11 @@ export function Search({ api, onFound }: Props) {
     );
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault();
+  async function submit(event: FormEvent | null, itemId?: string) {
+    event?.preventDefault();
     if (!ready || latValue === null || lngValue === null) return;
     const input: NewRequest = { q: query.trim(), lat: latValue, lng: lngValue };
+    if (itemId) input.itemId = itemId;
     if (price.trim() !== '') {
       const parsed = rupeesToPaise(price);
       if (!parsed.ok) {
@@ -78,10 +99,13 @@ export function Search({ api, onFound }: Props) {
     }
     setBusy(true);
     setError(null);
+    setChoice(null);
     try {
       onFound(await api.createRequest(input), { lat: latValue, lng: lngValue });
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
+      const asked = e instanceof ApiError && e.code === 'item_ambiguous' ? choiceFrom(e) : null;
+      if (asked) setChoice(asked);
+      else if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
       else if (e instanceof ApiError && e.status === 403) setError(t.errNotSeeker);
       else setError(t.errGeneric);
       setBusy(false);
@@ -98,7 +122,10 @@ export function Search({ api, onFound }: Props) {
           autoComplete="off"
           placeholder={t.queryHint}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setChoice(null);
+          }}
         />
       </label>
 
@@ -147,6 +174,23 @@ export function Search({ api, onFound }: Props) {
             />
           </label>
         </fieldset>
+      )}
+
+      {choice && (
+        <section className="choice" aria-label={choice.question}>
+          <p className="choice-question">{choice.question}</p>
+          {choice.options.map((o) => (
+            <button
+              key={o.itemId}
+              type="button"
+              className="btn btn-no choice-option"
+              disabled={busy}
+              onClick={() => void submit(null, o.itemId)}
+            >
+              <Words label={{ main: o.nameHi, sub: o.nameEn }} />
+            </button>
+          ))}
+        </section>
       )}
 
       {error && (

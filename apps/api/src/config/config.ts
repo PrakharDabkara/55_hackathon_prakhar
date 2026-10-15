@@ -47,12 +47,39 @@ const schema = z
         }
         return phones;
       }),
+    // Which model answers when the dictionary cannot (ADR-0020). Default fake outside production,
+    // so nothing leaves the machine by accident; production must choose.
+    LLM_PROVIDER: z.enum(['gemini', 'fake']).optional(),
+    GEMINI_API_KEY: z.string().min(1).optional(),
+    // Names come from `npm run ai:models`, which lists what the key can use.
+    GEMINI_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
+    GEMINI_EMBED_MODEL: z.string().min(1).default('gemini-embedding-001'),
+    // The size of items.embedding (migration 008). Changing it needs a new migration.
+    EMBED_DIM: z.coerce.number().int().min(8).max(3072).default(768),
+    // An embedding answers a query when the best item is at least this similar (cosine)...
+    EMBED_THRESHOLD: z.coerce.number().gt(0).lte(1).default(0.8),
+    // ...and ahead of the second best by at least this much.
+    EMBED_MARGIN: z.coerce.number().min(0).lt(1).default(0.03),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production' && env.OTP_MODE === undefined) {
       ctx.addIssue({ code: 'custom', path: ['OTP_MODE'], message: 'must be set in production' });
+    }
+    if (env.NODE_ENV === 'production' && env.LLM_PROVIDER === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LLM_PROVIDER'],
+        message: 'must be set in production',
+      });
+    }
+    if (env.LLM_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['GEMINI_API_KEY'],
+        message: 'required when LLM_PROVIDER is gemini',
+      });
     }
     if (env.WORKERS_ENABLED && !env.REDIS_URL) {
       ctx.addIssue({
@@ -78,6 +105,13 @@ export interface Config {
   workersEnabled: boolean;
   /** E.164 phones that get the admin role on login. Empty: no admin. */
   adminPhones: string[];
+  llmProvider: 'gemini' | 'fake';
+  geminiApiKey: string | null;
+  geminiModel: string;
+  geminiEmbedModel: string;
+  embedDim: number;
+  embedThreshold: number;
+  embedMargin: number;
   gitSha: string;
 }
 
@@ -106,6 +140,13 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     pingDedupeMinutes: e.PING_DEDUPE_MINUTES,
     workersEnabled: e.WORKERS_ENABLED,
     adminPhones: e.ADMIN_PHONES,
+    llmProvider: e.LLM_PROVIDER ?? 'fake',
+    geminiApiKey: e.GEMINI_API_KEY ?? null,
+    geminiModel: e.GEMINI_MODEL,
+    geminiEmbedModel: e.GEMINI_EMBED_MODEL,
+    embedDim: e.EMBED_DIM,
+    embedThreshold: e.EMBED_THRESHOLD,
+    embedMargin: e.EMBED_MARGIN,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

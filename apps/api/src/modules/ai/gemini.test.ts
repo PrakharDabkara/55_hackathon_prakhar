@@ -6,11 +6,11 @@ import { InvalidOutputError, ProviderError } from './types.js';
 const schema = z.object({ itemId: z.string().nullable(), needsClarification: z.boolean() });
 
 function setup(overrides: Partial<GeminiClientLike['models']> = {}) {
-  const generateContent = vi.fn(async (_params: unknown) => ({
+  const generateContent = vi.fn<GeminiClientLike['models']['generateContent']>(async () => ({
     text: '{"itemId":"abc","needsClarification":false}',
     usageMetadata: { promptTokenCount: 120, candidatesTokenCount: 15 },
   }));
-  const embedContent = vi.fn(async (_params: unknown) => ({
+  const embedContent = vi.fn<GeminiClientLike['models']['embedContent']>(async () => ({
     embeddings: [{ values: [3, 4, 0, 0] }, { values: [0, 0, 6, 8] }],
   }));
   const client: GeminiClientLike = { models: { generateContent, embedContent, ...overrides } };

@@ -8,6 +8,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** Extra fields for the client, merged into the error object (for example a question and options). */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -30,7 +32,9 @@ export function errorHandler(logger: Logger): ErrorRequestHandler {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   return (err, req, res, _next) => {
     if (err instanceof ApiError) {
-      res.status(err.status).json({ error: { code: err.code, message: err.message } });
+      res
+        .status(err.status)
+        .json({ error: { code: err.code, message: err.message, ...err.details } });
       return;
     }
     // body-parser errors (bad JSON, too large) carry a status and a type.

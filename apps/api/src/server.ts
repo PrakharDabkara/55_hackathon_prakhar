@@ -2,6 +2,7 @@ import { pino } from 'pino';
 import { createApp } from './app.js';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
+import { aiFromConfig } from './modules/ai/index.js';
 import { createRealtime } from './modules/realtime/index.js';
 import { registerShutdown } from './shutdown.js';
 import { startWorkers } from './workers/index.js';
@@ -17,11 +18,13 @@ const pool = createPool(config.databaseUrl, logger);
 const realtime = createRealtime({ redisUrl: config.redisUrl, logger });
 const workers = startWorkers({ config, db: pool, logger, events: realtime.events });
 
+const ai = aiFromConfig({ config, db: pool, logger });
 const app = createApp({
   config,
   logger,
   db: pool,
   realtime,
+  ai,
   ...(workers && { requestHooks: workers.hooks }),
 });
 const server = app.listen(config.port, '0.0.0.0', () => {
@@ -32,7 +35,7 @@ registerShutdown({
   server,
   // Open event streams would hold server.close open until the shutdown timeout.
   drain: [realtime.drain],
-  closeables: [...(workers ? [workers] : []), realtime],
+  closeables: [...(workers ? [workers] : []), realtime, { close: async () => ai.close() }],
   pool,
   logger,
 });

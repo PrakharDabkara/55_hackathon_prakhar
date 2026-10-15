@@ -139,7 +139,7 @@ describe('asking the customer which item they mean (422 item_ambiguous) and the 
     });
 
     it('accepts itemId to skip resolution', async () => {
-      const res = await search({ q: 'clip', itemId: ids['clothes-clips'] });
+      const res = await search({ q: 'clip', itemId: ids['clothes-clips'] as string });
       expect(res.status).toBe(200);
       expect(res.body.item).toMatchObject({ slug: 'clothes-clips' });
     });

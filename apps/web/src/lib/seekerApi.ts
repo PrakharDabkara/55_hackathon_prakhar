@@ -40,6 +40,8 @@ export interface NewRequest {
   lat: number;
   lng: number;
   targetPricePaise?: number;
+  /** The item the customer picked after a question: skips matching the text. */
+  itemId?: string;
 }
 
 /** Everything the customer app asks of the server. */

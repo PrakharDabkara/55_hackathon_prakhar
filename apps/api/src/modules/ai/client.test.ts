@@ -181,13 +181,25 @@ describe('createAiClient', () => {
       });
     });
 
-    it('also covers embeddings: one breaker per provider', async () => {
+    it('keeps one breaker for generating and one for embedding, so one failing does not stop the other', async () => {
       const { client, provider } = setup({ retries: 0 });
       failing(provider);
       for (let i = 0; i < 5; i++) await client.generateJson(opts).catch(() => undefined);
-      await expect(client.embed(['x'], 'embed_query')).rejects.toMatchObject({
-        kind: 'skipped_breaker',
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.embed(['x'], 'embed_query')).resolves.toMatchObject({
+        vectors: expect.any(Array),
       });
+    });
+
+    it('a success of the other kind does not reset the count', async () => {
+      const { client, provider } = setup({ retries: 0 });
+      const calls = failing(provider);
+      for (let i = 0; i < 5; i++) {
+        await client.generateJson(opts).catch(() => undefined);
+        await client.embed(['x'], 'embed_query'); // works every time
+      }
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      expect(calls()).toBe(5);
     });
 
     it('closes again after 60 seconds: one trial call, and success resets it', async () => {

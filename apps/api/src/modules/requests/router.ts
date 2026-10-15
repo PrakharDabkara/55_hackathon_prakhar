@@ -11,6 +11,7 @@ const createBody = z.object({
   lng: z.number().min(-180).max(180),
   radiusM: z.number().int().min(1).max(5000).optional(),
   targetPricePaise: z.number().int().min(1).max(10_000_000).optional(),
+  itemId: z.uuid().optional(),
 });
 
 const viewQuery = z.object({ sort: z.enum(['distance', 'price']).optional() });
@@ -38,6 +39,7 @@ export function requestsRouter(deps: RequestsContext): Router {
     const key = header === undefined ? undefined : parse(idempotencyKey, header);
     const { created, request } = await createRequest(ctxFor(req.log), authOf(req).user.id, {
       ...body,
+      requestId: String(req.id),
       ...(key && { idempotencyKey: key }),
     });
     res.status(created ? 201 : 200).json(request);

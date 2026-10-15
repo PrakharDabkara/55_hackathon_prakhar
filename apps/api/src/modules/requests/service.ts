@@ -2,7 +2,8 @@ import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import type { EventPublisher } from '../realtime/index.js';
-import { getItem, resolveItem, type CatalogItem, type Quantity } from '../catalog/index.js';
+import type { AiContext } from '../ai/index.js';
+import { getItem, resolveForCustomer, type CatalogItem, type Quantity } from '../catalog/index.js';
 import { findLearnedStock, type LearnedStockResult } from '../shops/index.js';
 import {
   applyEvent,
@@ -32,6 +33,8 @@ export interface RequestsContext {
   logger: Logger;
   config: { minStockResults: number; ttlMinutes: number; trigramThreshold: number };
   hooks?: RequestHooks;
+  /** Embeddings and the LLM for item resolution. Without it only the free steps run. */
+  ai?: AiContext | undefined;
   /** Realtime hints to the seeker and the shops (ADR-0018). Published after commits only. */
   events?: EventPublisher | undefined;
 }
@@ -43,6 +46,10 @@ export interface CreateRequestInput {
   radiusM?: number | undefined;
   /** The price the user has seen elsewhere, in paise. */
   targetPricePaise?: number | undefined;
+  /** The item the customer picked after a question; skips resolution. */
+  itemId?: string | undefined;
+  /** The HTTP request id, so AI calls can be traced to it. */
+  requestId?: string | undefined;
   idempotencyKey?: string;
 }
 
@@ -163,9 +170,12 @@ export async function createRequest(
     if (existing) return { created: false, request: await toView(ctx, existing) };
   }
 
-  const resolution = await resolveItem(ctx.db, input.q, {
+  const resolution = await resolveForCustomer(ctx.db, input.q, {
     userId,
     threshold: ctx.config.trigramThreshold,
+    itemId: input.itemId,
+    ...(ctx.ai && { ai: ctx.ai }),
+    ...(input.requestId && { requestId: input.requestId }),
   });
   if (!resolution.item) {
     throw new ApiError(422, 'item_unresolved', 'We could not tell which item you mean');

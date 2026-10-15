@@ -1,17 +1,9 @@
 import { useState } from 'react';
+import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
-import type { Band, Label } from '../i18n/strings.js';
+import type { Band } from '../i18n/strings.js';
 import type { AnswerBody, ShopPing } from '../lib/api.js';
 import { formatRupees, rupeesToPaise } from '../lib/money.js';
-
-function Words({ label }: { label: Label }) {
-  return (
-    <>
-      <span className="label-main">{label.main}</span>
-      {label.sub && <span className="label-sub">{label.sub}</span>}
-    </>
-  );
-}
 
 interface Props {
   ping: ShopPing;
