@@ -6,6 +6,8 @@ Oct 12, 2026 · Prakhar · Source of truth for the hackathon build. Working name
 
 KahanMilega ("where will I find it?") lets a person ask their neighbourhood for an item and see, within minutes, which nearby shops have it and at what price. Shops answer a one-tap ping, and their answers become a living inventory that fades as it ages.
 
+KahanMilega works in three layers: Find (ask nearby shops for an item), Plan (an AI errand agent takes a whole task — 'things for my son's school project' — finds every item across shops and returns a shopping plan with a route), and Get (stretch: the shop itself delivers, cash on delivery). The agent is the product's centre: it saves the user the running around.
+
 - **Problem:** shoppers often visit stores only to find items unavailable, and have no way to compare local prices. Personal case: a bottle-cleaning brush cost ₹200 on a quick-commerce app and ₹50 at a local shop, but finding that shop meant guessing and asking around.
 - **For:** people new to a city, people with an urgent need, and anyone price-conscious. On the other side, local shops (kiranas, hardware, stationery, electricals) that never put a catalogue online.
 - **Hackathon goal:** a working, deployed slice built through the full SDLC by Oct 30, 2026. An AI judge scores how AI was used and how well the product is built; uniqueness is not required.
@@ -64,6 +66,15 @@ A search answers from remembered stock first and pings shops only for what is mi
 6. One end-of-day message: "Still have these? Reply with the numbers you ran out of."
 7. Later: a weekly message of what people nearby asked for, with no dashboard to learn.
 
+**Errand (AI agent)**
+
+1. The user describes a task in Hindi, English or Hinglish.
+2. The agent turns it into items (name, quantity, category, budget if given). If the task is too vague, it asks the user one question.
+3. For each item it checks learned stock first, then pings shops for what is missing (using the same request/ping system as Seeker search).
+4. While replies arrive it adjusts: widens the radius, tries another category, suggests a substitute, or looks for cheaper.
+5. It returns a plan: which shop for which items, prices, total, route order. Every item is marked "confirmed" (a shop said yes in this errand) or "likely" (learned stock only). It never claims stock no shop confirmed.
+6. Stretch: "Want me to order this?" Only on the user's yes, the shop gets a delivery request (cash on delivery) and can accept or decline; on decline the plan falls back to pickup.
+
 **Zero-training rule.** A shopkeeper installs the app and is using it at once, with no explanation, demo or class. Every shop screen must pass that test:
 
 - The main screen is one ping card: the item, and two big buttons, "Haan hai" and "Nahi hai".
@@ -83,6 +94,21 @@ Request states and transitions:
 - `PINGING` → `EXPIRED` after 15 minutes with no yes
 - `ANSWERED` → `CLOSED` when the user is done, or after 15 minutes
 
+Errand states:
+
+- `PLANNING` → `NEEDS_INPUT` (asks the user) → `PLANNING`
+- `PLANNING` → `WAITING_FOR_SHOPS` → `PLANNING` (resumed by replies or a timeout)
+- `PLANNING` → `PLAN_READY`
+- any → `EXPIRED` (15 min) or `CANCELLED`
+
+Order states (stretch):
+
+- `REQUESTED` → `ACCEPTED` | `DECLINED` | `EXPIRED` (10 min)
+- `ACCEPTED` → `OUT_FOR_DELIVERY` → `DELIVERED`
+- `REQUESTED` / `ACCEPTED` → `CANCELLED`
+
+The agent is durable: errand state lives in Postgres; a BullMQ job resumes the agent when replies arrive or a timer fires, so no LLM call is held open while waiting.
+
 Ping states: `QUEUED` → `SENT` (worker sends) → `YES` | `NO` | `NO_REPLY` (shop taps, or timeout).
 
 | Stock type | Created by | Shown to the user as | Fades after (starting default) |
@@ -101,7 +127,8 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold | Labeled Hinglish query set; category accuracy gate in CI |
 | Reply parsing | "haan hai, 450 ka" → yes, ₹450 | Buttons (no AI) → pattern rules → LLM fallback | Labeled reply set; accuracy gate in CI |
 | Demand digest | Week of request counts → a 3-line summary for the shop | One batched call per shop per week | Every number in the summary must match the counts exactly |
-| MCP server | Any AI assistant → tools `search_nearby`, `create_request`, `get_request_status`, `get_shop_demand` | No LLM inside; plain tools | Contract tests per tool |
+| Errand agent | Task → shopping plan | Claude Haiku 5.5 tool-use loop (Sonnet 5.5 only if agent evals fail); our own loop on the Messages API, no agent framework; tools `search_nearby`, `get_learned_stock`, `create_request`, `get_request_status`, `plan_route`; guardrails (starting defaults): max 10 items, 15 shops pinged, 12 LLM steps, a per-errand token budget, 15-minute limit | Eval set of 20 errands |
+| MCP server | Any AI assistant → tools `search_nearby`, `get_learned_stock`, `create_request`, `get_request_status`, `plan_route` | No LLM inside; plain tools | Contract tests per tool |
 
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.
 - **Token metrics:** tokens per search, LLM fallback rate, cache hit rate, cost per 1,000 searches, tracked per release.
@@ -156,6 +183,10 @@ Tests come first: Prakhar writes the acceptance criteria, the test commit lands 
 | System | p95 latency per endpoint, error rate, queue lag | OpenTelemetry metrics |
 | AI | Tokens per search, LLM fallback rate, cache hit rate, cost per 1,000 searches | LLM call logs |
 | AI | Eval accuracy per release | CI eval runs |
+| AI | Errand success rate (plan covers every item, confirmed or likely) | Agent eval runs |
+| AI | Tool-call correctness | Agent eval runs |
+| AI | Tokens and cost per errand; steps per errand | LLM call logs |
+| AI | Time to plan | Errand events |
 | Build process | Tokens and cost per merged PR, cache-read share, edits accepted vs rejected | Claude Code telemetry and local session logs |
 
 "Dev hours saved" is shown only as a labelled estimate, never as a measurement.
@@ -197,38 +228,40 @@ kahanmilega/
 | Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code shown in the dev log) | Real flow without SMS cost |
-| Models | Claude Haiku 5.5 for query and reply parsing and the digest; Sonnet 5.5 only if evals show Haiku falls short | Cheapest model that passes the evals |
+| Models | Claude Haiku 5.5 for query and reply parsing, the digest and the errand agent; Sonnet 5.5 only if evals show Haiku falls short | Cheapest model that passes the evals |
 | Embeddings | OpenAI text-embedding-3-small, stored in pgvector | Anthropic has no embeddings API; no extra database |
 | Runtime and data | Node 24 LTS; PostgreSQL 18 + PostGIS 3.6 + pgvector 0.8.x; Redis 8.8 | Node 20 is end of life; the Postgres 17 image cannot install pgvector via apt (ADR-0008) |
 
-## Build plan (17 days; Oct 30 is buffer)
+## Build plan (18 days; Oct 30 is buffer)
 
-Phases end at gates; nothing moves on until the gate passes. If a gate slips, phase-2 features are cut, never tests or deployment.
+Phases end at gates; nothing moves on until the gate passes. Scope is frozen as of Oct 15. New ideas go to the Later list, not the build.
 
 - Foundations (Day 1–3) → gate: CI green, app live on Render
 - Marketplace (Day 4–8) → gate: end-to-end demo with simulated shops
-- AI layer (Day 9–12) → gate: evals pass in CI
-- Harden (Day 13–15) → gate: load targets met
-- Ship (Day 16–17) → submit
+- AI and agent (Day 9–14) → gate: agent evals pass in CI
+- Harden and ship (Day 15–18); Oct 30 is buffer
 
 - [x] Day 1 · Setup: repo, README, CLAUDE.md, ADRs, PR template; copy Claude Code session logs; telemetry on
 - [x] Day 2 · CI and data: GitHub Actions (lint, types, unit tests); local Docker Compose with Postgres (PostGIS, pgvector) and Redis; schema and migrations; first geo-query tests
-- [ ] Day 3 · Cloud skeleton: Render + Neon free tier (ADR-0009); `/health` and `/ready`; Docker image; deploy on every merge to main; structured logs with request IDs. Gate
-- [ ] Day 4 · Identity and shops: simulated phone OTP, roles, one-minute shop onboarding (map pin, categories, no catalogue)
-- [ ] Day 5 · Catalog and search v1: item list with synonyms; radius search over learned stock
-- [ ] Day 6 · Requests: state machine; expiry worker on a Redis queue
-- [ ] Day 7 · Fan-out: ping queue, de-duplication, shop ping card (two big buttons, Hindi) with optional price, each yes added to the shop's inventory, duplicate-safe handling
-- [ ] Day 8 · Live map and simulator: seeker app with the map over SSE; 500-shop simulator; simulated WhatsApp. Gate
-- [ ] Day 9 · Query understanding: cache, synonyms, embedding match in pgvector, LLM fallback; log tokens per call
-- [ ] Day 10 · Reply parsing and evals: labeled Hinglish sets, eval runner, accuracy gate in CI
-- [ ] Day 11 · Freshness and demand: decay, end-of-day reconfirm, quantity follow-up, busy flag, "anything else?" items via AI, weekly demand message
-- [ ] Day 12 · MCP server: 4 tools with contract tests. Gate
-- [ ] Day 13 · Security: rate limits, location rounding, input validation, dependency and secret scanning, prompt-injection tests
-- [ ] Day 14 · Load: k6 with the simulator against the targets; fix bottlenecks (indexes, caching, connection pools)
-- [ ] Day 15 · Operations: traces, metrics, dashboards, alerts, runbook, one labelled incident drill. Gate
-- [ ] Day 16 · Story: zero-training test with 3 real shopkeepers; journey website; README, architecture, evals and token reports
-- [ ] Day 17 · Demo and submit
+- [x] Day 3 · Cloud skeleton: Render + Neon free tier (ADR-0009); `/health` and `/ready`; Docker image; deploy on every merge to main; structured logs with request IDs. Gate
+- [ ] Day 4 (Oct 15) · Identity and shops: simulated OTP, sessions, roles, shop onboarding API
+- [ ] Day 5 (Oct 16) · Catalog and search v1: items with synonyms; radius search over learned stock
+- [ ] Day 6 (Oct 17) · Requests: state machine; expiry worker on a Redis queue
+- [ ] Day 7 (Oct 18) · Fan-out: ping queue, de-duplication, shop ping card, each yes added to learned stock
+- [ ] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate
+- [ ] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
+- [ ] Day 10 (Oct 21) · Reply parsing and eval runner; accuracy gates in CI
+- [ ] Day 11 (Oct 22) · MCP server: the 5 tools with contract tests
+- [ ] Day 12 (Oct 23) · Errand agent v1: task → items, tool-use loop, guardrails; tested with a fake LLM
+- [ ] Day 13 (Oct 24) · Durable agent: errand state in Postgres, resume on replies/timeouts, ask-the-user step, plan and route on the map
+- [ ] Day 14 (Oct 25) · Agent evals: 20 errands; success, tool correctness, tokens per errand; gate in CI. Gate
+- [ ] Day 15 (Oct 26) · Freshness and busy flag; stretch: shop delivery (order state machine, accept/decline, live status)
+- [ ] Day 16 (Oct 27) · Security and load: rate limits, location rounding, prompt-injection tests including the agent; k6 against targets
+- [ ] Day 17 (Oct 28) · Operations: metrics, dashboards, runbook, one incident drill
+- [ ] Day 18 (Oct 29) · Story and submit: README, architecture, eval and token reports, journey website, demo
 
-## Out of scope for the hackathon
+If a gate slips, cut in this order: shop delivery, freshness extras, load targets. Never tests or deployment.
 
-Real WhatsApp messaging, "hold it for me for 30 minutes", search along a route home, payments and shop subscriptions, reliability scores, a native mobile app.
+## Later (not in the hackathon build)
+
+Runner delivery (someone queues at DMart for you), payments and subscriptions, real WhatsApp, weekly demand digest, "anything else you stock?" prompts, reliability scores, search along a route home, hold-it-for-me, native mobile app.
