@@ -12,6 +12,15 @@ export async function withTransaction<T>(
   fn: (tx: Queryable) => Promise<T>,
 ): Promise<T> {
   const client = await db.connect();
+  // While we hold a client the pool is not listening to it. If its connection dies between two of
+  // our queries, pg emits 'error' on the client and, with no listener, Node would throw. The next
+  // query rejects, which fails the transaction; we only need to keep the process alive and make
+  // sure the dead client is thrown away instead of going back into the pool.
+  let broken: Error | undefined;
+  const onError = (err: Error) => {
+    broken = err;
+  };
+  client.on('error', onError);
   try {
     await client.query('BEGIN');
     const result = await fn(client);
@@ -21,6 +30,7 @@ export async function withTransaction<T>(
     await client.query('ROLLBACK').catch(() => {});
     throw err;
   } finally {
-    client.release();
+    client.removeListener('error', onError);
+    client.release(broken);
   }
 }
