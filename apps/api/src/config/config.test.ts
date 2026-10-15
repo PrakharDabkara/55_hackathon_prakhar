@@ -63,6 +63,17 @@ describe('loadConfig', () => {
     }
   });
 
+  it('reads MAX_PINGS_PER_REQUEST and PING_DEDUPE_MINUTES as positive integers', () => {
+    expect(loadConfig(valid)).toMatchObject({ maxPingsPerRequest: 10, pingDedupeMinutes: 30 });
+    const config = loadConfig({ ...valid, MAX_PINGS_PER_REQUEST: '4', PING_DEDUPE_MINUTES: '5' });
+    expect(config).toMatchObject({ maxPingsPerRequest: 4, pingDedupeMinutes: 5 });
+    for (const name of ['MAX_PINGS_PER_REQUEST', 'PING_DEDUPE_MINUTES']) {
+      for (const bad of ['0', '-3', '1.5', 'x']) {
+        expect(() => loadConfig({ ...valid, [name]: bad }), `${name}=${bad}`).toThrowError(name);
+      }
+    }
+  });
+
   it('WORKERS_ENABLED is true/false, and workers need REDIS_URL', () => {
     expect(loadConfig({ ...valid, WORKERS_ENABLED: 'false' }).workersEnabled).toBe(false);
     expect(() => loadConfig({ ...valid, WORKERS_ENABLED: 'yes' })).toThrowError(/WORKERS_ENABLED/);

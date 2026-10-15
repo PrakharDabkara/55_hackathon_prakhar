@@ -11,6 +11,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   trigramThreshold: 0.4,
   minStockResults: 3,
   requestTtlMinutes: 15,
+  maxPingsPerRequest: 10,
+  pingDedupeMinutes: 30,
   workersEnabled: false,
   gitSha: 'test',
   ...overrides,
