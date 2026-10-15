@@ -21,6 +21,15 @@ describe('loadConfig', () => {
     expect(loadConfig({ ...valid, OTP_MODE: 'simulated' }).otpMode).toBe('simulated');
   });
 
+  it('requires OTP_MODE in production (fails closed) and defaults it elsewhere', () => {
+    expect(() => loadConfig({ ...valid, NODE_ENV: 'production' })).toThrowError(/OTP_MODE/);
+    expect(loadConfig({ ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated' }).otpMode).toBe(
+      'simulated',
+    );
+    expect(loadConfig({ ...valid, NODE_ENV: 'development' }).otpMode).toBe('simulated');
+    expect(loadConfig({ ...valid, NODE_ENV: 'test' }).otpMode).toBe('simulated');
+  });
+
   it('fails fast on any other OTP_MODE (sms is not implemented)', () => {
     expect(() => loadConfig({ ...valid, OTP_MODE: 'sms' })).toThrowError(/OTP_MODE/);
     expect(() => loadConfig({ ...valid, OTP_MODE: '' })).toThrowError(/OTP_MODE/);
