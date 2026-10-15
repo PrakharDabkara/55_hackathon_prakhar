@@ -241,6 +241,15 @@ summary {
   color: #ffffff;
 }
 
+.live-dot {
+  float: right;
+  width: 10px;
+  height: 10px;
+  margin: 4px 2px 0 0;
+  border-radius: 50%;
+  background: var(--green);
+}
+
 .empty {
   margin: 48px 8px;
   text-align: center;

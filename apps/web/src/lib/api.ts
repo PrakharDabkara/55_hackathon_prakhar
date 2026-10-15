@@ -52,6 +52,8 @@ export interface ShopApi {
   createShop(input: NewShop): Promise<MyShop>;
   listPings(): Promise<ShopPing[]>;
   answerPing(id: string, body: AnswerBody): Promise<void>;
+  /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
+  eventTicket(): Promise<string>;
 }
 
 interface Options {
@@ -125,6 +127,9 @@ export function createApi({ getToken, onUnauthorized, fetchImpl = fetch }: Optio
     },
     createShop: (input) => call<MyShop>('POST', '/shops', input),
     listPings: () => call<ShopPing[]>('GET', '/shops/me/pings'),
+    async eventTicket() {
+      return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
+    },
     async answerPing(id, body) {
       await call('POST', `/pings/${encodeURIComponent(id)}/answer`, body);
     },

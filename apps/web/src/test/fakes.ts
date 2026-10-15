@@ -62,11 +62,11 @@ export class FakeEventSource {
   }
 
   open() {
-    this.onopen?.();
+    (this.onopen as (() => void) | null)?.();
   }
 
   fail() {
-    this.onerror?.();
+    (this.onerror as (() => void) | null)?.();
   }
 
   emit(type: string, data: unknown = {}) {

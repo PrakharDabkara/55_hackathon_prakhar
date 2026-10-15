@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/index.js';
 import { ApiError, type AnswerBody, type ShopApi, type ShopPing } from '../lib/api.js';
+import { canGoLive, connectLive, type LiveOptions } from '../lib/live.js';
 import { PingCard } from './PingCard.js';
 
 interface Props {
   api: ShopApi;
-  /** How often to look for new questions. Day 8 replaces polling with server-sent events. */
+  /** Fallback poll. Live events do the real work; this only covers a stream that is down. */
   pollMs?: number;
+  /** For tests: a stand-in for EventSource and a short reconnect pause. */
+  live?: Pick<LiveOptions, 'createSource' | 'retryMs'>;
 }
 
 /** The whole home screen: the newest question, or a calm empty state. */
-export function PingHome({ api, pollMs = 5000 }: Props) {
+export function PingHome({ api, pollMs = 30_000, live }: Props) {
   const { t } = useT();
   const [pings, setPings] = useState<ShopPing[] | null>(null);
   const [offline, setOffline] = useState(false);
   const [sendFailed, setSendFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [isLive, setIsLive] = useState(false);
   const alive = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -38,6 +42,20 @@ export function PingHome({ api, pollMs = 5000 }: Props) {
       clearInterval(timer);
     };
   }, [refresh, pollMs]);
+
+  // Events are hints: each one just triggers a refetch, so a missed event cannot leave the screen wrong.
+  useEffect(() => {
+    if (!live?.createSource && !canGoLive()) return;
+    const connection = connectLive({
+      getTicket: () => api.eventTicket(),
+      onEvent: () => void refresh(),
+      onStatus: (up) => {
+        if (alive.current) setIsLive(up);
+      },
+      ...live,
+    });
+    return () => connection.close();
+  }, [api, refresh, live]);
 
   const current = pings?.[0];
 
@@ -64,6 +82,7 @@ export function PingHome({ api, pollMs = 5000 }: Props) {
 
   return (
     <section aria-live="polite">
+      {isLive && <span className="live-dot" role="img" aria-label={t.live} title={t.live} />}
       {offline && (
         <p role="status" className="status">
           {t.errOffline}

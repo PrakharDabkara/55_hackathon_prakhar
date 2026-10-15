@@ -56,6 +56,7 @@ export interface Strings {
   loading: string;
   errSend: string;
   errOffline: string;
+  live: string;
   targetLine: (price: string) => string;
   quantityLine: (quantity: string) => string;
   customerDistance: (band: string) => string;
@@ -108,6 +109,7 @@ export const hi: Strings = {
   loading: 'Ruko…',
   errSend: 'Jawab nahi ja paaya. Dobara try karein.',
   errOffline: 'Internet nahi mil raha. Dobara koshish ho rahi hai.',
+  live: 'Live',
   targetLine: (price) => `Customer ne ${price} mein dekha hai — kya aapke paas isse kam mein hai?`,
   quantityLine: (quantity) => `Matra: ${quantity}`,
   customerDistance: (band) => `Customer ${band} door hai`,
@@ -172,6 +174,7 @@ export const en: Strings = {
   loading: 'Please wait…',
   errSend: 'Your answer did not go through. Please try again.',
   errOffline: 'No internet. Trying again.',
+  live: 'Live',
   targetLine: (price) => `A customer saw it for ${price}. Do you have it for less?`,
   quantityLine: (quantity) => `Quantity: ${quantity}`,
   customerDistance: (band) => `Customer is ${band} away`,
