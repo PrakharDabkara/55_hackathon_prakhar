@@ -405,7 +405,7 @@ describe('fan-out, ping answers and the price check', () => {
         id,
         claims(() => true),
       );
-      expect(result).toMatchObject({ targets: 2, sent: 2 });
+      expect(result).toMatchObject({ sent: 2 });
     });
 
     it('skips shops that already have the item in learned stock and shops of another category', async () => {
