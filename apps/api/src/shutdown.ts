@@ -2,6 +2,8 @@ import type { Logger } from 'pino';
 
 interface ShutdownDeps {
   server: { close(cb: (err?: Error) => void): unknown };
+  /** Background workers; closed after the server stops and before the pool, which they use. */
+  closeables?: { close(): Promise<void> }[];
   pool: { end(): Promise<void> };
   logger: Logger;
   timeoutMs?: number;
@@ -9,9 +11,10 @@ interface ShutdownDeps {
   process?: Pick<NodeJS.Process, 'on'>;
 }
 
-/** On SIGTERM/SIGINT: stop accepting connections, close the db pool, exit. Forces exit 1 if it hangs. */
+/** On SIGTERM/SIGINT: stop accepting connections, close workers and the db pool, exit. Forces exit 1 if it hangs. */
 export function registerShutdown({
   server,
+  closeables = [],
   pool,
   logger,
   timeoutMs = 10_000,
@@ -35,6 +38,7 @@ export function registerShutdown({
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));
       });
+      for (const closeable of closeables) await closeable.close();
       await pool.end();
       clearTimeout(force);
       logger.info('shutdown complete');

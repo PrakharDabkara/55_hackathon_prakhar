@@ -59,3 +59,38 @@ describe('registerShutdown', () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
   });
 });
+
+describe('registerShutdown with workers', () => {
+  it('closes workers after the server stops and before the pool, so jobs never lose their database', async () => {
+    const calls: string[] = [];
+    const proc = new EventEmitter();
+    registerShutdown({
+      server: {
+        close: (cb) => {
+          calls.push('server.close');
+          cb();
+        },
+      },
+      closeables: [
+        {
+          close: async () => {
+            calls.push('worker.close');
+          },
+        },
+      ],
+      pool: {
+        end: async () => {
+          calls.push('pool.end');
+        },
+      },
+      logger: pino({ level: 'silent' }),
+      exit: (code) => {
+        calls.push(`exit:${code}`);
+      },
+      process: proc as never,
+    });
+    proc.emit('SIGTERM');
+    await vi.waitFor(() => expect(calls).toContain('exit:0'));
+    expect(calls).toEqual(['server.close', 'worker.close', 'pool.end', 'exit:0']);
+  });
+});

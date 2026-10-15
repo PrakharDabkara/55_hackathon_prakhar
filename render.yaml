@@ -18,10 +18,19 @@ services:
       # Demo login: the code is read from /dev/otp-inbox. Only 'simulated' exists (ADR-0013).
       - key: OTP_MODE
         value: simulated
+      # Requests: answered from learned stock at this many shops, else pinged; 15 minute deadline.
+      - key: MIN_STOCK_RESULTS
+        value: '3'
+      - key: REQUEST_TTL_MINUTES
+        value: '15'
+      # The expiry worker runs inside the API. The free instance sleeps when idle, so the database
+      # deadline and lazy expiry on read are the truth; the queue only makes expiry timely (ADR-0015).
+      - key: WORKERS_ENABLED
+        value: 'true'
       # Neon pooled connection string. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false
-      # Not read by the API yet; the BullMQ queues arrive on Day 6-7. See ADR-0010.
+      # BullMQ expiry queue (Day 6), ping queue (Day 7). See ADR-0010.
       - key: REDIS_URL
         fromService:
           type: keyvalue

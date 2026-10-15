@@ -107,3 +107,12 @@ export async function resolveItem(
 
   return { normalised: text, ...(quantity && { quantity }), item, matchedBy, similarity };
 }
+
+/** One catalog item by id, or null. */
+export async function getItem(db: Queryable, id: string): Promise<CatalogItem | null> {
+  const { rows } = await db.query<ItemRow>(
+    `SELECT id, slug, name_en, name_hi, category FROM items WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? toItem(rows[0]) : null;
+}

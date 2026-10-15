@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -13,12 +15,25 @@ const schema = z
     OTP_MODE: z.literal('simulated').optional(),
     // Lowest similarity at which a typo still counts as a match. Floor 0.3 is pg_trgm's own default.
     TRIGRAM_THRESHOLD: z.coerce.number().min(0.3).max(1).default(0.4),
+    REDIS_URL: z.url().optional(),
+    // Learned results at or above this count answer a request without pinging shops.
+    MIN_STOCK_RESULTS: z.coerce.number().int().min(1).default(3),
+    REQUEST_TTL_MINUTES: z.coerce.number().int().min(1).default(15),
+    // Run the request-expiry worker inside the API process.
+    WORKERS_ENABLED: bool.default(true),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production' && env.OTP_MODE === undefined) {
       ctx.addIssue({ code: 'custom', path: ['OTP_MODE'], message: 'must be set in production' });
+    }
+    if (env.WORKERS_ENABLED && !env.REDIS_URL) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REDIS_URL'],
+        message: 'required when WORKERS_ENABLED',
+      });
     }
   });
 
@@ -29,6 +44,10 @@ export interface Config {
   databaseUrl: string;
   otpMode: 'simulated';
   trigramThreshold: number;
+  redisUrl: string | null;
+  minStockResults: number;
+  requestTtlMinutes: number;
+  workersEnabled: boolean;
   gitSha: string;
 }
 
@@ -50,6 +69,10 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     databaseUrl: e.DATABASE_URL,
     otpMode: e.OTP_MODE ?? 'simulated',
     trigramThreshold: e.TRIGRAM_THRESHOLD,
+    redisUrl: e.REDIS_URL ?? null,
+    minStockResults: e.MIN_STOCK_RESULTS,
+    requestTtlMinutes: e.REQUEST_TTL_MINUTES,
+    workersEnabled: e.WORKERS_ENABLED,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

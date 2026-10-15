@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from './config.js';
 
-const valid = { DATABASE_URL: 'postgres://u:p@localhost:5433/db' };
+const valid = {
+  DATABASE_URL: 'postgres://u:p@localhost:5433/db',
+  REDIS_URL: 'redis://localhost:6379',
+};
 
 describe('loadConfig', () => {
   it('applies defaults', () => {
@@ -15,6 +18,10 @@ describe('loadConfig', () => {
       gitSha: 'unknown',
       otpMode: 'simulated',
       trigramThreshold: 0.4,
+      redisUrl: valid.REDIS_URL,
+      minStockResults: 3,
+      requestTtlMinutes: 15,
+      workersEnabled: true,
     });
   });
 
@@ -43,6 +50,26 @@ describe('loadConfig', () => {
         /TRIGRAM_THRESHOLD/,
       );
     }
+  });
+
+  it('reads MIN_STOCK_RESULTS and REQUEST_TTL_MINUTES as positive integers', () => {
+    const config = loadConfig({ ...valid, MIN_STOCK_RESULTS: '5', REQUEST_TTL_MINUTES: '30' });
+    expect(config.minStockResults).toBe(5);
+    expect(config.requestTtlMinutes).toBe(30);
+    for (const name of ['MIN_STOCK_RESULTS', 'REQUEST_TTL_MINUTES']) {
+      for (const bad of ['0', '-1', '2.5', 'abc']) {
+        expect(() => loadConfig({ ...valid, [name]: bad }), `${name}=${bad}`).toThrowError(name);
+      }
+    }
+  });
+
+  it('WORKERS_ENABLED is true/false, and workers need REDIS_URL', () => {
+    expect(loadConfig({ ...valid, WORKERS_ENABLED: 'false' }).workersEnabled).toBe(false);
+    expect(() => loadConfig({ ...valid, WORKERS_ENABLED: 'yes' })).toThrowError(/WORKERS_ENABLED/);
+    const noRedis = { DATABASE_URL: valid.DATABASE_URL };
+    expect(() => loadConfig(noRedis)).toThrowError(/REDIS_URL/);
+    const off = loadConfig({ ...noRedis, WORKERS_ENABLED: 'false' });
+    expect(off.redisUrl).toBeNull();
   });
 
   it('coerces PORT to a number', () => {
