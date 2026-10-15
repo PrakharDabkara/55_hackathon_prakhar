@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import type { Config } from './config/config.js';
 import { loadSeedCatalog, resolveItem, seedCatalog } from './modules/catalog/index.js';
+import { REMOVED_TERMS } from './testing/removedTerms.js';
 import { findLearnedStock } from './modules/shops/index.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
@@ -207,6 +208,65 @@ describe('catalog and search', () => {
         matched_by: 'synonym',
       });
       expect(rows[1]).toMatchObject({ raw_text: 'nonsense zzqx', item_id: null, matched_by: null });
+    });
+  });
+
+  describe('ambiguous terms', () => {
+    const resolve = (text: string) => resolveItem(pool, text, { userId, threshold: 0.4 });
+
+    it.each(REMOVED_TERMS)('"%s" on its own resolves to no item', async (term) => {
+      const r = await resolve(term);
+      expect(r.item?.slug ?? null).toBeNull();
+      expect(r.matchedBy).toBeNull();
+    });
+
+    it('still resolves the specific forms', async () => {
+      for (const [text, slug] of [
+        ['paper clip', 'paper-clips'],
+        ['nail cutter', 'nail-cutter'],
+        ['नेल कटर', 'nail-cutter'],
+        ['clothes clips', 'clothes-clips'],
+        ['electric switch', 'electric-switch'],
+        ['drill bit', 'drill-bits'],
+        ['cello tape', 'cello-tape'],
+      ] as const) {
+        const r = await resolve(text);
+        expect(r.item?.slug, text).toBe(slug);
+      }
+    });
+
+    it('does not let a generic word fuzzy-match one of several items that contain it', async () => {
+      for (const word of ['tape', 'brush', 'cable', 'cover', 'oil']) {
+        const r = await resolve(word);
+        expect(r.item?.slug ?? null, word).toBeNull();
+      }
+    });
+  });
+
+  describe('seedCatalog removals', () => {
+    it('deletes a term that is no longer in the file, and keeps the item', async () => {
+      const full = loadSeedCatalog();
+      const trimmed = {
+        ...full,
+        items: full.items.map((i) =>
+          i.slug === 'wheat-flour'
+            ? { ...i, synonyms: i.synonyms.filter((t) => t !== 'chakki atta') }
+            : i,
+        ),
+      };
+      const count = async (term: string) =>
+        (await pool.query('SELECT count(*)::int AS n FROM item_synonyms WHERE term = $1', [term]))
+          .rows[0].n;
+      expect(await count('chakki atta')).toBe(1);
+
+      await seedCatalog(pool, trimmed);
+      expect(await count('chakki atta')).toBe(0);
+      const item = await pool.query(`SELECT 1 FROM items WHERE slug = 'wheat-flour'`);
+      expect(item.rowCount).toBe(1);
+      expect((await resolveItem(pool, 'chakki atta', { userId, threshold: 0.99 })).item).toBeNull();
+
+      await seedCatalog(pool, full);
+      expect(await count('chakki atta')).toBe(1);
     });
   });
 
