@@ -53,6 +53,10 @@ To check what is live: `curl https://<service>.onrender.com/health` and compare 
 
 Nothing secret is committed; `.env.example` lists names only.
 
+## Database connections dropping
+
+Neon free suspends compute after about 5 minutes idle and drops connections with code 57P01 ("terminating connection due to administrator command"); the pool error handler logs a warning (`idle database client error`) and the next query reconnects. Seeing that warning after a quiet period is normal; a crash is not.
+
 ## Send a test question to a shop
 
 For trying the shop app (`/app/shop`) by hand. Use a different phone number for the customer than for the shop. The shop must be a grocery shop within 2 km of the point below (the default radius), and the customer asks for an item it does not already know the shop has (the 30 minute per-shop, per-item dedupe skips a shop it asked recently: pick another item, such as `chini`, `namak`, `doodh`).
