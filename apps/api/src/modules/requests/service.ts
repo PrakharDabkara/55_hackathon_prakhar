@@ -15,11 +15,14 @@ import {
   type TransitionReason,
 } from './persistence.js';
 import { onRequestPinging } from './pinging.js';
+import { buildResults, type LiveAnswer, type RequestResult, type SortKey } from './results.js';
 import type { RequestEvent, RequestState } from './stateMachine.js';
 
 export interface RequestHooks {
   /** Queue a delayed expiry job. The database deadline is the truth; this only makes it timely. */
   scheduleExpiry?: (requestId: string, expiresAt: Date) => Promise<void>;
+  /** Queue the job that picks shops and sends the pings (a request just went PINGING). */
+  enqueueFanout?: (requestId: string) => Promise<void>;
 }
 
 export interface RequestsContext {
@@ -34,6 +37,8 @@ export interface CreateRequestInput {
   lat: number;
   lng: number;
   radiusM?: number | undefined;
+  /** The price the user has seen elsewhere, in paise. */
+  targetPricePaise?: number | undefined;
   idempotencyKey?: string;
 }
 
@@ -43,7 +48,8 @@ export interface RequestView {
   item: CatalogItem | null;
   quantity?: Quantity;
   radiusM: number;
-  results: LearnedStockResult[];
+  targetPricePaise?: number;
+  results: RequestResult[];
   expiresAt: Date;
   createdAt: Date;
 }
@@ -52,22 +58,57 @@ export const DEFAULT_RADIUS_M = 2000;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<LiveAnswer[]> {
+  const { rows } = await ctx.db.query<{
+    shop_id: string;
+    name: string;
+    distance_m: number;
+    price_paise: number | null;
+    quantity_hint: LiveAnswer['quantityHint'];
+    answered_at: Date;
+  }>(
+    `SELECT s.id AS shop_id, s.name, ST_Distance(s.location, r.location) AS distance_m,
+            p.price_paise, p.quantity_hint, p.answered_at
+       FROM pings p
+       JOIN shops s ON s.id = p.shop_id
+       JOIN requests r ON r.id = p.request_id
+      WHERE p.request_id = $1 AND p.state = 'YES' AND NOT p.late`,
+    [r.id],
+  );
+  return rows.map((x) => ({
+    shopId: x.shop_id,
+    name: x.name,
+    distanceM: Math.round(x.distance_m),
+    pricePaise: x.price_paise,
+    quantityHint: x.quantity_hint,
+    answeredAt: x.answered_at,
+  }));
+}
+
 async function toView(
   ctx: RequestsContext,
   r: RequestRecord,
-  results?: LearnedStockResult[],
+  opts: { learned?: LearnedStockResult[]; sort?: SortKey | undefined } = {},
 ): Promise<RequestView> {
-  const [item, found] = await Promise.all([
+  const [item, learned, live] = await Promise.all([
     getItem(ctx.db, r.itemId),
-    results ?? findLearnedStock(ctx.db, r.itemId, r.lat, r.lng, r.radiusM),
+    opts.learned ?? findLearnedStock(ctx.db, r.itemId, r.lat, r.lng, r.radiusM),
+    liveAnswers(ctx, r),
   ]);
   return {
     id: r.id,
     state: r.state,
     item,
     ...(r.quantity && { quantity: r.quantity }),
+    ...(r.targetPricePaise !== null && { targetPricePaise: r.targetPricePaise }),
     radiusM: r.radiusM,
-    results: found,
+    results: buildResults({
+      live,
+      learned,
+      targetPricePaise: r.targetPricePaise,
+      sort: opts.sort,
+      now: new Date(),
+    }),
     expiresAt: r.expiresAt,
     createdAt: r.createdAt,
   };
@@ -107,9 +148,9 @@ export async function createRequest(
     // PostGIS points are (x = longitude, y = latitude): lng comes first.
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO requests (user_id, item_id, raw_query, quantity, location, radius_m,
-                             expires_at, idempotency_key)
+                             expires_at, idempotency_key, target_price_paise)
        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7,
-               now() + make_interval(mins => $8::int), $9)
+               now() + make_interval(mins => $8::int), $9, $10)
        ON CONFLICT (user_id, idempotency_key) DO NOTHING
        RETURNING id`,
       [
@@ -122,6 +163,7 @@ export async function createRequest(
         radiusM,
         ctx.config.ttlMinutes,
         key ?? null,
+        input.targetPricePaise ?? null,
       ],
     );
     const row = inserted.rows[0];
@@ -142,9 +184,9 @@ export async function createRequest(
   void ctx.hooks?.scheduleExpiry?.(record.id, record.expiresAt).catch((err: unknown) => {
     ctx.logger.warn({ requestId: record.id, err }, 'could not queue expiry job');
   });
-  if (record.state === 'PINGING') await onRequestPinging(record);
+  if (record.state === 'PINGING') onRequestPinging(ctx, record);
 
-  return { created: true, request: await toView(ctx, record, stock) };
+  return { created: true, request: await toView(ctx, record, { learned: stock }) };
 }
 
 /** The request for its owner, or null for anyone else (so existence is not leaked). */
@@ -152,6 +194,7 @@ export async function getRequestStatus(
   ctx: RequestsContext,
   userId: string,
   requestId: string,
+  opts: { sort?: SortKey | undefined } = {},
 ): Promise<RequestView | null> {
   if (!UUID.test(requestId)) return null;
   let record = await findRequest(ctx.db, requestId);
@@ -162,7 +205,7 @@ export async function getRequestStatus(
     const result = await applyEvent(ctx, record.id, 'TIMEOUT', 'lazy');
     if (result.kind !== 'not_found') record = result.request;
   }
-  return toView(ctx, record);
+  return toView(ctx, record, { sort: opts.sort });
 }
 
 /** Closes the owner's request. Closing a finished request returns it as it is. */

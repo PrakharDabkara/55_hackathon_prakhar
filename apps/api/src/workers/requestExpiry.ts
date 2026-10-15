@@ -1,8 +1,8 @@
 import { Queue, Worker } from 'bullmq';
-import { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import type { Database } from '../db/queryable.js';
 import { expireRequest, findOverdueRequestIds } from '../modules/requests/index.js';
+import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const EXPIRY_QUEUE = 'request-expiry';
 
@@ -39,17 +39,10 @@ export function startRequestExpiry({
   sweepEveryMs = 60_000,
   queueName = EXPIRY_QUEUE,
 }: Options): RequestExpiry {
-  const connect = () => {
-    const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
-    // An unhandled 'error' event would crash the process; Redis being away is survivable.
-    connection.on('error', (err: Error) =>
-      logger.warn({ reason: err.message }, 'redis connection error'),
-    );
-    return connection;
-  };
-  const queueConnection = connect();
-  const workerConnection = connect();
+  const queueConnection = connect(redisUrl, logger);
+  const workerConnection = connect(redisUrl, logger);
   const queue = new Queue(queueName, { connection: queueConnection });
+  queue.on('error', (err) => logger.warn({ reason: err.message }, 'expiry queue error'));
   const deps = { db, logger };
 
   const sweepNow = async () => {
@@ -85,24 +78,33 @@ export function startRequestExpiry({
   return {
     queue,
     async schedule(requestId, expiresAt) {
-      await ready;
-      await queue.add(
-        'expire',
-        { requestId },
-        {
-          jobId: `expire-${requestId}`,
-          delay: Math.max(0, expiresAt.getTime() - Date.now()) + SLACK_MS,
-          removeOnComplete: true,
-          removeOnFail: 100,
-        },
+      await withTimeout(
+        (async () => {
+          await ready;
+          await queue.add(
+            'expire',
+            { requestId },
+            {
+              jobId: `expire-${requestId}`,
+              delay: Math.max(0, expiresAt.getTime() - Date.now()) + SLACK_MS,
+              removeOnComplete: true,
+              removeOnFail: 100,
+            },
+          );
+        })(),
+        QUEUE_TIMEOUT_MS,
+        'queueing the expiry job',
       );
     },
     sweepNow,
-    async close() {
-      await worker.close();
-      await queue.close();
-      queueConnection.disconnect();
-      workerConnection.disconnect();
-    },
+    close: () =>
+      closeWithin(5000, [
+        () => worker.close(),
+        () => queue.close(),
+        async () => {
+          queueConnection.disconnect();
+          workerConnection.disconnect();
+        },
+      ]),
   };
 }

@@ -23,6 +23,11 @@ services:
         value: '3'
       - key: REQUEST_TTL_MINUTES
         value: '15'
+      # Ping fan-out: nearest shops asked per request; one ping per shop per item per window.
+      - key: MAX_PINGS_PER_REQUEST
+        value: '10'
+      - key: PING_DEDUPE_MINUTES
+        value: '30'
       # The expiry worker runs inside the API. The free instance sleeps when idle, so the database
       # deadline and lazy expiry on read are the truth; the queue only makes expiry timely (ADR-0015).
       - key: WORKERS_ENABLED

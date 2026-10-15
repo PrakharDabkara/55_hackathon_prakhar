@@ -20,6 +20,8 @@ const config: Config = {
   redisUrl: null,
   minStockResults: 3,
   requestTtlMinutes: 15,
+  maxPingsPerRequest: 10,
+  pingDedupeMinutes: 30,
   workersEnabled: false,
   gitSha: 'test',
 };

@@ -11,6 +11,7 @@ export interface RequestRecord {
   itemId: string;
   rawQuery: string;
   quantity: Quantity | null;
+  targetPricePaise: number | null;
   radiusM: number;
   state: RequestState;
   version: number;
@@ -28,6 +29,7 @@ interface Row {
   item_id: string;
   raw_query: string;
   quantity: Quantity | null;
+  target_price_paise: number | null;
   radius_m: number;
   state: RequestState;
   version: number;
@@ -38,7 +40,7 @@ interface Row {
   overdue: boolean;
 }
 
-const SELECT = `SELECT r.id, r.user_id, r.item_id, r.raw_query, r.quantity, r.radius_m, r.state,
+const SELECT = `SELECT r.id, r.user_id, r.item_id, r.raw_query, r.quantity, r.target_price_paise, r.radius_m, r.state,
        r.version, r.expires_at, r.created_at,
        ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
        (r.expires_at <= now()) AS overdue
@@ -50,6 +52,7 @@ const toRecord = (r: Row): RequestRecord => ({
   itemId: r.item_id,
   rawQuery: r.raw_query,
   quantity: r.quantity,
+  targetPricePaise: r.target_price_paise,
   radiusM: r.radius_m,
   state: r.state,
   version: r.version,
@@ -132,6 +135,13 @@ export async function applyEventIn(
      VALUES ($1, $2, $3, $4, $5)`,
     [requestId, current.state, result.to, event, reason],
   );
+  // The request is over for shops too: pings still waiting become NO_REPLY, in this same transaction.
+  if (current.state === 'PINGING') {
+    await tx.query(
+      `UPDATE pings SET state = 'NO_REPLY' WHERE request_id = $1 AND state IN ('QUEUED', 'SENT')`,
+      [requestId],
+    );
+  }
   const updated = (await findRequest(tx, requestId)) as RequestRecord;
   return { kind: 'applied', request: updated, from: current.state, event, reason };
 }

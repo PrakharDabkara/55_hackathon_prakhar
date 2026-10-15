@@ -56,6 +56,8 @@ A search answers from remembered stock first and pings shops only for what is mi
 6. The request expires after 15 minutes; shops that did not reply are recorded.
 7. Later: the user answers "was it actually there?", which feeds a shop reliability score.
 
+Price check: the user can add the price they've seen elsewhere; shops are asked "Do you have it for less?", each answers once without seeing others' prices, and results sort by price with the saving shown.
+
 **Shopkeeper**
 
 1. Onboards in under a minute: phone number (simulated OTP), shop name, map pin, one or two categories. No catalogue.

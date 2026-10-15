@@ -19,6 +19,9 @@ const schema = z
     // Learned results at or above this count answer a request without pinging shops.
     MIN_STOCK_RESULTS: z.coerce.number().int().min(1).default(3),
     REQUEST_TTL_MINUTES: z.coerce.number().int().min(1).default(15),
+    // Shops pinged per request, and the quiet period before the same shop is asked about the same item.
+    MAX_PINGS_PER_REQUEST: z.coerce.number().int().min(1).default(10),
+    PING_DEDUPE_MINUTES: z.coerce.number().int().min(1).default(30),
     // Run the request-expiry worker inside the API process.
     WORKERS_ENABLED: bool.default(true),
     GIT_SHA: z.string().optional(),
@@ -47,6 +50,8 @@ export interface Config {
   redisUrl: string | null;
   minStockResults: number;
   requestTtlMinutes: number;
+  maxPingsPerRequest: number;
+  pingDedupeMinutes: number;
   workersEnabled: boolean;
   gitSha: string;
 }
@@ -72,6 +77,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     redisUrl: e.REDIS_URL ?? null,
     minStockResults: e.MIN_STOCK_RESULTS,
     requestTtlMinutes: e.REQUEST_TTL_MINUTES,
+    maxPingsPerRequest: e.MAX_PINGS_PER_REQUEST,
+    pingDedupeMinutes: e.PING_DEDUPE_MINUTES,
     workersEnabled: e.WORKERS_ENABLED,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };

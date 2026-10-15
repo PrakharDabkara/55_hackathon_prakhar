@@ -21,6 +21,8 @@ describe('loadConfig', () => {
       redisUrl: valid.REDIS_URL,
       minStockResults: 3,
       requestTtlMinutes: 15,
+      maxPingsPerRequest: 10,
+      pingDedupeMinutes: 30,
       workersEnabled: true,
     });
   });
@@ -58,6 +60,17 @@ describe('loadConfig', () => {
     expect(config.requestTtlMinutes).toBe(30);
     for (const name of ['MIN_STOCK_RESULTS', 'REQUEST_TTL_MINUTES']) {
       for (const bad of ['0', '-1', '2.5', 'abc']) {
+        expect(() => loadConfig({ ...valid, [name]: bad }), `${name}=${bad}`).toThrowError(name);
+      }
+    }
+  });
+
+  it('reads MAX_PINGS_PER_REQUEST and PING_DEDUPE_MINUTES as positive integers', () => {
+    expect(loadConfig(valid)).toMatchObject({ maxPingsPerRequest: 10, pingDedupeMinutes: 30 });
+    const config = loadConfig({ ...valid, MAX_PINGS_PER_REQUEST: '4', PING_DEDUPE_MINUTES: '5' });
+    expect(config).toMatchObject({ maxPingsPerRequest: 4, pingDedupeMinutes: 5 });
+    for (const name of ['MAX_PINGS_PER_REQUEST', 'PING_DEDUPE_MINUTES']) {
+      for (const bad of ['0', '-3', '1.5', 'x']) {
         expect(() => loadConfig({ ...valid, [name]: bad }), `${name}=${bad}`).toThrowError(name);
       }
     }

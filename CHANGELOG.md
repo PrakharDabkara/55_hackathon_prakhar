@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Search: `GET /search?q=&lat=&lng=&radius_m=` over learned stock, expired stock excluded, freshest bucket then nearest; `findLearnedStock` in the shops module.
 - Requests: pure state machine (OPEN, PINGING, ANSWERED, EXPIRED, CLOSED), migration 005 (`requests`, `request_events`), `POST /requests` (idempotent via `Idempotency-Key`), `GET /requests/:id`, `POST /requests/:id/close`; every transition is one guarded UPDATE plus an audit row.
 - Expiry (ADR-0015): database deadline, lazy expiry on read, BullMQ delayed job per request and a 60 s sweeper, started in the API process behind `WORKERS_ENABLED` and closed on shutdown. `MIN_STOCK_RESULTS`, `REQUEST_TTL_MINUTES`, `WORKERS_ENABLED` config; `REDIS_URL` now read.
+- Fan-out (Day 7a): migration 006 (`pings`, `requests.target_price_paise`); `onRequestPinging` queues a `ping-fanout` job that picks the nearest shops of the item's category (excluding learned-stock shops), applies a Redis `SET NX EX` dedupe (one ping per shop and item per 30 minutes; skipped and logged if Redis is down) and shows the pings.
+- Shop side: `GET /shops/me/pings` (item, quantity, target price, distance band only) and `POST /pings/:id/answer` (once; a yes updates learned stock and answers the request in one transaction). Pings left open when a request ends become `NO_REPLY`; a late answer within 24 h still teaches inventory (ADR-0016).
+- Price check: `targetPricePaise` on `POST /requests`; `GET /requests/:id` returns live answers plus learned stock, `?sort=distance|price`, and `savingsPaise` below the target.
+- Config `MAX_PINGS_PER_REQUEST`, `PING_DEDUPE_MINUTES`; queue calls give up after 2 s when Redis is away instead of waiting forever.
 - Errors answer as `{"error":{"code","message"}}`; request logs drop query strings and headers.
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
 
