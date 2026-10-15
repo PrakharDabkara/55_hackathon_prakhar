@@ -12,6 +12,7 @@ import { startRedis } from './testing/startRedis.js';
 import { waitFor } from './testing/waitFor.js';
 import { startWorkers, type Workers } from './workers/index.js';
 
+type User = { token: string; userId: string };
 const logger = pino({ level: 'silent' });
 
 describe('what the seeker sees: shop positions and ping counts', () => {
@@ -100,7 +101,7 @@ describe('what the seeker sees: shop positions and ping counts', () => {
 
   describe('pingStats', () => {
     it('counts sent, yes, no and pending pings of this request', async () => {
-      const shops = [];
+      const shops: User[] = [];
       for (const [i, name] of ['S One', 'S Two', 'S Three'].entries()) {
         const u = await loginAs(app, 'shop', String(phone++));
         await request(app)
@@ -121,16 +122,20 @@ describe('what the seeker sees: shop positions and ping counts', () => {
       await waitFor(stats, (s) => s.sent === 3);
       expect(await stats()).toEqual({ sent: 3, yes: 0, no: 0, pending: 3 });
 
-      const first = await request(app).get('/shops/me/pings').set(auth(shops[0]!));
-      const second = await request(app).get('/shops/me/pings').set(auth(shops[1]!));
+      const first = await request(app)
+        .get('/shops/me/pings')
+        .set(auth(shops[0] as User));
+      const second = await request(app)
+        .get('/shops/me/pings')
+        .set(auth(shops[1] as User));
       await request(app)
         .post(`/pings/${second.body[0].id}/answer`)
-        .set(auth(shops[1]!))
+        .set(auth(shops[1] as User))
         .send({ answer: 'no' });
       expect(await stats()).toEqual({ sent: 3, yes: 0, no: 1, pending: 2 });
       await request(app)
         .post(`/pings/${first.body[0].id}/answer`)
-        .set(auth(shops[0]!))
+        .set(auth(shops[0] as User))
         .send({ answer: 'yes', pricePaise: 25000 });
       // The yes answers the request, which ends the wait for the third shop.
       expect(await stats()).toEqual({ sent: 3, yes: 1, no: 1, pending: 0 });

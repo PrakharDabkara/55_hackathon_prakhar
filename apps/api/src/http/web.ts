@@ -9,13 +9,14 @@ export const DEFAULT_WEB_DIST = fileURLToPath(new URL('../../../web/dist', impor
 
 /**
  * No inline script or style anywhere: the bundle is one same-origin script and one stylesheet.
- * Every `fetch` goes to this origin. See ADR-0017 for what this does and does not protect.
+ * Every `fetch` goes to this origin. The one outside origin is OpenStreetMap, for map tile images
+ * only (ADR-0019). See ADR-0017 for what this does and does not protect.
  */
 export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
-  "img-src 'self' data:",
+  "img-src 'self' data: https://tile.openstreetmap.org",
   "connect-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",

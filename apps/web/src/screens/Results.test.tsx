@@ -120,7 +120,8 @@ describe('Results', () => {
   });
 
   it('sorts by distance first when there is no price to beat', () => {
-    const { targetPricePaise: _t, ...noTarget } = answered;
+    const noTarget = { ...answered };
+    delete noTarget.targetPricePaise;
     renderApp(
       <Results api={fakeSeekerApi()} initial={noTarget} origin={origin} onDone={vi.fn()} />,
     );
