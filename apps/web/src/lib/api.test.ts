@@ -33,6 +33,15 @@ describe('createApi', () => {
     expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
   });
 
+  it('asks for a one-time event ticket with the bearer token, and returns only the ticket', async () => {
+    const { api, fetchImpl } = setup(() => json(200, { ticket: 'tk-1', expiresInSeconds: 60 }));
+    expect(await api.eventTicket()).toBe('tk-1');
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/events/ticket');
+    expect(init.method).toBe('POST');
+    expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
+  });
+
   it('posts an answer as JSON to the ping', async () => {
     const { api, fetchImpl } = setup(() => json(200, { state: 'YES' }));
     await api.answerPing('p-9', { answer: 'yes', pricePaise: 4500 });
