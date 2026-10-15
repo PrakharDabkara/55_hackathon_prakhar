@@ -17,7 +17,9 @@ for await (const model of await ai.models.list({ config: { pageSize: 100 } })) {
 
 const show = (title: string, action: string) => {
   console.log(`\n${title}`);
-  for (const r of rows.filter((x) => x.actions.includes(action)).sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const r of rows
+    .filter((x) => x.actions.includes(action))
+    .sort((a, b) => a.name.localeCompare(b.name))) {
     console.log(`  ${r.name}  (in: ${r.inputTokens ?? '?'} tokens)`);
   }
 };

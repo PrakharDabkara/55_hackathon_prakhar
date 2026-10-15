@@ -66,6 +66,38 @@ describe('createSeekerApi', () => {
     expect(error).toMatchObject({ status: 422, code: 'item_unresolved' });
   });
 
+  it('passes the chosen itemId along when the customer picked one', async () => {
+    const { api, last } = setup(() => json(201, { id: 'r1' }));
+    await api.createRequest({ q: 'clip', lat: 1, lng: 2, itemId: 'item-paper' });
+    expect(JSON.parse(last()[1].body as string)).toEqual({
+      q: 'clip',
+      lat: 1,
+      lng: 2,
+      itemId: 'item-paper',
+    });
+  });
+
+  it('keeps the question and options of an item_ambiguous answer on the error', async () => {
+    const { api } = setup(() =>
+      json(422, {
+        error: {
+          code: 'item_ambiguous',
+          message: 'Which one?',
+          question: 'Kaunsa?',
+          options: [{ itemId: 'a', nameEn: 'a', nameHi: 'अ' }],
+        },
+      }),
+    );
+    const error = (await api
+      .createRequest({ q: 'clip', lat: 1, lng: 2 })
+      .catch((e: unknown) => e)) as ApiError;
+    expect(error.code).toBe('item_ambiguous');
+    expect(error.details).toEqual({
+      question: 'Kaunsa?',
+      options: [{ itemId: 'a', nameEn: 'a', nameHi: 'अ' }],
+    });
+  });
+
   it('reads and closes a request by id', async () => {
     const { api, last } = setup(() => json(200, { id: 'r/1' }));
     await api.getRequest('r/1');

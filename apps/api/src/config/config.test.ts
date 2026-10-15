@@ -28,6 +28,74 @@ describe('loadConfig', () => {
     });
   });
 
+  describe('LLM provider (ADR-0020)', () => {
+    it('defaults to the fake provider outside production, so nothing leaves the machine by accident', () => {
+      for (const NODE_ENV of ['development', 'test'] as const) {
+        expect(loadConfig({ ...valid, NODE_ENV }).llmProvider).toBe('fake');
+      }
+      expect(loadConfig(valid).geminiApiKey).toBeNull();
+    });
+
+    it('must be set explicitly in production (fails closed)', () => {
+      const prod = { ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated' };
+      expect(() => loadConfig(prod)).toThrowError(/LLM_PROVIDER/);
+      expect(loadConfig({ ...prod, LLM_PROVIDER: 'fake' }).llmProvider).toBe('fake');
+      expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).llmProvider).toBe(
+        'gemini',
+      );
+    });
+
+    it('needs GEMINI_API_KEY when the provider is gemini, and never repeats the key', () => {
+      expect(() => loadConfig({ ...valid, LLM_PROVIDER: 'gemini' })).toThrowError(/GEMINI_API_KEY/);
+      expect(
+        loadConfig({ ...valid, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'secret-key-123' })
+          .geminiApiKey,
+      ).toBe('secret-key-123');
+      expect(() =>
+        loadConfig({ ...valid, LLM_PROVIDER: 'nope', GEMINI_API_KEY: 'secret-key-123' }),
+      ).toThrowError(/LLM_PROVIDER/);
+      try {
+        loadConfig({ ...valid, LLM_PROVIDER: 'nope', GEMINI_API_KEY: 'secret-key-123' });
+      } catch (error) {
+        expect((error as Error).message).not.toContain('secret-key-123');
+      }
+    });
+
+    it('reads the model names, the embedding size and the two embedding thresholds', () => {
+      expect(loadConfig(valid)).toMatchObject({
+        geminiModel: expect.any(String),
+        geminiEmbedModel: expect.any(String),
+        embedDim: 768,
+      });
+      const c = loadConfig({
+        ...valid,
+        GEMINI_MODEL: 'm1',
+        GEMINI_EMBED_MODEL: 'e1',
+        EMBED_DIM: '256',
+        EMBED_THRESHOLD: '0.75',
+        EMBED_MARGIN: '0.05',
+      });
+      expect(c).toMatchObject({
+        geminiModel: 'm1',
+        geminiEmbedModel: 'e1',
+        embedDim: 256,
+        embedThreshold: 0.75,
+        embedMargin: 0.05,
+      });
+    });
+
+    it('keeps the thresholds inside sensible limits', () => {
+      for (const bad of [
+        { EMBED_THRESHOLD: '1.5' },
+        { EMBED_THRESHOLD: '0' },
+        { EMBED_MARGIN: '-0.1' },
+        { EMBED_DIM: '0' },
+      ]) {
+        expect(() => loadConfig({ ...valid, ...bad })).toThrowError();
+      }
+    });
+  });
+
   describe('ADMIN_PHONES', () => {
     it('is empty by default, so there is no admin (fails closed)', () => {
       expect(loadConfig(valid).adminPhones).toEqual([]);
