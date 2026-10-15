@@ -21,6 +21,7 @@ const config: Config = {
   logLevel: 'debug',
   databaseUrl: 'postgres://unused',
   otpMode: 'simulated',
+  trigramThreshold: 0.4,
   gitSha: 'test',
 };
 

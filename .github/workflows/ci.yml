@@ -44,6 +44,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
         run: npx node-pg-migrate up -m apps/api/migrations
+      # The catalog file is the source of truth; the upsert is safe to repeat.
+      - name: Seed catalog on Neon
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
+        run: npm run seed:catalog
       # Deploy exactly the commit that passed CI.
       - name: Trigger Render deploy
         env:
