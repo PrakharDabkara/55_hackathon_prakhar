@@ -13,7 +13,9 @@ COPY packages/shared/package.json packages/shared/
 RUN npm ci
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN npm run build -w @kahanmilega/shared && npm run build -w @kahanmilega/api
+COPY apps/web apps/web
+# The API serves the web app's build under /app/ (ADR-0017): one image, one deploy.
+RUN npm run build -w @kahanmilega/shared && npm run build -w @kahanmilega/api && npm run build -w @kahanmilega/web
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
@@ -34,6 +36,7 @@ COPY --from=deps --chown=node:node /app/node_modules node_modules
 COPY --from=build --chown=node:node /app/packages/shared/dist packages/shared/dist
 COPY --chown=node:node packages/shared/package.json packages/shared/package.json
 COPY --from=build --chown=node:node /app/apps/api/dist apps/api/dist
+COPY --from=build --chown=node:node /app/apps/web/dist apps/web/dist
 COPY --chown=node:node apps/api/package.json apps/api/package.json
 USER node
 EXPOSE 3000

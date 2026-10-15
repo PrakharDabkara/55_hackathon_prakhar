@@ -1,7 +1,11 @@
 import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '../db/queryable.js';
-import { expireRequest, findOverdueRequestIds } from '../modules/requests/index.js';
+import {
+  expireRequest,
+  findOverdueRequestIds,
+  findUnpingedRequestIds,
+} from '../modules/requests/index.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const EXPIRY_QUEUE = 'request-expiry';
@@ -9,6 +13,7 @@ export const EXPIRY_QUEUE = 'request-expiry';
 /** The job fires a moment after the deadline, so clock skew between us and the database never makes it early. */
 const SLACK_MS = 250;
 const SWEEP_BATCH = 100;
+const UNPINGED_AFTER_SECONDS = 30;
 
 export interface RequestExpiry {
   queue: Queue;
@@ -25,6 +30,8 @@ interface Options {
   logger: Logger;
   sweepEveryMs?: number;
   queueName?: string;
+  /** Re-queue the ping fan-out for a request that never got its pings. */
+  enqueueFanout?: (requestId: string) => Promise<void>;
 }
 
 /**
@@ -38,6 +45,7 @@ export function startRequestExpiry({
   logger,
   sweepEveryMs = 60_000,
   queueName = EXPIRY_QUEUE,
+  enqueueFanout,
 }: Options): RequestExpiry {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
@@ -48,7 +56,18 @@ export function startRequestExpiry({
   const sweepNow = async () => {
     const ids = await findOverdueRequestIds(db, SWEEP_BATCH);
     for (const id of ids) await expireRequest(deps, id, 'sweeper');
-    return ids.length;
+
+    // Same sweep, second job: a request still PINGING with no pings after 30 s lost its fan-out
+    // job. Same job id as the original, so it can never run twice at once.
+    let requeued = 0;
+    if (enqueueFanout) {
+      for (const id of await findUnpingedRequestIds(db, UNPINGED_AFTER_SECONDS, SWEEP_BATCH)) {
+        await enqueueFanout(id);
+        requeued++;
+      }
+      if (requeued > 0) logger.info({ requeued }, 'sweeper re-queued lost ping fan-out jobs');
+    }
+    return ids.length + requeued;
   };
 
   const worker = new Worker(

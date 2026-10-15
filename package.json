@@ -17,7 +17,7 @@
     "db:up": "docker compose up -d --build --wait",
     "db:down": "docker compose down",
     "db:migrate": "node --env-file=.env node_modules/node-pg-migrate/bin/node-pg-migrate.js up -m apps/api/migrations",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p apps/web",
     "test:unit": "vitest run --exclude \"**/*.int.test.ts\" --passWithNoTests",
     "test:integration": "vitest run int.test --passWithNoTests",
     "seed:catalog": "npm run build -w @kahanmilega/shared -w @kahanmilega/api && node --env-file-if-exists=.env apps/api/dist/seedCatalogMain.js"

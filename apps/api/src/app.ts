@@ -5,6 +5,7 @@ import type { Config } from './config/config.js';
 import { healthRouter } from './http/health.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
+import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
 import { searchRouter } from './modules/search/index.js';
@@ -17,9 +18,18 @@ interface AppDeps {
   db: Database;
   readyTimeoutMs?: number;
   requestHooks?: RequestHooks;
+  /** Where the built web app lives. Default: apps/web/dist. */
+  webDistDir?: string;
 }
 
-export function createApp({ config, logger, db, readyTimeoutMs = 2000, requestHooks }: AppDeps) {
+export function createApp({
+  config,
+  logger,
+  db,
+  readyTimeoutMs = 2000,
+  requestHooks,
+  webDistDir = DEFAULT_WEB_DIST,
+}: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
 
@@ -43,6 +53,7 @@ export function createApp({ config, logger, db, readyTimeoutMs = 2000, requestHo
   );
   app.use(express.json({ limit: '10kb' }));
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
+  app.use(webRouter({ distDir: webDistDir, logger }));
   app.use(identityRouter({ db, logger, otpMode: config.otpMode }));
   app.use(shopsRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold }));

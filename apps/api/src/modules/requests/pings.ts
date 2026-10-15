@@ -21,6 +21,9 @@ import { selectPingTargets } from './targets.js';
 /** A late answer (after the request ended) still teaches inventory for this long. ADR-0016. */
 const LATE_ANSWER_HOURS = 24;
 
+/** How many candidates to consider per ping we want to send. */
+const BACKFILL_FACTOR = 3;
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Who may be pinged right now: lets the worker plug in Redis dedupe. */
@@ -64,7 +67,8 @@ export async function fanOutPings(
       itemCategory: item.category,
       radiusM: request.radiusM,
       excludeShopIds: new Set(known.map((k) => k.shopId)),
-      max: deps.config.maxPings,
+      // Look past the cap: shops the dedupe refuses are replaced by the next-nearest, up to 3x.
+      max: deps.config.maxPings * BACKFILL_FACTOR,
     },
   );
   if (targets.length === 0) {
@@ -72,8 +76,13 @@ export async function fanOutPings(
     return { targets: 0, sent: 0 };
   }
 
+  // Nearest first; a shop pinged recently is skipped and the next one takes its place, until the
+  // cap is reached or the candidates run out.
   const claimed: string[] = [];
+  let asked = 0;
   for (const t of targets) {
+    if (claimed.length >= deps.config.maxPings) break;
+    asked++;
     if (await claims.claim(t.shopId, request.itemId)) claimed.push(t.shopId);
   }
   const giveBack = () =>
@@ -107,7 +116,7 @@ export async function fanOutPings(
     return { targets: targets.length, sent: 0, skipped: 'not_live' };
   }
   logger.info(
-    { requestId, targets: targets.length, deduped: targets.length - claimed.length, sent },
+    { requestId, considered: asked, deduped: asked - claimed.length, sent },
     'ping fan-out',
   );
   return { targets: targets.length, sent };

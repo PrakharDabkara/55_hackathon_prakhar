@@ -11,6 +11,6 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['{apps,packages,evals}/**/*.test.ts'],
+    include: ['{apps,packages,evals}/**/*.test.{ts,tsx}'],
   },
 });

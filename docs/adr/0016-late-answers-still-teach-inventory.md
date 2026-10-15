@@ -25,4 +25,4 @@ A request lasts 15 minutes, but shopkeepers answer when they get to it. When a r
 
 - Stock grows from every answer, not only from answers that arrived in time.
 - Learned stock can be as old as 24 hours at the moment of the first answer; it still expires 7 days (3 if "a few") from the answer.
-- If a fan-out job is lost (Redis restart), the request is never pinged and expires on time; nothing is left half-done. A sweeper for un-pinged requests is a possible later hardening.
+- If a fan-out job is lost (Redis restart), the request is never pinged and expires on time; nothing is left half-done. The existing 60 s sweeper also finds PINGING requests older than 30 s with no pings and re-adds the fan-out job under the same job id (`fanout-<requestId>`), so a lost job costs at most about a minute and can never run twice at once.

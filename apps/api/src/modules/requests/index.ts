@@ -4,6 +4,7 @@ export {
   createRequest,
   expireRequest,
   findOverdueRequestIds,
+  findUnpingedRequestIds,
   getRequestStatus,
 } from './service.js';
 export type { CreateRequestInput, RequestHooks, RequestView, RequestsContext } from './service.js';

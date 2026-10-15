@@ -6,5 +6,5 @@
     "paths": { "@kahanmilega/shared": ["./packages/shared/src/index.ts"] }
   },
   "include": ["apps/**/*.ts", "packages/**/*.ts", "evals/**/*.ts", "vitest.config.ts"],
-  "exclude": ["**/node_modules/**", "**/dist/**"]
+  "exclude": ["**/node_modules/**", "**/dist/**", "apps/web/**"]
 }

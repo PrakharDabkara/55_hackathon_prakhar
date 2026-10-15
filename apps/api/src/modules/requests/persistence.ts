@@ -183,3 +183,23 @@ export async function findOverdueRequestIds(db: Queryable, limit = 100): Promise
   );
   return rows.map((r) => r.id);
 }
+
+/**
+ * Live requests that are old enough for their fan-out job to have run but have no ping at all:
+ * the job was lost (Redis restart, instance asleep). The sweeper queues the job again.
+ */
+export async function findUnpingedRequestIds(
+  db: Queryable,
+  olderThanSeconds = 30,
+  limit = 100,
+): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT r.id FROM requests r
+      WHERE r.state = 'PINGING' AND r.expires_at > now()
+        AND r.created_at < now() - make_interval(secs => $1::double precision)
+        AND NOT EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id)
+      ORDER BY r.created_at LIMIT $2`,
+    [olderThanSeconds, limit],
+  );
+  return rows.map((r) => r.id);
+}

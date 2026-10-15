@@ -7,6 +7,7 @@ import {
   applyEvent,
   applyEventIn,
   findOverdueRequestIds,
+  findUnpingedRequestIds,
   findRequest,
   findRequestByKey,
   logTransition,
@@ -246,4 +247,4 @@ export async function expireRequest(
   return applyEvent(deps, requestId, 'TIMEOUT', reason);
 }
 
-export { findOverdueRequestIds };
+export { findOverdueRequestIds, findUnpingedRequestIds };

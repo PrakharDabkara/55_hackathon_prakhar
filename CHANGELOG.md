@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shop side: `GET /shops/me/pings` (item, quantity, target price, distance band only) and `POST /pings/:id/answer` (once; a yes updates learned stock and answers the request in one transaction). Pings left open when a request ends become `NO_REPLY`; a late answer within 24 h still teaches inventory (ADR-0016).
 - Price check: `targetPricePaise` on `POST /requests`; `GET /requests/:id` returns live answers plus learned stock, `?sort=distance|price`, and `savingsPaise` below the target.
 - Config `MAX_PINGS_PER_REQUEST`, `PING_DEDUPE_MINUTES`; queue calls give up after 2 s when Redis is away instead of waiting forever.
+- Shop web app (Day 7b), `apps/web`: Vite + React + TypeScript served by the API under `/app/` with a strict Content-Security-Policy (ADR-0017). Three screens: login (with a Demo mode box that fills the OTP), onboarding (name, 1-2 category tiles, location), and the ping card ("Haan hai" / "Nahi hai", optional price in rupees sent as integer paise, few/plenty chips). Hindi by default with an English toggle, one dictionary file, polling every 5 s. Minimal PWA manifest and icons.
+- Fan-out: when the dedupe refuses a shop the next-nearest is asked instead (up to 3x the cap); the sweeper re-adds a lost fan-out job for requests with no pings after 30 s.
+- Dependencies for the web app: react, react-dom, vite, @vitejs/plugin-react, @testing-library/react, @testing-library/user-event, jsdom, and the React type packages.
 - Errors answer as `{"error":{"code","message"}}`; request logs drop query strings and headers.
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
 
