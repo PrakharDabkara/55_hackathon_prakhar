@@ -1,5 +1,5 @@
 import type { Role } from '@kahanmilega/shared';
-import type { Queryable } from '../../db/queryable.js';
+import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import {
   MAX_ATTEMPTS,
   MAX_REQUESTS,
@@ -23,30 +23,30 @@ interface OtpRow {
   consumed_at: Date | null;
 }
 
-/** Stores a fresh code, or returns null when the phone already asked 3 times in 10 minutes. */
+/** Stores a fresh code, or returns false when the phone already asked 3 times in 10 minutes. */
 export async function requestOtp(
-  db: Queryable,
+  db: Database,
   phone: string,
   opts: { keepPlainCode: boolean },
 ): Promise<boolean> {
   const code = generateOtp();
-  // Count and insert in one statement, so concurrent requests cannot both slip under the limit.
-  const { rowCount } = await db.query(
-    `INSERT INTO otp_codes (phone, code_hash, dev_code, expires_at)
-     SELECT $1::text, $2, $3, now() + make_interval(secs => $4::double precision)
-      WHERE (SELECT count(*) FROM otp_codes
-              WHERE phone = $1::text
-                AND created_at > now() - make_interval(secs => $5::double precision)) < $6`,
-    [
-      phone,
-      hashOtp(phone, code),
-      opts.keepPlainCode ? code : null,
-      OTP_TTL_MS / 1000,
-      REQUEST_WINDOW_MS / 1000,
-      MAX_REQUESTS,
-    ],
-  );
-  return rowCount === 1;
+  return withTransaction(db, async (tx) => {
+    // Under READ COMMITTED, concurrent count-then-insert statements cannot see each other's
+    // uncommitted rows. The per-phone advisory lock makes them take turns; it frees at commit.
+    await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [phone]);
+    const { rows } = await tx.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM otp_codes
+        WHERE phone = $1 AND created_at > now() - make_interval(secs => $2::double precision)`,
+      [phone, REQUEST_WINDOW_MS / 1000],
+    );
+    if ((rows[0]?.n ?? 0) >= MAX_REQUESTS) return false;
+    await tx.query(
+      `INSERT INTO otp_codes (phone, code_hash, dev_code, expires_at)
+       VALUES ($1, $2, $3, now() + make_interval(secs => $4::double precision))`,
+      [phone, hashOtp(phone, code), opts.keepPlainCode ? code : null, OTP_TTL_MS / 1000],
+    );
+    return true;
+  });
 }
 
 /** The newest unexpired, unused code for the demo inbox, or null. */
@@ -77,13 +77,15 @@ async function consumeOtp(db: Queryable, phone: string, code: string): Promise<b
   ) {
     return false;
   }
-  // Count the attempt before comparing, atomically, so parallel guesses cannot exceed the limit.
+  // Count the attempt before comparing. One guarded UPDATE: Postgres re-checks `attempts < 5` on the
+  // row after waiting for a concurrent update, so parallel guesses cannot exceed the limit.
   const counted = await db.query(
     `UPDATE otp_codes SET attempts = attempts + 1
-      WHERE id = $1 AND attempts < $2 AND consumed_at IS NULL AND expires_at > now()`,
+      WHERE id = $1 AND attempts < $2 AND consumed_at IS NULL AND expires_at > now()
+      RETURNING attempts`,
     [otp.id, MAX_ATTEMPTS],
   );
-  if (counted.rowCount !== 1) return false;
+  if (counted.rows.length !== 1) return false;
   if (!matchesOtp(phone, code, otp.code_hash)) return false;
   // Single use: only one concurrent caller wins this update.
   const used = await db.query(

@@ -23,6 +23,8 @@ Day 4 needs login for seekers and shopkeepers with no SMS cost (ADR-0004), and s
 ## Consequences
 
 - Every authenticated request costs one indexed query (token hash → session → user). Fine at this scale; cache later if load tests ask.
-- The demo inbox is open: anyone can read any phone's code. Acceptable only because the app is a simulation with no real identity or money. Real SMS needs a new mode, a new ADR, and dropping `dev_code`.
+- Simulated mode is public by design: anyone can read any code at /dev/otp-inbox. The inbox and dev_code column are removed when real SMS is added.
+- The OTP request limit counts and inserts inside one transaction after `pg_advisory_xact_lock(hashtext(phone))`; the attempt limit is one guarded `UPDATE ... WHERE attempts < 5`.
+- `OTP_MODE` must be set explicitly in production (fails closed); development and test default to `simulated`.
 - A 6-digit hash is guessable offline if the database leaks; the 5-minute life and 5-attempt limit are the real protection.
 - Rate limits for OTP requests live in Postgres; general per-user limits come on Day 16.

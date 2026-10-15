@@ -7,12 +7,12 @@ import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { identityRouter } from './modules/identity/index.js';
 import { shopsRouter } from './modules/shops/index.js';
-import type { Queryable } from './db/queryable.js';
+import type { Database } from './db/queryable.js';
 
 interface AppDeps {
   config: Config;
   logger: Logger;
-  db: Queryable;
+  db: Database;
   readyTimeoutMs?: number;
 }
 
