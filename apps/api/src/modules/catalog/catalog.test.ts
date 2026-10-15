@@ -1,6 +1,7 @@
 import { CATEGORIES } from '@kahanmilega/shared';
 import { describe, expect, it } from 'vitest';
 import seed from './catalog.seed.json' with { type: 'json' };
+import { REMOVED_TERMS } from '../../testing/removedTerms.js';
 import { normaliseQuery } from './normalise.js';
 import { checkCatalog, parseCatalog, termsFor } from './seedData.js';
 
@@ -29,6 +30,24 @@ describe('seed catalog file', () => {
 
   it('passes the consistency check: unique slugs, no term shared between items', () => {
     expect(() => checkCatalog(catalog)).not.toThrow();
+  });
+
+  it('does not contain any term that was removed as ambiguous', () => {
+    const all = new Set(catalog.items.flatMap(termsFor));
+    for (const term of REMOVED_TERMS) {
+      expect(all.has(normaliseQuery(term).text), term).toBe(false);
+    }
+  });
+
+  it('has specific forms for the removed generic words', () => {
+    const owner = (query: string) =>
+      catalog.items.find((i) => termsFor(i).includes(normaliseQuery(query).text))?.slug;
+    expect(owner('paper clip')).toBe('paper-clips');
+    expect(owner('nail cutter')).toBe('nail-cutter');
+    expect(owner('नेल कटर')).toBe('nail-cutter');
+    expect(owner('clothes clips')).toBe('clothes-clips');
+    expect(owner('electric switch')).toBe('electric-switch');
+    expect(owner('safety pin')).toBe('safety-pins');
   });
 
   it('covers English, Devanagari and Hinglish spellings for the same item', () => {

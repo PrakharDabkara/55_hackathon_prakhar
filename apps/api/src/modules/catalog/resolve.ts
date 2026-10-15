@@ -9,6 +9,9 @@ export interface CatalogItem {
   category: string;
 }
 
+/** Several words: a rival item this close to the best match makes the match a coin toss. */
+const AMBIGUITY_MARGIN = 0.1;
+
 export type MatchedBy = 'synonym' | 'trigram';
 
 export interface Resolution {
@@ -27,6 +30,7 @@ interface ItemRow {
   name_hi: string;
   category: string;
   sim?: number;
+  term?: string;
 }
 
 const toItem = (r: ItemRow): CatalogItem => ({
@@ -65,19 +69,32 @@ export async function resolveItem(
       similarity = 1;
     } else {
       // `%` lets the GIN index prefilter (at pg_trgm's default 0.3); `similarity` applies our threshold.
+      // One best term per item, so we can tell "one clear item" from "several plausible items".
       const fuzzy = await db.query<ItemRow>(
-        `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, similarity(s.term, $1) AS sim
-           FROM item_synonyms s JOIN items i ON i.id = s.item_id
-          WHERE s.term % $1 AND similarity(s.term, $1) >= $2
-          ORDER BY sim DESC, s.term
-          LIMIT 1`,
+        `SELECT * FROM (
+           SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category,
+                  s.term, similarity(s.term, $1) AS sim
+             FROM item_synonyms s JOIN items i ON i.id = s.item_id
+            WHERE s.term % $1 AND similarity(s.term, $1) >= $2
+            ORDER BY i.id, sim DESC
+         ) best
+         ORDER BY sim DESC, slug
+         LIMIT 2`,
         [text, opts.threshold],
       );
-      const row = fuzzy.rows[0];
-      if (row) {
-        item = toItem(row);
+      // Unresolved when the match is not clear-cut. A wrong guess costs the user more than asking again.
+      // - One word ("tape", "nail"): any second item at or above the threshold is too close, and a
+      //   word that only resembles part of a longer phrase ("band" vs "rubber band") is no typo.
+      // - Several words ("switch board"): a second item scoring within 0.1 of the best is too close.
+      const [best, second] = fuzzy.rows;
+      const oneWord = !text.includes(' ');
+      const ambiguous = oneWord
+        ? Boolean(second) || (best?.term ?? '').includes(' ')
+        : Boolean(best && second && (second.sim ?? 0) >= (best.sim ?? 0) - AMBIGUITY_MARGIN);
+      if (best && !ambiguous) {
+        item = toItem(best);
         matchedBy = 'trigram';
-        similarity = row.sim ?? 0;
+        similarity = best.sim ?? 0;
       }
     }
   }
