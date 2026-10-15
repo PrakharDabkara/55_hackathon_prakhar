@@ -27,17 +27,18 @@ export function startWorkers({
 }): Workers | null {
   if (!config.workersEnabled || !config.redisUrl) return null;
 
-  const expiry = startRequestExpiry({
-    redisUrl: config.redisUrl,
-    db,
-    logger,
-    ...(sweepEveryMs !== undefined && { sweepEveryMs }),
-  });
   const fanout = startPingFanout({
     redisUrl: config.redisUrl,
     db,
     logger,
     config: { maxPings: config.maxPingsPerRequest, dedupeMinutes: config.pingDedupeMinutes },
+  });
+  const expiry = startRequestExpiry({
+    redisUrl: config.redisUrl,
+    db,
+    logger,
+    enqueueFanout: fanout.enqueue,
+    ...(sweepEveryMs !== undefined && { sweepEveryMs }),
   });
 
   return {
