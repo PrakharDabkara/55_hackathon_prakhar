@@ -32,6 +32,10 @@ services:
       # deadline and lazy expiry on read are the truth; the queue only makes expiry timely (ADR-0015).
       - key: WORKERS_ENABLED
         value: 'true'
+      # Phones that become admin on login (for the shop simulator). No value here on purpose: set it
+      # by hand in the dashboard. Empty means no admin exists and the admin endpoints answer 404.
+      - key: ADMIN_PHONES
+        sync: false
       # Neon pooled connection string. Set it in the Render dashboard.
       - key: DATABASE_URL
         sync: false

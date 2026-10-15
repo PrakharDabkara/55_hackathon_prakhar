@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fan-out: when the dedupe refuses a shop the next-nearest is asked instead (up to 3x the cap); the sweeper re-adds a lost fan-out job for requests with no pings after 30 s.
 - Dependencies for the web app: react, react-dom, vite, @vitejs/plugin-react, @testing-library/react, @testing-library/user-event, jsdom, and the React type packages.
 - Errors answer as `{"error":{"code","message"}}`; request logs drop query strings and headers.
+- Realtime (Day 8a, ADR-0018): server-sent events. `POST /events/ticket` gives a random one-time ticket (60 s, stored hashed in Redis); `GET /events?ticket=` opens the stream (heartbeat every 20 s, clean removal on close). Events are hints: `request.updated` to the seeker, `ping.created` and `ping.closed` to the shop. Fan-out through Redis pub/sub with a dedicated subscriber connection, published after the transaction commits.
+- Shop app: SSE with a new ticket on each reconnect replaces 5-second polling (30-second fallback poll kept), and a small green "live" dot while connected.
+- Shop app: the answer buttons show Devanagari large with Latin small below ("हाँ है" / "Haan hai", "नहीं है" / "Nahi hai"); the quantity chips are asked as "कितना है?" with "थोड़ा बचा है" / "काफ़ी है".
+- Admin role: `ADMIN_PHONES` (empty by default, fails closed); a listed phone gets role `admin` on login. Admin endpoints answer 404 to everyone else.
+- Migration 007: `items.ref_price_paise` (AI-estimated reference price for all 224 catalog items, seed file v2) and `shops.is_simulated`.
+- Simulator endpoints (admin only): `POST /admin/sim/shops`, `DELETE /admin/sim/shops`, `GET /admin/sim/events`.
+- `apps/simulator`, `npm run simulate`: fake shops (Node built-ins only) that answer real pings through the real answer endpoint over one admin stream. Runbook: "Run the simulator against the live site".
+- Config `ADMIN_PHONES`; `.env.example` and `render.yaml` (no value; set by hand).
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
 
 ### Fixed

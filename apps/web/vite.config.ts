@@ -22,7 +22,7 @@ export default defineConfig({
   server: {
     // `npm run dev -w @kahanmilega/web` against an API on localhost:3000.
     proxy: Object.fromEntries(
-      ['/auth', '/shops', '/pings', '/requests', '/search', '/dev', '/health'].map((path) => [
+      ['/auth', '/shops', '/pings', '/requests', '/search', '/dev', '/health', '/events'].map((path) => [
         path,
         'http://localhost:3000',
       ]),
