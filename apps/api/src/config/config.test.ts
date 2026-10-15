@@ -61,6 +61,13 @@ describe('loadConfig', () => {
       }
     });
 
+    it('treats an empty GEMINI_API_KEY as unset, as .env.example ships it', () => {
+      expect(loadConfig({ ...valid, GEMINI_API_KEY: '' }).geminiApiKey).toBeNull();
+      expect(() =>
+        loadConfig({ ...valid, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: '' }),
+      ).toThrowError(/GEMINI_API_KEY/);
+    });
+
     it('reads the model names, the embedding size and the two embedding thresholds', () => {
       expect(loadConfig(valid)).toMatchObject({
         geminiModel: expect.any(String),
