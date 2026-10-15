@@ -14,6 +14,7 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   maxPingsPerRequest: 10,
   pingDedupeMinutes: 30,
   workersEnabled: false,
+  adminPhones: [],
   gitSha: 'test',
   ...overrides,
 });
