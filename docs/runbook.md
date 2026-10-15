@@ -1,4 +1,4 @@
-# Runbook (v2)
+# Runbook (v3)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -122,3 +122,19 @@ watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | pytho
 **Clean up.** Ctrl+C stops the simulator. The fake shops stay on the server (they also teach learned stock). To remove them, sign in as the admin and call `DELETE $B/admin/sim/shops`, or start the simulator with a different `--seed` and `--reset`, then stop it.
 
 **If it does not start.** `... is not an admin` means `ADMIN_PHONES` is not set or has not redeployed yet. `Too many OTP requests` means wait ten minutes. A refused stream with HTTP 503 means the API has no `REDIS_URL`.
+
+## Run the end-to-end browser test
+
+One real browser test (Playwright, Chromium at 360 px) of the customer app against the whole stack: it logs in with Demo mode, taps "Demo location", searches `chini` with a price of ₹60, and expects a map pin, a list row with a price and a "haan" in the status line within 30 seconds. Five simulated grocery shops answer in the background. It is not part of `npm run test:unit` or `test:integration`; CI runs it as the `e2e` job.
+
+```sh
+npm install
+cp .env.example .env        # once
+npm run db:up               # Postgres and Redis
+npm run db:migrate
+npm run seed:catalog
+npx playwright install chromium   # once per Playwright version
+npm run test:e2e            # builds the apps, starts the API on port 3100, runs the test
+```
+
+The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin phone (`9810000999`), and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.

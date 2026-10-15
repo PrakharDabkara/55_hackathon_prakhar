@@ -25,8 +25,40 @@ jobs:
       - run: npm run test:unit
       - run: npm run test:integration
 
+  # A real browser against the real stack. Not part of the unit or integration steps above.
+  # Postgres comes from docker-compose because it needs PostGIS and pgvector together, which no
+  # stock service-container image has; Redis and Postgres are the same ones used locally.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: cp .env.example .env
+      - run: npm run db:up
+      - run: npm run db:migrate
+      # Builds the shared package and the API, then loads the catalog.
+      - run: npm run seed:catalog
+      - run: npx playwright install --with-deps chromium
+      # Builds the web app, starts the API with ADMIN_PHONES set, starts five simulated grocery
+      # shops that answer pings, and drives Chromium (see e2e/).
+      - run: npm run test:e2e
+      - name: Upload screenshot and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: |
+            e2e/artifacts
+            playwright-report
+          if-no-files-found: ignore
+
   deploy:
-    needs: ci
+    needs: [ci, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -250,7 +250,7 @@ Phases end at gates; nothing moves on until the gate passes. Scope is frozen as 
 - [x] Day 5 (Oct 16) · Catalog and search v1: items with synonyms; radius search over learned stock
 - [x] Day 6 (Oct 17) · Requests: state machine; expiry worker on a Redis queue
 - [x] Day 7 (Oct 18) · Fan-out: ping queue, de-duplication, shop ping card, each yes added to learned stock
-- [ ] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate
+- [x] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate: end-to-end demo with simulated shops (a Playwright test in CI: search, pins appear, a shop says haan)
 - [ ] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
 - [ ] Day 10 (Oct 21) · Reply parsing and eval runner; accuracy gates in CI
 - [ ] Day 11 (Oct 22) · MCP server: the 5 tools with contract tests

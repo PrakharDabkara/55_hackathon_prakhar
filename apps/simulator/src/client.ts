@@ -14,7 +14,13 @@ export interface Client {
   login(phone: string, signal?: AbortSignal): Promise<{ token: string; role: string }>;
   createShops(
     token: string,
-    body: { count: number; centre: { lat: number; lng: number }; radiusM: number; seed: number },
+    body: {
+      count: number;
+      centre: { lat: number; lng: number };
+      radiusM: number;
+      seed: number;
+      categories?: string[];
+    },
   ): Promise<{ shopId: string; token: string }[]>;
   removeShops(token: string): Promise<void>;
   ticket(token: string, signal?: AbortSignal): Promise<string>;

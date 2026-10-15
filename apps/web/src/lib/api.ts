@@ -56,16 +56,30 @@ export interface ShopApi {
   eventTicket(): Promise<string>;
 }
 
-interface Options {
+/** The pieces every client needs. */
+export interface ClientOptions {
   getToken: () => string | null;
   /** Called when the server says the login is no longer valid. */
   onUnauthorized: () => void;
   fetchImpl?: typeof fetch;
 }
 
-export function createApi({ getToken, onUnauthorized, fetchImpl = fetch }: Options): ShopApi {
-  async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers = new Headers();
+export type Call = <T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  extraHeaders?: Record<string, string>,
+) => Promise<T>;
+
+/** JSON over fetch with the bearer token; non-2xx becomes an ApiError. Shared by both apps. */
+export function createCaller({ getToken, onUnauthorized, fetchImpl = fetch }: ClientOptions): Call {
+  async function call<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<T> {
+    const headers = new Headers(extraHeaders);
     const token = getToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
     if (body !== undefined) headers.set('Content-Type', 'application/json');
@@ -92,6 +106,11 @@ export function createApi({ getToken, onUnauthorized, fetchImpl = fetch }: Optio
     }
     return (res.status === 204 ? undefined : await res.json()) as T;
   }
+  return call;
+}
+
+export function createApi(options: ClientOptions): ShopApi {
+  const call = createCaller(options);
 
   return {
     async requestOtp(phone) {

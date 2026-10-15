@@ -7,7 +7,8 @@ export interface Session {
   clear(): void;
 }
 
-const TOKEN_KEY = 'km-token';
+const SHOP_TOKEN_KEY = 'km-token';
+const SEEKER_TOKEN_KEY = 'km-seeker-token';
 const LANG_KEY = 'km-lang';
 
 // Storage can throw (private windows, blocked site data); the app must work without it.
@@ -32,7 +33,7 @@ function write(key: string, value: string | null): void {
  * phone does all day. Any script that runs on the page can read it, which is why the page has a
  * strict Content-Security-Policy. Trade-off in ADR-0017.
  */
-export function localStorageSession(): Session {
+export function localStorageSession(TOKEN_KEY = SHOP_TOKEN_KEY): Session {
   let memory: string | null = null;
   return {
     getToken: () => read(TOKEN_KEY) ?? memory,
@@ -46,6 +47,9 @@ export function localStorageSession(): Session {
     },
   };
 }
+
+/** The customer app keeps its own token, so a phone used for both never mixes the two logins. */
+export const seekerSession = (): Session => localStorageSession(SEEKER_TOKEN_KEY);
 
 export function readLang(): Lang | null {
   const saved = read(LANG_KEY);

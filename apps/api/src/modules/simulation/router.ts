@@ -1,3 +1,4 @@
+import { CATEGORIES } from '@kahanmilega/shared';
 import { Router } from 'express';
 import type { Logger } from 'pino';
 import { z } from 'zod';
@@ -16,6 +17,8 @@ const createBody = z.object({
     .int()
     .min(0)
     .max(2 ** 31),
+  /** Only these kinds of shop (default: the realistic mix of all eight). */
+  categories: z.array(z.enum(CATEGORIES)).min(1).max(CATEGORIES.length).optional(),
 });
 
 interface Deps {

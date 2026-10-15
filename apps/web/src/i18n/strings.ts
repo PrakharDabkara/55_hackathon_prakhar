@@ -61,6 +61,36 @@ export interface Strings {
   quantityLine: (quantity: string) => string;
   customerDistance: (band: string) => string;
 
+  // Seeker app
+  queryLabel: string;
+  queryHint: string;
+  seenLabel: string;
+  demoLocation: string;
+  search: string;
+  searching: string;
+  errUnresolved: string;
+  errNotSeeker: string;
+  needLocation: string;
+  sortCheap: string;
+  sortNear: string;
+  sortLabel: string;
+  statusLine: (sent: number, yes: number, pending: number) => string;
+  statusWaiting: string;
+  statusFromMemory: string;
+  saveBadge: (price: string) => string;
+  away: (distance: string) => string;
+  route: string;
+  done: string;
+  timeLeft: (mmss: string) => string;
+  timeUp: string;
+  requestClosed: string;
+  noPrice: string;
+  noYesYet: string;
+  mapLabel: string;
+  youAreHere: string;
+  forShopkeepers: string;
+  retry: string;
+
   categories: Record<Category, string>;
   bands: Record<Band, string>;
 }
@@ -113,6 +143,37 @@ export const hi: Strings = {
   targetLine: (price) => `Customer ne ${price} mein dekha hai — kya aapke paas isse kam mein hai?`,
   quantityLine: (quantity) => `Matra: ${quantity}`,
   customerDistance: (band) => `Customer ${band} door hai`,
+
+  queryLabel: 'क्या चाहिए?',
+  queryHint: 'aata, chini, bottle brush…',
+  seenLabel: 'Maine ₹__ mein dekha hai (zaroori nahi)',
+  demoLocation: 'Demo location (Indore)',
+  search: 'Dhoondho',
+  searching: 'Dhoondh rahe hain…',
+  errUnresolved:
+    "Samajh nahi aaya — thoda aur detail mein likhiye (jaise 'paper clip', 'nail cutter')",
+  errNotSeeker: 'Yeh dukaan ka number hai. Customer ke liye dusra number use karein.',
+  needLocation: 'Pehle apni location chunein.',
+  sortCheap: 'Sasta',
+  sortNear: 'Paas',
+  sortLabel: 'Kaise dikhayein',
+  statusLine: (sent, yes, pending) =>
+    `${sent} dukaanon se poocha · ${yes} ne haan kaha · ${pending} ka jawab baaki`,
+  statusWaiting: 'Dukaanon ko bhej rahe hain…',
+  statusFromMemory: 'Pehle ke jawabon se mila',
+  saveBadge: (price) => `${price} bachenge`,
+  away: (distance) => `${distance} door`,
+  route: 'Raasta',
+  done: 'Ho gaya',
+  timeLeft: (mmss) => `Bache hain ${mmss}`,
+  timeUp: 'Samay poora hua',
+  requestClosed: 'Band ho gaya',
+  noPrice: 'Daam nahi bataya',
+  noYesYet: 'Abhi kisi ne haan nahi kaha. Jawab aate hi yahan dikhenge.',
+  mapLabel: 'Nakshe par dukaanein',
+  youAreHere: 'Aap yahan hain',
+  forShopkeepers: 'Dukaandaar hain? Yahan jaayein',
+  retry: 'Dobara try karein',
 
   categories: {
     grocery: 'किराना',
@@ -178,6 +239,37 @@ export const en: Strings = {
   targetLine: (price) => `A customer saw it for ${price}. Do you have it for less?`,
   quantityLine: (quantity) => `Quantity: ${quantity}`,
   customerDistance: (band) => `Customer is ${band} away`,
+
+  queryLabel: 'क्या चाहिए?',
+  queryHint: 'aata, chini, bottle brush…',
+  seenLabel: 'I saw it for ₹__ (optional)',
+  demoLocation: 'Demo location (Indore)',
+  search: 'Search',
+  searching: 'Searching…',
+  errUnresolved:
+    "We couldn't tell which item you mean. Add a little more detail (like 'paper clip', 'nail cutter').",
+  errNotSeeker: 'This number belongs to a shop. Use another number as a customer.',
+  needLocation: 'Choose your location first.',
+  sortCheap: 'Cheapest',
+  sortNear: 'Nearest',
+  sortLabel: 'Sort by',
+  statusLine: (sent, yes, pending) =>
+    `${sent} shops asked · ${yes} said yes · ${pending} yet to reply`,
+  statusWaiting: 'Asking the shops…',
+  statusFromMemory: 'Found from earlier answers',
+  saveBadge: (price) => `Save ${price}`,
+  away: (distance) => `${distance} away`,
+  route: 'Directions',
+  done: 'Done',
+  timeLeft: (mmss) => `${mmss} left`,
+  timeUp: 'Time is up',
+  requestClosed: 'Closed',
+  noPrice: 'Price not given',
+  noYesYet: 'No shop has said yes yet. Answers will appear here as they come.',
+  mapLabel: 'Shops on the map',
+  youAreHere: 'You are here',
+  forShopkeepers: 'Own a shop? Go here',
+  retry: 'Try again',
 
   categories: {
     grocery: 'Grocery',

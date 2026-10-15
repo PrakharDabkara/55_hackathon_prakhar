@@ -2,8 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { useT } from '../i18n/index.js';
 import { ApiError, type ShopApi } from '../lib/api.js';
 
+/** The three calls login needs; both the shop and the customer client have them. */
+export type LoginApi = Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp'>;
+
 interface Props {
-  api: ShopApi;
+  api: LoginApi;
   onLoggedIn: (token: string) => void;
 }
 

@@ -40,6 +40,8 @@ describe('rankResults', () => {
   const result = (shopId: string, distanceM: number, confirmedAgo: number): LearnedStockResult => ({
     shopId,
     name: shopId,
+    lat: 22.7,
+    lng: 75.8,
     distanceM,
     pricePaise: null,
     quantityHint: null,

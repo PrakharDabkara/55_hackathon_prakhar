@@ -14,6 +14,8 @@ const live = (
   shopId,
   name: shopId,
   distanceM,
+  lat: 22.72,
+  lng: 75.86,
   pricePaise,
   quantityHint: null,
   answeredAt: minutesAgo(ageMin),
@@ -27,6 +29,8 @@ const learned = (
   shopId,
   name: shopId,
   distanceM,
+  lat: 22.73,
+  lng: 75.87,
   pricePaise,
   quantityHint: null,
   lastConfirmedAt: minutesAgo(60 * 30),
@@ -110,5 +114,15 @@ describe('buildResults', () => {
 
   it('returns an empty list for no answers', () => {
     expect(buildResults({ ...base, live: [], learned: [] })).toEqual([]);
+  });
+
+  it('carries each shop position through, for live and learned rows alike', () => {
+    const results = buildResults({
+      ...base,
+      live: [live('a', 100, 5000)],
+      learned: [learned('b', 200, 6000)],
+    });
+    expect(results.find((r) => r.shopId === 'a')).toMatchObject({ lat: 22.72, lng: 75.86 });
+    expect(results.find((r) => r.shopId === 'b')).toMatchObject({ lat: 22.73, lng: 75.87 });
   });
 });

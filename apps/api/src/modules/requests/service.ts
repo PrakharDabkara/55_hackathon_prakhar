@@ -54,8 +54,30 @@ export interface RequestView {
   radiusM: number;
   targetPricePaise?: number;
   results: RequestResult[];
+  /** How the shops have answered this request so far. */
+  pingStats: PingStats;
   expiresAt: Date;
   createdAt: Date;
+}
+
+export interface PingStats {
+  sent: number;
+  yes: number;
+  no: number;
+  /** Asked and not answered yet. Drops to 0 when the request ends. */
+  pending: number;
+}
+
+async function pingStats(ctx: RequestsContext, requestId: string): Promise<PingStats> {
+  const { rows } = await ctx.db.query<PingStats>(
+    `SELECT count(*)::int AS sent,
+            count(*) FILTER (WHERE state = 'YES')::int AS yes,
+            count(*) FILTER (WHERE state = 'NO')::int AS no,
+            count(*) FILTER (WHERE state IN ('QUEUED', 'SENT'))::int AS pending
+       FROM pings WHERE request_id = $1`,
+    [requestId],
+  );
+  return rows[0] as PingStats;
 }
 
 export const DEFAULT_RADIUS_M = 2000;
@@ -67,11 +89,14 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     shop_id: string;
     name: string;
     distance_m: number;
+    lat: number;
+    lng: number;
     price_paise: number | null;
     quantity_hint: LiveAnswer['quantityHint'];
     answered_at: Date;
   }>(
     `SELECT s.id AS shop_id, s.name, ST_Distance(s.location, r.location) AS distance_m,
+            ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
             p.price_paise, p.quantity_hint, p.answered_at
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
@@ -83,6 +108,8 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     shopId: x.shop_id,
     name: x.name,
     distanceM: Math.round(x.distance_m),
+    lat: x.lat,
+    lng: x.lng,
     pricePaise: x.price_paise,
     quantityHint: x.quantity_hint,
     answeredAt: x.answered_at,
@@ -94,10 +121,11 @@ async function toView(
   r: RequestRecord,
   opts: { learned?: LearnedStockResult[]; sort?: SortKey | undefined } = {},
 ): Promise<RequestView> {
-  const [item, learned, live] = await Promise.all([
+  const [item, learned, live, stats] = await Promise.all([
     getItem(ctx.db, r.itemId),
     opts.learned ?? findLearnedStock(ctx.db, r.itemId, r.lat, r.lng, r.radiusM),
     liveAnswers(ctx, r),
+    pingStats(ctx, r.id),
   ]);
   return {
     id: r.id,
@@ -113,6 +141,7 @@ async function toView(
       sort: opts.sort,
       now: new Date(),
     }),
+    pingStats: stats,
     expiresAt: r.expiresAt,
     createdAt: r.createdAt,
   };
