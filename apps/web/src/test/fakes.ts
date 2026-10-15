@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
+import type { SeekerApi, SeekerRequest, ShopResult } from '../lib/seekerApi.js';
 
 export const ping = (overrides: Partial<ShopPing> = {}): ShopPing => ({
   id: 'ping-1',
@@ -72,4 +73,44 @@ export class FakeEventSource {
   emit(type: string, data: unknown = {}) {
     for (const l of this.listeners.get(type) ?? []) l({ data: JSON.stringify(data) });
   }
+}
+
+export const result = (overrides: Partial<ShopResult> = {}): ShopResult => ({
+  shopId: 'shop-1',
+  name: 'Sharma Kirana',
+  distanceM: 350,
+  lat: 22.72,
+  lng: 75.86,
+  pricePaise: 5500,
+  quantityHint: null,
+  lastConfirmedAt: '2026-10-16T10:00:00.000Z',
+  freshness: 'Confirmed just now',
+  source: 'live',
+  ...overrides,
+});
+
+export const seekerRequest = (overrides: Partial<SeekerRequest> = {}): SeekerRequest => ({
+  id: 'req-1',
+  state: 'PINGING',
+  item: { id: 'i1', slug: 'sugar', nameEn: 'sugar', nameHi: 'चीनी', category: 'grocery' },
+  radiusM: 2000,
+  results: [],
+  pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },
+  expiresAt: '2026-10-16T10:15:00.000Z',
+  createdAt: '2026-10-16T10:00:00.000Z',
+  ...overrides,
+});
+
+/** A SeekerApi where every call is a spy that succeeds; override what a test cares about. */
+export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
+  return {
+    requestOtp: vi.fn(async () => undefined),
+    devInbox: vi.fn(async () => '123456'),
+    verifyOtp: vi.fn(async () => ({ token: 'seeker-token' })),
+    createRequest: vi.fn(async () => seekerRequest()),
+    getRequest: vi.fn(async () => seekerRequest()),
+    closeRequest: vi.fn(async () => seekerRequest({ state: 'CLOSED' })),
+    eventTicket: vi.fn(async () => 'ticket-1'),
+    ...overrides,
+  };
 }

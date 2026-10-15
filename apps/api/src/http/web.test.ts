@@ -48,6 +48,22 @@ describe('the web app served under /app/', () => {
       expect(res.headers['cache-control']).toBe('no-cache');
     });
 
+    it('lets the map load tiles from OpenStreetMap and nothing else, scripts stay same-origin only', async () => {
+      const csp = (await request(app).get('/app/')).headers['content-security-policy'] ?? '';
+      const directive = (name: string) =>
+        csp
+          .split(';')
+          .map((d) => d.trim())
+          .find((d) => d.startsWith(`${name} `))
+          ?.split(/\s+/)
+          .slice(1);
+      expect(directive('img-src')).toEqual(["'self'", 'data:', 'https://tile.openstreetmap.org']);
+      expect(directive('script-src')).toEqual(["'self'"]);
+      expect(directive('style-src')).toEqual(["'self'"]);
+      expect(directive('connect-src')).toEqual(["'self'"]);
+      expect(csp).not.toMatch(/\*|https?:\/\/(?!tile\.openstreetmap\.org)/);
+    });
+
     it('falls back to index.html for any deeper client route, and for /app/', async () => {
       for (const url of ['/app/shop/anything/deep', '/app/', '/app/seeker']) {
         const res = await request(app).get(url);
