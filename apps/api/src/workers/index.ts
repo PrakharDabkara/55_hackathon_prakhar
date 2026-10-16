@@ -69,6 +69,7 @@ export function startWorkers({
               trigramThreshold: config.trigramThreshold,
               // 15 requests a minute on the free tier: a call every 4 s stays under it.
               paceMs: config.llmProvider === 'gemini' ? 4000 : 0,
+              modelRetries: config.llmProvider === 'gemini' ? 3 : 1,
             },
             errandId,
           ),

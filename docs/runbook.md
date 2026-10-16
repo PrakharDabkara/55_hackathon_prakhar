@@ -1,4 +1,4 @@
-# Runbook (v5)
+# Runbook (v6)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -143,7 +143,7 @@ The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `
 
 Item matching tries a dictionary, trigram similarity, embeddings and then an LLM (ADR-0021). The model is Google's Gemini free tier behind a provider port (ADR-0020).
 
-**Free-tier privacy rule.** Google may review free-tier prompts. The code sends only the customer's query text (cut to 100 characters) and catalog item names. Never add phone numbers, user ids, locations, prices or shop data to a prompt. `ai_calls` stores tokens, latency and outcome, never prompt text.
+**Free-tier privacy rule.** Google may review free-tier prompts. The code sends only the customer's query text (cut to 100 characters) and catalog item names. Never add phone numbers, user ids or locations to a prompt. Item resolution sends no prices or shop data; the errand agent (ADR-0024) also sends public shop data from its tools (shop id, name, distance, price, freshness) and never shop or user coordinates. `ai_calls` stores tokens, latency and outcome, never prompt text.
 
 | Variable                             | Where                                                                     | Meaning                                                                                                                                  |
 | ------------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -167,6 +167,26 @@ LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queri
 **Cached answers.** They expire (30 days; 1 day for "nothing fits") and carry the catalog version, so a changed `catalog.seed.json` retires all of them by itself. To forget one wrong answer: `curl -X DELETE -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE/admin/ai/cache?q=xyzzy%20plugh"`.
 
 **After a big catalog change:** run `npm run seed:catalog`, then `npm run ai:embed-catalog`. Review `suggested_synonyms` (`SELECT term, i.slug FROM suggested_synonyms s JOIN items i ON i.id = s.item_id`) and add good pairs to `catalog.seed.json` by hand.
+
+## Errands (the AI agent)
+
+An errand is a task the agent plans from learned stock (ADR-0024). `POST /errands` stores it and queues a BullMQ job on the `errand` queue (concurrency 1, job id `errand-<id>`); the API process runs the worker when `WORKERS_ENABLED` and `LLM_PROVIDER` are set.
+
+```sh
+B=https://kahanmilega-api.onrender.com
+TOKEN=...   # a seeker token, see "Send a test question to a shop"
+ID=$(curl -s -X POST $B/errands -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"task":"chai banane ka saaman: chai patti, chini, doodh","lat":22.7196,"lng":75.8577}' | jq -r .id)
+# Poll until it leaves PLANNING, then read the plan:
+until [ "$(curl -s $B/errands/$ID -H "Authorization: Bearer $TOKEN" | jq -r .state)" != PLANNING ]; do sleep 3; done
+curl -s $B/errands/$ID -H "Authorization: Bearer $TOKEN" | jq '{state, progress, plan, failureReason, usage}'
+```
+
+**Watching one.** `GET /errands/:id` shows `progress` (what it has done so far), `usage` (steps, tokens) and, when it ends, the plan or `failureReason`. The full step log is the table `errand_steps` (`SELECT n, kind, tool_name, args, result_summary, tokens, latency_ms FROM errand_steps WHERE errand_id = '<id>' ORDER BY n`). Logs are JSON with `errandId` and the `requestId` of the `POST` on every line (`errand model step`, `errand plan ready`, `errand failed` with the reason); model calls are rows in `ai_calls` with `purpose = 'errand'`, joined to the errand by that request id. Locally: `LLM_PROVIDER=gemini npm run errand:smoke "your task"` plans real errands against the local database (it adds a few `Smoke ...` demo shops with stock) and prints each step log with tokens.
+
+**Failure reasons.** `step_limit` and `token_budget`: the agent was told to submit and did not (raise `ERRAND_MAX_STEPS` or `ERRAND_TOKEN_BUDGET` only after reading its step log); `ai_unavailable`: the model kept answering 429 or 5xx after retries (the free tier has busy spells, try again) or the breaker is open; `queue_unavailable`: Redis was down when the errand was created; `internal_error`: see the `errand run crashed` log line. An errand stuck in `PLANNING` after a Redis loss has no sweeper yet: its job can be queued again by hand (the lease makes a double run impossible).
+
+**Limits** (env, defaults): `ERRAND_MAX_ITEMS` 10, `ERRAND_MAX_STEPS` 8, `ERRAND_TOKEN_BUDGET` 20000, `ERRAND_USER_HOURLY_LIMIT` 5, `ERRAND_TASK_MAX_CHARS` 500. A task that reads like an instruction to a model answers `422 task_rejected` and is not stored.
 
 ## GitHub: the `evals` environment
 

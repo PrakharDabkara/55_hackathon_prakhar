@@ -108,6 +108,7 @@ try {
         limits,
         trigramThreshold: config.trigramThreshold,
         paceMs: config.llmProvider === 'gemini' ? 4000 : 0,
+        modelRetries: config.llmProvider === 'gemini' ? 3 : 1,
       },
       id,
     );

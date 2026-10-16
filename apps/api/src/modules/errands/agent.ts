@@ -28,6 +28,8 @@ export interface RunDeps {
   trigramThreshold: number;
   /** Least time between two model calls; keeps a free-tier key under its requests-per-minute cap. */
   paceMs?: number;
+  /** Extra attempts after a 429 or 5xx from the model (default 1). The free tier has busy spells. */
+  modelRetries?: number;
   /** For tests: replace the pause between model calls. */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -129,6 +131,7 @@ async function loop(
         tools: AGENT_TOOLS,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
         purpose: 'errand',
+        ...(deps.modelRetries !== undefined && { retries: deps.modelRetries }),
         ...(wasForced && { forceTool: 'submit_plan' }),
         ...(errand.requestId && { requestId: errand.requestId }),
       });

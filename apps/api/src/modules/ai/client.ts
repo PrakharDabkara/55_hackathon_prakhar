@@ -55,7 +55,7 @@ export interface AiClient {
   ): Promise<EmbedResult & { callId: string | null }>;
   /** One tool-using model turn (the errand agent). Gets a longer time limit than a short JSON call. */
   chatWithTools(
-    options: ChatWithToolsOptions & { requestId?: string; timeoutMs?: number },
+    options: ChatWithToolsOptions & { requestId?: string; timeoutMs?: number; retries?: number },
   ): Promise<ChatWithToolsResult & { callId: string | null }>;
   /** The answer parsed but broke a rule (for example an item outside the shortlist). */
   markInvalid(callId: string | null): Promise<void>;
@@ -135,6 +135,7 @@ export function createAiClient({
     requestId: string | undefined,
     call: (signal: AbortSignal) => Promise<R>,
     limitMs: number = timeoutMs,
+    maxRetries: number = retries,
   ): Promise<R & { callId: string | null }> {
     const breaker = state[kind];
     const base = { purpose, model: provider.model, requestId: requestId ?? null };
@@ -179,7 +180,7 @@ export function createAiClient({
           });
           throw new AiUnavailableError('invalid_output');
         }
-        if (attempt < retries && retryable(error)) {
+        if (attempt < maxRetries && retryable(error)) {
           await sleep(backoffMs * 2 ** attempt);
           continue;
         }
@@ -207,13 +208,14 @@ export function createAiClient({
       run('generate', options.purpose, requestId, (signal) =>
         provider.generateJson({ ...options, signal }),
       ),
-    chatWithTools: ({ requestId, timeoutMs: limit, ...options }) =>
+    chatWithTools: ({ requestId, timeoutMs: limit, retries: attempts, ...options }) =>
       run(
         'generate',
         options.purpose,
         requestId,
         (signal) => provider.chatWithTools({ ...options, signal }),
         limit ?? CHAT_TIMEOUT_MS,
+        attempts,
       ),
     embed: (texts, purpose, requestId) =>
       run('embed', purpose, requestId, (signal) => provider.embed(texts, purpose, signal)),
