@@ -1,55 +1,133 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pino } from 'pino';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
+import {
+  checkGates,
+  renderMarkdown,
+  scoreCase,
+  summarise,
+  type Case,
+  type LlmCall,
+  type Row,
+  type Step,
+  type Summary,
+} from './evalScore.js';
 import { aiFromConfig } from './modules/ai/index.js';
-import { resolveItem } from './modules/catalog/index.js';
-import { scoreCase, summarise, type Case, type LlmCall, type Row, type Step } from './evalScore.js';
+import {
+  embedCatalog,
+  loadSeedCatalog,
+  resolveItem,
+  seedCatalog,
+} from './modules/catalog/index.js';
+import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
-// Run by `npm run eval:resolve`. Sends every labelled query through the whole resolution pipeline
-// against the configured provider (LLM_PROVIDER=gemini for the real thing), then prints accuracy,
-// which step answered, the LLM fallback rate, tokens and p95 latency, and writes a JSON report.
-// It uses the DATABASE_URL database: run it against a local one (it clears the query cache first).
+// Run by `npm run eval:resolve`. Sends every labelled query of the chosen set(s) through the whole
+// resolution pipeline against the configured provider (LLM_PROVIDER=gemini for the real thing), then
+// prints accuracy, accuracy by category, which step answered, the LLM fallback rate, tokens and p95
+// latency, and writes one JSON report per set to evals/reports/.
+//
+//   EVAL_SET=dev|holdout|all   which set(s); default all
+//   EVAL_DB=testcontainers     run in a throwaway Postgres (CI); default is the DATABASE_URL database,
+//                              which is then cleared of cached answers
+//   EVAL_GATE=1                apply the holdout gates and exit 1 if one fails (CI)
+//   EVAL_KINDS=variant,typo    only these kinds (handy while tuning on the dev set)
+//   EVAL_AI_PAUSE_MS=4500      pause after a query that called the AI, to stay inside free-tier limits
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const config = loadConfig({ ...process.env, WORKERS_ENABLED: 'false' });
-const pool = createPool(config.databaseUrl, pino({ level: 'warn' }));
-const ai = aiFromConfig({ config, db: pool, logger: pino({ level: 'warn' }) });
-const pauseMs = Number(process.env['EVAL_PAUSE_MS'] ?? 0);
+const env = process.env;
+const gate = env['EVAL_GATE'] === '1';
+const which = env['EVAL_SET'] ?? 'all';
+const only = env['EVAL_KINDS']?.split(',');
+const aiPauseMs = Number(env['EVAL_AI_PAUSE_MS'] ?? 4500);
+const sets = (which === 'all' ? ['dev', 'holdout'] : which.split(',')) as ('dev' | 'holdout')[];
+for (const s of sets) {
+  if (s !== 'dev' && s !== 'holdout') throw new Error(`EVAL_SET: unknown set "${s}"`);
+}
 
-// EVAL_KINDS=variant,ambiguous runs only those kinds (handy while tuning the prompt).
-const only = process.env['EVAL_KINDS']?.split(',');
-const cases: Case[] = readFileSync(path.join(root, 'evals/resolve.dev.jsonl'), 'utf8')
-  .split('\n')
-  .filter((line) => line.trim() !== '')
-  .map((line) => JSON.parse(line) as Case)
-  .filter((c) => !only || only.includes(c.kind));
+const config = loadConfig({ ...env, WORKERS_ENABLED: 'false' });
+if (config.llmProvider !== 'gemini' || !config.geminiApiKey) {
+  // A gate against the fake model would pass or fail for no reason that matters. Never skip quietly.
+  const message =
+    'The evals need LLM_PROVIDER=gemini and GEMINI_API_KEY. Without them the run would measure the fake model.';
+  if (gate) {
+    console.error(`::error::${message}`);
+    process.exit(2);
+  }
+  console.warn(`warning: ${message}`);
+}
 
-try {
-  await pool.query('TRUNCATE query_cache');
+const testDb: TestDatabase | null =
+  env['EVAL_DB'] === 'testcontainers' ? await startPostgres() : null;
+const pool = testDb?.pool ?? createPool(config.databaseUrl, pino({ level: 'warn' }));
+// Patient on purpose: a 429 waits 2, 4, 8, 16, 32 seconds before the query is given up on.
+const ai = aiFromConfig({
+  config,
+  db: pool,
+  logger: pino({ level: 'warn' }),
+  client: { timeoutMs: 30_000, retries: 5, backoffMs: 2000 },
+});
+const embedder = aiFromConfig({
+  config,
+  db: pool,
+  logger: pino({ level: 'warn' }),
+  client: { retries: 3, backoffMs: 20_000 },
+});
+
+const loadCases = (set: string): Case[] =>
+  readFileSync(path.join(root, `evals/resolve.${set}.jsonl`), 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line) as Case)
+    .filter((c) => !only || only.includes(c.kind));
+
+const aiCallCount = async (): Promise<number> =>
+  (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ai_calls`)).rows[0]?.n ?? 0;
+
+const llmCallCount = async (): Promise<number> =>
+  (
+    await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_calls WHERE purpose = 'resolve_query'`,
+    )
+  ).rows[0]?.n ?? 0;
+
+async function runSet(set: 'dev' | 'holdout') {
+  const cases = loadCases(set);
+  // Each set starts from nothing cached, so one set cannot make the other look better.
+  await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms');
   await pool.query('TRUNCATE ai_calls');
 
   const rows: Row[] = [];
-  const detail: unknown[] = [];
+  const detail: {
+    q: string;
+    kind: string;
+    expected: string | null;
+    got: string | null;
+    step: string | null;
+    correct: boolean;
+  }[] = [];
   for (const c of cases) {
-    const before = (
-      await pool.query(`SELECT count(*)::int AS n FROM ai_calls WHERE purpose = 'resolve_query'`)
-    ).rows[0].n as number;
+    const before = await aiCallCount();
+    const llmBefore = await llmCallCount();
     const r = await resolveItem(pool, c.q, {
       threshold: config.trigramThreshold,
       ai,
-      requestId: 'eval',
+      requestId: `eval-${set}`,
     });
-    const after = (
-      await pool.query(`SELECT count(*)::int AS n FROM ai_calls WHERE purpose = 'resolve_query'`)
-    ).rows[0].n as number;
+    const after = await aiCallCount();
     const slug = r.item
       ? ((await pool.query(`SELECT slug FROM items WHERE id = $1`, [r.item.id])).rows[0]
           .slug as string)
       : null;
     const correct = scoreCase(c, { slug, ambiguous: Boolean(r.ambiguous) });
-    rows.push({ correct, step: r.matchedBy as Step | null, usedLlm: after > before });
+    rows.push({
+      kind: c.kind,
+      gotItem: slug !== null,
+      correct,
+      step: r.matchedBy as Step | null,
+      usedLlm: (await llmCallCount()) > llmBefore,
+    });
     detail.push({
       q: c.q,
       kind: c.kind,
@@ -58,7 +136,7 @@ try {
       step: r.matchedBy,
       correct,
     });
-    if (pauseMs > 0) await new Promise((resolve) => setTimeout(resolve, pauseMs));
+    if (after > before && aiPauseMs > 0) await new Promise((res) => setTimeout(res, aiPauseMs));
   }
 
   const llmRows = await pool.query<{ tokens: number; latency_ms: number }>(
@@ -72,17 +150,11 @@ try {
   const counts = await pool.query<{ purpose: string; outcome: string; n: number }>(
     `SELECT purpose, outcome, count(*)::int AS n FROM ai_calls GROUP BY purpose, outcome ORDER BY purpose, outcome`,
   );
-
-  const summary = summarise(rows, llmCalls);
-  const byKind: Record<string, { right: number; total: number }> = {};
-  rows.forEach((row, i) => {
-    const kind = (cases[i] as Case).kind;
-    byKind[kind] ??= { right: 0, total: 0 };
-    byKind[kind].total++;
-    if (row.correct) byKind[kind].right++;
-  });
+  const errors = counts.rows.filter((r) => r.outcome === 'error').reduce((sum, r) => sum + r.n, 0);
+  const summary = summarise(rows, llmCalls, errors);
 
   const report = {
+    set,
     at: new Date().toISOString(),
     provider: config.llmProvider,
     model: config.llmProvider === 'gemini' ? config.geminiModel : 'fake-model',
@@ -93,41 +165,82 @@ try {
       trigram: config.trigramThreshold,
     },
     summary,
-    byKind,
     aiCalls: counts.rows,
-    wrong: detail.filter((d) => !(d as { correct: boolean }).correct),
+    wrong: detail.filter((d) => !d.correct),
+    cases: detail,
   };
   mkdirSync(path.join(root, 'evals/reports'), { recursive: true });
-  const file = path.join(root, `evals/reports/resolve-${report.at.replace(/[:.]/g, '-')}.json`);
-  writeFileSync(file, JSON.stringify({ ...report, cases: detail }, null, 2));
+  const file = path.join(
+    root,
+    `evals/reports/resolve-${set}-${report.at.replace(/[:.]/g, '-')}.json`,
+  );
+  writeFileSync(file, JSON.stringify(report, null, 2));
+  print(set, summary, report.wrong, path.relative(root, file));
+  return { set, summary };
+}
 
-  console.log(`\nprovider ${report.provider} (${report.model}), embeddings ${report.embedModel}`);
+function print(
+  set: string,
+  s: Summary,
+  wrong: { q: string; expected: unknown; got: unknown; step: unknown }[],
+  file: string,
+) {
+  const right = Math.round(s.accuracy * s.total);
+  console.log(`\n== ${set} (${config.llmProvider}) ==`);
+  console.log(`accuracy        ${(s.accuracy * 100).toFixed(1)}%  (${right}/${s.total})`);
   console.log(
-    `accuracy        ${(summary.accuracy * 100).toFixed(1)}%  (${rows.filter((r) => r.correct).length}/${summary.total})`,
-  );
-  console.log(
-    `answered by     ${Object.entries(summary.byStep)
-      .map(([k, v]) => `${k} ${v}`)
-      .join(' · ')}`,
-  );
-  console.log(
-    `LLM fallback    ${(summary.llmFallbackRate * 100).toFixed(1)}%  (${summary.llm.calls} calls, ${summary.llm.totalTokens} tokens, p95 ${summary.llm.p95LatencyMs} ms)`,
-  );
-  console.log(
-    `by kind         ${Object.entries(byKind)
+    `by category     ${Object.entries(s.byCategory)
       .map(([k, v]) => `${k} ${v.right}/${v.total}`)
       .join(' · ')}`,
   );
   console.log(
-    `ai calls        ${counts.rows.map((r) => `${r.purpose}/${r.outcome} ${r.n}`).join(' · ')}`,
+    `answered by     ${Object.entries(s.byStep)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(' · ')}`,
   );
-  for (const w of report.wrong as { q: string; expected: unknown; got: unknown; step: unknown }[]) {
+  console.log(
+    `LLM fallback    ${(s.llmFallbackRate * 100).toFixed(1)}%  (${s.llm.calls} calls, ${s.llm.totalTokens} tokens, p95 ${s.llm.p95LatencyMs} ms, ${s.errors} errors)`,
+  );
+  for (const w of wrong) {
     console.log(
       `  WRONG  ${JSON.stringify(w.q).slice(0, 70).padEnd(72)} expected ${String(w.expected)}  got ${String(w.got)}  (${String(w.step)})`,
     );
   }
-  console.log(`\nreport: ${path.relative(root, file)}`);
+  console.log(`report: ${file}`);
+}
+
+let exitCode = 0;
+try {
+  await seedCatalog(pool, loadSeedCatalog());
+  const { embedded } = await embedCatalog(pool, embedder, { batchSize: 20, pauseMs: 15_000 });
+  if (embedded > 0) console.log(`embedded ${embedded} catalog items`);
+
+  const results = [];
+  for (const set of sets) results.push(await runSet(set));
+
+  const markdown = renderMarkdown(results);
+  mkdirSync(path.join(root, 'evals/reports'), { recursive: true });
+  writeFileSync(path.join(root, 'evals/reports/summary.md'), markdown);
+  if (env['GITHUB_STEP_SUMMARY'])
+    appendFileSync(env['GITHUB_STEP_SUMMARY'], `### Resolve evals\n\n${markdown}`);
+
+  const holdout = results.find((r) => r.set === 'holdout');
+  if (gate) {
+    if (!holdout) {
+      console.error('::error::EVAL_GATE=1 needs the holdout set (EVAL_SET=holdout or all).');
+      exitCode = 2;
+    } else {
+      const verdict = checkGates(holdout.summary);
+      if (verdict.passed) console.log('\nGATE PASSED (holdout)');
+      else {
+        for (const f of verdict.failures) console.error(`::error::eval gate failed: ${f}`);
+        exitCode = 1;
+      }
+    }
+  }
 } finally {
   ai.close();
-  await pool.end();
+  embedder.close();
+  await (testDb ? testDb.stop() : pool.end());
 }
+process.exit(exitCode);
