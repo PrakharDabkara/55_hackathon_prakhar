@@ -93,6 +93,16 @@ const loadCases = (set: string): Case[] =>
 const aiCallCount = async (): Promise<number> =>
   (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ai_calls`)).rows[0]?.n ?? 0;
 
+const MODEL_RETRIES = 2;
+const RETRY_PAUSE_MS = 8000;
+/** Model calls that failed or were refused by the open breaker. */
+const failedCallCount = async (): Promise<number> =>
+  (
+    await pool.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_calls WHERE outcome IN ('error', 'skipped_breaker')`,
+    )
+  ).rows[0]?.n ?? 0;
+
 const llmCallCount = async (): Promise<number> =>
   (
     await pool.query<{ n: number }>(
@@ -114,15 +124,32 @@ async function runSet(set: EvalSet) {
     got: string | null;
     step: string | null;
     correct: boolean;
+    error?: true;
   }[] = [];
   for (const c of cases) {
     const before = await aiCallCount();
     const llmBefore = await llmCallCount();
-    const r = await resolveItem(pool, c.q, {
+    const failedBefore = await failedCallCount();
+    // A model call that fails (429, 5xx, timeout) is tried again, twice, after a pause. A query
+    // that still fails is an error, not a wrong answer: it is reported apart and not scored.
+    let r = await resolveItem(pool, c.q, {
       threshold: config.trigramThreshold,
       ai,
       requestId: `eval-${set}`,
     });
+    let errored = false;
+    for (let attempt = 1; (await failedCallCount()) > failedBefore; attempt++) {
+      if (attempt > MODEL_RETRIES) {
+        errored = true;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
+      r = await resolveItem(pool, c.q, {
+        threshold: config.trigramThreshold,
+        ai,
+        requestId: `eval-${set}`,
+      });
+    }
     const after = await aiCallCount();
     const slug = r.item
       ? ((await pool.query(`SELECT slug FROM items WHERE id = $1`, [r.item.id])).rows[0]
@@ -133,6 +160,7 @@ async function runSet(set: EvalSet) {
       kind: c.kind,
       gotItem: slug !== null,
       correct,
+      error: errored,
       step: r.matchedBy as Step | null,
       usedLlm: (await llmCallCount()) > llmBefore,
     });
@@ -143,13 +171,16 @@ async function runSet(set: EvalSet) {
       got: r.ambiguous ? 'ambiguous' : slug,
       step: r.matchedBy,
       correct,
+      ...(errored && { error: true }),
     });
     if (after > before && aiPauseMs > 0) await new Promise((res) => setTimeout(res, aiPauseMs));
   }
 
+  // Latency is the provider call itself (ai_calls.latency_ms, measured around one request), never
+  // the runner's pacing pauses or retry waits; failed and invalid calls are left out.
   const llmRows = await pool.query<{ tokens: number; latency_ms: number }>(
     `SELECT input_tokens + output_tokens AS tokens, latency_ms FROM ai_calls
-      WHERE purpose = 'resolve_query' AND outcome IN ('ok', 'invalid_output')`,
+      WHERE purpose = 'resolve_query' AND outcome = 'ok'`,
   );
   const llmCalls: LlmCall[] = llmRows.rows.map((r) => ({
     tokens: r.tokens,
@@ -158,8 +189,7 @@ async function runSet(set: EvalSet) {
   const counts = await pool.query<{ purpose: string; outcome: string; n: number }>(
     `SELECT purpose, outcome, count(*)::int AS n FROM ai_calls GROUP BY purpose, outcome ORDER BY purpose, outcome`,
   );
-  const errors = counts.rows.filter((r) => r.outcome === 'error').reduce((sum, r) => sum + r.n, 0);
-  const summary = summarise(rows, llmCalls, errors);
+  const summary = summarise(rows, llmCalls);
 
   const report = {
     set,
@@ -174,7 +204,8 @@ async function runSet(set: EvalSet) {
     },
     summary,
     aiCalls: counts.rows,
-    wrong: detail.filter((d) => !d.correct),
+    wrong: detail.filter((d) => !d.correct && !d.error),
+    errored: detail.filter((d) => d.error),
     cases: detail,
   };
   mkdirSync(path.join(root, 'evals/reports'), { recursive: true });
@@ -183,7 +214,7 @@ async function runSet(set: EvalSet) {
     `evals/reports/resolve-${set}-${report.at.replace(/[:.]/g, '-')}.json`,
   );
   writeFileSync(file, JSON.stringify(report, null, 2));
-  print(set, summary, report.wrong, path.relative(root, file));
+  print(set, summary, report.wrong, report.errored, path.relative(root, file));
   return { set, summary };
 }
 
@@ -191,11 +222,14 @@ function print(
   set: string,
   s: Summary,
   wrong: { q: string; expected: unknown; got: unknown; step: unknown }[],
+  errored: { q: string }[],
   file: string,
 ) {
-  const right = Math.round(s.accuracy * s.total);
+  const right = Math.round(s.accuracy * s.scored);
   console.log(`\n== ${set} (${config.llmProvider}) ==`);
-  console.log(`accuracy        ${(s.accuracy * 100).toFixed(1)}%  (${right}/${s.total})`);
+  console.log(
+    `accuracy        ${(s.accuracy * 100).toFixed(1)}%  (${right}/${s.scored} scored of ${s.total})`,
+  );
   console.log(
     `by category     ${Object.entries(s.byCategory)
       .map(([k, v]) => `${k} ${v.right}/${v.total}`)
@@ -214,6 +248,10 @@ function print(
       `  WRONG  ${JSON.stringify(w.q).slice(0, 70).padEnd(72)} expected ${String(w.expected)}  got ${String(w.got)}  (${String(w.step)})`,
     );
   }
+  for (const e of errored)
+    console.log(
+      `  ERROR  ${JSON.stringify(e.q).slice(0, 70)} (model failed after retries; not scored)`,
+    );
   console.log(`report: ${file}`);
 }
 

@@ -1,16 +1,14 @@
 name: Evals
 
-# The resolution evals call the real Gemini model, so they run only when something that can change
-# the answers changes (ADR-0022), or by hand. Path filters need a workflow of their own.
+# The resolution evals call the real Gemini model and spend free-tier quota, so they run only when
+# asked for (ADR-0022): on a pull request that carries the `evals` label (when it is added, and on
+# every push while it stays), by hand, and on every push to main (which also seeds the main-branch
+# embedding cache that pull requests restore from).
 on:
   pull_request:
-    paths:
-      - apps/api/src/modules/ai/**
-      - apps/api/src/modules/catalog/** # includes catalog.seed.json
-      - apps/api/src/evalResolveMain.ts
-      - apps/api/src/evalScore.ts
-      - evals/**
-      - .github/workflows/evals.yml
+    types: [labeled, synchronize]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: evals
+    # `labeled` fires for any label: only the `evals` label starts a run.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'evals') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'evals'))
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
