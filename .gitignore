@@ -20,3 +20,6 @@ test-results/
 # AI eval reports (a sample is committed)
 evals/reports/*
 !evals/reports/sample.json
+
+# Saved catalog embeddings for the eval runner (restored by the CI cache)
+evals/.cache/

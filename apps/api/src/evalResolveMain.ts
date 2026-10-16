@@ -1,4 +1,4 @@
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pino } from 'pino';
@@ -212,6 +212,23 @@ function print(
 let exitCode = 0;
 try {
   await seedCatalog(pool, loadSeedCatalog());
+  // Vectors from an earlier run (restored by the CI cache, keyed by the catalog file) are loaded
+  // first, so only items whose text changed cost an embedding request.
+  const vectorFile = path.join(root, env['EVAL_EMBED_CACHE'] ?? 'evals/.cache/embeddings.json');
+  if (existsSync(vectorFile)) {
+    const saved = JSON.parse(readFileSync(vectorFile, 'utf8')) as {
+      slug: string;
+      hash: string;
+      vector: string;
+    }[];
+    for (const v of saved)
+      await pool.query(
+        `UPDATE items SET embedding = $2::vector, embedding_source_hash = $3 WHERE slug = $1`,
+        [v.slug, v.vector, v.hash],
+      );
+    console.log(`loaded ${saved.length} saved embeddings from ${path.relative(root, vectorFile)}`);
+  }
+
   // Embedding is resumable (batches already stored stay stored), so a free-tier limit that outlasts
   // the client's own retries just means: wait a minute and carry on.
   let embedded = 0;
@@ -226,6 +243,12 @@ try {
     }
   }
   if (embedded > 0) console.log(`embedded ${embedded} catalog items`);
+  const stored = await pool.query<{ slug: string; hash: string; vector: string }>(
+    `SELECT slug, embedding_source_hash AS hash, embedding::text AS vector
+       FROM items WHERE embedding IS NOT NULL`,
+  );
+  mkdirSync(path.dirname(vectorFile), { recursive: true });
+  writeFileSync(vectorFile, JSON.stringify(stored.rows));
 
   const results = [];
   for (const set of sets) results.push(await runSet(set));
