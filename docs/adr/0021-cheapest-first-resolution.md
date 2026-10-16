@@ -1,6 +1,6 @@
 # 0021. Cheapest-first resolution: cache → synonyms → trigram → embeddings → LLM
 
-Status: Accepted · 2026-10-15 (extends ADR-0014)
+Status: Accepted · 2026-10-15 (extends ADR-0014). Day 10 (ADR-0022) added the `default` step after trigram, a nonsense guard, and cache expiry with a catalog version; the 'Known misses' below are fixed there.
 
 ## Context
 

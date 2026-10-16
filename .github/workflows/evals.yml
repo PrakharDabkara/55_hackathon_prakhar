@@ -1,0 +1,65 @@
+name: Evals
+
+# The resolution evals call the real Gemini model, so they run only when something that can change
+# the answers changes (ADR-0022), or by hand. Path filters need a workflow of their own.
+on:
+  pull_request:
+    paths:
+      - apps/api/src/modules/ai/**
+      - apps/api/src/modules/catalog/** # includes catalog.seed.json
+      - apps/api/src/evalResolveMain.ts
+      - apps/api/src/evalScore.ts
+      - evals/**
+      - .github/workflows/evals.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run at a time across the repo: the free Gemini quota is shared by every run.
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: evals
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # A gate that skips itself when its key is missing is no gate. Fail loudly instead.
+      - name: Require the Gemini key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error title=GEMINI_API_KEY missing::Add a GEMINI_API_KEY secret to the 'evals' environment (Settings, Environments, evals). The eval gate cannot run without it and will not be skipped."
+            exit 1
+          fi
+      # Seeds and embeds the catalog into a throwaway Postgres (Testcontainers, never Neon), runs the
+      # dev set and the holdout set, writes the table to the job summary, and fails the job if the
+      # holdout gates fail (accuracy, injections, nonsense, LLM fallback). 429s are retried with
+      # backoff, and queries that call the model are paced (EVAL_AI_PAUSE_MS) to stay under the
+      # free-tier limits.
+      - name: Run the resolve evals
+        env:
+          EVAL_DB: testcontainers
+          EVAL_SET: all
+          EVAL_GATE: '1'
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: postgres://unused@localhost/unused # not used with EVAL_DB=testcontainers
+        run: npm run eval:resolve
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: evals/reports
+          if-no-files-found: ignore

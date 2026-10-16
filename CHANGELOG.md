@@ -59,8 +59,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scripts: `npm run ai:models` (lists the models a key can use), `npm run ai:embed-catalog` (also run by the deploy job when `GEMINI_API_KEY` is set), `npm run eval:resolve` with `evals/resolve.jsonl` (81 labelled queries; reports in `evals/reports/`).
 - Config `LLM_PROVIDER` (required in production), `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_EMBED_MODEL`, `EMBED_DIM`, `EMBED_THRESHOLD`, `EMBED_MARGIN`. Dependency (approved): `@google/genai`.
 - ADR-0011 (product direction: errand agent, shop delivery as stretch), ADR-0012 (npm workspaces monorepo).
+- Evals (ADR-0022): `evals/resolve.dev.jsonl` (the 81 tuning queries) and a fresh `evals/resolve.holdout.jsonl` (62); `npm run eval:resolve` reports accuracy by category, steps, LLM fallback, tokens, p95 and errors per set; the `evals` workflow gates the holdout in CI (accuracy ≥ 90 %, injections 100 %, no nonsense resolved, LLM fallback ≤ 40 %) in a Testcontainers database; `docs/evals.md`.
+- Variant defaults as data: `defaultFor` in the catalog seed (pen, bottle, tea, chilli), table `item_defaults`, resolution step `default` after trigram (migration 009).
+- `DELETE /admin/ai/cache?q=` removes one cached answer.
+- Seeker status line adds the no count ("… 6 ne mana kiya …").
 
 ### Fixed
+
+- Nonsense such as "xyzzy plugh" was resolved to a plug top by trigram overlap and then by the model; the trigram and embedding steps now need real words, and the prompt says random letters are not a typo.
+- The "Dukaandaar hain? Yahan jaayein" link overlapped the OTP button on the seeker login (an inline link given button padding); checked at 360 px by a browser test.
 
 - A database connection lost while idle (Neon suspending after idle, a Postgres restart: code 57P01) no longer crashes the process: every pool comes from `createPool`, which logs the code and message (never the credentials) and lets the pool reconnect; `withTransaction` survives a connection lost between two queries. Integration tests close the pool, wait for Postgres to see the connections go, then stop the container (this had failed CI on `main` after PR #12).
 
@@ -69,6 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/health` reported `sha: unknown` on Render: the Dockerfile default `GIT_SHA=unknown` shadowed `RENDER_GIT_COMMIT`. Blank/`unknown` now count as unset.
 
 ### Changed
+
+- Cached AI answers carry the catalog version and expire (30 days; 1 day for "nothing fits"); a changed seed file retires them all. Migration 009 deletes the cached "xyzzy plugh" and any trigram entry.
+- The seeker map refits whenever pins change (a pin turning from learned to live, or moving), so every answered shop is in view.
+- Install scripts of `@google/genai`, `cpu-features`, `msgpackr-extract`, `protobufjs` and `ssh2` are denied in `allowScripts` (reasons in the runbook); `npm ci` prints no warning.
+- BRIEF: Day 10 is "Evals as a CI gate"; reply parsing moved to Later.
 
 - BRIEF: three-layer summary, Errand flow, errand/order states, agent AI row, agent metrics, 18-day build plan with scope frozen Oct 15, "Later" list.
 - Hosting moved from AWS EC2 to free tiers (Render, Neon); BRIEF cloud row and Day 3 updated; ADR-0002 marked superseded.

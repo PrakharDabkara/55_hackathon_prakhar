@@ -41,7 +41,8 @@ test('the seeker login: the shopkeeper link is clear of the OTP button', async (
   await expect(link).toBeVisible();
   await expectNoOverlap(page);
   const [b, l] = await Promise.all([send.boundingBox(), link.boundingBox()]);
-  expect(l!.y).toBeGreaterThanOrEqual(b!.y + b!.height + 8);
+  if (!b || !l) throw new Error('button or link not on the page');
+  expect(l.y).toBeGreaterThanOrEqual(b.y + b.height + 8);
 
   await page.getByLabel(/mobile number/i).fill('9810000502');
   await send.click();
