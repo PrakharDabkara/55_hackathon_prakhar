@@ -44,6 +44,12 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.1-flash-lite
+      # Tried after a timeout, 429 or 503 from GEMINI_MODEL (ADR-0024). Pick from `npm run ai:models`.
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.5-flash-lite
+      # One errand model call carries tool schemas and may take far longer than a resolve call (8 s).
+      - key: ERRAND_AI_TIMEOUT_MS
+        value: '30000'
       - key: GEMINI_EMBED_MODEL
         value: gemini-embedding-001
       - key: EMBED_THRESHOLD

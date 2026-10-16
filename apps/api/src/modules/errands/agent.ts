@@ -137,6 +137,7 @@ async function loop(
       });
     } catch (error) {
       if (!(error instanceof AiUnavailableError)) throw error;
+      log.warn({ kind: error.kind }, 'errand model call unavailable');
       await fail(deps, errand.id, 'ai_unavailable', state, log);
       return { outcome: 'failed' };
     }

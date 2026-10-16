@@ -1,18 +1,20 @@
 import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
+import { classifyError, type Failure } from './failure.js';
 import {
-  InvalidOutputError,
   ProviderError,
   type ChatWithToolsOptions,
   type ChatWithToolsResult,
   type EmbedPurpose,
   type EmbedResult,
+  type FailureKind,
   type GenerateJsonOptions,
   type GenerateJsonResult,
   type LlmProvider,
+  type Purpose,
 } from './types.js';
 
-export type Outcome = 'ok' | 'invalid_output' | 'error' | 'skipped_breaker';
+export type Outcome = 'ok' | FailureKind;
 
 /** One row of ai_calls. There is deliberately no field for prompt text. */
 export interface AiCallRow {
@@ -34,8 +36,8 @@ export interface Recorder {
 
 /** The AI could not help this time. Callers degrade; they never fail the user's search. */
 export class AiUnavailableError extends Error {
-  readonly kind: Exclude<Outcome, 'ok'>;
-  constructor(kind: Exclude<Outcome, 'ok'>) {
+  readonly kind: FailureKind;
+  constructor(kind: FailureKind) {
     super(`AI unavailable: ${kind}`);
     this.name = 'AiUnavailableError';
     this.kind = kind;
@@ -53,6 +55,8 @@ export interface AiClient {
     purpose: EmbedPurpose,
     requestId?: string,
   ): Promise<EmbedResult & { callId: string | null }>;
+  /** The time limit a call of this purpose gets (resolve is short, errand calls are long). */
+  timeoutFor(purpose: Purpose): number;
   /** One tool-using model turn (the errand agent). Gets a longer time limit than a short JSON call. */
   chatWithTools(
     options: ChatWithToolsOptions & { requestId?: string; timeoutMs?: number; retries?: number },
@@ -65,6 +69,8 @@ interface Options {
   provider: LlmProvider;
   recorder: Recorder;
   timeoutMs?: number;
+  /** Longer (or shorter) limits for some purposes; the rest use `timeoutMs`. */
+  purposeTimeoutMs?: Partial<Record<Purpose, number>>;
   /** Extra attempts after the first, only for 429 and 5xx. */
   retries?: number;
   backoffMs?: number;
@@ -75,13 +81,19 @@ interface Options {
 }
 
 const DEFAULT_TIMEOUT_MS = 8000;
-/** A model turn that picks tools reads a longer prompt than a JSON classification. */
-const CHAT_TIMEOUT_MS = 30_000;
 
-const retryable = (error: unknown) =>
-  error instanceof ProviderError &&
-  error.status !== undefined &&
-  (error.status === 429 || error.status >= 500);
+/** Timeouts and network drops are worth another try; so are 429 and 5xx. Other 4xx are not. */
+const retryable = (failure: Failure) =>
+  failure.kind === 'timeout' ||
+  failure.kind === 'network' ||
+  (failure.kind === 'http' &&
+    failure.status !== undefined &&
+    (failure.status === 429 || failure.status >= 500));
+
+/** What the next attempt should run on: the fallback model after a timeout, 429 or 503. */
+const wantsFallback = (failure: Failure) =>
+  failure.kind === 'timeout' ||
+  (failure.kind === 'http' && (failure.status === 429 || failure.status === 503));
 
 function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
   const abort = new AbortController();
@@ -89,7 +101,7 @@ function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): P
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       abort.abort();
-      reject(new ProviderError(`no answer within ${ms} ms`));
+      reject(new ProviderError(`no answer within ${ms} ms`, undefined, { kind: 'timeout' }));
     }, ms);
   });
   const call = run(abort.signal);
@@ -98,14 +110,17 @@ function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): P
 }
 
 /**
- * Wraps a provider with what every caller needs: an 8 second limit, one retry with a pause on 429
- * and 5xx, a circuit breaker (5 failures in a row: skip AI for 60 seconds, then one trial call),
- * and one ai_calls row per call. A failure here is an AiUnavailableError for the caller to absorb.
+ * Wraps a provider with what every caller needs: a time limit per purpose (8 s by default), retries
+ * with a pause on timeouts, network drops, 429 and 5xx, a fallback model for the attempts after a
+ * timeout, 429 or 503, a circuit breaker per purpose (5 failures in a row: skip AI for 60 seconds,
+ * then one trial call), one ai_calls row per call, and one log line per failed attempt with its
+ * kind, status and code. A failure here is an AiUnavailableError for the caller to absorb.
  */
 export function createAiClient({
   provider,
   recorder,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  purposeTimeoutMs = {},
   retries = 1,
   backoffMs = 500,
   breaker: { threshold = 5, cooldownMs = 60_000 } = {},
@@ -113,9 +128,15 @@ export function createAiClient({
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   logger,
 }: Options): AiClient {
-  // One breaker per kind of call: a model that cannot generate may still embed, and a success of
-  // one must not hide the failures of the other.
-  const state = { generate: { failures: 0, openUntil: 0 }, embed: { failures: 0, openUntil: 0 } };
+  // One breaker per purpose: query resolution failing must not stop errands, nor the reverse, and
+  // a success of one must not hide the failures of the other.
+  const breakers = new Map<string, { failures: number; openUntil: number }>();
+  const breakerFor = (purpose: string) => {
+    let state = breakers.get(purpose);
+    if (!state) breakers.set(purpose, (state = { failures: 0, openUntil: 0 }));
+    return state;
+  };
+  const timeoutFor = (purpose: Purpose) => purposeTimeoutMs[purpose] ?? timeoutMs;
 
   const record = async (row: Omit<AiCallRow, 'provider'>): Promise<string | null> => {
     try {
@@ -126,41 +147,54 @@ export function createAiClient({
     }
   };
 
-  /** Runs one logical call: breaker, timeout, retry, audit row. */
+  /** Runs one logical call: breaker, timeout, retry, fallback, audit row. */
   async function run<
     R extends { usage: { inputTokens: number; outputTokens: number }; latencyMs: number },
   >(
-    kind: 'generate' | 'embed',
-    purpose: string,
+    purpose: Purpose,
     requestId: string | undefined,
-    call: (signal: AbortSignal) => Promise<R>,
-    limitMs: number = timeoutMs,
-    maxRetries: number = retries,
+    call: (signal: AbortSignal, model: string | undefined) => Promise<R>,
+    limitMs: number,
+    maxRetries: number,
   ): Promise<R & { callId: string | null }> {
-    const breaker = state[kind];
-    const base = { purpose, model: provider.model, requestId: requestId ?? null };
-    if (now() < breaker.openUntil) {
+    const state = breakerFor(purpose);
+    const base = { purpose, requestId: requestId ?? null };
+    if (now() < state.openUntil) {
+      logger?.warn(
+        { purpose, model: provider.model, attempt: 0, kind: 'breaker', latencyMs: 0 },
+        'AI call skipped',
+      );
       await record({
         ...base,
+        model: provider.model,
         inputTokens: 0,
         outputTokens: 0,
         latencyMs: 0,
-        outcome: 'skipped_breaker',
+        outcome: 'breaker',
       });
-      throw new AiUnavailableError('skipped_breaker');
+      throw new AiUnavailableError('breaker');
     }
 
     const started = now();
+    let useFallback = false;
     for (let attempt = 0; ; attempt++) {
+      const fallback = useFallback ? provider.fallbackModel : null;
+      const model = fallback ?? provider.model;
+      const attemptStarted = now();
       try {
-        const result = await withTimeout(call, limitMs);
-        breaker.failures = 0;
+        const result = await withTimeout((signal) => call(signal, fallback ?? undefined), limitMs);
+        state.failures = 0;
+        const answeredBy =
+          result && 'model' in result ? String((result as { model: string }).model) : model;
+        if (fallback) {
+          logger?.info(
+            { purpose, model: answeredBy, attempt, fallback: true },
+            'AI call answered by the fallback model',
+          );
+        }
         const callId = await record({
           ...base,
-          model:
-            result && 'model' in result
-              ? String((result as { model: string }).model)
-              : provider.model,
+          model: answeredBy,
           inputTokens: result.usage.inputTokens,
           outputTokens: result.usage.outputTokens,
           latencyMs: result.latencyMs,
@@ -168,35 +202,39 @@ export function createAiClient({
         });
         return { ...result, callId };
       } catch (error) {
-        if (error instanceof InvalidOutputError) {
-          // The service worked, so this is not a reason to open the breaker.
-          breaker.failures = 0;
-          await record({
-            ...base,
-            inputTokens: 0,
-            outputTokens: 0,
-            latencyMs: now() - started,
-            outcome: 'invalid_output',
-          });
-          throw new AiUnavailableError('invalid_output');
-        }
-        if (attempt < maxRetries && retryable(error)) {
-          await sleep(backoffMs * 2 ** attempt);
-          continue;
-        }
-        if (++breaker.failures >= threshold) breaker.openUntil = now() + cooldownMs;
+        const failure = classifyError(error);
         logger?.warn(
-          { purpose, status: error instanceof ProviderError ? error.status : undefined },
+          {
+            purpose,
+            model,
+            attempt,
+            kind: failure.kind,
+            status: failure.status,
+            code: failure.code,
+            latencyMs: now() - attemptStarted,
+            message: failure.message,
+          },
           'AI call failed',
         );
+        if (failure.kind === 'invalid_output') {
+          // The service worked, so this is not a reason to open the breaker.
+          state.failures = 0;
+        } else if (attempt < maxRetries && retryable(failure)) {
+          if (provider.fallbackModel && wantsFallback(failure)) useFallback = true;
+          await sleep(backoffMs * 2 ** attempt);
+          continue;
+        } else if (++state.failures >= threshold) {
+          state.openUntil = now() + cooldownMs;
+        }
         await record({
           ...base,
+          model,
           inputTokens: 0,
           outputTokens: 0,
           latencyMs: now() - started,
-          outcome: 'error',
+          outcome: failure.kind,
         });
-        throw new AiUnavailableError('error');
+        throw new AiUnavailableError(failure.kind);
       }
     }
   }
@@ -204,21 +242,31 @@ export function createAiClient({
   return {
     providerName: provider.name,
     embedModel: provider.embedModel,
+    timeoutFor,
     generateJson: ({ requestId, ...options }) =>
-      run('generate', options.purpose, requestId, (signal) =>
-        provider.generateJson({ ...options, signal }),
+      run(
+        options.purpose,
+        requestId,
+        (signal, model) => provider.generateJson({ ...options, signal, ...(model && { model }) }),
+        timeoutFor(options.purpose),
+        retries,
       ),
     chatWithTools: ({ requestId, timeoutMs: limit, retries: attempts, ...options }) =>
       run(
-        'generate',
         options.purpose,
         requestId,
-        (signal) => provider.chatWithTools({ ...options, signal }),
-        limit ?? CHAT_TIMEOUT_MS,
-        attempts,
+        (signal, model) => provider.chatWithTools({ ...options, signal, ...(model && { model }) }),
+        limit ?? timeoutFor(options.purpose),
+        attempts ?? retries,
       ),
     embed: (texts, purpose, requestId) =>
-      run('embed', purpose, requestId, (signal) => provider.embed(texts, purpose, signal)),
+      run(
+        purpose,
+        requestId,
+        (signal) => provider.embed(texts, purpose, signal),
+        timeoutFor(purpose),
+        retries,
+      ),
     async markInvalid(callId) {
       if (!callId) return;
       try {

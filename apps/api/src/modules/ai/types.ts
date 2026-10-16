@@ -16,6 +16,8 @@ export interface GenerateJsonOptions<T> {
   schema: ZodType<T>;
   maxOutputTokens: number;
   purpose: Purpose;
+  /** Use this model instead of the provider's primary one (the client picks the fallback this way). */
+  model?: string;
   signal?: AbortSignal;
 }
 
@@ -56,6 +58,8 @@ export interface ChatWithToolsOptions {
   purpose: Purpose;
   /** The model must call this tool (used to make it finish when a budget is reached). */
   forceTool?: string;
+  /** Use this model instead of the provider's primary one. */
+  model?: string;
   signal?: AbortSignal;
 }
 
@@ -83,6 +87,8 @@ export interface EmbedResult {
 export interface LlmProvider {
   readonly name: string;
   readonly model: string;
+  /** A second model to try after a timeout, 429 or 503 from the primary; null when none is set. */
+  readonly fallbackModel: string | null;
   /** The embedding model; part of what an item's stored vector was made with. */
   readonly embedModel: string;
   generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>>;
@@ -91,13 +97,29 @@ export interface LlmProvider {
   chatWithTools(options: ChatWithToolsOptions): Promise<ChatWithToolsResult>;
 }
 
-/** The provider failed. `status` is the HTTP status when there was one (429 and 5xx are retried). */
+/** Why an AI call failed. The same word is logged and stored in ai_calls.outcome. */
+export type FailureKind = 'timeout' | 'http' | 'network' | 'invalid_output' | 'breaker' | 'other';
+
+/**
+ * The provider failed. `kind`: `http` (the vendor answered with an error status), `timeout`,
+ * `network` (connection dropped or refused) or `other`. `status` is the HTTP status when there was
+ * one (429 and 5xx are retried); `code` is the vendor's or the system's error code (UNAVAILABLE,
+ * ECONNRESET). The message must be safe to log: no key, prompt text or user data.
+ */
 export class ProviderError extends Error {
   readonly status: number | undefined;
-  constructor(message: string, status?: number) {
+  readonly code: string | undefined;
+  readonly kind: Exclude<FailureKind, 'invalid_output' | 'breaker'>;
+  constructor(
+    message: string,
+    status?: number,
+    options: { kind?: ProviderError['kind']; code?: string } = {},
+  ) {
     super(message);
     this.name = 'ProviderError';
     this.status = status;
+    this.code = options.code;
+    this.kind = options.kind ?? (status !== undefined ? 'http' : 'other');
   }
 }
 

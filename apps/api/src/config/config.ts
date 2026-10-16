@@ -57,6 +57,11 @@ const schema = z
       .transform((key) => (key === '' ? undefined : key)),
     // Names come from `npm run ai:models`, which lists what the key can use.
     GEMINI_MODEL: z.string().min(1).default('gemini-3.1-flash-lite'),
+    // A second free model for the attempts after a timeout, 429 or 503 from the primary. Blank: none.
+    GEMINI_FALLBACK_MODEL: z
+      .string()
+      .optional()
+      .transform((m) => (m === '' ? undefined : m)),
     GEMINI_EMBED_MODEL: z.string().min(1).default('gemini-embedding-001'),
     // The size of items.embedding (migration 008). Changing it needs a new migration.
     EMBED_DIM: z.coerce.number().int().min(8).max(3072).default(768),
@@ -69,6 +74,8 @@ const schema = z
     ERRAND_MAX_STEPS: z.coerce.number().int().min(1).max(30).default(8),
     ERRAND_TOKEN_BUDGET: z.coerce.number().int().min(500).max(1_000_000).default(20_000),
     ERRAND_USER_HOURLY_LIMIT: z.coerce.number().int().min(1).max(1000).default(5),
+    // How long one errand model call (with tool schemas) may take; resolve calls keep their 8 s.
+    ERRAND_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
     ERRAND_TASK_MAX_CHARS: z.coerce.number().int().min(20).max(2000).default(500),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
@@ -118,6 +125,7 @@ export interface Config {
   llmProvider: 'gemini' | 'fake';
   geminiApiKey: string | null;
   geminiModel: string;
+  geminiFallbackModel: string | null;
   geminiEmbedModel: string;
   embedDim: number;
   embedThreshold: number;
@@ -128,6 +136,8 @@ export interface Config {
   errandTokenBudget: number;
   errandUserHourlyLimit: number;
   errandTaskMaxChars: number;
+  /** Time limit of one errand model call, in milliseconds. */
+  errandAiTimeoutMs: number;
   gitSha: string;
 }
 
@@ -159,6 +169,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     llmProvider: e.LLM_PROVIDER ?? 'fake',
     geminiApiKey: e.GEMINI_API_KEY ?? null,
     geminiModel: e.GEMINI_MODEL,
+    geminiFallbackModel: e.GEMINI_FALLBACK_MODEL ?? null,
     geminiEmbedModel: e.GEMINI_EMBED_MODEL,
     embedDim: e.EMBED_DIM,
     embedThreshold: e.EMBED_THRESHOLD,
@@ -168,6 +179,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandTokenBudget: e.ERRAND_TOKEN_BUDGET,
     errandUserHourlyLimit: e.ERRAND_USER_HOURLY_LIMIT,
     errandTaskMaxChars: e.ERRAND_TASK_MAX_CHARS,
+    errandAiTimeoutMs: e.ERRAND_AI_TIMEOUT_MS,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

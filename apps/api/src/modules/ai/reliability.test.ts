@@ -1,7 +1,7 @@
 import { pino } from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createAiClient, AiUnavailableError, type AiCallRow, type Recorder } from './client.js';
+import { createAiClient, type AiCallRow, type Recorder } from './client.js';
 import { createFakeProvider } from './fake.js';
 import { createGeminiProvider, type GeminiClientLike } from './gemini.js';
 import { ProviderError, type ChatTool } from './types.js';
@@ -315,8 +315,9 @@ describe('one breaker per purpose', () => {
 
   it('embedding purposes have their own breakers too', async () => {
     const s = setup({ breaker: { threshold: 1 } });
-    s.provider.onEmbed(() => {
-      throw new ProviderError('down', 500);
+    s.provider.onEmbed((texts, purpose) => {
+      if (purpose === 'embed_query') throw new ProviderError('down', 500);
+      return texts.map(() => [1]);
     });
     await s.client.embed(['x'], 'embed_query').catch(() => undefined);
     await expect(s.client.embed(['x'], 'embed_query')).rejects.toMatchObject({ kind: 'breaker' });

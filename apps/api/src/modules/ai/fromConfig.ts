@@ -5,13 +5,14 @@ import { connect } from '../../workers/redis.js';
 import { createFakeProvider } from './fake.js';
 import { createGeminiProvider } from './gemini.js';
 import { createAi, type AiContext } from './index.js';
-import type { LlmProvider } from './types.js';
+import type { LlmProvider, Purpose } from './types.js';
 
 export function providerFromConfig(config: Config): LlmProvider {
   if (config.llmProvider === 'gemini') {
     return createGeminiProvider({
       apiKey: config.geminiApiKey as string,
       model: config.geminiModel,
+      fallbackModel: config.geminiFallbackModel,
       embedModel: config.geminiEmbedModel,
       embedDim: config.embedDim,
     });
@@ -30,7 +31,12 @@ export function aiFromConfig({
   db: Queryable;
   logger: Logger;
   /** Timeout and retry settings; scripts that can afford to wait use more patient ones. */
-  client?: { timeoutMs?: number; retries?: number; backoffMs?: number };
+  client?: {
+    timeoutMs?: number;
+    purposeTimeoutMs?: Partial<Record<Purpose, number>>;
+    retries?: number;
+    backoffMs?: number;
+  };
 }): AiContext & { close(): void } {
   // The per-user limit counter fails fast and open: a slow Redis must never slow a search.
   const redis = config.redisUrl
@@ -43,7 +49,7 @@ export function aiFromConfig({
     embedThreshold: config.embedThreshold,
     embedMargin: config.embedMargin,
     redis,
-    ...(client && { client }),
+    client: { purposeTimeoutMs: { errand: config.errandAiTimeoutMs }, ...client },
   });
   return { ...ai, close: () => redis?.disconnect() };
 }

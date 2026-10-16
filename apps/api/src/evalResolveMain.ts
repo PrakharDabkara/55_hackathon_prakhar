@@ -99,7 +99,7 @@ const RETRY_PAUSE_MS = 8000;
 const failedCallCount = async (): Promise<number> =>
   (
     await pool.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM ai_calls WHERE outcome IN ('error', 'skipped_breaker')`,
+      `SELECT count(*)::int AS n FROM ai_calls WHERE outcome IN ('timeout', 'http', 'network', 'other', 'breaker')`,
     )
   ).rows[0]?.n ?? 0;
 

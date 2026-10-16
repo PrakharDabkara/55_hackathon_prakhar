@@ -75,6 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Migration 010: `errands` (state as text with a CHECK, lease, counters, plan) and `errand_steps` (the step log); guarded state transitions; a per-errand lease so one run works at a time.
 - BullMQ queue `errand` (concurrency 1, job id `errand-<id>`); guardrails `ERRAND_MAX_ITEMS`, `ERRAND_MAX_STEPS`, `ERRAND_TOKEN_BUDGET`, `ERRAND_USER_HOURLY_LIMIT`, `ERRAND_TASK_MAX_CHARS`; a task that reads like an instruction is refused (422).
 - `npm run errand:smoke` plans real errands against the local database and prints the step logs with tokens.
+- `GET /admin/ai/ping` (admin only): a tiny `generateJson` and `chatWithTools` call with the primary and the fallback model, with kind, status and latency per call; runbook section "AI unavailable: troubleshooting".
+- `GEMINI_FALLBACK_MODEL`: the attempts after a timeout, 429 or 503 from the primary use a second model (live: `gemini-3.5-flash-lite`); the log and `ai_calls.model` say which model answered.
+- `ERRAND_AI_TIMEOUT_MS` (default 30000): errand model calls get their own time limit; resolve calls keep 8 s.
 
 ### Fixed
 
@@ -86,6 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Catalog: removed 36 ambiguous generic terms ("clip", "pen", "switch", "powder" and others; listed in the PR) and added a paper clips item; trigram search no longer guesses for a generic word or a near-tie between items; re-seeding deletes terms dropped from the file.
 
 - `/health` reported `sha: unknown` on Render: the Dockerfile default `GIT_SHA=unknown` shadowed `RENDER_GIT_COMMIT`. Blank/`unknown` now count as unset.
+- AI failures are logged with `purpose`, `model`, `attempt`, `kind` (timeout, http, network, invalid_output, breaker, other), `status`, `code`, `latencyMs` and a short sanitised `message`; `ai_calls.outcome` stores the same kind (migration 011 replaces `error` and `skipped_breaker`). A timeout is now retried. Circuit breakers are per purpose.
 
 ### Changed
 

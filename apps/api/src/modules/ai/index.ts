@@ -1,8 +1,9 @@
 import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import { createAiClient, dbRecorder, type AiClient } from './client.js';
+import { pingAi, type PingResult } from './ping.js';
 import { createUserLimiter, type RedisCounter, type UserLimiter } from './limiter.js';
-import type { LlmProvider } from './types.js';
+import type { LlmProvider, Purpose } from './types.js';
 
 export { AiUnavailableError, createAiClient, dbRecorder } from './client.js';
 export type { AiCallRow, AiClient, Recorder } from './client.js';
@@ -18,11 +19,15 @@ export {
   validateAnswer,
 } from './resolvePrompt.js';
 export type { Candidate, ResolveAnswer, Validated } from './resolvePrompt.js';
+export { pingAi } from './ping.js';
+export type { PingResult } from './ping.js';
+export { classifyError, sanitiseMessage } from './failure.js';
 export { looksLikeInstruction } from './suspicious.js';
 export { aiFromConfig, providerFromConfig } from './fromConfig.js';
 export { aiAdminRouter } from './adminRouter.js';
 export { InvalidOutputError, ProviderError } from './types.js';
 export type {
+  FailureKind,
   ChatMessage,
   ChatTool,
   ChatWithToolsOptions,
@@ -37,6 +42,8 @@ export type {
 /** What the resolution pipeline needs from AI. */
 export interface AiContext {
   client: AiClient;
+  /** A tiny call with each configured model, for the admin health check. */
+  ping(): Promise<PingResult[]>;
   limiter: UserLimiter;
   /** Embedding: resolve when the best match is at least this similar... */
   embedThreshold: number;
@@ -53,7 +60,12 @@ interface Options {
   /** Default: a Redis counter if `redis` is given, else no limit. */
   limiter?: UserLimiter;
   redis?: RedisCounter | null;
-  client?: { timeoutMs?: number; retries?: number; backoffMs?: number };
+  client?: {
+    timeoutMs?: number;
+    purposeTimeoutMs?: Partial<Record<Purpose, number>>;
+    retries?: number;
+    backoffMs?: number;
+  };
 }
 
 export function createAi({
@@ -66,8 +78,10 @@ export function createAi({
   redis = null,
   client = {},
 }: Options): AiContext {
+  const aiClient = createAiClient({ provider, recorder: dbRecorder(db), logger, ...client });
   return {
-    client: createAiClient({ provider, recorder: dbRecorder(db), logger, ...client }),
+    client: aiClient,
+    ping: () => pingAi(provider, aiClient),
     limiter: limiter ?? createUserLimiter({ redis, logger }),
     embedThreshold,
     embedMargin,

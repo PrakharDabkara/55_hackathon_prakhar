@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { ApiError } from '../../http/errors.js';
 import type { Queryable } from '../../db/queryable.js';
 import { createRequireAdmin } from '../identity/index.js';
+import type { AiContext } from './index.js';
 
 interface Window {
   queries: number;
@@ -39,13 +41,13 @@ async function windowStats(db: Queryable, interval: string): Promise<Window> {
     skipped: number;
     attempts: number;
   }>(
-    `SELECT count(*) FILTER (WHERE outcome <> 'skipped_breaker')::int AS calls,
+    `SELECT count(*) FILTER (WHERE outcome <> 'breaker')::int AS calls,
             coalesce(avg(input_tokens + output_tokens) FILTER (WHERE outcome = 'ok'), 0)::float AS tokens,
             percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)
               FILTER (WHERE outcome IN ('ok', 'invalid_output')) AS p95,
-            count(*) FILTER (WHERE outcome = 'error')::int AS errors,
+            count(*) FILTER (WHERE outcome IN ('timeout', 'http', 'network', 'other'))::int AS errors,
             count(*) FILTER (WHERE outcome = 'invalid_output')::int AS invalid,
-            count(*) FILTER (WHERE outcome = 'skipped_breaker')::int AS skipped,
+            count(*) FILTER (WHERE outcome = 'breaker')::int AS skipped,
             count(*)::int AS attempts
        FROM ai_calls WHERE purpose = 'resolve_query' AND created_at > now() - $1::interval`,
     [interval],
@@ -72,14 +74,23 @@ async function windowStats(db: Queryable, interval: string): Promise<Window> {
 export function aiAdminRouter({
   db,
   adminPhones,
+  ai,
 }: {
   db: Queryable;
   adminPhones: readonly string[];
+  ai?: AiContext | undefined;
 }): Router {
   const router = Router();
   router.get('/admin/ai/stats', createRequireAdmin(db, adminPhones), async (_req, res) => {
     const [day, week] = await Promise.all([windowStats(db, '24 hours'), windowStats(db, '7 days')]);
     res.json({ '24h': day, '7d': week });
+  });
+
+  // The demo-day check: is the model up, which model, how fast, and if not, why.
+  router.get('/admin/ai/ping', createRequireAdmin(db, adminPhones), async (_req, res) => {
+    if (!ai) throw new ApiError(503, 'ai_not_configured', 'No AI provider is configured');
+    const results = await ai.ping();
+    res.json({ provider: ai.client.providerName, ok: results.every((r) => r.ok), results });
   });
   return router;
 }
