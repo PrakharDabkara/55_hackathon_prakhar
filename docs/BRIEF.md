@@ -70,13 +70,13 @@ Price check: the user can add the price they've seen elsewhere; shops are asked 
 
 **Errand (AI agent)**
 
-Built on Day 12 (ADR-0024): steps 1, 2 (without the question), 3 (learned stock only) and 5 ("likely" only). Day 13 adds the rest.
+Built on Days 12 and 13 (ADR-0024). Step 6 is a stretch.
 
 1. The user describes a task in Hindi, English or Hinglish (`POST /errands`, up to 500 characters; a task that reads like an instruction to a model is refused).
-2. The agent turns it into items (at most 10; name and quantity). If the task is too vague, it asks the user one question. _Day 13: today it picks the most common reading and says so in its notes._
-3. For each item it checks learned stock first, then pings shops for what is missing (using the same request/ping system as Seeker search). _Day 13: today it reads learned stock only and never pings._
-4. While replies arrive it adjusts: widens the radius, tries another category, suggests a substitute, or looks for cheaper. _Day 13._
-5. It returns a plan: which shop for which items, prices, total, route order. Every item is marked "confirmed" (a shop said yes in this errand) or "likely" (learned stock only). It never claims stock no shop confirmed. _Today every found item is "likely" or "not_found"; the server checks each claim against learned stock, takes prices and names from the database, and plans the route over the surviving shops._
+2. The agent turns it into items (at most 10; name and quantity). If the task is too vague, or an item could mean different things, it asks the user (at most 2 questions; `POST /errands/:id/answer`; no answer in 10 minutes means that item is skipped and noted).
+3. For each item it checks learned stock first, then pings shops for what is missing (using the same request/ping system as Seeker search). It pings for items with fewer than 3 fresh shops (at most 6 items per errand), then waits without holding a model call: it wakes when every request has been answered or has expired, or after 45 s, and never waits more than 5 minutes in total.
+4. When it wakes it reads the fresh answers and may ask more or adjust; widening the radius, other categories, substitutes and cheaper options are Day 14. Cancel (`POST /errands/:id/cancel`) stops it and closes its open requests; 15 minutes overall ends it as EXPIRED with what it has.
+5. It returns a plan: which shop for which items, prices, total, route order. Every item is marked "confirmed" (a shop said yes in this errand) or "likely" (learned stock only). It never claims stock no shop confirmed. The server decides the mark: "confirmed" only if a shop said yes in this errand's own requests (price and "Confirmed 2 min ago" from that answer), "likely" if the shop has fresh learned stock, else "not_found"; names, prices and distances come from the database and the route is planned over the surviving shops.
 6. Stretch: "Want me to order this?" Only on the user's yes, the shop gets a delivery request (cash on delivery) and can accept or decline; on decline the plan falls back to pickup.
 
 **Zero-training rule.** A shopkeeper installs the app and is using it at once, with no explanation, demo or class. Every shop screen must pass that test:
@@ -98,13 +98,24 @@ Request states and transitions:
 - `PINGING` → `EXPIRED` after 15 minutes with no yes
 - `ANSWERED` → `CLOSED` when the user is done, or after 15 minutes
 
-Errand states (Day 12 built `PLANNING`, `PLAN_READY` and `FAILED`; the rest is Day 13):
+Errand states (as built, Day 13):
 
-- `PLANNING` → `NEEDS_INPUT` (asks the user) → `PLANNING`
-- `PLANNING` → `WAITING_FOR_SHOPS` → `PLANNING` (resumed by replies or a timeout)
-- `PLANNING` → `PLAN_READY`
-- `PLANNING` → `FAILED` (a cap was reached, the model was unavailable, or the queue was down; the reason and what was found are kept)
-- any → `EXPIRED` (15 min) or `CANCELLED`
+```
+                 ┌──────────── ASKED_SHOPS ────────────▶ WAITING_FOR_SHOPS
+                 │                                          │  replies, 45 s timer, sweeper
+ PLANNING ───────┤◀─────────────────────────────────────────┘
+   ▲  │          │
+   │  │          └──── ASKED_USER ────▶ NEEDS_INPUT
+   │  │                                    │  answer, or 10 min with no answer
+   │  └─ PLAN_SUBMITTED ─▶ PLAN_READY      │
+   └─────────────────────────────────────────┘
+   └─ RUN_FAILED ─▶ FAILED (cap reached, model unavailable, queue down, wait limit; the reason and what was found are kept)
+
+ any of PLANNING, WAITING_FOR_SHOPS, NEEDS_INPUT ── 15 min ──▶ EXPIRED   (with whatever plan exists)
+ any of PLANNING, WAITING_FOR_SHOPS, NEEDS_INPUT ── cancel ──▶ CANCELLED (linked open requests closed)
+```
+
+PLAN_READY, FAILED, EXPIRED and CANCELLED are final. Each move is one guarded UPDATE and tells the owner over SSE (`errand.updated`).
 
 Order states (stretch):
 
@@ -112,7 +123,7 @@ Order states (stretch):
 - `ACCEPTED` → `OUT_FOR_DELIVERY` → `DELIVERED`
 - `REQUESTED` / `ACCEPTED` → `CANCELLED`
 
-The agent is durable: errand state lives in Postgres; a BullMQ job resumes the agent when replies arrive or a timer fires, so no LLM call is held open while waiting.
+The agent is durable: errand state lives in Postgres; a BullMQ job resumes the agent when replies arrive or a timer fires, so no LLM call is held open while waiting; the conversation is rebuilt from the step log, and the 60 s sweeper repairs a lost job.
 
 Ping states: `QUEUED` → `SENT` (worker sends) → `YES` | `NO` | `NO_REPLY` (shop taps, or timeout).
 
@@ -132,7 +143,7 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold | Labeled Hinglish query set; category accuracy gate in CI |
 | Reply parsing | "haan hai, 450 ka" → yes, ₹450 | Buttons (no AI) → pattern rules → LLM fallback | Labeled reply set; accuracy gate in CI |
 | Demand digest | Week of request counts → a 3-line summary for the shop | One batched call per shop per week | Every number in the summary must match the counts exactly |
-| Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process, minus `ask_shops` until Day 13, plus a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters (Day 13 adds 15 shops pinged and the 15-minute limit) | Eval set of 20 errands (Day 14) |
+| Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process (including `ask_shops` and `get_request_status`), plus `ask_user` and a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters 6 items asked about per errand, 2 questions, 5 minutes of waiting in total, 15 minutes overall | Eval set of 20 errands (Day 14) |
 | MCP server | Any AI assistant → tools `resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route` (one registry shared with the agent, ADR-0023) | No LLM inside; plain tools | Contract tests per tool |
 
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.

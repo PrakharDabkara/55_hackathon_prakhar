@@ -8,7 +8,7 @@ import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
 import { routingRouter } from './modules/routing/index.js';
-import { errandsRouter, limitsFromConfig } from './modules/errands/index.js';
+import { errandsAdminRouter, errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { identityRouter } from './modules/identity/index.js';
@@ -29,7 +29,9 @@ interface AppDeps {
   /** Embeddings and the LLM for item resolution. Without it only the free steps run. */
   ai?: AiContext;
   /** Queues the errand agent. Without it (no Redis) new errands are stored and wait. */
-  errandHooks?: { enqueue(errandId: string): Promise<void> };
+  errandHooks?: {
+    enqueue(errandId: string, options?: { delayMs?: number; key?: string }): Promise<void>;
+  };
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
 }
@@ -76,30 +78,32 @@ export function createApp({
     app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
     app.use(aiAdminRouter({ db, adminPhones: config.adminPhones, ai }));
     app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
+    app.use(errandsAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(shopsRouter({ db }));
   app.use(routingRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
-  app.use(
-    requestsRouter({
-      db,
-      logger,
-      config: {
-        minStockResults: config.minStockResults,
-        ttlMinutes: config.requestTtlMinutes,
-        trigramThreshold: config.trigramThreshold,
-      },
-      ...(requestHooks && { hooks: requestHooks }),
-      events: realtime.events,
-      ...(ai && { ai }),
-    }),
-  );
+  const requestsContext = {
+    db,
+    logger,
+    config: {
+      minStockResults: config.minStockResults,
+      ttlMinutes: config.requestTtlMinutes,
+      trigramThreshold: config.trigramThreshold,
+    },
+    ...(requestHooks && { hooks: requestHooks }),
+    events: realtime.events,
+    ...(ai && { ai }),
+  };
+  app.use(requestsRouter(requestsContext));
   app.use(
     errandsRouter({
       db,
       logger,
       limits: limitsFromConfig(config),
       ...(errandHooks && { enqueue: errandHooks.enqueue }),
+      events: realtime.events,
+      requests: requestsContext,
     }),
   );
   app.use(notFound);

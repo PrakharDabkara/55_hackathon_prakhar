@@ -39,3 +39,4 @@ LLM answers vary between identical runs (dev went from 97.5 % to 100 %; one inje
 - A flaky model answer can still fail a run, less often now. A re-run is one click, but a full run costs about 270 embedding requests when the cache is cold and the budget is one full run per day per project; if a query flips often it is a real signal to fix the prompt or the catalog.
 - A change to the catalog file retires cached answers on the live site, so the next searches may call the model once more.
 - Generic words with a default (pen, bottle) no longer ask the seeker a question; that is a product choice the catalog file now owns.
+- Amendment 2026-10-16: the `evals` label is required only for changes that can alter eval results (resolve pipeline, Gemini adapter, prompts, catalog seed, `evals/`); test-only fakes and errand-agent code do not need it.

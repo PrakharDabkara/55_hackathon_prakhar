@@ -2,7 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
-import { createErrand, getErrand, type ErrandsContext } from './service.js';
+import {
+  answerErrand,
+  cancelErrand,
+  createErrand,
+  getErrand,
+  type ErrandsContext,
+} from './service.js';
 
 export function errandsRouter(deps: ErrandsContext): Router {
   const router = Router();
@@ -26,7 +32,37 @@ export function errandsRouter(deps: ErrandsContext): Router {
   });
 
   router.get('/errands/:id', requireAuth, async (req, res) => {
-    const view = await getErrand(deps, authOf(req).user.id, String(req.params['id']));
+    const view = await getErrand(
+      { ...deps, logger: req.log ?? deps.logger },
+      authOf(req).user.id,
+      String(req.params['id']),
+    );
+    if (!view) throw new ApiError(404, 'not_found', 'No such errand');
+    res.json(view);
+  });
+
+  // Owner only. Exactly one of text or optionIndex; checked in the service so every caller gets the same rules.
+  const answerBody = z.object({
+    text: z.string().optional(),
+    optionIndex: z.number().int().min(0).max(10).optional(),
+  });
+  router.post('/errands/:id/answer', requireAuth, async (req, res) => {
+    const body = parse(answerBody, req.body ?? {});
+    const view = await answerErrand(
+      { ...deps, logger: req.log ?? deps.logger },
+      authOf(req).user.id,
+      String(req.params['id']),
+      body,
+    );
+    res.json(view);
+  });
+
+  router.post('/errands/:id/cancel', requireAuth, async (req, res) => {
+    const view = await cancelErrand(
+      { ...deps, logger: req.log ?? deps.logger },
+      authOf(req).user.id,
+      String(req.params['id']),
+    );
     if (!view) throw new ApiError(404, 'not_found', 'No such errand');
     res.json(view);
   });

@@ -17,7 +17,14 @@ const pool = createPool(config.databaseUrl, logger);
 
 const realtime = createRealtime({ redisUrl: config.redisUrl, logger });
 const ai = aiFromConfig({ config, db: pool, logger });
-const workers = startWorkers({ config, db: pool, logger, events: realtime.events, ai });
+const workers = startWorkers({
+  config,
+  db: pool,
+  logger,
+  events: realtime.events,
+  ai,
+  subscribe: realtime.onPublish,
+});
 const app = createApp({
   config,
   logger,

@@ -30,7 +30,42 @@ describe('loadConfig', () => {
       errandTokenBudget: 20_000,
       errandUserHourlyLimit: 5,
       errandTaskMaxChars: 500,
+      errandMaxAskShops: 6,
+      errandMaxQuestions: 2,
+      errandResumeAfterMs: 45_000,
+      errandMaxWaitMs: 300_000,
+      errandAnswerTimeoutMs: 600_000,
+      errandExpiryMs: 900_000,
+      errandResumeDebounceMs: 1000,
     });
+  });
+
+  it('reads the Day 13 errand patience settings from the environment', () => {
+    expect(
+      loadConfig({
+        ...valid,
+        ERRAND_MAX_ASK_SHOPS: '3',
+        ERRAND_MAX_QUESTIONS: '1',
+        ERRAND_RESUME_AFTER_MS: '20000',
+        ERRAND_MAX_WAIT_MS: '60000',
+        ERRAND_ANSWER_TIMEOUT_MS: '120000',
+        ERRAND_EXPIRY_MS: '600000',
+        ERRAND_RESUME_DEBOUNCE_MS: '500',
+      }),
+    ).toMatchObject({
+      errandMaxAskShops: 3,
+      errandMaxQuestions: 1,
+      errandResumeAfterMs: 20_000,
+      errandMaxWaitMs: 60_000,
+      errandAnswerTimeoutMs: 120_000,
+      errandExpiryMs: 600_000,
+      errandResumeDebounceMs: 500,
+    });
+  });
+
+  it('refuses nonsense patience settings', () => {
+    expect(() => loadConfig({ ...valid, ERRAND_MAX_WAIT_MS: '10' })).toThrow();
+    expect(() => loadConfig({ ...valid, ERRAND_MAX_ASK_SHOPS: '0' })).toThrow();
   });
 
   it('reads the errand guardrails from the environment', () => {

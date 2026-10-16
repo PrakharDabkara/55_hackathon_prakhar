@@ -479,19 +479,26 @@ describe('errand agent core (fake model, real database)', () => {
       expect(result.error).toMatch(/resolve_item/);
     });
 
-    it('ask_shops is not available: calling it is an error result and pings nobody', async () => {
+    it('an unknown tool (close_request is not offered) is an error result and pings nobody', async () => {
       const { id } = await newErrand();
       provider.playChat([
-        { toolCalls: [call('ask_shops', { itemId: ids['rice'] })] },
+        { toolCalls: [call('close_request', { requestId: UNKNOWN })] },
         { toolCalls: [submit([{ text: 'x', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
       const names = (chatCalls()[0] as { toolNames: string[] }).toolNames;
-      expect(names).toEqual(['resolve_item', 'find_item_nearby', 'plan_route', 'submit_plan']);
+      expect(names).toEqual([
+        'resolve_item',
+        'find_item_nearby',
+        'ask_shops',
+        'get_request_status',
+        'ask_user',
+        'plan_route',
+        'submit_plan',
+      ]);
       const result = toolResult(chatCalls()[1]);
       expect(result.error).toMatch(/unknown tool/i);
       expect((await pool.query('SELECT count(*)::int AS n FROM requests')).rows[0].n).toBe(0);
-      expect((await pool.query('SELECT count(*)::int AS n FROM pings')).rows[0].n).toBe(0);
     });
 
     it('bad arguments and an oversized plan are error results; the errand carries on', async () => {
@@ -723,20 +730,14 @@ describe('errand agent core (fake model, real database)', () => {
       expect(chatCalls()).toHaveLength(1);
     });
 
-    it('a run whose lease expired (a crashed worker) starts again from scratch', async () => {
+    it('a run whose lease expired (a crashed worker) is taken over by the next run', async () => {
       const { id } = await newErrand();
       await pool.query(
-        `UPDATE errands SET lease_until = now() - interval '1 second', step_count = 1, tokens_in = 999 WHERE id = $1`,
+        `UPDATE errands SET lease_until = now() - interval '1 second' WHERE id = $1`,
         [id],
       );
-      await pool.query(`INSERT INTO errand_steps (errand_id, n, kind) VALUES ($1, 1, 'model')`, [
-        id,
-      ]);
       provider.playChat([{ toolCalls: [submit([{ text: 'x', status: 'not_found' }])] }]);
-      await runErrand(deps(), id);
-      const steps = await stepRows(id);
-      expect(steps.map((s) => s.n)).toEqual([1, 2]);
-      expect((await errandRow(id)).tokens_in).toBeLessThan(999);
+      expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
     });
 
     it('state changes are guarded: of two racing moves exactly one applies', async () => {

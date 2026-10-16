@@ -77,6 +77,14 @@ const schema = z
     // How long one errand model call (with tool schemas) may take; resolve calls keep their 8 s.
     ERRAND_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
     ERRAND_TASK_MAX_CHARS: z.coerce.number().int().min(20).max(2000).default(500),
+    // Day 13 (ADR-0024 amendment): asking shops, waiting, asking the user.
+    ERRAND_MAX_ASK_SHOPS: z.coerce.number().int().min(1).max(10).default(6),
+    ERRAND_MAX_QUESTIONS: z.coerce.number().int().min(0).max(5).default(2),
+    ERRAND_RESUME_AFTER_MS: z.coerce.number().int().min(10).max(600_000).default(45_000),
+    ERRAND_MAX_WAIT_MS: z.coerce.number().int().min(100).max(1_800_000).default(300_000),
+    ERRAND_ANSWER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(3_600_000).default(600_000),
+    ERRAND_EXPIRY_MS: z.coerce.number().int().min(1000).max(7_200_000).default(900_000),
+    ERRAND_RESUME_DEBOUNCE_MS: z.coerce.number().int().min(0).max(30_000).default(1000),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -138,6 +146,20 @@ export interface Config {
   errandTaskMaxChars: number;
   /** Time limit of one errand model call, in milliseconds. */
   errandAiTimeoutMs: number;
+  /** Requests one errand may open with ask_shops (one per item). */
+  errandMaxAskShops: number;
+  /** Questions one errand may put to the user. */
+  errandMaxQuestions: number;
+  /** A waiting errand resumes after this long even if shops are slow. */
+  errandResumeAfterMs: number;
+  /** Total time one errand may spend waiting for shops; after it the agent must submit. */
+  errandMaxWaitMs: number;
+  /** An unanswered question gives up after this long. */
+  errandAnswerTimeoutMs: number;
+  /** Overall life of an errand; past it, EXPIRED. */
+  errandExpiryMs: number;
+  /** A burst of answers within this window causes one resume check. */
+  errandResumeDebounceMs: number;
   gitSha: string;
 }
 
@@ -180,6 +202,13 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandUserHourlyLimit: e.ERRAND_USER_HOURLY_LIMIT,
     errandTaskMaxChars: e.ERRAND_TASK_MAX_CHARS,
     errandAiTimeoutMs: e.ERRAND_AI_TIMEOUT_MS,
+    errandMaxAskShops: e.ERRAND_MAX_ASK_SHOPS,
+    errandMaxQuestions: e.ERRAND_MAX_QUESTIONS,
+    errandResumeAfterMs: e.ERRAND_RESUME_AFTER_MS,
+    errandMaxWaitMs: e.ERRAND_MAX_WAIT_MS,
+    errandAnswerTimeoutMs: e.ERRAND_ANSWER_TIMEOUT_MS,
+    errandExpiryMs: e.ERRAND_EXPIRY_MS,
+    errandResumeDebounceMs: e.ERRAND_RESUME_DEBOUNCE_MS,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }
