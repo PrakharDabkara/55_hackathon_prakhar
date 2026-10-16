@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 13)
+
+- Errand agent patience (ADR-0024 amendment): `ask_shops`, `get_request_status` and `ask_user` tools; states `WAITING_FOR_SHOPS`, `NEEDS_INPUT`, `EXPIRED`, `CANCELLED`; wake-up by replies (debounced `request.updated` hook), a timer or the sweeper; maximum wait; `POST /errands/:id/answer` and `POST /errands/:id/cancel`; 15-minute expiry; errand sweeper in the 60 s sweep; the conversation (function calls, thought signatures) persisted in `errand_steps.payload` and rebuilt on resume; `confirmed` plan status backed by a yes in the errand's own requests, with "Confirmed 2 min ago"; progress lines for asking, answers, waiting and questions; `errand.updated` SSE hints; `GET /admin/errands/stats`; migration 012; `realtime.onPublish`.
+- Config: `ERRAND_MAX_ASK_SHOPS`, `ERRAND_MAX_QUESTIONS`, `ERRAND_RESUME_AFTER_MS`, `ERRAND_MAX_WAIT_MS`, `ERRAND_ANSWER_TIMEOUT_MS`, `ERRAND_EXPIRY_MS`, `ERRAND_RESUME_DEBOUNCE_MS`.
+
+### Changed (Day 13)
+
+- A run whose lease expired now resumes from the log instead of starting over; `submit_plan` accepts `confirmed`; the agent's system prompt and tool descriptions follow find first, ask shops for thin items, ask the user on a clarification.
+
 ### Added
 
 - npm-workspaces monorepo scaffold (`apps/*`, `packages/*`) per the brief's repo structure.
