@@ -6,8 +6,9 @@ import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { tools } from '@kahanmilega/shared';
+import { tools } from '@kahanmilega/shared/tools';
 import { createApp } from '../../api/src/app.js';
+import { createAi, createFakeProvider } from '../../api/src/modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from '../../api/src/modules/catalog/index.js';
 import { testConfig } from '../../api/src/testing/config.js';
 import { ORIGIN } from '../../api/src/testing/fixtures.js';
@@ -51,6 +52,7 @@ describe('MCP contract', () => {
     const res = await client.callTool({ name, arguments: args });
     return res as {
       isError?: boolean;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       structuredContent?: Record<string, any>;
       content: { type: string; text: string }[];
     };
@@ -62,7 +64,28 @@ describe('MCP contract', () => {
     await seedCatalog(pool, loadSeedCatalog());
     const config = testConfig({ workersEnabled: true, redisUrl: redis.url });
     workers = startWorkers({ config, db: pool, logger }) as Workers;
-    app = createApp({ config, logger, db: pool, requestHooks: workers.hooks });
+    // A scripted model, so an ambiguous word ("clip") comes back as a question without a network call.
+    const provider = createFakeProvider();
+    const ids = Object.fromEntries(
+      (await pool.query<{ id: string; slug: string }>(`SELECT id, slug FROM items`)).rows.map(
+        (r) => [r.slug, r.id],
+      ),
+    );
+    provider.onGenerate(() => ({
+      itemId: null,
+      needsClarification: true,
+      question: 'Kaunsi clip?',
+      optionIds: [ids['paper-clips'], ids['clothes-clips']],
+    }));
+    const ai = createAi({
+      provider,
+      db: pool,
+      logger,
+      embedThreshold: 0.8,
+      embedMargin: 0.05,
+      limiter: { allow: async () => true },
+    });
+    app = createApp({ config, logger, db: pool, requestHooks: workers.hooks, ai });
     server = app.listen(0);
     baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 

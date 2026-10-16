@@ -1,0 +1,672 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MCP contract > lists the six tools with their schemas and annotations (snapshot) 1`] = `
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Find the catalog item for some text",
+    },
+    "description": "Turn what the customer typed (English, Hindi or Hinglish, typos allowed, for example "chini" or "bottle brsh") into one catalog item. Call this first, before any other tool: they all need the item id it returns. It never contacts shops and creates nothing. If the answer has \`clarification\`, the text could mean several different things: ask the user the question, then call resolve_item again with their choice, or use the chosen option itemId directly. If the answer has \`unresolved\`, nothing in the catalog fits: tell the user and ask for different words. When you have an item, call find_item_nearby next.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "text": {
+          "description": "The item as the customer said it",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string",
+        },
+      },
+      "required": [
+        "text",
+      ],
+      "type": "object",
+    },
+    "name": "resolve_item",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "clarification": {
+          "additionalProperties": false,
+          "description": "Set when the user must choose between genuinely different items",
+          "properties": {
+            "options": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "itemId": {
+                    "type": "string",
+                  },
+                  "name": {
+                    "type": "string",
+                  },
+                  "nameHi": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "itemId",
+                  "name",
+                  "nameHi",
+                ],
+                "type": "object",
+              },
+              "type": "array",
+            },
+            "question": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "question",
+            "options",
+          ],
+          "type": "object",
+        },
+        "item": {
+          "additionalProperties": false,
+          "description": "Set when the text resolved to one item",
+          "properties": {
+            "category": {
+              "type": "string",
+            },
+            "id": {
+              "description": "Pass this as itemId to the other tools",
+              "type": "string",
+            },
+            "name": {
+              "type": "string",
+            },
+            "nameHi": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "id",
+            "name",
+            "nameHi",
+            "category",
+          ],
+          "type": "object",
+        },
+        "message": {
+          "type": "string",
+        },
+        "unresolved": {
+          "description": "True when nothing in the catalog fits",
+          "type": "boolean",
+        },
+      },
+      "type": "object",
+    },
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Shops that probably have the item, from what we already know",
+    },
+    "description": "List shops near a point that earlier confirmed they have the item, with price, distance and how recently they confirmed. Use this first once you have an item id: it is instant, free and contacts nobody. \`freshCount\` is how many shops confirmed within the last 24 hours. If freshCount is 3 or more, answer from this and stop. If it is fewer than 3, call ask_shops to check with shops right now. Prices are paise (100 paise = ₹1).",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "itemId": {
+          "description": "The item id from resolve_item (item.id or a clarification option itemId)",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "type": "string",
+        },
+        "lat": {
+          "description": "Latitude in degrees, for example 22.7196",
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number",
+        },
+        "lng": {
+          "description": "Longitude in degrees, for example 75.8577",
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number",
+        },
+        "radiusM": {
+          "description": "Search radius in metres, 1 to 5000. Default 2000.",
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "itemId",
+        "lat",
+        "lng",
+      ],
+      "type": "object",
+    },
+    "name": "find_item_nearby",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "description": "Shops found",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer",
+        },
+        "freshCount": {
+          "description": "Of those, confirmed within 24 hours",
+          "maximum": 9007199254740991,
+          "minimum": -9007199254740991,
+          "type": "integer",
+        },
+        "shops": {
+          "description": "Nearest first",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "distanceM": {
+                "description": "Straight-line distance from the search point, metres",
+                "type": "number",
+              },
+              "freshness": {
+                "description": "How recently the shop confirmed it has the item, in words",
+                "type": "string",
+              },
+              "lat": {
+                "type": "number",
+              },
+              "lng": {
+                "type": "number",
+              },
+              "name": {
+                "type": "string",
+              },
+              "pricePaise": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer",
+                  },
+                  {
+                    "type": "null",
+                  },
+                ],
+                "description": "Price in paise (100 paise = ₹1), null if unknown",
+              },
+              "shopId": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "shopId",
+              "name",
+              "distanceM",
+              "lat",
+              "lng",
+              "pricePaise",
+              "freshness",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+      },
+      "required": [
+        "count",
+        "freshCount",
+        "shops",
+      ],
+      "type": "object",
+    },
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": true,
+      "readOnlyHint": false,
+      "title": "Ask nearby shops right now",
+    },
+    "description": "SIDE EFFECT: sends a real ping to up to 10 real shops near the point, asking whether they have the item. Use it only after find_item_nearby returned fewer than 3 fresh shops (freshCount < 3), and only when the user wants current answers. Do not call it twice for the same need: pass the same idempotencyKey to make a retry safe (the same request is returned, \`reused: true\`). It returns at once with a requestId: shops answer over the next minutes. Then call get_request_status every 10 to 20 s, and call close_request when you have enough answers or the user is done. targetPricePaise is optional: a price the user has already seen elsewhere, so results show how much each shop saves.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "idempotencyKey": {
+          "description": "Any unique string for this need; repeating the call with it does not ping again",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string",
+        },
+        "itemId": {
+          "description": "The item id from resolve_item (item.id or a clarification option itemId)",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "type": "string",
+        },
+        "lat": {
+          "description": "Latitude in degrees, for example 22.7196",
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number",
+        },
+        "lng": {
+          "description": "Longitude in degrees, for example 75.8577",
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number",
+        },
+        "radiusM": {
+          "description": "Search radius in metres, 1 to 5000. Default 2000.",
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer",
+        },
+        "targetPricePaise": {
+          "description": "A price the user has seen elsewhere, in paise",
+          "maximum": 10000000,
+          "minimum": 1,
+          "type": "integer",
+        },
+      },
+      "required": [
+        "itemId",
+        "lat",
+        "lng",
+      ],
+      "type": "object",
+    },
+    "name": "ask_shops",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "expiresAt": {
+          "description": "When the request stops accepting answers (ISO time)",
+          "type": "string",
+        },
+        "requestId": {
+          "type": "string",
+        },
+        "reused": {
+          "description": "True when the idempotencyKey matched an earlier request",
+          "type": "boolean",
+        },
+        "state": {
+          "enum": [
+            "OPEN",
+            "PINGING",
+            "ANSWERED",
+            "EXPIRED",
+            "CLOSED",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "requestId",
+        "state",
+        "expiresAt",
+        "reused",
+      ],
+      "type": "object",
+    },
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Answers so far for a request",
+    },
+    "description": "Read how shops have answered an ask_shops request: state, how many were asked, said yes, said no and are still to reply, and the shops that have the item, cheapest first. Poll every 10 to 20 s while pingStats.pending is above 0 and the state is PINGING or ANSWERED; stop when pending is 0, when state is EXPIRED or CLOSED, or when you have enough answers. Then call close_request if the request is still open. Results mix live answers (\`source: live\`, just confirmed) and remembered stock (\`learned\`). Prices are paise.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "requestId": {
+          "description": "The requestId returned by ask_shops",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "type": "string",
+        },
+      },
+      "required": [
+        "requestId",
+      ],
+      "type": "object",
+    },
+    "name": "get_request_status",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "expiresAt": {
+          "type": "string",
+        },
+        "item": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+            },
+            "name": {
+              "type": "string",
+            },
+          },
+          "required": [
+            "id",
+            "name",
+          ],
+          "type": "object",
+        },
+        "pingStats": {
+          "additionalProperties": false,
+          "properties": {
+            "no": {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer",
+            },
+            "pending": {
+              "description": "Asked and not answered yet",
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer",
+            },
+            "sent": {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer",
+            },
+            "yes": {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer",
+            },
+          },
+          "required": [
+            "sent",
+            "yes",
+            "no",
+            "pending",
+          ],
+          "type": "object",
+        },
+        "results": {
+          "description": "Cheapest first",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "distanceM": {
+                "description": "Straight-line distance from the search point, metres",
+                "type": "number",
+              },
+              "freshness": {
+                "description": "How recently the shop confirmed it has the item, in words",
+                "type": "string",
+              },
+              "lat": {
+                "type": "number",
+              },
+              "lng": {
+                "type": "number",
+              },
+              "name": {
+                "type": "string",
+              },
+              "pricePaise": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": -9007199254740991,
+                    "type": "integer",
+                  },
+                  {
+                    "type": "null",
+                  },
+                ],
+                "description": "Price in paise (100 paise = ₹1), null if unknown",
+              },
+              "savingsPaise": {
+                "description": "Below the target price by this much",
+                "type": "number",
+              },
+              "shopId": {
+                "type": "string",
+              },
+              "source": {
+                "enum": [
+                  "live",
+                  "learned",
+                ],
+                "type": "string",
+              },
+            },
+            "required": [
+              "shopId",
+              "name",
+              "distanceM",
+              "lat",
+              "lng",
+              "pricePaise",
+              "freshness",
+              "source",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+        "state": {
+          "enum": [
+            "OPEN",
+            "PINGING",
+            "ANSWERED",
+            "EXPIRED",
+            "CLOSED",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "state",
+        "pingStats",
+        "results",
+        "expiresAt",
+      ],
+      "type": "object",
+    },
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": false,
+      "title": "Stop asking shops",
+    },
+    "description": "SIDE EFFECT: close a request so no more shops are pinged and late answers stop arriving. Call it when you have enough answers or the user is done; it is safe to call twice. Closing does not delete the answers you already have: read them with get_request_status first if you still need them.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "requestId": {
+          "description": "The requestId returned by ask_shops",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+          "type": "string",
+        },
+      },
+      "required": [
+        "requestId",
+      ],
+      "type": "object",
+    },
+    "name": "close_request",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "OPEN",
+            "PINGING",
+            "ANSWERED",
+            "EXPIRED",
+            "CLOSED",
+          ],
+          "type": "string",
+        },
+      },
+      "required": [
+        "state",
+      ],
+      "type": "object",
+    },
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true,
+      "readOnlyHint": true,
+      "title": "Shortest order to visit shops",
+    },
+    "description": "Given where the user is and 1 to 8 shops to visit (take lat and lng from find_item_nearby or get_request_status results), return the order that gives the shortest total walk, the distance of each leg and the total, all in metres (straight-line distances). The route starts at \`start\` and does not return. Use it when the user wants to visit several shops, for example the 3 cheapest.",
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "start": {
+          "description": "Where the user is now",
+          "properties": {
+            "lat": {
+              "description": "Latitude in degrees, for example 22.7196",
+              "maximum": 90,
+              "minimum": -90,
+              "type": "number",
+            },
+            "lng": {
+              "description": "Longitude in degrees, for example 75.8577",
+              "maximum": 180,
+              "minimum": -180,
+              "type": "number",
+            },
+          },
+          "required": [
+            "lat",
+            "lng",
+          ],
+          "type": "object",
+        },
+        "stops": {
+          "items": {
+            "properties": {
+              "label": {
+                "description": "A name to show, usually the shop name",
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string",
+              },
+              "lat": {
+                "description": "Latitude in degrees, for example 22.7196",
+                "maximum": 90,
+                "minimum": -90,
+                "type": "number",
+              },
+              "lng": {
+                "description": "Longitude in degrees, for example 75.8577",
+                "maximum": 180,
+                "minimum": -180,
+                "type": "number",
+              },
+              "shopId": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "shopId",
+              "lat",
+              "lng",
+              "label",
+            ],
+            "type": "object",
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array",
+        },
+      },
+      "required": [
+        "start",
+        "stops",
+      ],
+      "type": "object",
+    },
+    "name": "plan_route",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "legsM": {
+          "description": "Distance of each leg, in order, from start to the first stop and on",
+          "items": {
+            "type": "number",
+          },
+          "type": "array",
+        },
+        "orderedStops": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "description": "A name to show, usually the shop name",
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string",
+              },
+              "lat": {
+                "description": "Latitude in degrees, for example 22.7196",
+                "maximum": 90,
+                "minimum": -90,
+                "type": "number",
+              },
+              "lng": {
+                "description": "Longitude in degrees, for example 75.8577",
+                "maximum": 180,
+                "minimum": -180,
+                "type": "number",
+              },
+              "shopId": {
+                "type": "string",
+              },
+            },
+            "required": [
+              "shopId",
+              "lat",
+              "lng",
+              "label",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+        "totalM": {
+          "type": "number",
+        },
+      },
+      "required": [
+        "orderedStops",
+        "legsM",
+        "totalM",
+      ],
+      "type": "object",
+    },
+  },
+]
+`;

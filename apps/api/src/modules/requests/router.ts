@@ -5,14 +5,19 @@ import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import { answerPing, listShopPings } from './pings.js';
 import { closeRequest, createRequest, getRequestStatus, type RequestsContext } from './service.js';
 
-const createBody = z.object({
-  q: z.string().trim().min(1).max(200),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  radiusM: z.number().int().min(1).max(5000).optional(),
-  targetPricePaise: z.number().int().min(1).max(10_000_000).optional(),
-  itemId: z.uuid().optional(),
-});
+const createBody = z
+  .object({
+    q: z.string().trim().min(1).max(200).optional(),
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    radiusM: z.number().int().min(1).max(5000).optional(),
+    targetPricePaise: z.number().int().min(1).max(10_000_000).optional(),
+    itemId: z.uuid().optional(),
+  })
+  .refine((v) => v.q !== undefined || v.itemId !== undefined, {
+    message: 'q: give the text to look for, or an itemId',
+    path: ['q'],
+  });
 
 const viewQuery = z.object({ sort: z.enum(['distance', 'price']).optional() });
 
@@ -39,6 +44,7 @@ export function requestsRouter(deps: RequestsContext): Router {
     const key = header === undefined ? undefined : parse(idempotencyKey, header);
     const { created, request } = await createRequest(ctxFor(req.log), authOf(req).user.id, {
       ...body,
+      q: body.q ?? '',
       requestId: String(req.id),
       ...(key && { idempotencyKey: key }),
     });

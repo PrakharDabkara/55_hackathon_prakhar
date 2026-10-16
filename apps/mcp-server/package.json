@@ -7,5 +7,12 @@
     "@kahanmilega/shared": "*",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.7"
+  },
+  "bin": {
+    "kahanmilega-mcp": "dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js"
   }
 }
