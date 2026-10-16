@@ -3,13 +3,13 @@ import { describe, expect, it } from 'vitest';
 import seed from '../apps/api/src/modules/catalog/catalog.seed.json' with { type: 'json' };
 import { scoreCase, summarise, type Case } from '../apps/api/src/evalScore.js';
 
-const lines = readFileSync(new URL('./resolve.jsonl', import.meta.url), 'utf8')
+const lines = readFileSync(new URL('./resolve.dev.jsonl', import.meta.url), 'utf8')
   .split('\n')
   .filter((l) => l.trim() !== '');
 const cases: Case[] = lines.map((l) => JSON.parse(l) as Case);
 const slugs = new Set(seed.items.map((i) => i.slug));
 
-describe('evals/resolve.jsonl', () => {
+describe('evals/resolve.dev.jsonl', () => {
   it('has about 80 labelled queries, each one line of JSON', () => {
     expect(cases.length).toBeGreaterThanOrEqual(75);
     expect(cases.length).toBeLessThanOrEqual(100);

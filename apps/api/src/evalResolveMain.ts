@@ -20,7 +20,7 @@ const pauseMs = Number(process.env['EVAL_PAUSE_MS'] ?? 0);
 
 // EVAL_KINDS=variant,ambiguous runs only those kinds (handy while tuning the prompt).
 const only = process.env['EVAL_KINDS']?.split(',');
-const cases: Case[] = readFileSync(path.join(root, 'evals/resolve.jsonl'), 'utf8')
+const cases: Case[] = readFileSync(path.join(root, 'evals/resolve.dev.jsonl'), 'utf8')
   .split('\n')
   .filter((line) => line.trim() !== '')
   .map((line) => JSON.parse(line) as Case)
