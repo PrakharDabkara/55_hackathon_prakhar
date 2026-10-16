@@ -17,7 +17,8 @@ const load = (file: string): Case[] =>
     .filter((l) => l.trim() !== '')
     .map((l) => JSON.parse(l) as Case);
 const cases = load('./resolve.dev.jsonl');
-const holdout = load('./resolve.holdout.jsonl');
+const holdoutV1 = load('./resolve.holdout.jsonl');
+const holdout = load('./resolve.holdout.v2.jsonl');
 const slugs = new Set(seed.items.map((i) => i.slug));
 
 describe('evals/resolve.dev.jsonl', () => {
@@ -138,7 +139,7 @@ describe('summarise', () => {
   });
 });
 
-describe('evals/resolve.holdout.jsonl', () => {
+describe('evals/resolve.holdout.v2.jsonl (the gate)', () => {
   it('has about 60 queries, each labelled with a catalog slug, "ambiguous" or null', () => {
     expect(holdout.length).toBeGreaterThanOrEqual(55);
     expect(holdout.length).toBeLessThanOrEqual(70);
@@ -147,9 +148,9 @@ describe('evals/resolve.holdout.jsonl', () => {
     }
   });
 
-  it('shares no query with the dev set, so tuning on dev cannot leak into it', () => {
-    const dev = new Set(cases.map((c) => c.q.toLowerCase()));
-    expect(holdout.filter((c) => dev.has(c.q.toLowerCase()))).toEqual([]);
+  it('shares no query with the dev set or the retired v1, so nothing we looked at leaks into it', () => {
+    const seen = new Set([...cases, ...holdoutV1].map((c) => c.q.toLowerCase()));
+    expect(holdout.filter((c) => seen.has(c.q.toLowerCase()))).toEqual([]);
     const own = holdout.map((c) => c.q.toLowerCase());
     expect(new Set(own).size).toBe(own.length);
   });
@@ -252,4 +253,17 @@ describe('renderMarkdown', () => {
   function good(): Row[] {
     return [row('typo', true), row('injection', true)];
   }
+});
+
+describe('renderMarkdown with a retired and a current holdout', () => {
+  it('gates on holdout-v2 and labels the verdict with it', () => {
+    const ok = summarise([row('typo', true), row('injection', true)], []);
+    const bad = summarise([row('typo', true), row('injection', false)], []);
+    const md = renderMarkdown([
+      { set: 'holdout', summary: bad },
+      { set: 'holdout-v2', summary: ok },
+    ]);
+    expect(md).toContain('| holdout-v2 |');
+    expect(md).toMatch(/Gate \(holdout-v2\): passed/);
+  });
 });

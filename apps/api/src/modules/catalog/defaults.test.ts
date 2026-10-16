@@ -55,3 +55,10 @@ describe('catalogVersionOf', () => {
     expect(catalogVersionOf(a)).toMatch(/^[0-9a-f]{16}$/);
   });
 });
+
+describe('light bulb', () => {
+  it('is a synonym of the led bulb, so it never reaches fuzzy matching', () => {
+    const bulb = loadSeedCatalog().items.find((i) => i.slug === 'led-bulb');
+    expect(bulb?.synonyms).toEqual(expect.arrayContaining(['light bulb', 'bulb light']));
+  });
+});
