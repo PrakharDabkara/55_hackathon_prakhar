@@ -212,7 +212,19 @@ function print(
 let exitCode = 0;
 try {
   await seedCatalog(pool, loadSeedCatalog());
-  const { embedded } = await embedCatalog(pool, embedder, { batchSize: 20, pauseMs: 15_000 });
+  // Embedding is resumable (batches already stored stay stored), so a free-tier limit that outlasts
+  // the client's own retries just means: wait a minute and carry on.
+  let embedded = 0;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      embedded += (await embedCatalog(pool, embedder, { batchSize: 20, pauseMs: 20_000 })).embedded;
+      break;
+    } catch (error) {
+      if (attempt >= 5) throw error;
+      console.warn(`embedding paused (${(error as Error).message}); retrying in 65 s`);
+      await new Promise((res) => setTimeout(res, 65_000));
+    }
+  }
   if (embedded > 0) console.log(`embedded ${embedded} catalog items`);
 
   const results = [];
