@@ -35,6 +35,8 @@ interface Options {
   enqueueFanout?: (requestId: string) => Promise<void>;
   /** Tells the seeker and the shops when a request expires. */
   events?: EventPublisher;
+  /** More work for the same 60 s sweep (the errand sweeper); returns how many it touched. */
+  extraSweeps?: (() => Promise<number>)[];
 }
 
 /**
@@ -50,6 +52,7 @@ export function startRequestExpiry({
   queueName = EXPIRY_QUEUE,
   enqueueFanout,
   events,
+  extraSweeps = [],
 }: Options): RequestExpiry {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
@@ -71,7 +74,15 @@ export function startRequestExpiry({
       }
       if (requeued > 0) logger.info({ requeued }, 'sweeper re-queued lost ping fan-out jobs');
     }
-    return ids.length + requeued;
+    let extra = 0;
+    for (const sweep of extraSweeps) {
+      try {
+        extra += await sweep();
+      } catch (error) {
+        logger.warn({ reason: (error as Error).message }, 'an extra sweep failed');
+      }
+    }
+    return ids.length + requeued + extra;
   };
 
   const worker = new Worker(

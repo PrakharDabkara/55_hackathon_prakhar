@@ -31,6 +31,13 @@ const config: Config = {
   errandUserHourlyLimit: 5,
   errandTaskMaxChars: 500,
   errandAiTimeoutMs: 30_000,
+  errandMaxAskShops: 6,
+  errandMaxQuestions: 2,
+  errandResumeAfterMs: 45_000,
+  errandMaxWaitMs: 300_000,
+  errandAnswerTimeoutMs: 600_000,
+  errandExpiryMs: 900_000,
+  errandResumeDebounceMs: 1000,
   geminiFallbackModel: null,
   gitSha: 'abc1234',
 };

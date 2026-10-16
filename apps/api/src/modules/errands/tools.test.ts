@@ -115,13 +115,14 @@ describe('submit_plan input', () => {
     expect(submitPlanInput.safeParse({ items: [item], notes: 'Hinglish note' }).success).toBe(true);
   });
 
-  it('allows at most 10 items, at least 1, and only the two statuses', () => {
+  it('allows at most 10 items, at least 1, and only the three statuses', () => {
     expect(submitPlanInput.safeParse({ items: Array(10).fill(item) }).success).toBe(true);
     expect(submitPlanInput.safeParse({ items: Array(11).fill(item) }).success).toBe(false);
     expect(submitPlanInput.safeParse({ items: [] }).success).toBe(false);
     expect(submitPlanInput.safeParse({ items: [{ ...item, status: 'confirmed' }] }).success).toBe(
-      false,
+      true,
     );
+    expect(submitPlanInput.safeParse({ items: [{ ...item, status: 'sure' }] }).success).toBe(false);
   });
 
   it('does not insist ids are UUIDs: a made-up id must reach the server check, not break the plan', () => {

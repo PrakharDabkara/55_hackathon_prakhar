@@ -176,6 +176,16 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         [id],
       )
     ).rows;
+  const own = (key: string) => {
+    const owner = owners[key];
+    if (!owner) throw new Error(`no owner ${key}`);
+    return owner;
+  };
+  const callAt = (index: number) => {
+    const found = chatCalls().at(index);
+    if (!found) throw new Error(`no model call at ${index}`);
+    return found;
+  };
   const chatCalls = () =>
     provider.calls.filter((c) => c.kind === 'chat') as Extract<
       FakeProvider['calls'][number],
@@ -241,7 +251,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       const { id } = await newErrand();
       provider.playChat([
         ...askBothTurns(),
-        { toolCalls: [confirmedPlan(owners['mishra']!.shopId, owners['gupta']!.shopId)] },
+        { toolCalls: [confirmedPlan(own('mishra').shopId, own('gupta').shopId)] },
       ]);
 
       const first = await runErrand(deps(), id);
@@ -253,9 +263,9 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       expect(requests.map((r) => r.state)).toEqual(['PINGING', 'PINGING']);
       expect((await row(id)).wait_deadline).not.toBeNull();
 
-      await shopSaysYes(id, 'floor-cleaner', owners['mishra']!, 4200);
+      await shopSaysYes(id, 'floor-cleaner', own('mishra'), 4200);
       expect((await row(id)).state).toBe('WAITING_FOR_SHOPS'); // the broom request is still out
-      await shopSaysYes(id, 'broom', owners['gupta']!, 9000);
+      await shopSaysYes(id, 'broom', own('gupta'), 9000);
       await waitFor(
         async () => (await row(id)).state,
         (s) => s === 'PLANNING',
@@ -264,9 +274,9 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
 
       const second = await runErrand(deps(), id);
       expect(second.outcome).toBe('plan_ready');
-      const resumed = chatCalls()[2];
+      const resumed = callAt(2);
       // The agent sees fresh request status for both of its requests.
-      const text = wholeConversation(resumed!);
+      const text = wholeConversation(resumed);
       expect(text).toContain('P13 Mishra Kirana');
       expect(text).toContain('P13 Gupta Store');
       expect(text).toContain('4200');
@@ -309,7 +319,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       const third = await runErrand(deps(), id);
       expect(third.outcome).toBe('plan_ready');
       // Nobody answered: the agent is told so.
-      expect(wholeConversation(chatCalls()[2]!)).toMatch(/"pending"/);
+      expect(wholeConversation(callAt(2))).toMatch(/pending/);
       expect((await row(id)).state).toBe('PLAN_READY');
     });
 
@@ -320,23 +330,27 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         limits: { ...limits, resumeDebounceMs: 150 },
         enqueue,
       });
-      const { id } = await newErrand('phenyl');
+      const { id } = await newErrand('phenyl, jhaadu, agarbatti');
       provider.playChat([
-        { toolCalls: [call('ask_shops', { itemId: ids['floor-cleaner'] })] },
+        {
+          toolCalls: [
+            call('ask_shops', { itemId: ids['floor-cleaner'] }),
+            call('ask_shops', { itemId: ids['broom'] }),
+            call('ask_shops', { itemId: ids['agarbatti'] }),
+          ],
+        },
         { toolCalls: [submit([{ text: 'phenyl', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
-      // Five shops say yes in a burst; every answer publishes request.updated.
-      const shops = [
-        owners['mishra']!,
-        owners['gupta']!,
-        owners['sharma']!,
-        await shopWithOwner('P13 Extra One', 0.4, '+919822300204'),
-        await shopWithOwner('P13 Extra Two', 0.6, '+919822300205'),
-      ];
-      await Promise.all(shops.map((s, i) => shopSaysYes(id, 'floor-cleaner', s, 4000 + i)));
+      // Three shops say yes at the same moment, one per request: three request.updated events.
+      // (The first yes to a request answers it and closes its other pings, so a burst is across requests.)
+      await Promise.all([
+        shopSaysYes(id, 'floor-cleaner', own('mishra'), 4000),
+        shopSaysYes(id, 'broom', own('gupta'), 5000),
+        shopSaysYes(id, 'agarbatti', own('sharma'), 6000),
+      ]);
       expect(published.filter((e) => e.type === 'request.updated').length).toBeGreaterThanOrEqual(
-        5,
+        3,
       );
       await sleep(600);
       expect(enqueued.filter((e) => e.id === id && e.delayMs === undefined)).toHaveLength(1);
@@ -354,7 +368,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await sleep(70);
       const res = await runErrand(deps(), id);
       expect(res.outcome).toBe('plan_ready');
-      const resumed = chatCalls()[2]!;
+      const resumed = callAt(2);
       expect(resumed.forceTool).toBe('submit_plan');
       expect(lastUserText(resumed)).toMatch(/waiting time is over|submit/i);
       expect((await row(id)).waited_ms).toBeGreaterThanOrEqual(40);
@@ -434,13 +448,13 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       ]);
       await runErrand(deps(), id);
       const [link] = await linked(id);
-      const req = (await pool.query(`SELECT * FROM requests WHERE id = $1`, [link!.request_id]))
+      const req = (await pool.query(`SELECT * FROM requests WHERE id = $1`, [link?.request_id]))
         .rows[0];
       expect(req.user_id).toBe(seekerId);
       expect(req.item_id).toBe(ids['floor-cleaner']);
       expect(req.target_price_paise).toBe(4500);
       const asked = (await steps(id)).find((s) => s.tool_name === 'ask_shops');
-      expect(asked.result_summary).toMatchObject({ requestId: link!.request_id });
+      expect(asked.result_summary).toMatchObject({ requestId: link?.request_id });
     });
 
     it('ask_shops is capped per errand (ERRAND_MAX_ASK_SHOPS); asking again about the same item is free', async () => {
@@ -478,8 +492,11 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       provider.playChat([
         { toolCalls: [call('ask_shops', { itemId: ids['floor-cleaner'] })] },
         (req) => {
-          linkedId = (req.messages.at(-1) as { results: { result: { requestId: string } }[] })
-            .results[0]!.result.requestId;
+          // The id comes from the ask_shops result earlier in the conversation.
+          const asked = req.messages.find(
+            (m) => m.role === 'tool' && m.results[0]?.name === 'ask_shops',
+          ) as { results: { result: { requestId: string } }[] };
+          linkedId = asked.results[0]?.result.requestId ?? '';
           return {
             toolCalls: [
               call('get_request_status', { requestId: foreign }),
@@ -498,15 +515,15 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await runErrand(deps(), id);
       // call 3 saw both results
       const results = (
-        chatCalls()[2]!
+        callAt(2)
           .messages.filter((m) => m.role === 'tool')
           .at(-1) as {
           results: { result: Record<string, unknown> }[];
         }
       ).results;
-      expect(results[0]!.result['error']).toMatch(/not part of this errand|unknown request/i);
-      expect(results[1]!.result).toMatchObject({ state: 'PINGING', pingStats: { pending: 0 } });
-      const text = JSON.stringify(results[1]!.result);
+      expect(results[0]?.result['error']).toMatch(/not part of this errand|unknown request/i);
+      expect(results[1]?.result).toMatchObject({ state: 'PINGING', pingStats: { pending: 0 } });
+      const text = JSON.stringify(results[1]?.result);
       expect(text).not.toMatch(/"lat"|"lng"|phone|owner/i);
     });
 
@@ -539,7 +556,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       expect(enqueued.filter((e) => e.id === id).length).toBeGreaterThanOrEqual(1);
       expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
 
-      const resumed = chatCalls()[1]!;
+      const resumed = callAt(1);
       const conv = wholeConversation(resumed);
       expect(conv).toContain('Floor cleaner');
       expect(lastUserText(resumed)).toMatch(/customer answered/i);
@@ -548,7 +565,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         results: { name: string; result: { error?: string } }[];
       };
       expect(toolMsg.results.map((x) => x.name)).toEqual(['ask_user', 'find_item_nearby']);
-      expect(toolMsg.results[1]!.result.error).toMatch(/not run/i);
+      expect(toolMsg.results[1]?.result.error).toMatch(/not run/i);
     });
 
     it('a typed answer works too, is treated as data, and an instruction-like answer is refused', async () => {
@@ -566,7 +583,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       expect((await row(id)).state).toBe('NEEDS_INPUT');
       await answerErrand(ctx(), seekerId, id, { text: 'lizol wala' });
       await runErrand(deps(), id);
-      expect(lastUserText(chatCalls()[1]!)).toMatch(/<<<ANSWER[\s\S]*lizol wala[\s\S]*ANSWER>>>/);
+      expect(lastUserText(callAt(1))).toMatch(/<<<ANSWER[\s\S]*lizol wala[\s\S]*ANSWER>>>/);
     });
 
     it('answering is for the owner, only while a question is open, and needs exactly one of text or optionIndex', async () => {
@@ -610,8 +627,8 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await runErrand(deps(), id);
       await answerErrand(ctx(), seekerId, id, { text: 'floor cleaner' });
       expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
-      expect(lastUserText(chatCalls()[2]!)).toBeDefined();
-      expect(wholeConversation(chatCalls()[2]!)).toMatch(/no more questions/i);
+      expect(lastUserText(callAt(2))).toBeDefined();
+      expect(wholeConversation(callAt(2))).toMatch(/no more questions/i);
       expect((await row(id)).questions_asked).toBe(1);
     });
 
@@ -635,9 +652,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         [id],
       );
       expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
-      expect(lastUserText(chatCalls()[1]!)).toContain(
-        'user did not answer — skip that item and note it',
-      );
+      expect(lastUserText(callAt(1))).toContain('user did not answer — skip that item and note it');
       expect((await row(id)).plan.notes).toMatch(/chhod diya/);
     });
   });
@@ -667,19 +682,19 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       );
       await runErrand(deps(), id);
 
-      const before = chatCalls()[1]!.messages; // what the model saw when it asked shops
-      const after = chatCalls()[2]!.messages; // what it sees after the resume
+      const before = callAt(1).messages; // what the model saw when it asked shops
+      const after = callAt(2).messages; // what it sees after the resume
       // The first messages are exactly the ones it had before, then its own turn, then the results.
       expect(after.slice(0, before.length)).toEqual(before);
       const modelTurns = after.filter((m) => m.role === 'model') as {
         toolCalls: { id: string; name: string; signature?: string }[];
       }[];
       expect(modelTurns).toHaveLength(2);
-      expect(modelTurns[0]!.toolCalls.map((c) => c.signature)).toEqual([
+      expect(modelTurns[0]?.toolCalls.map((c) => c.signature)).toEqual([
         'sig-find-1',
         'sig-find-2',
       ]);
-      expect(modelTurns[1]!.toolCalls.map((c) => [c.name, c.signature])).toEqual([
+      expect(modelTurns[1]?.toolCalls.map((c) => [c.name, c.signature])).toEqual([
         ['ask_shops', 'sig-ask-1'],
         ['ask_shops', 'sig-ask-2'],
       ]);
@@ -688,8 +703,8 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         results: { id: string; name: string }[];
       }[];
       expect(toolMsgs).toHaveLength(2);
-      expect(toolMsgs[1]!.results.map((r) => r.id)).toEqual(
-        modelTurns[1]!.toolCalls.map((c) => c.id),
+      expect(toolMsgs[1]?.results.map((r) => r.id)).toEqual(
+        modelTurns[1]?.toolCalls.map((c) => c.id),
       );
       // The resume note comes last, after the tool results.
       expect(after.at(-1)?.role).toBe('user');
@@ -723,11 +738,11 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       );
       provider.playChat([{ toolCalls: [submit([{ text: 'phenyl', status: 'not_found' }])] }]);
       expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
-      const msgs = chatCalls()[0]!.messages;
+      const msgs = callAt(0).messages;
       expect(msgs[1]).toMatchObject({ role: 'model' });
       const results = (msgs[2] as { results: { id: string; result: { error: string } }[] }).results;
       expect(results[0]).toMatchObject({ id: 'c1' });
-      expect(results[0]!.result.error).toMatch(/interrupted/i);
+      expect(results[0]?.result.error).toMatch(/interrupted/i);
       // The side effect is not repeated blindly.
       expect(await linked(id)).toHaveLength(0);
     });
@@ -894,7 +909,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       const { id } = await newErrand('phenyl');
       provider.playChat([{ toolCalls: [call('ask_shops', { itemId: ids['floor-cleaner'] })] }]);
       await runErrand(deps(), id);
-      await shopSaysYes(id, 'floor-cleaner', owners['mishra']!); // no waker is listening
+      await shopSaysYes(id, 'floor-cleaner', own('mishra')); // no waker is listening
       await sweepErrands(ctx());
       expect((await row(id)).state).toBe('PLANNING');
     });
@@ -929,12 +944,12 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
             text: 'phenyl',
             itemId: ids['floor-cleaner'],
             status: 'confirmed',
-            shopId: o['mishra']!.shopId,
+            shopId: o['mishra']?.shopId,
             pricePaise: 1,
           },
         ],
         async (errandId) => {
-          await shopSaysYes(errandId, 'floor-cleaner', owners['mishra']!, 4200);
+          await shopSaysYes(errandId, 'floor-cleaner', own('mishra'), 4200);
         },
       );
       expect((await plan(id))[0]).toMatchObject({
@@ -953,32 +968,32 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
             text: 'phenyl',
             itemId: ids['floor-cleaner'],
             status: 'confirmed',
-            shopId: o['mishra']!.shopId,
+            shopId: o['mishra']?.shopId,
           },
         ],
         async (errandId) => {
-          const { pingId } = await shopSaysYes(errandId, 'floor-cleaner', owners['mishra']!);
+          const { pingId } = await shopSaysYes(errandId, 'floor-cleaner', own('mishra'));
           await pool.query(
             `UPDATE pings SET answered_at = now() - interval '2 minutes 10 seconds' WHERE id = $1`,
             [pingId],
           );
         },
       );
-      expect((await plan(id))[0]!['freshness']).toBe('Confirmed 2 min ago');
+      expect((await plan(id))[0]?.['freshness']).toBe('Confirmed 2 min ago');
     });
 
     it('a shop that only has learned stock is likely, even if the model said confirmed', async () => {
       await pool.query(
         `INSERT INTO shop_stock (shop_id, item_id, source, price_paise, last_confirmed_at, expires_at)
          VALUES ($1, $2, 'ping_yes', 3900, now() - interval '3 hours', now() + interval '7 days')`,
-        [owners['gupta']!.shopId, ids['floor-cleaner']],
+        [own('gupta').shopId, ids['floor-cleaner']],
       );
       const id = await runWith((o) => [
         {
           text: 'phenyl',
           itemId: ids['floor-cleaner'],
           status: 'confirmed',
-          shopId: o['gupta']!.shopId,
+          shopId: o['gupta']?.shopId,
         },
       ]);
       expect((await plan(id))[0]).toMatchObject({
@@ -995,22 +1010,18 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
             text: 'phenyl',
             itemId: ids['floor-cleaner'],
             status: 'confirmed',
-            shopId: o['sharma']!.shopId,
+            shopId: o['sharma']?.shopId,
           },
         ],
         async () => {
           const foreign = await request_(seekerId, 'floor-cleaner', 'other-key');
-          const pingId = await ping(
-            foreign,
-            owners['sharma']!.shopId,
-            ids['floor-cleaner'] as string,
-          );
-          await answerPing({ db: pool, logger }, owners['sharma']!.ownerId, pingId, {
+          const pingId = await ping(foreign, own('sharma').shopId, ids['floor-cleaner'] as string);
+          await answerPing({ db: pool, logger }, own('sharma').ownerId, pingId, {
             answer: 'yes',
             pricePaise: 100,
           });
           // That yes also taught learned stock; remove it so only the confirmation question is left.
-          await pool.query(`DELETE FROM shop_stock WHERE shop_id = $1`, [owners['sharma']!.shopId]);
+          await pool.query(`DELETE FROM shop_stock WHERE shop_id = $1`, [own('sharma').shopId]);
         },
       );
       expect((await plan(id))[0]).toMatchObject({ status: 'not_found', shopId: null });
@@ -1023,17 +1034,17 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
             text: 'phenyl',
             itemId: ids['floor-cleaner'],
             status: 'confirmed',
-            shopId: o['mishra']!.shopId,
+            shopId: o['mishra']?.shopId,
           },
         ],
         async (errandId) => {
-          const req = (await linked(errandId))[0]!;
+          const req = (await linked(errandId))[0] as { request_id: string };
           const pingId = await ping(
             req.request_id,
-            owners['mishra']!.shopId,
+            own('mishra').shopId,
             ids['floor-cleaner'] as string,
           );
-          await answerPing({ db: pool, logger, events }, owners['mishra']!.ownerId, pingId, {
+          await answerPing({ db: pool, logger, events }, own('mishra').ownerId, pingId, {
             answer: 'no',
           });
         },
@@ -1048,18 +1059,18 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
             text: 'phenyl',
             itemId: ids['floor-cleaner'],
             status: 'confirmed',
-            shopId: o['mishra']!.shopId,
+            shopId: o['mishra']?.shopId,
             quantity: 2,
           },
         ],
         async (errandId) => {
-          await shopSaysYes(errandId, 'floor-cleaner', owners['mishra']!, 4200);
+          await shopSaysYes(errandId, 'floor-cleaner', own('mishra'), 4200);
         },
       );
       const p = (await row(id)).plan;
       expect(p.totalPricePaise).toBe(8400);
       expect(p.route.orderedStops).toHaveLength(1);
-      expect(p.route.orderedStops[0].shopId).toBe(owners['mishra']!.shopId);
+      expect(p.route.orderedStops[0].shopId).toBe(own('mishra').shopId);
     });
   });
 
@@ -1069,10 +1080,10 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       provider.playChat(askBothTurns());
       await runErrand(deps(), id);
       const [a, b] = await linked(id);
-      for (const s of [owners['gupta']!, owners['sharma']!])
-        await ping(a!.request_id, s.shopId, a!.item_id);
-      await ping(b!.request_id, owners['mishra']!.shopId, b!.item_id);
-      await shopSaysYes(id, 'floor-cleaner', owners['mishra']!, 4200); // the third ping of request a
+      for (const s of [own('gupta'), own('sharma')])
+        await ping(a?.request_id as string, s.shopId, a?.item_id as string);
+      await ping(b?.request_id as string, own('mishra').shopId, b?.item_id as string);
+      await shopSaysYes(id, 'floor-cleaner', own('mishra'), 4200); // the third ping of request a
       const view = await getErrand(ctx(), seekerId, id);
       expect(view?.state).toBe('WAITING_FOR_SHOPS');
       expect(view?.progress).toContain('3 dukaanon se pooch raha hoon: floor cleaner');
@@ -1133,8 +1144,8 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         { toolCalls: [submit([{ text: 'x', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
-      await shopSaysYes(id, 'floor-cleaner', owners['mishra']!, 4200);
-      await shopSaysYes(id, 'broom', owners['gupta']!, 5000);
+      await shopSaysYes(id, 'floor-cleaner', own('mishra'), 4200);
+      await shopSaysYes(id, 'broom', own('gupta'), 5000);
       await pool.query(
         `UPDATE errands SET wait_deadline = now() - interval '1 second' WHERE id = $1`,
         [id],
@@ -1317,7 +1328,7 @@ describe('errand sweeper with a real Redis (a lost job)', () => {
     ]);
     provider.playChat([{ toolCalls: [submit([{ text: 'namak', status: 'not_found' }])] }]);
 
-    await sweepErrands({ db: pool, logger, limits, enqueue: worker.enqueue });
+    await sweepErrands({ db: pool, logger, enqueue: worker.enqueue });
     const state = await waitFor(
       async () => (await pool.query(`SELECT state FROM errands WHERE id = $1`, [id])).rows[0].state,
       (s) => s === 'PLAN_READY',
@@ -1354,7 +1365,7 @@ describe('errand sweeper with a real Redis (a lost job)', () => {
       'WAITING_FOR_SHOPS',
     );
     await sleep(80);
-    await sweepErrands({ db: pool, logger, limits, enqueue: worker.enqueue });
+    await sweepErrands({ db: pool, logger, enqueue: worker.enqueue });
     const state = await waitFor(
       async () => (await pool.query(`SELECT state FROM errands WHERE id = $1`, [id])).rows[0].state,
       (s) => s === 'PLAN_READY',
@@ -1461,9 +1472,10 @@ describe('errand answer, cancel and stats over HTTP', () => {
     const ok = await request(app).get('/admin/errands/stats').set(auth(admin.token));
     expect(ok.status).toBe(200);
     expect(ok.body).toMatchObject({ total: expect.any(Number), byState: expect.any(Object) });
+    // Like the other admin routes: 404 for everyone else, so the route is not even visible.
     expect((await request(app).get('/admin/errands/stats').set(auth(seeker.token))).status).toBe(
-      403,
+      404,
     );
-    expect((await request(app).get('/admin/errands/stats')).status).toBe(401);
+    expect((await request(app).get('/admin/errands/stats')).status).toBe(404);
   });
 });

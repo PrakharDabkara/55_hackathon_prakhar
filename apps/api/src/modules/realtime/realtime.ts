@@ -22,6 +22,11 @@ export interface Realtime {
   /** False when there is no Redis: events go nowhere and tickets cannot be issued. */
   enabled: boolean;
   events: EventPublisher;
+  /**
+   * Calls `listener` for every event this process publishes, whether or not Redis is there. For
+   * in-process reactions such as waking an errand whose request was answered (ADR-0024).
+   */
+  onPublish(listener: (event: RealtimeEvent) => void): void;
   ticketTtlSeconds: number;
   issueTicket(user: { id: string; role: Role }): Promise<string>;
   /** Single use: the second call with the same ticket returns null. */
@@ -46,12 +51,36 @@ interface Options {
  * channel; every instance, through its own dedicated subscriber connection, delivers to the streams
  * it holds. Without a Redis URL everything is switched off and callers fall back to polling.
  */
-export function createRealtime({
+export function createRealtime(options: Options): Realtime {
+  const core = createRealtimeCore(options);
+  const listeners: ((event: RealtimeEvent) => void)[] = [];
+  return {
+    ...core,
+    events: {
+      publish(event, log) {
+        core.events.publish(event, log);
+        for (const listener of listeners) {
+          try {
+            listener(event);
+          } catch (err) {
+            (log ?? options.logger).warn(
+              { type: event.type, reason: (err as Error).message },
+              'an event listener failed',
+            );
+          }
+        }
+      },
+    },
+    onPublish: (listener) => void listeners.push(listener),
+  };
+}
+
+function createRealtimeCore({
   redisUrl,
   logger,
   heartbeatMs = HEARTBEAT_MS,
   ticketTtlSeconds = TICKET_TTL_SECONDS,
-}: Options): Realtime {
+}: Options): Omit<Realtime, 'onPublish'> {
   const hub = createHub();
   const base = { ticketTtlSeconds, connectionCount: hub.size, drain: hub.closeAll };
 

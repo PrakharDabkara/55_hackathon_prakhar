@@ -29,7 +29,11 @@ export type FakeCall =
 
 /** What a scripted model does in one turn: call tools, or answer in text. An Error is thrown. */
 export type FakeChatTurn =
-  | { toolCalls?: { name: string; args: Record<string, unknown>; signature?: string }[]; text?: string; usage?: Usage }
+  | {
+      toolCalls?: { name: string; args: Record<string, unknown>; signature?: string }[];
+      text?: string;
+      usage?: Usage;
+    }
   | Error;
 export type FakeChatScript =
   FakeChatTurn | ((request: ChatWithToolsOptions) => FakeChatTurn | Promise<FakeChatTurn>);

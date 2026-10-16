@@ -120,7 +120,7 @@ try {
           : `tool   ${s.toolName} ${JSON.stringify(s.args)} -> ${JSON.stringify(s.resultSummary)}`;
       console.log(`${String(s.n).padStart(2)}. ${what}  [${s.tokens} tok, ${s.latencyMs} ms]`);
     }
-    const view = await getErrand({ db: pool }, userId, id);
+    const view = await getErrand({ db: pool, logger }, userId, id);
     console.log(`outcome: ${result.outcome}, state: ${view?.state}, ${seconds}s`);
     console.log(
       `tokens: in ${view?.usage.tokensIn}, out ${view?.usage.tokensOut}, total ${(view?.usage.tokensIn ?? 0) + (view?.usage.tokensOut ?? 0)} over ${view?.usage.steps} steps`,

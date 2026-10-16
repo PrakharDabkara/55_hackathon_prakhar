@@ -7,8 +7,11 @@ export const ERRAND_QUEUE = 'errand';
 export interface ErrandWorker {
   queue: Queue;
   worker: Worker;
-  /** Queue the agent for an errand. Job id `errand-<id>`, so queueing twice is one job. */
-  enqueue(errandId: string): Promise<void>;
+  /**
+   * Queue the agent for an errand. Job id `errand-<id>` (plus `-<key>`), so queueing the same
+   * thing twice is one job; `delayMs` makes it a timer.
+   */
+  enqueue(errandId: string, options?: { delayMs?: number; key?: string }): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -52,13 +55,16 @@ export function startErrandWorker({
   return {
     queue,
     worker,
-    async enqueue(errandId) {
+    async enqueue(errandId, options = {}) {
       await withTimeout(
         queue.add(
           'run',
           { errandId },
           {
-            jobId: `errand-${errandId}`,
+            jobId: options.key ? `errand-${errandId}-${options.key}` : `errand-${errandId}`,
+            ...(options.delayMs !== undefined && {
+              delay: Math.max(0, Math.round(options.delayMs)),
+            }),
             attempts: 1,
             removeOnComplete: { age: 3600 },
             removeOnFail: { age: 24 * 3600 },
