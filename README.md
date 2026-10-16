@@ -64,3 +64,45 @@ npm run simulate -- --target https://kahanmilega-api.onrender.com --admin-phone 
 ```
 
 Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).
+
+## Use KahanMilega from Claude
+
+An MCP server lets an AI assistant look for an item near you, ask shops, and plan a route, using your own customer login. It talks to the public API only (ADR-0023). Six tools: `resolve_item`, `find_item_nearby`, `ask_shops` (pings real shops), `get_request_status`, `close_request`, `plan_route`.
+
+1. Build it and log in (the live site by default; Node 24 and `npm install` first):
+
+```sh
+npm run mcp:build
+npm run mcp:login -- --phone 9876543210   # any customer number; prints only "logged in"
+```
+
+The login is saved in `apps/mcp-server/.kahanmilega-login.json` (git-ignored, readable only by you). Use a customer number, not a shop's. To point at another server, set `KAHANMILEGA_API_URL` (for example `http://localhost:3000`) for both commands and for the server.
+
+2. Connect it. **Claude Code**, from the repository folder:
+
+```sh
+claude mcp add kahanmilega -- node "$(pwd)/apps/mcp-server/dist/main.js"
+```
+
+**Claude Desktop**: add this to `claude_desktop_config.json` (use your real path) and restart the app:
+
+```json
+{
+  "mcpServers": {
+    "kahanmilega": {
+      "command": "node",
+      "args": ["/absolute/path/to/kahanmilega/apps/mcp-server/dist/main.js"]
+    }
+  }
+}
+```
+
+3. Try it. With the simulator running (see above) so shops answer, ask:
+
+- "Find milk near the demo location (22.7196, 75.8577) under ₹60."
+- "Ask shops for chini near 22.7196, 75.8577 and tell me the cheapest."
+- "Plan a route to the 3 cheapest shops from there."
+
+`ask_shops` pings real shops, so your assistant should ask before using it; it should use `find_item_nearby` first.
+
+To look at the tools without an assistant, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector): `npx @modelcontextprotocol/inspector node apps/mcp-server/dist/main.js`. Tests: `npm run test:integration` includes a contract test that starts the API on a throwaway database and calls every tool through the SDK.

@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./tools": {
+      "types": "./dist/tools/index.d.ts",
+      "default": "./dist/tools/index.js"
     }
   },
   "files": [
@@ -16,5 +20,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }

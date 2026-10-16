@@ -11,13 +11,18 @@ import { findLearnedStock } from '../shops/index.js';
 const DEFAULT_RADIUS_M = 2000;
 const MAX_RADIUS_M = 5000;
 
-const query = z.object({
-  q: z.string().trim().min(1).max(200),
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-  radius_m: z.coerce.number().int().min(1).max(MAX_RADIUS_M).default(DEFAULT_RADIUS_M),
-  itemId: z.uuid().optional(),
-});
+const query = z
+  .object({
+    q: z.string().trim().min(1).max(200).optional(),
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+    radius_m: z.coerce.number().int().min(1).max(MAX_RADIUS_M).default(DEFAULT_RADIUS_M),
+    itemId: z.uuid().optional(),
+  })
+  .refine((v) => v.q !== undefined || v.itemId !== undefined, {
+    message: 'q: give the text to look for, or an itemId',
+    path: ['q'],
+  });
 
 interface SearchDeps {
   db: Queryable;
@@ -31,7 +36,7 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
 
   router.get('/search', createRequireAuth(db), async (req, res) => {
     const { q, lat, lng, radius_m, itemId } = parse(query, req.query);
-    const resolution = await resolveForCustomer(db, q, {
+    const resolution = await resolveForCustomer(db, q ?? '', {
       userId: authOf(req).user.id,
       threshold: trigramThreshold,
       itemId,

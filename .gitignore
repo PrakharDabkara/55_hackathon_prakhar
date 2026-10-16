@@ -23,3 +23,6 @@ evals/reports/*
 
 # Saved catalog embeddings for the eval runner (restored by the CI cache)
 evals/.cache/
+
+# MCP server: the saved customer login (a session token)
+apps/mcp-server/.kahanmilega-login.json

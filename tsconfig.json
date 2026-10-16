@@ -3,7 +3,10 @@
   "compilerOptions": {
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "paths": { "@kahanmilega/shared": ["./packages/shared/src/index.ts"] }
+    "paths": {
+      "@kahanmilega/shared": ["./packages/shared/src/index.ts"],
+      "@kahanmilega/shared/tools": ["./packages/shared/src/tools/index.ts"]
+    }
   },
   "include": [
     "apps/**/*.ts",

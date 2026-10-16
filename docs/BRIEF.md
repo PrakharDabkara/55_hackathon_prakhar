@@ -129,8 +129,8 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold | Labeled Hinglish query set; category accuracy gate in CI |
 | Reply parsing | "haan hai, 450 ka" → yes, ₹450 | Buttons (no AI) → pattern rules → LLM fallback | Labeled reply set; accuracy gate in CI |
 | Demand digest | Week of request counts → a 3-line summary for the shop | One batched call per shop per week | Every number in the summary must match the counts exactly |
-| Errand agent | Task → shopping plan | Claude Haiku 5.5 tool-use loop (Sonnet 5.5 only if agent evals fail); our own loop on the Messages API, no agent framework; tools `search_nearby`, `get_learned_stock`, `create_request`, `get_request_status`, `plan_route`; guardrails (starting defaults): max 10 items, 15 shops pinged, 12 LLM steps, a per-errand token budget, 15-minute limit | Eval set of 20 errands |
-| MCP server | Any AI assistant → tools `search_nearby`, `get_learned_stock`, `create_request`, `get_request_status`, `plan_route` | No LLM inside; plain tools | Contract tests per tool |
+| Errand agent | Task → shopping plan | Claude Haiku 5.5 tool-use loop (Sonnet 5.5 only if agent evals fail); our own loop on the Messages API, no agent framework; the same six tools as the MCP server (ADR-0023); guardrails (starting defaults): max 10 items, 15 shops pinged, 12 LLM steps, a per-errand token budget, 15-minute limit | Eval set of 20 errands |
+| MCP server | Any AI assistant → tools `resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route` (one registry shared with the agent, ADR-0023) | No LLM inside; plain tools | Contract tests per tool |
 
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.
 - **Token metrics:** tokens per search, LLM fallback rate, cache hit rate, cost per 1,000 searches, tracked per release.
@@ -253,7 +253,7 @@ Phases end at gates; nothing moves on until the gate passes. Scope is frozen as 
 - [x] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate: end-to-end demo with simulated shops (a Playwright test in CI: search, pins appear, a shop says haan)
 - [x] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
 - [x] Day 10 (Oct 21) · Evals as a CI gate (reply parsing moved to Later, since shops answer with buttons)
-- [ ] Day 11 (Oct 22) · MCP server: the 5 tools with contract tests
+- [x] Day 11 (Oct 22) · MCP server: the 6 tools (one shared registry, ADR-0023) with contract tests
 - [ ] Day 12 (Oct 23) · Errand agent v1: task → items, tool-use loop, guardrails; tested with a fake LLM
 - [ ] Day 13 (Oct 24) · Durable agent: errand state in Postgres, resume on replies/timeouts, ask-the-user step, plan and route on the map
 - [ ] Day 14 (Oct 25) · Agent evals: 20 errands; success, tool correctness, tokens per errand; gate in CI. Gate
