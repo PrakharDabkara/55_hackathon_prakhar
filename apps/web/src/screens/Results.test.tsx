@@ -31,7 +31,7 @@ afterEach(() => {
 const answered = seekerRequest({
   state: 'ANSWERED',
   targetPricePaise: 6000,
-  pingStats: { sent: 10, yes: 7, no: 0, pending: 3 },
+  pingStats: { sent: 10, yes: 4, no: 6, pending: 0 },
   results: [
     result({
       shopId: 'a',
@@ -133,7 +133,9 @@ describe('Results', () => {
       <Results api={fakeSeekerApi()} initial={answered} origin={origin} onDone={vi.fn()} />,
     );
     expect(
-      screen.getByText('10 dukaanon se poocha · 7 ne haan kaha · 3 ka jawab baaki'),
+      screen.getByText(
+        '10 dukaanon se poocha · 4 ne haan kaha · 6 ne mana kiya · 0 ka jawab baaki',
+      ),
     ).toBeTruthy();
   });
 
@@ -163,7 +165,7 @@ describe('Results', () => {
     );
     expect(screen.getByText(/Abhi kisi ne haan nahi kaha/)).toBeTruthy();
     expect(
-      screen.getByText('4 dukaanon se poocha · 0 ne haan kaha · 3 ka jawab baaki'),
+      screen.getByText('4 dukaanon se poocha · 0 ne haan kaha · 1 ne mana kiya · 3 ka jawab baaki'),
     ).toBeTruthy();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
@@ -211,7 +213,9 @@ describe('Results', () => {
       expect(await screen.findByText('New Pin Store')).toBeTruthy();
       expect(pinsOnMap()).toHaveLength(1);
       expect(
-        screen.getByText('3 dukaanon se poocha · 1 ne haan kaha · 2 ka jawab baaki'),
+        screen.getByText(
+          '3 dukaanon se poocha · 1 ne haan kaha · 0 ne mana kiya · 2 ka jawab baaki',
+        ),
       ).toBeTruthy();
       expect(getRequest).toHaveBeenCalledWith('req-1');
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PIN_COLOURS, pinSvg } from './pins.js';
+import { PIN_COLOURS, pinSvg, pinsKey } from './pins.js';
 
 describe('pinSvg', () => {
   it('is inline SVG: no image files, no style attribute (the CSP forbids inline style)', () => {
@@ -30,5 +30,31 @@ describe('pinSvg', () => {
     };
     expect(hue(PIN_COLOURS.live)).toBe('green');
     expect(hue(PIN_COLOURS.learned)).toBe('blue');
+  });
+});
+
+describe('pinsKey (the map refits when this changes)', () => {
+  const pin = (
+    id: string,
+    over: Partial<{ kind: 'live' | 'learned'; lat: number; lng: number }> = {},
+  ) => ({
+    id,
+    kind: 'live' as const,
+    lat: 22.7,
+    lng: 75.8,
+    ...over,
+  });
+
+  it('ignores the order of the pins', () => {
+    expect(pinsKey([pin('a'), pin('b')])).toBe(pinsKey([pin('b'), pin('a')]));
+  });
+
+  it('changes when a shop is added, so a newly answered shop is brought into view', () => {
+    expect(pinsKey([pin('a')])).not.toBe(pinsKey([pin('a'), pin('b')]));
+  });
+
+  it('changes when a pin turns from learned stock into a live answer, or moves', () => {
+    expect(pinsKey([pin('a', { kind: 'learned' })])).not.toBe(pinsKey([pin('a')]));
+    expect(pinsKey([pin('a')])).not.toBe(pinsKey([pin('a', { lat: 22.71 })]));
   });
 });
