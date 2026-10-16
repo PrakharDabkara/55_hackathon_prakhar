@@ -1,22 +1,28 @@
+import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import {
   AiUnavailableError,
   buildResolvePrompt,
+  looksLikeInstruction,
   resolveAnswerSchema,
   validateAnswer,
   type AiContext,
   type Candidate,
 } from '../ai/index.js';
-import { normaliseQuery, type Quantity } from './normalise.js';
+import { isTypoOf } from './editDistance.js';
+import { firstLine, normaliseQuery, type Quantity } from './normalise.js';
 import {
+  defaultItem,
   hasEmbeddings,
   itemsByIds,
   nearestItems,
   readCache,
   suggestSynonym,
+  wordSupport,
   writeCache,
   type ItemRow,
 } from './resolveSteps.js';
+import { CATALOG_VERSION } from './seed.js';
 
 export interface CatalogItem {
   id: string;
@@ -29,12 +35,17 @@ export interface CatalogItem {
 /** Several words: a rival item this close to the best match makes the match a coin toss. */
 const AMBIGUITY_MARGIN = 0.1;
 
+/** The matched term must be at least this fraction as long as the query (or the query as long as the term). */
+const MIN_COVERAGE = 0.6;
+const coverage = (term: string, text: string): number =>
+  Math.min(term.length, text.length) / Math.max(term.length, text.length, 1);
+
 /** How many candidates the trigram and embedding steps each offer, and the most the LLM is shown. */
 const CANDIDATES_PER_STEP = 5;
 const MAX_SHORTLIST = 10;
 const LLM_MAX_OUTPUT_TOKENS = 300;
 
-export type MatchedBy = 'cache' | 'synonym' | 'trigram' | 'embedding' | 'llm';
+export type MatchedBy = 'cache' | 'synonym' | 'trigram' | 'default' | 'embedding' | 'llm';
 
 export interface AmbiguousChoice {
   question: string;
@@ -60,6 +71,8 @@ export interface ResolveOptions {
   ai?: AiContext;
   /** Joins the AI audit rows to the HTTP request that caused them. */
   requestId?: string;
+  /** Where a skipped AI step is logged (event llm_skipped_suspicious). */
+  logger?: Logger;
 }
 
 const toItem = (r: ItemRow): CatalogItem => ({
@@ -108,9 +121,11 @@ export async function resolveItem(
   raw: string,
   opts: ResolveOptions,
 ): Promise<Resolution> {
-  const { text, quantity } = normaliseQuery(raw);
+  // Only the first line is the query (see firstLine); the raw text is kept in the log row.
+  const query = firstLine(raw);
+  const { text, quantity } = normaliseQuery(query);
   const found = text
-    ? await findItem(db, text, opts)
+    ? await findItem(db, text, opts, query)
     : { item: null, matchedBy: null, similarity: 0 };
 
   await db.query(
@@ -121,11 +136,16 @@ export async function resolveItem(
   return { normalised: text, ...(quantity && { quantity }), ...found };
 }
 
-async function findItem(db: Queryable, text: string, opts: ResolveOptions): Promise<Found> {
+async function findItem(
+  db: Queryable,
+  text: string,
+  opts: ResolveOptions,
+  query: string,
+): Promise<Found> {
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
 
   // a) A query we have answered before.
-  const hit = await readCache(db, text);
+  const hit = await readCache(db, text, CATALOG_VERSION);
   if (hit) {
     if (hit.itemId) {
       const item = (await itemsByIds(db, [hit.itemId]))[0];
@@ -170,16 +190,38 @@ async function findItem(db: Queryable, text: string, opts: ResolveOptions): Prom
   // - One word ("tape", "nail"): any second item at or above the threshold is too close, and a
   //   word that only resembles part of a longer phrase ("band" vs "rubber band") is no typo.
   // - Several words ("switch board"): a second item scoring within 0.1 of the best is too close.
+  // - Mostly non-words ("xyzzy plugh"): every word of 3+ letters must resemble something in the
+  //   catalog, and the matched term must be about as long as the query, else letter overlap alone
+  //   would pick an item ("plugh" and "plug top").
   const [best, second] = fuzzy.rows.filter((r) => (r.sim ?? 0) >= opts.threshold);
+  const support = await wordSupport(db, text);
+  const allWordsReal = support.similar === support.considered;
+  const covered = best ? coverage(best.term ?? '', text) >= MIN_COVERAGE : false;
   const oneWord = !text.includes(' ');
   const trigramUnsure = oneWord
     ? Boolean(second) || (best?.term ?? '').includes(' ')
     : Boolean(best && second && (second.sim ?? 0) >= (best.sim ?? 0) - AMBIGUITY_MARGIN);
-  if (best && !trigramUnsure)
+  // - One word: it must be a typo of the term (a few keystrokes), not just share letters with it
+  //   ("guitar" and "glitter").
+  const typo = !oneWord || isTypoOf(text, best?.term ?? '');
+  if (best && !trigramUnsure && allWordsReal && covered && typo)
     return { item: toItem(best), matchedBy: 'trigram', similarity: best.sim ?? 0 };
+
+  // c2) A generic word the catalog file names a usual item for ("pen"): data, not a model's guess.
+  const usual = await defaultItem(db, text);
+  if (usual) return { item: toItem(usual), matchedBy: 'default', similarity: 1 };
 
   const ai = opts.ai;
   if (!ai) return none;
+
+  // Text that reads like an order to a model gets the free steps only (ADR-0021).
+  if (looksLikeInstruction(query.toLowerCase())) {
+    opts.logger?.warn(
+      { event: 'llm_skipped_suspicious', requestId: opts.requestId, chars: query.length },
+      'query reads like an instruction; AI steps skipped',
+    );
+    return none;
+  }
 
   // d) Embeddings: the closest items by meaning. Skipped if the catalog has none yet.
   let nearest: ItemRow[] = [];
@@ -192,12 +234,21 @@ async function findItem(db: Queryable, text: string, opts: ResolveOptions): Prom
     }
   }
   const [top, runnerUp] = nearest;
+  // More than half of the words must resemble the catalog; "kuch bhi" style gibberish never resolves.
+  const mostlyWords = support.considered === 0 || support.similar * 2 > support.considered;
   if (
     top &&
+    mostlyWords &&
     (top.sim ?? 0) >= ai.embedThreshold &&
     (!runnerUp || (top.sim ?? 0) - (runnerUp.sim ?? 0) >= ai.embedMargin)
   ) {
-    await writeCache(db, text, 'embedding', { itemId: top.id, question: null, optionIds: null });
+    await writeCache(
+      db,
+      text,
+      'embedding',
+      { itemId: top.id, question: null, optionIds: null },
+      CATALOG_VERSION,
+    );
     return { item: toItem(top), matchedBy: 'embedding', similarity: top.sim ?? 0 };
   }
 
@@ -245,19 +296,33 @@ async function askLlm(
   }
   if (verdict.kind === 'item') {
     const row = shortlist.find((r) => r.id === verdict.itemId) as ItemRow;
-    await writeCache(db, text, 'llm', { itemId: row.id, question: null, optionIds: null });
+    await writeCache(
+      db,
+      text,
+      'llm',
+      { itemId: row.id, question: null, optionIds: null },
+      CATALOG_VERSION,
+    );
     await suggestSynonym(db, text, row.id);
     return { item: toItem(row), matchedBy: 'llm', similarity: 0 };
   }
   if (verdict.kind === 'none') {
-    await writeCache(db, text, 'llm', { itemId: null, question: null, optionIds: null });
+    await writeCache(
+      db,
+      text,
+      'llm',
+      { itemId: null, question: null, optionIds: null },
+      CATALOG_VERSION,
+    );
     return none;
   }
-  await writeCache(db, text, 'llm', {
-    itemId: null,
-    question: verdict.question,
-    optionIds: verdict.optionIds,
-  });
+  await writeCache(
+    db,
+    text,
+    'llm',
+    { itemId: null, question: verdict.question, optionIds: verdict.optionIds },
+    CATALOG_VERSION,
+  );
   return {
     item: null,
     matchedBy: 'llm',

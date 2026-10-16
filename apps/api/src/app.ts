@@ -7,6 +7,7 @@ import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
+import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
@@ -69,9 +70,10 @@ export function createApp({
   if (config.adminPhones.length > 0) {
     app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
     app.use(aiAdminRouter({ db, adminPhones: config.adminPhones }));
+    app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(shopsRouter({ db }));
-  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai }));
+  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
   app.use(
     requestsRouter({
       db,

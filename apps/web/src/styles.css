@@ -134,6 +134,23 @@ summary {
   font-size: 1rem;
 }
 
+.screen-links {
+  margin-top: 24px;
+}
+
+/* A link styled as a button must lay out as a box, or its padding overlaps what is above it. */
+a.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
+.screen-links a.btn {
+  width: 100%;
+}
+
 .stack > .btn-quiet,
 .details .btn-quiet {
   width: 100%;

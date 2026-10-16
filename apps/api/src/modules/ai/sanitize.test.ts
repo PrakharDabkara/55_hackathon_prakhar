@@ -60,6 +60,12 @@ describe('buildResolvePrompt', () => {
     expect(system).toMatch(/genuinely different/i);
   });
 
+  it('says a made-up word makes the whole text a non-product, unlike a typo', () => {
+    expect(system).toMatch(/random letters/i);
+    expect(system).toMatch(/typo/i);
+    expect(system).toMatch(/even if another word/i);
+  });
+
   it('wraps the query in clear delimiters and lists only ids, names and categories', () => {
     expect(user).toMatch(/<<<QUERY\npen\nQUERY>>>/);
     for (const c of candidates) {

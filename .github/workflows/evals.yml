@@ -1,0 +1,83 @@
+name: Evals
+
+# The resolution evals call the real Gemini model and spend free-tier quota, so they run only when
+# asked for (ADR-0022): on a pull request that carries the `evals` label (when it is added, and on
+# every push while it stays), by hand, and on every push to main (which also seeds the main-branch
+# embedding cache that pull requests restore from).
+on:
+  pull_request:
+    types: [labeled, synchronize]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run at a time across the repo: the free Gemini quota is shared by every run.
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: evals
+    # `labeled` fires for any label: only the `evals` label starts a run.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'evals') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'evals'))
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # A gate that skips itself when its key is missing is no gate. Fail loudly instead.
+      - name: Require the Gemini key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error title=GEMINI_API_KEY missing::Add a GEMINI_API_KEY secret to the 'evals' environment (Settings, Environments, evals). The eval gate cannot run without it and will not be skipped."
+            exit 1
+          fi
+      # Embedding the 224 catalog items is the biggest user of the free embedding quota, and the
+      # vectors only change when the catalog file does, so they are kept between runs.
+      - name: Restore saved catalog embeddings
+        id: embeddings
+        uses: actions/cache/restore@v4
+        with:
+          path: evals/.cache
+          key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+          restore-keys: embeddings-
+      # Seeds and embeds the catalog into a throwaway Postgres (Testcontainers, never Neon), runs the
+      # dev set and the holdout set, writes the table to the job summary, and fails the job if the
+      # holdout gates fail (accuracy, injections, nonsense, LLM fallback). 429s are retried with
+      # backoff, and queries that call the model are paced (EVAL_AI_PAUSE_MS) to stay under the
+      # free-tier limits.
+      - name: Run the resolve evals
+        env:
+          EVAL_DB: testcontainers
+          EVAL_SET: all
+          EVAL_GATE: '1'
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: postgres://unused@localhost/unused # not used with EVAL_DB=testcontainers
+        run: npm run eval:resolve
+      - name: Save catalog embeddings
+        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: evals/.cache
+          key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: evals/reports
+          if-no-files-found: ignore

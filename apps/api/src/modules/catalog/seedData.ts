@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { CATEGORIES } from '@kahanmilega/shared';
 import { z } from 'zod';
 import { normaliseQuery } from './normalise.js';
@@ -9,7 +10,9 @@ const item = z.object({
   nameHi: z.string().min(1),
   /** Typical shelf price of the usual pack, in integer paise. AI-estimated; see the file note. */
   refPricePaise: z.number().int().min(100).max(5_000_000),
-  synonyms: z.array(z.string().min(1)).min(3).max(6),
+  synonyms: z.array(z.string().min(1)).min(3).max(8),
+  /** Generic words that mean this item as the usual choice of a family ("pen" → ball pen). */
+  defaultFor: z.array(z.string().min(1)).max(4).optional(),
 });
 
 const catalogSchema = z.object({
@@ -21,6 +24,10 @@ const catalogSchema = z.object({
 export type SeedCatalog = z.infer<typeof catalogSchema>;
 export type SeedItem = z.infer<typeof item>;
 
+/** A short fingerprint of the catalog file. A change to the file changes it, which retires cached answers. */
+export const catalogVersionOf = (data: unknown): string =>
+  createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 16);
+
 export const parseCatalog = (data: unknown): SeedCatalog => catalogSchema.parse(data);
 
 /** Every lookup term of an item: its two names and its synonyms, normalised, without repeats. */
@@ -28,6 +35,11 @@ export function termsFor(i: SeedItem): string[] {
   const terms = [i.nameEn, i.nameHi, ...i.synonyms].map((t) => normaliseQuery(t).text);
   return [...new Set(terms.filter(Boolean))];
 }
+
+/** The generic words an item is the default for, normalised. */
+export const defaultsFor = (i: SeedItem): string[] => [
+  ...new Set((i.defaultFor ?? []).map((t) => normaliseQuery(t).text).filter(Boolean)),
+];
 
 /** Throws on a duplicate slug, a term that is empty or a quantity, or a term two items share. */
 export function checkCatalog(catalog: SeedCatalog): void {
@@ -46,6 +58,15 @@ export function checkCatalog(catalog: SeedCatalog): void {
         throw new Error(`term "${term}" belongs to both ${other} and ${i.slug}`);
       }
       owner.set(term, i.slug);
+    }
+  }
+  const defaultOwner = new Map<string, string>();
+  for (const i of catalog.items) {
+    for (const term of defaultsFor(i)) {
+      if (owner.has(term)) throw new Error(`default "${term}" of ${i.slug} is already a synonym`);
+      const other = defaultOwner.get(term);
+      if (other) throw new Error(`default "${term}" is claimed by both ${other} and ${i.slug}`);
+      defaultOwner.set(term, i.slug);
     }
   }
 }

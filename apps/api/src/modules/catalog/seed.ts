@@ -1,6 +1,16 @@
 import { withTransaction, type Database } from '../../db/queryable.js';
 import seedJson from './catalog.seed.json' with { type: 'json' };
-import { checkCatalog, parseCatalog, termsFor, type SeedCatalog } from './seedData.js';
+import {
+  catalogVersionOf,
+  checkCatalog,
+  defaultsFor,
+  parseCatalog,
+  termsFor,
+  type SeedCatalog,
+} from './seedData.js';
+
+/** Identifies this catalog file. Cached AI answers carry it, so a changed catalog retires them. */
+export const CATALOG_VERSION = catalogVersionOf(seedJson);
 
 /** The catalog file that ships with the API. */
 export const loadSeedCatalog = (): SeedCatalog => parseCatalog(seedJson);
@@ -50,6 +60,25 @@ export async function seedCatalog(
     await tx.query(
       `DELETE FROM item_synonyms WHERE item_id = ANY($1::uuid[]) AND term <> ALL($2::text[])`,
       [[...idBySlug.values()], terms],
+    );
+
+    const defaultTerms: string[] = [];
+    const defaultItems: string[] = [];
+    for (const item of catalog.items) {
+      for (const term of defaultsFor(item)) {
+        defaultTerms.push(term);
+        defaultItems.push(idBySlug.get(item.slug) as string);
+      }
+    }
+    await tx.query(
+      `INSERT INTO item_defaults (term, item_id)
+       SELECT * FROM unnest($1::text[], $2::uuid[])
+       ON CONFLICT (term) DO UPDATE SET item_id = EXCLUDED.item_id`,
+      [defaultTerms, defaultItems],
+    );
+    await tx.query(
+      `DELETE FROM item_defaults WHERE item_id = ANY($1::uuid[]) AND term <> ALL($2::text[])`,
+      [[...idBySlug.values()], defaultTerms],
     );
     return { items: catalog.items.length, terms: terms.length };
   });

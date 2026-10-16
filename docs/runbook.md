@@ -1,4 +1,4 @@
-# Runbook (v4)
+# Runbook (v5)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -157,11 +157,33 @@ Commands (they read the key from your `.env` or the environment; none prints it)
 ```sh
 npm run ai:models             # lists the models your key can use; pick names from here
 LLM_PROVIDER=gemini npm run ai:embed-catalog   # embeds items whose text changed (about 2 minutes the first time)
-LLM_PROVIDER=gemini npm run eval:resolve       # 81 labelled queries through the whole pipeline
+LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queries through the whole pipeline, see docs/evals.md
 ```
 
-`EVAL_PAUSE_MS=1200` spaces the eval calls to stay inside free-tier limits; `EVAL_KINDS=variant,ambiguous` runs only some kinds. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database.
+`EVAL_SET=dev|holdout-v2|holdout|all`, `EVAL_KINDS=variant,ambiguous`, `EVAL_AI_PAUSE_MS` (default 5000) and `EVAL_DB=testcontainers` are described in `docs/evals.md`. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database, or with `EVAL_DB=testcontainers`.
 
 **Watching it.** `GET /admin/ai/stats` (admin token): answers by step, LLM fallback and cache-hit rates, average tokens per LLM call, p95 latency, errors, invalid outputs and breaker skips, for 24 hours and 7 days. The breaker opens after 5 failed calls in a row and AI is skipped for 60 seconds; searches keep working from the dictionary. A 429 in the logs (`AI call failed`, `status: 429`) means a free-tier rate limit.
 
-**After a big catalog change:** run `npm run seed:catalog`, then `npm run ai:embed-catalog`, and clear stale answers with `TRUNCATE query_cache`. Review `suggested_synonyms` (`SELECT term, i.slug FROM suggested_synonyms s JOIN items i ON i.id = s.item_id`) and add good pairs to `catalog.seed.json` by hand.
+**Cached answers.** They expire (30 days; 1 day for "nothing fits") and carry the catalog version, so a changed `catalog.seed.json` retires all of them by itself. To forget one wrong answer: `curl -X DELETE -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE/admin/ai/cache?q=xyzzy%20plugh"`.
+
+**After a big catalog change:** run `npm run seed:catalog`, then `npm run ai:embed-catalog`. Review `suggested_synonyms` (`SELECT term, i.slug FROM suggested_synonyms s JOIN items i ON i.id = s.item_id`) and add good pairs to `catalog.seed.json` by hand.
+
+## GitHub: the `evals` environment
+
+The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". It runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow) and on every push to `main`.
+
+## npm install scripts
+
+npm 11 asks which dependency install scripts may run. The decision, kept in `allowScripts` in the root `package.json` (so `npm ci` prints no warning):
+
+| Package            | Script                             | Decision | Why                                                                                       |
+| ------------------ | ---------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `@google/genai`    | `preinstall: echo`                 | denied   | A no-op.                                                                                  |
+| `cpu-features`     | `node-gyp rebuild`                 | denied   | Optional native speed-up for `ssh2`, which Testcontainers pulls in; pure JS is used.      |
+| `ssh2`             | `install.js`                       | denied   | Builds an optional native crypto module; falls back to JS. Only tests use it.             |
+| `msgpackr-extract` | `node-gyp-build-optional-packages` | denied   | Optional native speed-up for BullMQ's serialiser; the JS path is correct and fast enough. |
+| `protobufjs`       | `postinstall`                      | denied   | Only checks versions for its CLI, which we do not use.                                    |
+
+Nothing here is needed to build or run the app. Approve one (`npm install-scripts approve <package>`) only if a profile shows its native module matters.
+
+**Evals and the free quota.** Evals use their own Google project and key (the `evals` environment secret and your local `.env`), never the key in Render or the `production` environment, so a run can never use up the live site's quota. Limits per project: embeddings 100 requests/min and 1,000/day (each text counts as one), Flash Lite 15/min and 500/day. The runner stays inside them: catalog embedding at 60 texts/min (20 per batch, 20 s apart), at most one model call every 5 s (about 12/min), 429s retried with doubling waits. One full run is about 224 + 143 embedding requests and about 60 generation requests, so **the budget is one full eval run per day per project**. The catalog vectors are cached in CI (`evals/.cache`, keyed on the hash of `catalog.seed.json`), so after the first run on a given catalog only changed items cost embedding requests; the log line `loaded N saved embeddings` shows a cache hit.

@@ -116,3 +116,15 @@ export function normaliseQuery(raw: string): NormalisedQuery {
   const text = kept.join(' ');
   return quantity ? { text, quantity } : { text };
 }
+
+const MAX_QUERY_CHARS = 100;
+
+/**
+ * The app's search box is one line, so a query with line breaks is not from the app: keep the first
+ * non-empty line and drop the rest (text hidden after a blank line cannot reach any step). Also
+ * cuts very long input to 100 characters.
+ */
+export function firstLine(raw: string): string {
+  const line = raw.split(/\r?\n|\u2028|\u2029/).find((l) => l.trim() !== '') ?? '';
+  return [...line.trim()].slice(0, MAX_QUERY_CHARS).join('');
+}

@@ -22,4 +22,9 @@ describe('styles.css (the zero-training design rules)', () => {
   it('uses no inline-style-only tricks that a strict CSP would block, and loads no outside font', () => {
     expect(css).not.toMatch(/@import|url\(\s*['"]?https?:/);
   });
+
+  it('lays link-buttons out as blocks, so a link under a button cannot overlap it', () => {
+    expect(css).toMatch(/a\.btn\s*\{[^}]*display:\s*(?:inline-)?flex/);
+    expect(css).toMatch(/\.screen-links\s*\{[^}]*margin-top/);
+  });
 });

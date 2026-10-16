@@ -174,6 +174,7 @@ export async function createRequest(
     userId,
     threshold: ctx.config.trigramThreshold,
     itemId: input.itemId,
+    logger: ctx.logger,
     ...(ctx.ai && { ai: ctx.ai }),
     ...(input.requestId && { requestId: input.requestId }),
   });

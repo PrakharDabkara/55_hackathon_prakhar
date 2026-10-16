@@ -69,9 +69,11 @@ export function SeekerApp({ api, session }: Props) {
           />
         )}
         {screen.name !== 'results' && (
-          <a className="btn btn-quiet" href="/app/shop">
-            {t.forShopkeepers}
-          </a>
+          <div className="screen-links">
+            <a className="btn btn-quiet" href="/app/shop">
+              {t.forShopkeepers}
+            </a>
+          </div>
         )}
       </main>
     </div>

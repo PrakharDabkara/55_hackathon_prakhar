@@ -74,7 +74,7 @@ export interface Strings {
   sortCheap: string;
   sortNear: string;
   sortLabel: string;
-  statusLine: (sent: number, yes: number, pending: number) => string;
+  statusLine: (sent: number, yes: number, no: number, pending: number) => string;
   statusWaiting: string;
   statusFromMemory: string;
   saveBadge: (price: string) => string;
@@ -157,8 +157,8 @@ export const hi: Strings = {
   sortCheap: 'Sasta',
   sortNear: 'Paas',
   sortLabel: 'Kaise dikhayein',
-  statusLine: (sent, yes, pending) =>
-    `${sent} dukaanon se poocha · ${yes} ne haan kaha · ${pending} ka jawab baaki`,
+  statusLine: (sent, yes, no, pending) =>
+    `${sent} dukaanon se poocha · ${yes} ne haan kaha · ${no} ne mana kiya · ${pending} ka jawab baaki`,
   statusWaiting: 'Dukaanon ko bhej rahe hain…',
   statusFromMemory: 'Pehle ke jawabon se mila',
   saveBadge: (price) => `${price} bachenge`,
@@ -253,8 +253,8 @@ export const en: Strings = {
   sortCheap: 'Cheapest',
   sortNear: 'Nearest',
   sortLabel: 'Sort by',
-  statusLine: (sent, yes, pending) =>
-    `${sent} shops asked · ${yes} said yes · ${pending} yet to reply`,
+  statusLine: (sent, yes, no, pending) =>
+    `${sent} shops asked · ${yes} said yes · ${no} said no · ${pending} yet to reply`,
   statusWaiting: 'Asking the shops…',
   statusFromMemory: 'Found from earlier answers',
   saveBadge: (price) => `Save ${price}`,

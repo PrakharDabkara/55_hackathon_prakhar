@@ -252,7 +252,7 @@ Phases end at gates; nothing moves on until the gate passes. Scope is frozen as 
 - [x] Day 7 (Oct 18) · Fan-out: ping queue, de-duplication, shop ping card, each yes added to learned stock
 - [x] Day 8 (Oct 19) · Live map and simulator: seeker app with map over SSE; 500-shop simulator. Gate: end-to-end demo with simulated shops (a Playwright test in CI: search, pins appear, a shop says haan)
 - [x] Day 9 (Oct 20) · Query understanding: cache, synonyms, embeddings in pgvector, LLM fallback; tokens logged per call
-- [ ] Day 10 (Oct 21) · Reply parsing and eval runner; accuracy gates in CI
+- [x] Day 10 (Oct 21) · Evals as a CI gate (reply parsing moved to Later, since shops answer with buttons)
 - [ ] Day 11 (Oct 22) · MCP server: the 5 tools with contract tests
 - [ ] Day 12 (Oct 23) · Errand agent v1: task → items, tool-use loop, guardrails; tested with a fake LLM
 - [ ] Day 13 (Oct 24) · Durable agent: errand state in Postgres, resume on replies/timeouts, ask-the-user step, plan and route on the map
@@ -266,4 +266,4 @@ If a gate slips, cut in this order: shop delivery, freshness extras, load target
 
 ## Later (not in the hackathon build)
 
-Runner delivery (someone queues at DMart for you), payments and subscriptions, real WhatsApp, weekly demand digest, "anything else you stock?" prompts, reliability scores, search along a route home, hold-it-for-me, native mobile app.
+Runner delivery (someone queues at DMart for you), payments and subscriptions, real WhatsApp, weekly demand digest, reply parsing (free-text shop replies), "anything else you stock?" prompts, reliability scores, search along a route home, hold-it-for-me, native mobile app.
