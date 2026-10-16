@@ -35,7 +35,7 @@ describe('errand agent core (fake model, real database)', () => {
   let userId: string;
   let phone: string;
   let ids: Record<string, string> = {};
-  let shops: Record<string, string> = {};
+  const shops: Record<string, string> = {};
   let provider: FakeProvider;
   let ai: AiContext;
   const config = testConfig();
@@ -124,6 +124,22 @@ describe('errand agent core (fake model, real database)', () => {
   const stepRows = async (id: string) =>
     (await pool.query(`SELECT * FROM errand_steps WHERE errand_id = $1 ORDER BY n`, [id])).rows;
   const chatCalls = () => provider.calls.filter((c) => c.kind === 'chat');
+  type Result = {
+    error?: string;
+    item?: unknown;
+    clarification?: unknown;
+    unresolved?: boolean;
+    count?: number;
+    freshCount?: number;
+    shops?: unknown[];
+  };
+  /** What the model was told by the tools in the turn before this call. */
+  const toolResults = (call: unknown): { result: Result }[] => {
+    const messages = (call as { messages: { role: string; results?: { result: Result }[] }[] })
+      .messages;
+    return messages.filter((m) => m.role === 'tool').at(-1)?.results ?? [];
+  };
+  const toolResult = (call: unknown): Result => toolResults(call)[0]?.result as Result;
   const submit = (items: unknown[], notes?: string) =>
     call('submit_plan', { items, ...(notes && { notes }) });
 
@@ -425,7 +441,7 @@ describe('errand agent core (fake model, real database)', () => {
       ]);
       await runErrand(deps(), id);
       const second = chatCalls()[1];
-      const result = (second as { messages: any[] }).messages.at(-1).results[0].result;
+      const result = toolResult(second);
       expect(result).toMatchObject({ count: 0, freshCount: 0, shops: [] });
     });
 
@@ -436,7 +452,7 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'x', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
-      const result = (chatCalls()[1] as { messages: any[] }).messages.at(-1).results[0].result;
+      const result = toolResult(chatCalls()[1]);
       expect(result.error).toMatch(/resolve_item/);
     });
 
@@ -449,7 +465,7 @@ describe('errand agent core (fake model, real database)', () => {
       await runErrand(deps(), id);
       const names = (chatCalls()[0] as { toolNames: string[] }).toolNames;
       expect(names).toEqual(['resolve_item', 'find_item_nearby', 'plan_route', 'submit_plan']);
-      const result = (chatCalls()[1] as { messages: any[] }).messages.at(-1).results[0].result;
+      const result = toolResult(chatCalls()[1]);
       expect(result.error).toMatch(/unknown tool/i);
       expect((await pool.query('SELECT count(*)::int AS n FROM requests')).rows[0].n).toBe(0);
       expect((await pool.query('SELECT count(*)::int AS n FROM pings')).rows[0].n).toBe(0);
@@ -470,11 +486,10 @@ describe('errand agent core (fake model, real database)', () => {
       ]);
       await runErrand(deps(), id);
       expect((await errandRow(id)).state).toBe('PLAN_READY');
-      const msgs = (chatCalls()[1] as { messages: any[] }).messages.at(-1).results;
-      expect(msgs[0].result.error).toMatch(/invalid arguments/i);
-      expect(msgs[1].result.error).toMatch(/invalid arguments/i);
-      const submitResult = (chatCalls()[2] as { messages: any[] }).messages.at(-1).results[0]
-        .result;
+      const msgs = toolResults(chatCalls()[1]);
+      expect(msgs[0]?.result.error).toMatch(/invalid arguments/i);
+      expect(msgs[1]?.result.error).toMatch(/invalid arguments/i);
+      const submitResult = toolResult(chatCalls()[2]);
       expect(submitResult.error).toMatch(/invalid arguments/i);
     });
 
@@ -485,7 +500,7 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'clip', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
-      const result = (chatCalls()[1] as { messages: any[] }).messages.at(-1).results[0].result;
+      const result = toolResult(chatCalls()[1]);
       // Either the catalog resolves it or asks: both are normal results, never an error.
       expect(result.error).toBeUndefined();
       expect(
@@ -585,7 +600,7 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'x', status: 'not_found' }])] },
       ]);
       await runErrand(deps({ maxItems: 3 }), id);
-      const result = (chatCalls()[1] as { messages: any[] }).messages.at(-1).results[0].result;
+      const result = toolResult(chatCalls()[1]);
       expect(result.error).toMatch(/at most 3/);
     });
   });

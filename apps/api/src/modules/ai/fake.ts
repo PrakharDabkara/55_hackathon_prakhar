@@ -1,17 +1,37 @@
 import { createHash } from 'node:crypto';
 import {
   InvalidOutputError,
+  type ChatMessage,
+  type ChatWithToolsOptions,
+  type ChatWithToolsResult,
   type EmbedPurpose,
   type EmbedResult,
   type GenerateJsonOptions,
   type GenerateJsonResult,
   type LlmProvider,
   type Purpose,
+  type Usage,
 } from './types.js';
 
 export type FakeCall =
   | { kind: 'generate'; system: string; user: string; purpose: Purpose }
-  | { kind: 'embed'; texts: string[]; purpose: EmbedPurpose };
+  | { kind: 'embed'; texts: string[]; purpose: EmbedPurpose }
+  | {
+      kind: 'chat';
+      system: string;
+      /** A copy: the caller keeps appending to its own list. */
+      messages: ChatMessage[];
+      toolNames: string[];
+      purpose: Purpose;
+      forceTool?: string;
+    };
+
+/** What a scripted model does in one turn: call tools, or answer in text. An Error is thrown. */
+export type FakeChatTurn =
+  | { toolCalls?: { name: string; args: Record<string, unknown> }[]; text?: string; usage?: Usage }
+  | Error;
+export type FakeChatScript =
+  FakeChatTurn | ((request: ChatWithToolsOptions) => FakeChatTurn | Promise<FakeChatTurn>);
 
 export interface FakeProvider extends LlmProvider {
   /** Everything that was sent, in order, so a test can check what would have left the machine. */
@@ -24,6 +44,10 @@ export interface FakeProvider extends LlmProvider {
   onEmbed(
     handler: (texts: string[], purpose: EmbedPurpose) => number[][] | Promise<number[][]>,
   ): void;
+  /** Script the answer to every chatWithTools call (a handler may be async, return a turn or throw). */
+  onChat(handler: (request: ChatWithToolsOptions) => FakeChatTurn | Promise<FakeChatTurn>): void;
+  /** Script chatWithTools turns in order; a call after the last one fails. */
+  playChat(turns: FakeChatScript[]): void;
 }
 
 const words = (text: string) => text.split(/\s+/).filter(Boolean).length;
@@ -53,6 +77,10 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
   let embed: Parameters<FakeProvider['onEmbed']>[0] = (texts) =>
     texts.map((t) => hashVector(t, dim));
   const calls: FakeCall[] = [];
+  let chat: Parameters<FakeProvider['onChat']>[0] = () => {
+    throw new Error('no scripted turn: call playChat or onChat first');
+  };
+  let toolCallCounter = 0;
 
   return {
     name: 'fake',
@@ -61,6 +89,43 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
     calls,
     onGenerate: (handler) => void (generate = handler),
     onEmbed: (handler) => void (embed = handler),
+    onChat: (handler) => void (chat = handler),
+    playChat(turns) {
+      const queue = [...turns];
+      chat = async (request) => {
+        const next = queue.shift();
+        if (next === undefined) throw new Error('no scripted turn left');
+        return typeof next === 'function' ? next(request) : next;
+      };
+    },
+
+    async chatWithTools(options): Promise<ChatWithToolsResult> {
+      calls.push({
+        kind: 'chat',
+        system: options.system,
+        messages: structuredClone(options.messages),
+        toolNames: options.tools.map((t) => t.name),
+        purpose: options.purpose,
+        ...(options.forceTool && { forceTool: options.forceTool }),
+      });
+      const turn = await chat(options);
+      if (turn instanceof Error) throw turn;
+      const toolCalls = (turn.toolCalls ?? []).map((c) => ({
+        id: `fake-call-${++toolCallCounter}`,
+        name: c.name,
+        args: c.args,
+      }));
+      return {
+        toolCalls,
+        text: toolCalls.length > 0 ? null : (turn.text ?? ''),
+        usage: turn.usage ?? {
+          inputTokens: words(options.system) + words(JSON.stringify(options.messages)),
+          outputTokens: words(JSON.stringify(turn)),
+        },
+        model: 'fake-model',
+        latencyMs: 1,
+      };
+    },
 
     async generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>> {
       const { system, user, purpose } = options;

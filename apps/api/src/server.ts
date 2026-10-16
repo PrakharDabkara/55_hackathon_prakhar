@@ -16,9 +16,8 @@ const logger = pino({
 const pool = createPool(config.databaseUrl, logger);
 
 const realtime = createRealtime({ redisUrl: config.redisUrl, logger });
-const workers = startWorkers({ config, db: pool, logger, events: realtime.events });
-
 const ai = aiFromConfig({ config, db: pool, logger });
+const workers = startWorkers({ config, db: pool, logger, events: realtime.events, ai });
 const app = createApp({
   config,
   logger,
@@ -26,6 +25,7 @@ const app = createApp({
   realtime,
   ai,
   ...(workers && { requestHooks: workers.hooks }),
+  ...(workers?.errands && { errandHooks: { enqueue: workers.errands.enqueue } }),
 });
 const server = app.listen(config.port, '0.0.0.0', () => {
   logger.info({ port: config.port, sha: config.gitSha }, 'api listening');

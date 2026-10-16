@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { buildProgress, type StepView } from './progress.js';
 
 let n = 0;
-const tool = (toolName: string, args: object, resultSummary: object): StepView => ({
+const tool = (
+  toolName: string,
+  args: Record<string, unknown>,
+  resultSummary: Record<string, unknown>,
+): StepView => ({
   n: ++n,
   kind: 'tool',
   toolName,

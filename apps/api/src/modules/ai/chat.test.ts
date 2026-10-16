@@ -80,7 +80,16 @@ describe('gemini chatWithTools', () => {
     fn.mock.calls[0]?.[0] as {
       model: string;
       contents: { role: string; parts: Record<string, unknown>[] }[];
-      config: Record<string, any>;
+      config: {
+        tools: {
+          functionDeclarations: {
+            name: string;
+            description: string;
+            parametersJsonSchema: unknown;
+          }[];
+        }[];
+        [key: string]: unknown;
+      };
     };
 
   it('declares the functions from the zod schemas, at temperature 0 with a token cap', async () => {
@@ -93,15 +102,15 @@ describe('gemini chatWithTools', () => {
       temperature: 0,
       maxOutputTokens: 500,
     });
-    const decls = p.config['tools'][0].functionDeclarations;
+    const decls = p.config.tools[0]?.functionDeclarations ?? [];
     expect(decls.map((d: { name: string }) => d.name)).toEqual(['find_thing', 'submit']);
-    expect(decls[0].description).toBe('Find a thing near the user.');
-    expect(decls[0].parametersJsonSchema).toMatchObject({
+    expect(decls[0]?.description).toBe('Find a thing near the user.');
+    expect(decls[0]?.parametersJsonSchema).toMatchObject({
       type: 'object',
       required: ['itemId'],
       properties: { itemId: { type: 'string', description: 'the item id' } },
     });
-    expect(decls[0].parametersJsonSchema).not.toHaveProperty('$schema');
+    expect(decls[0]?.parametersJsonSchema).not.toHaveProperty('$schema');
   });
 
   it('forces one function when asked', async () => {

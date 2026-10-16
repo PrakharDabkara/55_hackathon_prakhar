@@ -6,6 +6,9 @@ import {
   type EmbedPurpose,
   type EmbedResult,
   type GenerateJsonOptions,
+  type ChatMessage,
+  type ChatWithToolsOptions,
+  type ChatWithToolsResult,
   type GenerateJsonResult,
   type LlmProvider,
 } from './types.js';
@@ -15,6 +18,28 @@ export interface GeminiClientLike {
   models: {
     generateContent(params: unknown): Promise<{
       text?: string | undefined;
+      candidates?:
+        | {
+            content?:
+              | {
+                  parts?:
+                    | {
+                        text?: string | undefined;
+                        thought?: boolean | undefined;
+                        thoughtSignature?: string | undefined;
+                        functionCall?:
+                          | {
+                              id?: string | undefined;
+                              name?: string | undefined;
+                              args?: Record<string, unknown> | undefined;
+                            }
+                          | undefined;
+                      }[]
+                    | undefined;
+                }
+              | undefined;
+          }[]
+        | undefined;
       usageMetadata?:
         | { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
         | undefined;
@@ -46,6 +71,42 @@ function jsonSchemaFor(schema: z.ZodType): Record<string, unknown> {
   const json = z.toJSONSchema(schema) as Record<string, unknown>;
   delete json['$schema'];
   return json;
+}
+
+type Part = Record<string, unknown>;
+
+/**
+ * Our messages as Gemini contents. Tool results and plain user text both have the role "user", and
+ * Gemini wants one turn per role change, so neighbours with the same role are merged.
+ */
+function toContents(messages: ChatMessage[]): { role: 'user' | 'model'; parts: Part[] }[] {
+  const contents: { role: 'user' | 'model'; parts: Part[] }[] = [];
+  const push = (role: 'user' | 'model', parts: Part[]) => {
+    const last = contents.at(-1);
+    if (last?.role === role) last.parts.push(...parts);
+    else contents.push({ role, parts });
+  };
+  for (const m of messages) {
+    if (m.role === 'user') push('user', [{ text: m.text }]);
+    else if (m.role === 'tool')
+      push(
+        'user',
+        m.results.map((r) => ({
+          functionResponse: { name: r.name, response: { output: r.result } },
+        })),
+      );
+    else {
+      const parts: Part[] = [];
+      if (m.text) parts.push({ text: m.text });
+      for (const c of m.toolCalls ?? [])
+        parts.push({
+          functionCall: { name: c.name, args: c.args },
+          ...(c.signature && { thoughtSignature: c.signature }),
+        });
+      if (parts.length > 0) push('model', parts);
+    }
+  }
+  return contents;
 }
 
 /** The SDK's errors carry the HTTP status; keep it, drop everything else (messages can echo a request). */
@@ -106,6 +167,68 @@ export function createGeminiProvider({
       return {
         data: parsed.data,
         // Thinking tokens are billed as output.
+        usage: {
+          inputTokens: usage.promptTokenCount ?? 0,
+          outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+        },
+        model,
+        latencyMs: Date.now() - started,
+      };
+    },
+
+    async chatWithTools(options: ChatWithToolsOptions): Promise<ChatWithToolsResult> {
+      const started = Date.now();
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: toContents(options.messages),
+          config: {
+            systemInstruction: options.system,
+            temperature: 0,
+            maxOutputTokens: options.maxOutputTokens,
+            tools: [
+              {
+                functionDeclarations: options.tools.map((t) => ({
+                  name: t.name,
+                  description: t.description,
+                  parametersJsonSchema: jsonSchemaFor(t.input),
+                })),
+              },
+            ],
+            ...(options.forceTool && {
+              toolConfig: {
+                functionCallingConfig: { mode: 'ANY', allowedFunctionNames: [options.forceTool] },
+              },
+            }),
+            ...(options.signal && { abortSignal: options.signal }),
+          },
+        });
+      } catch (error) {
+        throw wrap(error);
+      }
+
+      const parts = response.candidates?.[0]?.content?.parts ?? [];
+      const toolCalls = parts.flatMap((part, i) =>
+        part.functionCall?.name
+          ? [
+              {
+                id: part.functionCall.id ?? `call-${i}-${part.functionCall.name}`,
+                name: part.functionCall.name,
+                args: part.functionCall.args ?? {},
+                ...(part.thoughtSignature && { signature: part.thoughtSignature }),
+              },
+            ]
+          : [],
+      );
+      const text = parts
+        .filter((p) => p.text && !p.thought)
+        .map((p) => p.text)
+        .join('');
+      const usage = response.usageMetadata ?? {};
+      return {
+        toolCalls,
+        text: toolCalls.length > 0 ? null : text,
         usage: {
           inputTokens: usage.promptTokenCount ?? 0,
           outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),

@@ -1,3 +1,4 @@
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runner } from 'node-pg-migrate';
@@ -213,7 +214,9 @@ describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
         migrationsTable: 'pgmigrations',
         log: () => {},
       };
-      await runner({ ...opts, direction: 'down', count: 1 });
+      // Back out migration 009 and every one after it (later migrations must not break this test).
+      const fromNine = readdirSync(migrationsDir).filter((f) => f >= '009').length;
+      await runner({ ...opts, direction: 'down', count: fromNine });
       await pool.query(
         `INSERT INTO query_cache (normalised, item_id, method) VALUES
            ('xyzzy plugh', $1, 'llm'), ('keepme', $1, 'llm')`,

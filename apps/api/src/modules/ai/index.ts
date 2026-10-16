@@ -7,7 +7,7 @@ import type { LlmProvider } from './types.js';
 export { AiUnavailableError, createAiClient, dbRecorder } from './client.js';
 export type { AiCallRow, AiClient, Recorder } from './client.js';
 export { createFakeProvider } from './fake.js';
-export type { FakeProvider } from './fake.js';
+export type { FakeCall, FakeChatScript, FakeChatTurn, FakeProvider } from './fake.js';
 export { createGeminiProvider } from './gemini.js';
 export { createUserLimiter } from './limiter.js';
 export type { UserLimiter } from './limiter.js';
@@ -22,7 +22,17 @@ export { looksLikeInstruction } from './suspicious.js';
 export { aiFromConfig, providerFromConfig } from './fromConfig.js';
 export { aiAdminRouter } from './adminRouter.js';
 export { InvalidOutputError, ProviderError } from './types.js';
-export type { EmbedPurpose, LlmProvider, Purpose, Usage } from './types.js';
+export type {
+  ChatMessage,
+  ChatTool,
+  ChatWithToolsOptions,
+  ChatWithToolsResult,
+  EmbedPurpose,
+  LlmProvider,
+  Purpose,
+  ToolCall,
+  Usage,
+} from './types.js';
 
 /** What the resolution pipeline needs from AI. */
 export interface AiContext {
