@@ -54,7 +54,9 @@ Holdout v1 is the last result before retirement (its second CI run, which failed
 
 Answers per step: dev: synonym 45, trigram 6, default 2, embedding 4, LLM 12, unresolved 12. Holdout v2: synonym 21, trigram 15, embedding 4, LLM 8, unresolved 13.
 
-**Holdout v2 misses (5):** four are single generic words the model answered with one item instead of asking ("dabba" → container set, "stand" → mobile stand, "holder" → bulb holder, "wrench" → adjustable wrench); one is a wrong trigram match ("chilli packet" → chips). Accuracy has only 1.8 points of margin over the gate; ambiguity is where the model is least stable, so watch it before tightening anything else.
+**The same code, run again (a docs-only push re-triggered the workflow, [run 38867197231](https://github.com/PrakharDabkara/55_hackathon_prakhar/actions/runs/38867197231)):** dev 97.5 % (79/81), holdout v2 **88.5 % (54/61): the gate failed**, with 3 model errors (a wrong null each) and different ambiguous misses ("switch" picked an item, "wrench" came back empty, a Hindi coconut-oil query asked a question). That run restored the embedding cache by prefix (`loaded 224 saved embeddings`, `embedded 2 catalog items`: only the two items whose text changed). So v2 passes or fails on model variance alone, around the 90 % line.
+
+**Holdout v2 misses in the passing run (5):** four are single generic words the model answered with one item instead of asking ("dabba" → container set, "stand" → mobile stand, "holder" → bulb holder, "wrench" → adjustable wrench); one is a wrong trigram match ("chilli packet" → chips). Accuracy has only 1.8 points of margin over the gate; ambiguity is where the model is least stable, so watch it before tightening anything else.
 
 ## Known gaps
 
