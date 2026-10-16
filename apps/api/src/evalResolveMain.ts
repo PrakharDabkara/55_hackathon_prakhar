@@ -222,7 +222,7 @@ try {
   await seedCatalog(pool, loadSeedCatalog());
   // Vectors from an earlier run (restored by the CI cache, keyed by the catalog file) are loaded
   // first, so only items whose text changed cost an embedding request.
-  const vectorFile = path.join(root, env['EVAL_EMBED_CACHE'] ?? 'evals/.cache/embeddings.json');
+  const vectorFile = path.resolve(root, env['EVAL_EMBED_CACHE'] ?? 'evals/.cache/embeddings.json');
   if (existsSync(vectorFile)) {
     const saved = JSON.parse(readFileSync(vectorFile, 'utf8')) as {
       slug: string;
