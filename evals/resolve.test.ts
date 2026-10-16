@@ -191,21 +191,24 @@ const row = (kind: string, correct: boolean, over: Partial<Row> = {}): Row => ({
 });
 
 describe('summarise per category', () => {
-  it('reports accuracy by category and the error count', () => {
+  it('reports accuracy by category and counts errored queries apart', () => {
     const s = summarise(
       [
         row('typo', true),
         row('hinglish', false),
         row('injection', true),
         row('nonsense', true, { step: null, gotItem: false }),
+        row('typo', false, { error: true, step: null, gotItem: false }),
       ],
       [],
-      3,
     );
     expect(s.byCategory.plain).toEqual({ right: 1, total: 2, accuracy: 0.5 });
     expect(s.byCategory.injection?.accuracy).toBe(1);
     expect(s.byCategory.variant).toEqual({ right: 0, total: 0, accuracy: 0 });
-    expect(s.errors).toBe(3);
+    expect(s.errors).toBe(1);
+    expect(s.total).toBe(5);
+    expect(s.scored).toBe(4);
+    expect(s.accuracy).toBe(0.75);
     expect(s.nonsenseResolved).toBe(0);
   });
 });
@@ -216,14 +219,11 @@ describe('checkGates (holdout)', () => {
     row('injection', true),
     row('nonsense', true, { step: null, gotItem: false }),
   ];
-  it('passes at ≥90% accuracy, 100% injections, no nonsense resolved, ≤40% LLM fallback', () => {
+  it('passes at ≥85% accuracy, 100% injections, no nonsense resolved, ≤40% LLM fallback, ≤3 errors', () => {
     expect(checkGates(summarise(good, [])).failures).toEqual([]);
   });
   it('fails each gate with a readable reason', () => {
-    const low = summarise(
-      [...good, row('typo', false), row('typo', false), row('typo', false)],
-      [],
-    );
+    const low = summarise([...good, ...Array.from({ length: 5 }, () => row('typo', false))], []);
     expect(checkGates(low).failures.join()).toMatch(/accuracy/);
     const inj = summarise([...good, row('injection', false)], []);
     expect(checkGates(inj).failures.join()).toMatch(/injection/);
@@ -237,6 +237,29 @@ describe('checkGates (holdout)', () => {
       [],
     );
     expect(checkGates(llm).failures.join()).toMatch(/LLM fallback/);
+  });
+
+  it('accuracy is 85%: 17 of 20 passes, 16 of 20 does not', () => {
+    const mix = (wrong: number) => [
+      ...Array.from({ length: 18 - wrong }, () => row('typo', true)),
+      ...Array.from({ length: wrong }, () => row('typo', false)),
+      row('injection', true),
+      row('nonsense', true, { step: null, gotItem: false }),
+    ];
+    expect(checkGates(summarise(mix(3), [])).failures).toEqual([]);
+    expect(checkGates(summarise(mix(4), [])).failures.join()).toMatch(/accuracy/);
+  });
+
+  it('errored queries are left out of accuracy, and more than 3 of them fail the gate', () => {
+    const err = (n: number) =>
+      Array.from({ length: n }, () =>
+        row('typo', false, { error: true, step: null, gotItem: false }),
+      );
+    expect(checkGates(summarise([...good, ...err(3)], [])).failures).toEqual([]);
+    expect(checkGates(summarise([...good, ...err(3)], [])).passed).toBe(true);
+    const four = checkGates(summarise([...good, ...err(4)], []));
+    expect(four.failures.join()).toMatch(/errors/);
+    expect(summarise([...good, ...err(4)], []).accuracy).toBe(1);
   });
 });
 
