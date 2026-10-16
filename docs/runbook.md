@@ -1,4 +1,4 @@
-# Runbook (v6)
+# Runbook (v7)
 
 Hosting is described in [ADR-0009](adr/0009-free-tier-hosting.md). API on Render (Singapore), Postgres on Neon.
 
@@ -150,6 +150,8 @@ Item matching tries a dictionary, trigram similarity, embeddings and then an LLM
 | `LLM_PROVIDER`                       | Render env, `.env`                                                        | `gemini` or `fake`. **Required in production**: the API refuses to start without it. `fake` (the local default) never calls the network. |
 | `GEMINI_API_KEY`                     | Render env (secret), GitHub `production` environment secret, local `.env` | Required when the provider is `gemini`. Never commit it.                                                                                 |
 | `GEMINI_MODEL`, `GEMINI_EMBED_MODEL` | Render env, `.env`                                                        | Defaults `gemini-3.1-flash-lite` and `gemini-embedding-001`.                                                                             |
+| `GEMINI_FALLBACK_MODEL`              | Render env, `.env`                                                        | Second model for the attempts after a timeout, 429 or 503 from the primary. Blank: none. Live: `gemini-3.5-flash-lite`.                  |
+| `ERRAND_AI_TIMEOUT_MS`               | Render env, `.env`                                                        | Time limit of one errand model call. Default 30000. Resolve calls keep 8 s.                                                              |
 | `EMBED_THRESHOLD`, `EMBED_MARGIN`    | Render env, `.env`                                                        | Defaults 0.70 and 0.04. Re-tune with `npm run eval:resolve` after any model change.                                                      |
 
 Commands (they read the key from your `.env` or the environment; none prints it):
@@ -167,6 +169,15 @@ LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queri
 **Cached answers.** They expire (30 days; 1 day for "nothing fits") and carry the catalog version, so a changed `catalog.seed.json` retires all of them by itself. To forget one wrong answer: `curl -X DELETE -H "Authorization: Bearer $ADMIN_TOKEN" "$BASE/admin/ai/cache?q=xyzzy%20plugh"`.
 
 **After a big catalog change:** run `npm run seed:catalog`, then `npm run ai:embed-catalog`. Review `suggested_synonyms` (`SELECT term, i.slug FROM suggested_synonyms s JOIN items i ON i.id = s.item_id`) and add good pairs to `catalog.seed.json` by hand.
+
+## AI unavailable: troubleshooting
+
+An errand ends `FAILED` with `ai_unavailable`, or a search stops using the LLM step. **The Gemini free tier answers 503 "high demand" often (about half of calls in some hours) and 429 when a per-minute quota is used up; a 503 can take 10 s to arrive.** This is normal for the free tier, not a bug; retries and the fallback model absorb most of it. In this order:
+
+1. **Ask the API.** `curl -s $B/admin/ai/ping -H "Authorization: Bearer $ADMIN_TOKEN" | jq` (one tiny call per kind and model, no breaker, nothing stored). `ok: true` on the primary means the model is fine now. `kind`/`status` tell you more: `http 503` busy, `http 429` quota, `http 404` wrong model name (`npm run ai:models`), `http 400/403` bad request or key, `timeout` slower than the limit, `network` cannot reach Google, `other` unexpected.
+2. **Read the logs** (Render, Logs): search `AI call failed`. Each line has `purpose` (errand, resolve_query, embed_query), `model`, `attempt` (0 is the first try), `kind`, `status`, `code` (Google's word, such as `UNAVAILABLE` or `RESOURCE_EXHAUSTED`), `latencyMs` and a short `message`. `AI call answered by the fallback model` means the primary failed and the fallback worked. `AI call skipped` with `kind: breaker` means five failures in a row: that purpose is paused for 60 s. The same kinds are in SQL: `SELECT purpose, model, outcome, count(*) FROM ai_calls WHERE created_at > now() - interval '1 hour' GROUP BY 1, 2, 3`.
+3. **Check the quota page** in Google AI Studio (aistudio.google.com, your project, Usage or Rate limit): requests per minute and per day for the primary and the fallback model. `429`/`RESOURCE_EXHAUSTED` with a used-up quota there means wait for the reset or lower the traffic; errands run one at a time and pace Gemini calls 4 s apart.
+4. **Still failing?** Raise `ERRAND_AI_TIMEOUT_MS` only if the log shows `kind: timeout` with `latencyMs` near the limit. Try another `GEMINI_FALLBACK_MODEL` from `npm run ai:models` if the fallback itself fails in the ping. A model that thinks (such as `gemini-3.5-flash`) needs `maxOutputTokens` of a few hundred or it ends with no answer, and some models (`gemini-3.5-flash`, `gemini-3.6-flash`) have tiny free quotas and answer 429 at once.
 
 ## Errands (the AI agent)
 

@@ -419,7 +419,7 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       provider.onGenerate(() => ({ itemId: null, needsClarification: false }));
       const r = await resolve(ai, 'zzq brush');
       expect(r.item).toBeNull();
-      expect((await calls()).find((c) => c.purpose === 'embed_query')?.outcome).toBe('error');
+      expect((await calls()).find((c) => c.purpose === 'embed_query')?.outcome).toBe('http');
     });
 
     it('an LLM failure degrades to unresolved and never throws', async () => {
@@ -444,7 +444,10 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       const r = await resolve(ai, 'zzq slow');
       expect(Date.now() - started).toBeLessThan(2000);
       expect(r.item).toBeNull();
-      expect((await calls()).at(-1)).toMatchObject({ purpose: 'resolve_query', outcome: 'error' });
+      expect((await calls()).at(-1)).toMatchObject({
+        purpose: 'resolve_query',
+        outcome: 'timeout',
+      });
     });
 
     it('after 5 failures the breaker skips AI for a while, and every search still answers', async () => {
@@ -459,7 +462,7 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       for (let i = 0; i < 8; i++) expect((await resolve(ai, `zzq breaker ${i}`)).item).toBeNull();
       expect(generates).toBeLessThanOrEqual(10); // 5 failures with a retry each, then none
       const outcomes = (await calls()).map((c) => c.outcome);
-      expect(outcomes).toContain('skipped_breaker');
+      expect(outcomes).toContain('breaker');
     });
 
     it('works with no AI at all: the old behaviour', async () => {

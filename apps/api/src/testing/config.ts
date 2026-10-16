@@ -27,6 +27,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   errandTokenBudget: 20_000,
   errandUserHourlyLimit: 5,
   errandTaskMaxChars: 500,
+  errandAiTimeoutMs: 30_000,
+  geminiFallbackModel: null,
   gitSha: 'test',
   ...overrides,
 });

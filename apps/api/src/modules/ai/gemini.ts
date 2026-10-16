@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { sanitiseMessage } from './failure.js';
 import {
   InvalidOutputError,
   ProviderError,
@@ -54,6 +55,7 @@ interface Options {
   apiKey?: string;
   client?: GeminiClientLike;
   model: string;
+  fallbackModel?: string | null;
   embedModel: string;
   embedDim: number;
 }
@@ -109,13 +111,69 @@ function toContents(messages: ChatMessage[]): { role: 'user' | 'model'; parts: P
   return contents;
 }
 
-/** The SDK's errors carry the HTTP status; keep it, drop everything else (messages can echo a request). */
+const NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'EPIPE',
+  'ECONNABORTED',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+]);
+
+/** Google's error text is JSON: {"error": {"code", "message", "status": "UNAVAILABLE"}}. */
+function parseBody(message: unknown): { message?: string; status?: string } | null {
+  if (typeof message !== 'string') return null;
+  try {
+    const error = (JSON.parse(message) as { error?: { message?: unknown; status?: unknown } })
+      .error;
+    return {
+      ...(typeof error?.message === 'string' && { message: error.message }),
+      ...(typeof error?.status === 'string' &&
+        /^[A-Z_]{3,40}$/.test(error.status) && { status: error.status }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sorts what the SDK throws: an HTTP status (kind http, with Google's own status word as the code),
+ * an abort (timeout), a dropped connection (network) or anything else. Only Google's short reason
+ * for a 429 or 5xx is kept; any other text could echo the request, so it is dropped.
+ */
 function wrap(error: unknown): ProviderError {
-  const status = (error as { status?: unknown })?.status;
-  return new ProviderError(
-    'the Gemini call failed',
-    typeof status === 'number' ? status : undefined,
-  );
+  const e = (error ?? {}) as {
+    status?: unknown;
+    name?: unknown;
+    message?: unknown;
+    cause?: { code?: unknown };
+  };
+  if (typeof e.status === 'number') {
+    const body = parseBody(e.message);
+    const why =
+      body?.message && (e.status === 429 || e.status >= 500)
+        ? sanitiseMessage(body.message)
+        : `HTTP ${e.status}`;
+    return new ProviderError(`the Gemini call failed: ${why}`, e.status, {
+      kind: 'http',
+      ...(body?.status && { code: body.status }),
+    });
+  }
+  if (e.name === 'AbortError') {
+    return new ProviderError('the Gemini call was aborted', undefined, { kind: 'timeout' });
+  }
+  const causeCode = typeof e.cause?.code === 'string' ? e.cause.code : undefined;
+  if ((causeCode && NETWORK_CODES.has(causeCode)) || e.message === 'fetch failed') {
+    return new ProviderError('the Gemini connection failed', undefined, {
+      kind: 'network',
+      ...(causeCode && { code: causeCode }),
+    });
+  }
+  return new ProviderError('the Gemini call failed', undefined, { kind: 'other' });
 }
 
 /** Gemini through Google's official SDK: JSON output with a response schema at temperature 0. */
@@ -123,6 +181,7 @@ export function createGeminiProvider({
   apiKey,
   client,
   model,
+  fallbackModel = null,
   embedModel,
   embedDim,
 }: Options): LlmProvider {
@@ -132,14 +191,16 @@ export function createGeminiProvider({
   return {
     name: 'gemini',
     model,
+    fallbackModel,
     embedModel,
 
     async generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>> {
       const started = Date.now();
+      const used = options.model ?? model;
       let response;
       try {
         response = await ai.models.generateContent({
-          model,
+          model: used,
           contents: options.user,
           config: {
             systemInstruction: options.system,
@@ -171,17 +232,18 @@ export function createGeminiProvider({
           inputTokens: usage.promptTokenCount ?? 0,
           outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
         },
-        model,
+        model: used,
         latencyMs: Date.now() - started,
       };
     },
 
     async chatWithTools(options: ChatWithToolsOptions): Promise<ChatWithToolsResult> {
       const started = Date.now();
+      const used = options.model ?? model;
       let response;
       try {
         response = await ai.models.generateContent({
-          model,
+          model: used,
           contents: toContents(options.messages),
           config: {
             systemInstruction: options.system,
@@ -233,7 +295,7 @@ export function createGeminiProvider({
           inputTokens: usage.promptTokenCount ?? 0,
           outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
         },
-        model,
+        model: used,
         latencyMs: Date.now() - started,
       };
     },

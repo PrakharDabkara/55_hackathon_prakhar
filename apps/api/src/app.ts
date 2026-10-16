@@ -74,7 +74,7 @@ export function createApp({
   // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
   if (config.adminPhones.length > 0) {
     app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
-    app.use(aiAdminRouter({ db, adminPhones: config.adminPhones }));
+    app.use(aiAdminRouter({ db, adminPhones: config.adminPhones, ai }));
     app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(shopsRouter({ db }));

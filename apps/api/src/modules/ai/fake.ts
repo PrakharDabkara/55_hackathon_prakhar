@@ -14,7 +14,7 @@ import {
 } from './types.js';
 
 export type FakeCall =
-  | { kind: 'generate'; system: string; user: string; purpose: Purpose }
+  | { kind: 'generate'; system: string; user: string; purpose: Purpose; model?: string }
   | { kind: 'embed'; texts: string[]; purpose: EmbedPurpose }
   | {
       kind: 'chat';
@@ -23,6 +23,7 @@ export type FakeCall =
       messages: ChatMessage[];
       toolNames: string[];
       purpose: Purpose;
+      model?: string;
       forceTool?: string;
     };
 
@@ -69,7 +70,10 @@ function hashVector(text: string, dim: number): number[] {
  * A deterministic stand-in for a real model, for tests and for local work without a key. By default
  * it answers "none of these"; a test scripts anything else.
  */
-export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakeProvider {
+export function createFakeProvider({
+  dim = 768,
+  fallbackModel = null,
+}: { dim?: number; fallbackModel?: string | null } = {}): FakeProvider {
   let generate: Parameters<FakeProvider['onGenerate']>[0] = () => ({
     itemId: null,
     needsClarification: false,
@@ -85,6 +89,7 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
   return {
     name: 'fake',
     model: 'fake-model',
+    fallbackModel,
     embedModel: 'fake-embed',
     calls,
     onGenerate: (handler) => void (generate = handler),
@@ -106,6 +111,7 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
         messages: structuredClone(options.messages),
         toolNames: options.tools.map((t) => t.name),
         purpose: options.purpose,
+        ...(options.model && { model: options.model }),
         ...(options.forceTool && { forceTool: options.forceTool }),
       });
       const turn = await chat(options);
@@ -122,14 +128,20 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
           inputTokens: words(options.system) + words(JSON.stringify(options.messages)),
           outputTokens: words(JSON.stringify(turn)),
         },
-        model: 'fake-model',
+        model: options.model ?? 'fake-model',
         latencyMs: 1,
       };
     },
 
     async generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>> {
       const { system, user, purpose } = options;
-      calls.push({ kind: 'generate', system, user, purpose });
+      calls.push({
+        kind: 'generate',
+        system,
+        user,
+        purpose,
+        ...(options.model && { model: options.model }),
+      });
       const raw = await generate({ system, user, purpose });
       const parsed = options.schema.safeParse(raw);
       if (!parsed.success)
@@ -140,7 +152,7 @@ export function createFakeProvider({ dim = 768 }: { dim?: number } = {}): FakePr
           inputTokens: words(system) + words(user),
           outputTokens: words(JSON.stringify(raw)),
         },
-        model: 'fake-model',
+        model: options.model ?? 'fake-model',
         latencyMs: 1,
       };
     },

@@ -639,7 +639,7 @@ describe('errand agent core (fake model, real database)', () => {
       expect(row.state).toBe('FAILED');
       expect(row.failure_reason).toBe('ai_unavailable');
       const calls = (await pool.query(`SELECT purpose, outcome FROM ai_calls`)).rows;
-      expect(calls).toEqual([{ purpose: 'errand', outcome: 'error' }]);
+      expect(calls).toEqual([{ purpose: 'errand', outcome: 'http' }]);
     });
 
     it('a provider error that goes away on the retry costs nothing', async () => {
