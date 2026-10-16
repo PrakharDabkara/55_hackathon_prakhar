@@ -25,7 +25,35 @@ describe('loadConfig', () => {
       pingDedupeMinutes: 30,
       workersEnabled: true,
       adminPhones: [],
+      errandMaxItems: 10,
+      errandMaxSteps: 8,
+      errandTokenBudget: 20_000,
+      errandUserHourlyLimit: 5,
+      errandTaskMaxChars: 500,
     });
+  });
+
+  it('reads the errand guardrails from the environment', () => {
+    const config = loadConfig({
+      ...valid,
+      ERRAND_MAX_ITEMS: '6',
+      ERRAND_MAX_STEPS: '5',
+      ERRAND_TOKEN_BUDGET: '9000',
+      ERRAND_USER_HOURLY_LIMIT: '2',
+      ERRAND_TASK_MAX_CHARS: '300',
+    });
+    expect(config).toMatchObject({
+      errandMaxItems: 6,
+      errandMaxSteps: 5,
+      errandTokenBudget: 9000,
+      errandUserHourlyLimit: 2,
+      errandTaskMaxChars: 300,
+    });
+  });
+
+  it('refuses nonsense errand guardrails', () => {
+    expect(() => loadConfig({ ...valid, ERRAND_MAX_STEPS: '0' })).toThrow(/ERRAND_MAX_STEPS/);
+    expect(() => loadConfig({ ...valid, ERRAND_MAX_ITEMS: '9000' })).toThrow(/ERRAND_MAX_ITEMS/);
   });
 
   describe('LLM provider (ADR-0020)', () => {
