@@ -1,7 +1,12 @@
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createAi, createFakeProvider, ProviderError, type AiContext } from './modules/ai/index.js';
-import { loadSeedCatalog, resolveItem, seedCatalog } from './modules/catalog/index.js';
+import {
+  CATALOG_VERSION,
+  loadSeedCatalog,
+  resolveItem,
+  seedCatalog,
+} from './modules/catalog/index.js';
 import { pino } from 'pino';
 import { DIM, setEmbeddings, vec } from './testing/aiFixtures.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
@@ -71,15 +76,15 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
     it('a) the cache answers first, with no AI call, for a resolved item, an ambiguous query or "none"', async () => {
       const { provider, ai } = setup();
       await pool.query(
-        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzcache', $1, 'llm')`,
+        `INSERT INTO query_cache (normalised, item_id, method, catalog_version, expires_at) VALUES ('zzcache', $1, 'llm', '${CATALOG_VERSION}', now() + interval '1 day')`,
         [ids['sugar']],
       );
       await pool.query(
-        `INSERT INTO query_cache (normalised, item_id, method, question, options) VALUES ('zzamb', NULL, 'llm', 'Kaunsa?', $1)`,
+        `INSERT INTO query_cache (normalised, item_id, method, question, options, catalog_version, expires_at) VALUES ('zzamb', NULL, 'llm', 'Kaunsa?', $1, '${CATALOG_VERSION}', now() + interval '1 day')`,
         [JSON.stringify([ids['paper-clips'], ids['clothes-clips']])],
       );
       await pool.query(
-        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zznone', NULL, 'llm')`,
+        `INSERT INTO query_cache (normalised, item_id, method, catalog_version, expires_at) VALUES ('zznone', NULL, 'llm', '${CATALOG_VERSION}', now() + interval '1 day')`,
       );
 
       const hit = await resolve(ai, 'zzcache');
@@ -135,13 +140,13 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       const { provider, ai } = setup();
       await setEmbeddings(pool, { 'ball-pen': vec({ 1: 1 }), 'gel-pen': vec({ 2: 1 }) });
       provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
-      await resolve(ai, 'zzq ballpoint');
-      expect(await cached('zzq ballpoint')).toMatchObject({
+      await resolve(ai, 'pen type ballpoint');
+      expect(await cached('pen type ballpoint')).toMatchObject({
         item_id: ids['ball-pen'],
         method: 'embedding',
       });
       provider.calls.length = 0;
-      const again = await resolve(ai, 'zzq ballpoint');
+      const again = await resolve(ai, 'pen type ballpoint');
       expect(again).toMatchObject({ matchedBy: 'cache', item: { slug: 'ball-pen' } });
       expect(provider.calls).toEqual([]);
     });
@@ -478,7 +483,7 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
     it('applies only to a known user, and the cache still answers over the limit', async () => {
       const { provider, ai } = setup({ allow: false });
       await pool.query(
-        `INSERT INTO query_cache (normalised, item_id, method) VALUES ('zzq cached over limit', $1, 'llm')`,
+        `INSERT INTO query_cache (normalised, item_id, method, catalog_version, expires_at) VALUES ('zzq cached over limit', $1, 'llm', '${CATALOG_VERSION}', now() + interval '1 day')`,
         [ids['sugar']],
       );
       expect((await resolve(ai, 'zzq cached over limit', { userId })).item?.slug).toBe('sugar');

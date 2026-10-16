@@ -29,7 +29,7 @@ export const REMOVED_TERMS = [
   'paint',
   'pan',
   'paste',
-  'pen',
+  // 'pen' left this list on Day 10: the catalog now names ball pen as its default (defaultFor).
   'pin',
   'plug',
   'powder',

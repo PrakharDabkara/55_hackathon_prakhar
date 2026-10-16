@@ -10,4 +10,5 @@ export type {
   Resolution,
   ResolveOptions,
 } from './resolve.js';
-export { loadSeedCatalog, seedCatalog } from './seed.js';
+export { CATALOG_VERSION, loadSeedCatalog, seedCatalog } from './seed.js';
+export { cacheAdminRouter } from './cacheAdminRouter.js';

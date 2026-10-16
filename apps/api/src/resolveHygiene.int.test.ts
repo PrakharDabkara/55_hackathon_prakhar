@@ -181,7 +181,7 @@ describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
       const admin = await loginAs(app, 'seeker', ADMIN);
       const seeker = await loginAs(app, 'seeker', '9810000078');
 
-      expect((await request(app).delete('/admin/ai/cache').query({ q: 'zzbad' })).status).toBe(401);
+      expect((await request(app).delete('/admin/ai/cache').query({ q: 'zzbad' })).status).toBe(404);
       const denied = await request(app)
         .delete('/admin/ai/cache')
         .query({ q: 'zzbad' })

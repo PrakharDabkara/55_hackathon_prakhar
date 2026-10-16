@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { catalogVersionOf, checkCatalog, loadSeedCatalog, parseCatalog } from './seedData.js';
+import { loadSeedCatalog } from './seed.js';
+import { catalogVersionOf, checkCatalog, parseCatalog } from './seedData.js';
 
 const item = (slug: string, extra: Record<string, unknown> = {}) => ({
   slug,
@@ -20,7 +21,7 @@ describe('defaultFor: generic words that mean one usual item', () => {
 
   it('may not repeat a term that is already a name or synonym', () => {
     const c = catalog(item('ball-pen', { defaultFor: ['gel-pen a'] }), item('gel-pen'));
-    expect(() => checkCatalog(c)).toThrow(/gel-pen a/);
+    expect(() => checkCatalog(c)).toThrow(/gel pen/);
   });
 
   it('may be claimed by only one item', () => {

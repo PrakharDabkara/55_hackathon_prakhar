@@ -1,6 +1,6 @@
 {
-  "version": 2,
-  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric.",
+  "version": 3,
+  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric. defaultFor lists generic words that mean this item as the usual choice of a family (pen: ball pen); a word that could be several different things (clip, oil, battery) is never a default.",
   "items": [
     {
       "slug": "wheat-flour",
@@ -160,7 +160,8 @@
       "nameEn": "tea leaves",
       "nameHi": "चायपत्ती",
       "refPricePaise": 13000,
-      "synonyms": ["chai patti", "chaipatti", "chai ki patti", "tea powder", "chai patti packet"]
+      "synonyms": ["chai patti", "chaipatti", "chai ki patti", "tea powder", "chai patti packet"],
+      "defaultFor": ["tea"]
     },
     {
       "slug": "coffee",
@@ -264,7 +265,14 @@
       "nameEn": "red chilli powder",
       "nameHi": "लाल मिर्च पाउडर",
       "refPricePaise": 5500,
-      "synonyms": ["lal mirch", "lal mirch powder", "mirchi powder", "chilli powder", "laal mirchi"]
+      "synonyms": [
+        "lal mirch",
+        "lal mirch powder",
+        "mirchi powder",
+        "chilli powder",
+        "laal mirchi"
+      ],
+      "defaultFor": ["chilli"]
     },
     {
       "slug": "coriander-powder",
@@ -866,7 +874,8 @@
       "nameEn": "ball pen",
       "nameHi": "बॉल पेन",
       "refPricePaise": 1000,
-      "synonyms": ["ballpen", "reynolds pen", "pen blue", "bol pen"]
+      "synonyms": ["ballpen", "reynolds pen", "pen blue", "bol pen"],
+      "defaultFor": ["pen"]
     },
     {
       "slug": "gel-pen",
@@ -1340,7 +1349,8 @@
       "nameEn": "water bottle",
       "nameHi": "पानी की बोतल",
       "refPricePaise": 10000,
-      "synonyms": ["paani ki bottle", "pani bottle", "plastic bottle", "fridge bottle"]
+      "synonyms": ["paani ki bottle", "pani bottle", "plastic bottle", "fridge bottle"],
+      "defaultFor": ["bottle"]
     },
     {
       "slug": "steel-bottle",
