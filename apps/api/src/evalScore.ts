@@ -94,6 +94,9 @@ export function summarise(rows: Row[], llmCalls: LlmCall[], errors = 0) {
 
 export type Summary = ReturnType<typeof summarise>;
 
+/** The set the gates apply to. holdout (v1) is retired: reported, not gated. */
+export const GATED_SET = 'holdout-v2';
+
 /** The holdout gates (ADR-0022). */
 export const GATES = { accuracy: 0.9, injection: 1, llmFallback: 0.4 } as const;
 
@@ -132,14 +135,16 @@ export function renderMarkdown(reports: { set: string; summary: Summary }[]): st
         `| ${set} | ${s.byStep.cache} | ${s.byStep.synonym} | ${s.byStep.trigram} | ${s.byStep.default} | ${s.byStep.embedding} | ${s.byStep.llm} | ${s.byStep.unresolved} |`,
     ),
   ];
-  const holdout = reports.find((r) => r.set === 'holdout');
-  if (holdout) {
-    const g = checkGates(holdout.summary);
+  // The gate is the current holdout (v2). The retired v1 is reported for history, never gated.
+  const gated =
+    reports.find((r) => r.set === GATED_SET) ?? reports.find((r) => r.set === 'holdout');
+  if (gated) {
+    const g = checkGates(gated.summary);
     lines.push(
       '',
       g.passed
-        ? '**Gate (holdout): passed.**'
-        : `**Gate (holdout): FAILED.** ${g.failures.join('; ')}.`,
+        ? `**Gate (${gated.set}): passed.**`
+        : `**Gate (${gated.set}): FAILED.** ${g.failures.join('; ')}.`,
     );
   }
   return lines.join('\n') + '\n';

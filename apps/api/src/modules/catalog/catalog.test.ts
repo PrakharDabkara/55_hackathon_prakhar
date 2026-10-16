@@ -24,7 +24,7 @@ describe('seed catalog file', () => {
     for (const item of catalog.items) {
       expect(item.nameHi, item.slug).toMatch(/[ऀ-ॿ]/);
       expect(item.synonyms.length, item.slug).toBeGreaterThanOrEqual(3);
-      expect(item.synonyms.length, item.slug).toBeLessThanOrEqual(6);
+      expect(item.synonyms.length, item.slug).toBeLessThanOrEqual(8);
     }
   });
 

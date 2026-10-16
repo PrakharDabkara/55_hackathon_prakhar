@@ -1,13 +1,16 @@
+import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import {
   AiUnavailableError,
   buildResolvePrompt,
+  looksLikeInstruction,
   resolveAnswerSchema,
   validateAnswer,
   type AiContext,
   type Candidate,
 } from '../ai/index.js';
-import { normaliseQuery, type Quantity } from './normalise.js';
+import { isTypoOf } from './editDistance.js';
+import { firstLine, normaliseQuery, type Quantity } from './normalise.js';
 import {
   defaultItem,
   hasEmbeddings,
@@ -68,6 +71,8 @@ export interface ResolveOptions {
   ai?: AiContext;
   /** Joins the AI audit rows to the HTTP request that caused them. */
   requestId?: string;
+  /** Where a skipped AI step is logged (event llm_skipped_suspicious). */
+  logger?: Logger;
 }
 
 const toItem = (r: ItemRow): CatalogItem => ({
@@ -116,9 +121,11 @@ export async function resolveItem(
   raw: string,
   opts: ResolveOptions,
 ): Promise<Resolution> {
-  const { text, quantity } = normaliseQuery(raw);
+  // Only the first line is the query (see firstLine); the raw text is kept in the log row.
+  const query = firstLine(raw);
+  const { text, quantity } = normaliseQuery(query);
   const found = text
-    ? await findItem(db, text, opts)
+    ? await findItem(db, text, opts, query)
     : { item: null, matchedBy: null, similarity: 0 };
 
   await db.query(
@@ -129,7 +136,12 @@ export async function resolveItem(
   return { normalised: text, ...(quantity && { quantity }), ...found };
 }
 
-async function findItem(db: Queryable, text: string, opts: ResolveOptions): Promise<Found> {
+async function findItem(
+  db: Queryable,
+  text: string,
+  opts: ResolveOptions,
+  query: string,
+): Promise<Found> {
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
 
   // a) A query we have answered before.
@@ -189,7 +201,10 @@ async function findItem(db: Queryable, text: string, opts: ResolveOptions): Prom
   const trigramUnsure = oneWord
     ? Boolean(second) || (best?.term ?? '').includes(' ')
     : Boolean(best && second && (second.sim ?? 0) >= (best.sim ?? 0) - AMBIGUITY_MARGIN);
-  if (best && !trigramUnsure && allWordsReal && covered)
+  // - One word: it must be a typo of the term (a few keystrokes), not just share letters with it
+  //   ("guitar" and "glitter").
+  const typo = !oneWord || isTypoOf(text, best?.term ?? '');
+  if (best && !trigramUnsure && allWordsReal && covered && typo)
     return { item: toItem(best), matchedBy: 'trigram', similarity: best.sim ?? 0 };
 
   // c2) A generic word the catalog file names a usual item for ("pen"): data, not a model's guess.
@@ -198,6 +213,15 @@ async function findItem(db: Queryable, text: string, opts: ResolveOptions): Prom
 
   const ai = opts.ai;
   if (!ai) return none;
+
+  // Text that reads like an order to a model gets the free steps only (ADR-0021).
+  if (looksLikeInstruction(query.toLowerCase())) {
+    opts.logger?.warn(
+      { event: 'llm_skipped_suspicious', requestId: opts.requestId, chars: query.length },
+      'query reads like an instruction; AI steps skipped',
+    );
+    return none;
+  }
 
   // d) Embeddings: the closest items by meaning. Skipped if the catalog has none yet.
   let nearest: ItemRow[] = [];

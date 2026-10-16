@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { Queryable } from '../../db/queryable.js';
 import { parse } from '../../http/errors.js';
@@ -22,9 +23,10 @@ interface SearchDeps {
   db: Queryable;
   trigramThreshold: number;
   ai?: AiContext | undefined;
+  logger?: Logger | undefined;
 }
 
-export function searchRouter({ db, trigramThreshold, ai }: SearchDeps): Router {
+export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): Router {
   const router = Router();
 
   router.get('/search', createRequireAuth(db), async (req, res) => {
@@ -35,6 +37,7 @@ export function searchRouter({ db, trigramThreshold, ai }: SearchDeps): Router {
       itemId,
       requestId: String(req.id),
       ...(ai && { ai }),
+      ...(logger && { logger }),
     });
     const results = resolution.item
       ? await findLearnedStock(db, resolution.item.id, lat, lng, radius_m)

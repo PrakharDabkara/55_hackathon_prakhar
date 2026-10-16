@@ -10,7 +10,7 @@ const item = z.object({
   nameHi: z.string().min(1),
   /** Typical shelf price of the usual pack, in integer paise. AI-estimated; see the file note. */
   refPricePaise: z.number().int().min(100).max(5_000_000),
-  synonyms: z.array(z.string().min(1)).min(3).max(6),
+  synonyms: z.array(z.string().min(1)).min(3).max(8),
   /** Generic words that mean this item as the usual choice of a family ("pen" → ball pen). */
   defaultFor: z.array(z.string().min(1)).max(4).optional(),
 });

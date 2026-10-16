@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric. defaultFor lists generic words that mean this item as the usual choice of a family (pen: ball pen); a word that could be several different things (clip, oil, battery) is never a default.",
   "items": [
     {
@@ -664,7 +664,15 @@
       "nameEn": "led bulb",
       "nameHi": "एलईडी बल्ब",
       "refPricePaise": 10000,
-      "synonyms": ["bulb", "led bulb 9 watt", "bulb led", "balb", "एलईडी बल्ब 9 वॉट"]
+      "synonyms": [
+        "bulb",
+        "led bulb 9 watt",
+        "bulb led",
+        "balb",
+        "एलईडी बल्ब 9 वॉट",
+        "light bulb",
+        "bulb light"
+      ]
     },
     {
       "slug": "tube-light",
@@ -1125,7 +1133,7 @@
       "nameEn": "glitter",
       "nameHi": "ग्लिटर",
       "refPricePaise": 3000,
-      "synonyms": ["glitter powder", "glitar", "chamak", "sparkle powder", "glitter tube"]
+      "synonyms": ["glitter powder", "chamak", "sparkle powder", "glitter tube"]
     },
     {
       "slug": "art-brush",

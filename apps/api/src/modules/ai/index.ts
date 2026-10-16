@@ -18,6 +18,7 @@ export {
   validateAnswer,
 } from './resolvePrompt.js';
 export type { Candidate, ResolveAnswer, Validated } from './resolvePrompt.js';
+export { looksLikeInstruction } from './suspicious.js';
 export { aiFromConfig, providerFromConfig } from './fromConfig.js';
 export { aiAdminRouter } from './adminRouter.js';
 export { InvalidOutputError, ProviderError } from './types.js';

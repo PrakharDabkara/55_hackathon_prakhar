@@ -6,6 +6,7 @@ import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
 import {
   checkGates,
+  GATED_SET,
   renderMarkdown,
   scoreCase,
   summarise,
@@ -29,7 +30,8 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 // prints accuracy, accuracy by category, which step answered, the LLM fallback rate, tokens and p95
 // latency, and writes one JSON report per set to evals/reports/.
 //
-//   EVAL_SET=dev|holdout|all   which set(s); default all
+//   EVAL_SET=dev|holdout-v2|holdout|all   which set(s); default all = dev + holdout-v2 (holdout is
+//                              the retired v1, run only when asked for)
 //   EVAL_DB=testcontainers     run in a throwaway Postgres (CI); default is the DATABASE_URL database,
 //                              which is then cleared of cached answers
 //   EVAL_GATE=1                apply the holdout gates and exit 1 if one fails (CI)
@@ -41,9 +43,15 @@ const gate = env['EVAL_GATE'] === '1';
 const which = env['EVAL_SET'] ?? 'all';
 const only = env['EVAL_KINDS']?.split(',');
 const aiPauseMs = Number(env['EVAL_AI_PAUSE_MS'] ?? 5000);
-const sets = (which === 'all' ? ['dev', 'holdout'] : which.split(',')) as ('dev' | 'holdout')[];
+const FILES = {
+  dev: 'resolve.dev.jsonl',
+  holdout: 'resolve.holdout.jsonl', // v1, retired after informing fixes
+  'holdout-v2': 'resolve.holdout.v2.jsonl',
+} as const;
+type EvalSet = keyof typeof FILES;
+const sets = (which === 'all' ? ['dev', 'holdout-v2'] : which.split(',')) as EvalSet[];
 for (const s of sets) {
-  if (s !== 'dev' && s !== 'holdout') throw new Error(`EVAL_SET: unknown set "${s}"`);
+  if (!(s in FILES)) throw new Error(`EVAL_SET: unknown set "${s}"`);
 }
 
 const config = loadConfig({ ...env, WORKERS_ENABLED: 'false' });
@@ -76,7 +84,7 @@ const embedder = aiFromConfig({
 });
 
 const loadCases = (set: string): Case[] =>
-  readFileSync(path.join(root, `evals/resolve.${set}.jsonl`), 'utf8')
+  readFileSync(path.join(root, 'evals', FILES[set as EvalSet]), 'utf8')
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line) => JSON.parse(line) as Case)
@@ -92,7 +100,7 @@ const llmCallCount = async (): Promise<number> =>
     )
   ).rows[0]?.n ?? 0;
 
-async function runSet(set: 'dev' | 'holdout') {
+async function runSet(set: EvalSet) {
   const cases = loadCases(set);
   // Each set starts from nothing cached, so one set cannot make the other look better.
   await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms');
@@ -259,10 +267,10 @@ try {
   if (env['GITHUB_STEP_SUMMARY'])
     appendFileSync(env['GITHUB_STEP_SUMMARY'], `### Resolve evals\n\n${markdown}`);
 
-  const holdout = results.find((r) => r.set === 'holdout');
+  const holdout = results.find((r) => r.set === GATED_SET);
   if (gate) {
     if (!holdout) {
-      console.error('::error::EVAL_GATE=1 needs the holdout set (EVAL_SET=holdout or all).');
+      console.error('::error::EVAL_GATE=1 needs the holdout-v2 set (EVAL_SET=holdout-v2 or all).');
       exitCode = 2;
     } else {
       const verdict = checkGates(holdout.summary);

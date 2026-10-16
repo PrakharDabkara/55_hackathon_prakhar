@@ -73,7 +73,7 @@ export function createApp({
     app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(shopsRouter({ db }));
-  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai }));
+  app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
   app.use(
     requestsRouter({
       db,

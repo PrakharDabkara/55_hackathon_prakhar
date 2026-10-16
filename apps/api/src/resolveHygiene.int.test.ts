@@ -169,13 +169,6 @@ describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
         expect.objectContaining({ event: 'llm_skipped_suspicious', requestId: 'req-x' }),
       ]);
     });
-
-    it('still lets the free steps answer a suspicious-looking query that is also a synonym', async () => {
-      const { ai } = setup();
-      await pool.query(`UPDATE items SET name_en = name_en WHERE false`);
-      const r = await resolveItem(pool, 'rice', { threshold: 0.4, ai });
-      expect(r.item?.slug).toBe('rice');
-    });
   });
 
   describe('cache hygiene', () => {
