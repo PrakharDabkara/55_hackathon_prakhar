@@ -160,7 +160,7 @@ LLM_PROVIDER=gemini npm run ai:embed-catalog   # embeds items whose text changed
 LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queries through the whole pipeline, see docs/evals.md
 ```
 
-`EVAL_SET=dev|holdout|all`, `EVAL_KINDS=variant,ambiguous`, `EVAL_AI_PAUSE_MS` (default 4500) and `EVAL_DB=testcontainers` are described in `docs/evals.md`. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database, or with `EVAL_DB=testcontainers`.
+`EVAL_SET=dev|holdout|all`, `EVAL_KINDS=variant,ambiguous`, `EVAL_AI_PAUSE_MS` (default 5000) and `EVAL_DB=testcontainers` are described in `docs/evals.md`. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database, or with `EVAL_DB=testcontainers`.
 
 **Watching it.** `GET /admin/ai/stats` (admin token): answers by step, LLM fallback and cache-hit rates, average tokens per LLM call, p95 latency, errors, invalid outputs and breaker skips, for 24 hours and 7 days. The breaker opens after 5 failed calls in a row and AI is skipped for 60 seconds; searches keep working from the dictionary. A 429 in the logs (`AI call failed`, `status: 429`) means a free-tier rate limit.
 
@@ -170,7 +170,7 @@ LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queri
 
 ## GitHub: the `evals` environment
 
-The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It can be the same key as production's or a separate one; a separate key keeps eval traffic out of the live quota. Without it the job fails with "GEMINI_API_KEY missing". Run it by hand from Actions, Evals, Run workflow.
+The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". Run it by hand from Actions, Evals, Run workflow.
 
 ## npm install scripts
 
@@ -185,3 +185,5 @@ npm 11 asks which dependency install scripts may run. The decision, kept in `all
 | `protobufjs`       | `postinstall`                      | denied   | Only checks versions for its CLI, which we do not use.                                    |
 
 Nothing here is needed to build or run the app. Approve one (`npm install-scripts approve <package>`) only if a profile shows its native module matters.
+
+**Evals and the free quota.** Evals use their own Google project and key (the `evals` environment secret and your local `.env`), never the key in Render or the `production` environment, so a run can never use up the live site's quota. Limits per project: embeddings 100 requests/min and 1,000/day (each text counts as one), Flash Lite 15/min and 500/day. The runner stays inside them: catalog embedding at 60 texts/min (20 per batch, 20 s apart), at most one model call every 5 s (about 12/min), 429s retried with doubling waits. One full run is about 224 + 143 embedding requests and about 60 generation requests, so **the budget is one full eval run per day per project**. The catalog vectors are cached in CI (`evals/.cache`, keyed on the hash of `catalog.seed.json`), so after the first run on a given catalog only changed items cost embedding requests; the log line `loaded N saved embeddings` shows a cache hit.

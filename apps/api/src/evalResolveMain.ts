@@ -34,13 +34,13 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 //                              which is then cleared of cached answers
 //   EVAL_GATE=1                apply the holdout gates and exit 1 if one fails (CI)
 //   EVAL_KINDS=variant,typo    only these kinds (handy while tuning on the dev set)
-//   EVAL_AI_PAUSE_MS=4500      pause after a query that called the AI, to stay inside free-tier limits
+//   EVAL_AI_PAUSE_MS=5000      pause after a query that called the AI, to stay inside free-tier limits
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const env = process.env;
 const gate = env['EVAL_GATE'] === '1';
 const which = env['EVAL_SET'] ?? 'all';
 const only = env['EVAL_KINDS']?.split(',');
-const aiPauseMs = Number(env['EVAL_AI_PAUSE_MS'] ?? 4500);
+const aiPauseMs = Number(env['EVAL_AI_PAUSE_MS'] ?? 5000);
 const sets = (which === 'all' ? ['dev', 'holdout'] : which.split(',')) as ('dev' | 'holdout')[];
 for (const s of sets) {
   if (s !== 'dev' && s !== 'holdout') throw new Error(`EVAL_SET: unknown set "${s}"`);
