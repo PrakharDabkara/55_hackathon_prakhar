@@ -235,7 +235,7 @@ describe('createAiClient.chatWithTools', () => {
     provider.playChat([new ProviderError('x', 503), new ProviderError('x', 503)]);
     await expect(client.chatWithTools(base)).rejects.toBeInstanceOf(AiUnavailableError);
     expect(provider.calls.filter((c) => c.kind === 'chat')).toHaveLength(2);
-    expect(rows.map((r) => r.outcome)).toEqual(['error']);
+    expect(rows.map((r) => r.outcome)).toEqual(['http']);
   });
 
   it('retries as often as the caller asks, and no more', async () => {

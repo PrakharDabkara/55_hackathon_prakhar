@@ -254,3 +254,37 @@ describe('loadConfig', () => {
     }
   });
 });
+
+describe('AI reliability settings', () => {
+  const base = {
+    DATABASE_URL: 'postgres://u:p@localhost:5433/db',
+    REDIS_URL: 'redis://localhost:6379',
+  };
+
+  it('defaults: errand calls get 30 s, no fallback model', () => {
+    expect(loadConfig(base)).toMatchObject({
+      errandAiTimeoutMs: 30_000,
+      geminiFallbackModel: null,
+    });
+  });
+
+  it('reads ERRAND_AI_TIMEOUT_MS and GEMINI_FALLBACK_MODEL; blank means none', () => {
+    expect(
+      loadConfig({
+        ...base,
+        ERRAND_AI_TIMEOUT_MS: '45000',
+        GEMINI_FALLBACK_MODEL: 'gemini-3.5-flash',
+      }),
+    ).toMatchObject({ errandAiTimeoutMs: 45_000, geminiFallbackModel: 'gemini-3.5-flash' });
+    expect(loadConfig({ ...base, GEMINI_FALLBACK_MODEL: '' }).geminiFallbackModel).toBeNull();
+  });
+
+  it('refuses a timeout that is too short or too long', () => {
+    expect(() => loadConfig({ ...base, ERRAND_AI_TIMEOUT_MS: '500' })).toThrow(
+      /ERRAND_AI_TIMEOUT_MS/,
+    );
+    expect(() => loadConfig({ ...base, ERRAND_AI_TIMEOUT_MS: '900000' })).toThrow(
+      /ERRAND_AI_TIMEOUT_MS/,
+    );
+  });
+});

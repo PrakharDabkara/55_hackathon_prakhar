@@ -98,9 +98,9 @@ describe('createAiClient', () => {
         calls++;
         throw new ProviderError('down', 503);
       });
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'error' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'http' });
       expect(calls).toBe(2);
-      expect(rows.map((r) => r.outcome)).toEqual(['error']);
+      expect(rows.map((r) => r.outcome)).toEqual(['http']);
     });
 
     it('does not retry a client error such as 400 or 401', async () => {
@@ -120,9 +120,9 @@ describe('createAiClient', () => {
       const { client, provider, rows } = setup({ timeoutMs: 40, retries: 0 });
       provider.onGenerate(() => new Promise(() => undefined));
       const started = Date.now();
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'error' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'timeout' });
       expect(Date.now() - started).toBeLessThan(1000);
-      expect(rows[0]?.outcome).toBe('error');
+      expect(rows[0]?.outcome).toBe('timeout');
     });
 
     it('defaults to 8 seconds', () => {
@@ -166,16 +166,16 @@ describe('createAiClient', () => {
       return () => calls;
     };
 
-    it('opens after 5 failures in a row: the 6th call skips the provider and is recorded as skipped_breaker', async () => {
+    it('opens after 5 failures in a row: the 6th call skips the provider and is recorded as breaker', async () => {
       const { client, provider, rows } = setup({ retries: 0 });
       const calls = failing(provider);
       for (let i = 0; i < 5; i++)
-        await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'error' });
+        await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'http' });
       expect(calls()).toBe(5);
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'breaker' });
       expect(calls()).toBe(5);
       expect(rows.at(-1)).toMatchObject({
-        outcome: 'skipped_breaker',
+        outcome: 'breaker',
         inputTokens: 0,
         outputTokens: 0,
       });
@@ -185,7 +185,7 @@ describe('createAiClient', () => {
       const { client, provider } = setup({ retries: 0 });
       failing(provider);
       for (let i = 0; i < 5; i++) await client.generateJson(opts).catch(() => undefined);
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'breaker' });
       await expect(client.embed(['x'], 'embed_query')).resolves.toMatchObject({
         vectors: expect.any(Array),
       });
@@ -198,7 +198,7 @@ describe('createAiClient', () => {
         await client.generateJson(opts).catch(() => undefined);
         await client.embed(['x'], 'embed_query'); // works every time
       }
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'breaker' });
       expect(calls()).toBe(5);
     });
 
@@ -207,7 +207,7 @@ describe('createAiClient', () => {
       failing(provider);
       for (let i = 0; i < 5; i++) await client.generateJson(opts).catch(() => undefined);
       advance(59_000);
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'breaker' });
       advance(2000);
       provider.onGenerate(() => ({ ok: true }));
       await expect(client.generateJson(opts)).resolves.toMatchObject({ data: { ok: true } });
@@ -219,9 +219,9 @@ describe('createAiClient', () => {
       const calls = failing(provider);
       for (let i = 0; i < 5; i++) await client.generateJson(opts).catch(() => undefined);
       advance(61_000);
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'error' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'http' });
       expect(calls()).toBe(6);
-      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'skipped_breaker' });
+      await expect(client.generateJson(opts)).rejects.toMatchObject({ kind: 'breaker' });
     });
 
     it('a success in between resets the count', async () => {
