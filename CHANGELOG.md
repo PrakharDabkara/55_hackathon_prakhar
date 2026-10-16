@@ -65,6 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DELETE /admin/ai/cache?q=` removes one cached answer.
 - Seeker status line adds the no count ("… 6 ne mana kiya …").
 
+- MCP server (ADR-0023): `apps/mcp-server`, a stdio server over the public API with the user's own seeker token, six tools (`resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route`), clear tool errors, and `npm run mcp:build`, `mcp:login` (demo OTP; prints only "logged in") and `mcp:start`. Dependency (approved): `@modelcontextprotocol/sdk`.
+- Shared tool registry in `packages/shared/src/tools` (`@kahanmilega/shared/tools`): name, AI-facing description, zod input and output, side-effect and idempotency flags; `toJsonSchema` for the Day 12 agent.
+- `POST /route/plan`: shortest order through up to 8 shops by straight-line distance (exact, every order tried).
+- `q` is optional on `GET /search` and `POST /requests` when an `itemId` is given.
+- README "Use KahanMilega from Claude".
+
 ### Fixed
 
 - Nonsense such as "xyzzy plugh" was resolved to a plug top by trigram overlap and then by the model; the trigram and embedding steps now need real words, and the prompt says random letters are not a typo.
