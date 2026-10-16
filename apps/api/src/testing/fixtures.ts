@@ -7,7 +7,7 @@ export const north = (km: number) => ORIGIN.lat + km / 111;
 /** A shop `km` north of ORIGIN that learned it has the item `ageHours` ago. */
 export async function insertShopWithStock(
   pool: Pool,
-  opts: { name: string; km: number; itemId: string; ageHours: number },
+  opts: { name: string; km: number; itemId: string; ageHours: number; pricePaise?: number },
 ): Promise<string> {
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO shops (name, phone, categories, location)
@@ -17,10 +17,10 @@ export async function insertShopWithStock(
   );
   const shopId = (rows[0] as { id: string }).id;
   await pool.query(
-    `INSERT INTO shop_stock (shop_id, item_id, source, last_confirmed_at, expires_at)
-     VALUES ($1, $2, 'ping_yes', now() - make_interval(hours => $3::int),
+    `INSERT INTO shop_stock (shop_id, item_id, source, price_paise, last_confirmed_at, expires_at)
+     VALUES ($1, $2, 'ping_yes', $4, now() - make_interval(hours => $3::int),
              now() - make_interval(hours => $3::int) + interval '7 days')`,
-    [shopId, opts.itemId, opts.ageHours],
+    [shopId, opts.itemId, opts.ageHours, opts.pricePaise ?? null],
   );
   return shopId;
 }

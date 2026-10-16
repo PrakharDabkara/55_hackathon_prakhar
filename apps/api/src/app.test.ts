@@ -25,6 +25,11 @@ const config: Config = {
   embedDim: 768,
   embedThreshold: 0.8,
   embedMargin: 0.03,
+  errandMaxItems: 10,
+  errandMaxSteps: 8,
+  errandTokenBudget: 20_000,
+  errandUserHourlyLimit: 5,
+  errandTaskMaxChars: 500,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });

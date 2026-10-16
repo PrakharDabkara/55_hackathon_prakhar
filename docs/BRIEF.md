@@ -70,11 +70,13 @@ Price check: the user can add the price they've seen elsewhere; shops are asked 
 
 **Errand (AI agent)**
 
-1. The user describes a task in Hindi, English or Hinglish.
-2. The agent turns it into items (name, quantity, category, budget if given). If the task is too vague, it asks the user one question.
-3. For each item it checks learned stock first, then pings shops for what is missing (using the same request/ping system as Seeker search).
-4. While replies arrive it adjusts: widens the radius, tries another category, suggests a substitute, or looks for cheaper.
-5. It returns a plan: which shop for which items, prices, total, route order. Every item is marked "confirmed" (a shop said yes in this errand) or "likely" (learned stock only). It never claims stock no shop confirmed.
+Built on Day 12 (ADR-0024): steps 1, 2 (without the question), 3 (learned stock only) and 5 ("likely" only). Day 13 adds the rest.
+
+1. The user describes a task in Hindi, English or Hinglish (`POST /errands`, up to 500 characters; a task that reads like an instruction to a model is refused).
+2. The agent turns it into items (at most 10; name and quantity). If the task is too vague, it asks the user one question. _Day 13: today it picks the most common reading and says so in its notes._
+3. For each item it checks learned stock first, then pings shops for what is missing (using the same request/ping system as Seeker search). _Day 13: today it reads learned stock only and never pings._
+4. While replies arrive it adjusts: widens the radius, tries another category, suggests a substitute, or looks for cheaper. _Day 13._
+5. It returns a plan: which shop for which items, prices, total, route order. Every item is marked "confirmed" (a shop said yes in this errand) or "likely" (learned stock only). It never claims stock no shop confirmed. _Today every found item is "likely" or "not_found"; the server checks each claim against learned stock, takes prices and names from the database, and plans the route over the surviving shops._
 6. Stretch: "Want me to order this?" Only on the user's yes, the shop gets a delivery request (cash on delivery) and can accept or decline; on decline the plan falls back to pickup.
 
 **Zero-training rule.** A shopkeeper installs the app and is using it at once, with no explanation, demo or class. Every shop screen must pass that test:
@@ -96,11 +98,12 @@ Request states and transitions:
 - `PINGING` → `EXPIRED` after 15 minutes with no yes
 - `ANSWERED` → `CLOSED` when the user is done, or after 15 minutes
 
-Errand states:
+Errand states (Day 12 built `PLANNING`, `PLAN_READY` and `FAILED`; the rest is Day 13):
 
 - `PLANNING` → `NEEDS_INPUT` (asks the user) → `PLANNING`
 - `PLANNING` → `WAITING_FOR_SHOPS` → `PLANNING` (resumed by replies or a timeout)
 - `PLANNING` → `PLAN_READY`
+- `PLANNING` → `FAILED` (a cap was reached, the model was unavailable, or the queue was down; the reason and what was found are kept)
 - any → `EXPIRED` (15 min) or `CANCELLED`
 
 Order states (stretch):
@@ -129,7 +132,7 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold | Labeled Hinglish query set; category accuracy gate in CI |
 | Reply parsing | "haan hai, 450 ka" → yes, ₹450 | Buttons (no AI) → pattern rules → LLM fallback | Labeled reply set; accuracy gate in CI |
 | Demand digest | Week of request counts → a 3-line summary for the shop | One batched call per shop per week | Every number in the summary must match the counts exactly |
-| Errand agent | Task → shopping plan | Claude Haiku 5.5 tool-use loop (Sonnet 5.5 only if agent evals fail); our own loop on the Messages API, no agent framework; the same six tools as the MCP server (ADR-0023); guardrails (starting defaults): max 10 items, 15 shops pinged, 12 LLM steps, a per-errand token budget, 15-minute limit | Eval set of 20 errands |
+| Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process, minus `ask_shops` until Day 13, plus a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters (Day 13 adds 15 shops pinged and the 15-minute limit) | Eval set of 20 errands (Day 14) |
 | MCP server | Any AI assistant → tools `resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route` (one registry shared with the agent, ADR-0023) | No LLM inside; plain tools | Contract tests per tool |
 
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.
@@ -230,7 +233,7 @@ kahanmilega/
 | Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code at a demo inbox endpoint); opaque hashed session tokens (ADR-0013) | Real flow without SMS cost; sessions can be revoked |
-| Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier, behind an `LlmProvider` port (ADR-0020), for query understanding now. Claude Haiku 5.5 stays the plan for reply parsing, the digest and the errand agent, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |
+| Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier, behind an `LlmProvider` port (ADR-0020), for query understanding and, since Day 12, the errand agent (ADR-0024). Claude Haiku 5.5 stays the plan for reply parsing and the digest, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |
 | Embeddings | Gemini `gemini-embedding-001` (768 dimensions), stored in pgvector (ADR-0020). Replaces OpenAI text-embedding-3-small for now | No paid API; free-tier Gemini serves both generation and embeddings; no extra database |
 | Runtime and data | Node 24 LTS; PostgreSQL 18 + PostGIS 3.6 + pgvector 0.8.x; Redis 8.8 | Node 20 is end of life; the Postgres 17 image cannot install pgvector via apt (ADR-0008) |
 

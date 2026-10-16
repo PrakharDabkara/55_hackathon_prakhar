@@ -8,6 +8,7 @@ import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
 import { routingRouter } from './modules/routing/index.js';
+import { errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { identityRouter } from './modules/identity/index.js';
@@ -27,6 +28,8 @@ interface AppDeps {
   realtime?: Realtime;
   /** Embeddings and the LLM for item resolution. Without it only the free steps run. */
   ai?: AiContext;
+  /** Queues the errand agent. Without it (no Redis) new errands are stored and wait. */
+  errandHooks?: { enqueue(errandId: string): Promise<void> };
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
 }
@@ -39,6 +42,7 @@ export function createApp({
   requestHooks,
   realtime = createRealtime({ redisUrl: null, logger }),
   ai,
+  errandHooks,
   webDistDir = DEFAULT_WEB_DIST,
 }: AppDeps) {
   const app = express();
@@ -88,6 +92,14 @@ export function createApp({
       ...(requestHooks && { hooks: requestHooks }),
       events: realtime.events,
       ...(ai && { ai }),
+    }),
+  );
+  app.use(
+    errandsRouter({
+      db,
+      logger,
+      limits: limitsFromConfig(config),
+      ...(errandHooks && { enqueue: errandHooks.enqueue }),
     }),
   );
   app.use(notFound);

@@ -70,6 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /route/plan`: shortest order through up to 8 shops by straight-line distance (exact, every order tried).
 - `q` is optional on `GET /search` and `POST /requests` when an `itemId` is given.
 - README "Use KahanMilega from Claude".
+- Errand agent core (ADR-0024): `POST /errands` and `GET /errands/:id` (owner only, with a Hinglish progress list); an own tool-calling loop in `modules/errands` that plans from learned stock only (`resolve_item`, `find_item_nearby`, `plan_route` run in process, plus a terminal `submit_plan`; the user's location is injected by the server) and ends with a checked plan: "likely" only for fresh learned stock, prices and names from the database, a planned route, total and savings against the reference price.
+- `LlmProvider.chatWithTools` (Gemini function calling with schemas from the tool registry, scripted turns in the fake adapter, an `errand` row in `ai_calls` per call).
+- Migration 010: `errands` (state as text with a CHECK, lease, counters, plan) and `errand_steps` (the step log); guarded state transitions; a per-errand lease so one run works at a time.
+- BullMQ queue `errand` (concurrency 1, job id `errand-<id>`); guardrails `ERRAND_MAX_ITEMS`, `ERRAND_MAX_STEPS`, `ERRAND_TOKEN_BUDGET`, `ERRAND_USER_HOURLY_LIMIT`, `ERRAND_TASK_MAX_CHARS`; a task that reads like an instruction is refused (422).
+- `npm run errand:smoke` plans real errands against the local database and prints the step logs with tokens.
 
 ### Fixed
 
@@ -92,3 +97,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BRIEF: three-layer summary, Errand flow, errand/order states, agent AI row, agent metrics, 18-day build plan with scope frozen Oct 15, "Later" list.
 - Hosting moved from AWS EC2 to free tiers (Render, Neon); BRIEF cloud row and Day 3 updated; ADR-0002 marked superseded.
 - Node 24 LTS (`.nvmrc`, CI, `engines`) and Testcontainers 12.x; versions recorded in ADR-0008.
+- BRIEF: Errand flow marks what Day 12 built and what Day 13 adds; the Models row now says the errand agent runs on Gemini behind the provider port.
+- Runbook: how to run and watch an errand; the free-tier privacy rule now names the shop data the errand agent sends.

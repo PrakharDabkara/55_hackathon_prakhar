@@ -3,6 +3,8 @@ import type { Queryable } from '../../db/queryable.js';
 import {
   InvalidOutputError,
   ProviderError,
+  type ChatWithToolsOptions,
+  type ChatWithToolsResult,
   type EmbedPurpose,
   type EmbedResult,
   type GenerateJsonOptions,
@@ -51,6 +53,10 @@ export interface AiClient {
     purpose: EmbedPurpose,
     requestId?: string,
   ): Promise<EmbedResult & { callId: string | null }>;
+  /** One tool-using model turn (the errand agent). Gets a longer time limit than a short JSON call. */
+  chatWithTools(
+    options: ChatWithToolsOptions & { requestId?: string; timeoutMs?: number; retries?: number },
+  ): Promise<ChatWithToolsResult & { callId: string | null }>;
   /** The answer parsed but broke a rule (for example an item outside the shortlist). */
   markInvalid(callId: string | null): Promise<void>;
 }
@@ -69,6 +75,8 @@ interface Options {
 }
 
 const DEFAULT_TIMEOUT_MS = 8000;
+/** A model turn that picks tools reads a longer prompt than a JSON classification. */
+const CHAT_TIMEOUT_MS = 30_000;
 
 const retryable = (error: unknown) =>
   error instanceof ProviderError &&
@@ -126,6 +134,8 @@ export function createAiClient({
     purpose: string,
     requestId: string | undefined,
     call: (signal: AbortSignal) => Promise<R>,
+    limitMs: number = timeoutMs,
+    maxRetries: number = retries,
   ): Promise<R & { callId: string | null }> {
     const breaker = state[kind];
     const base = { purpose, model: provider.model, requestId: requestId ?? null };
@@ -143,7 +153,7 @@ export function createAiClient({
     const started = now();
     for (let attempt = 0; ; attempt++) {
       try {
-        const result = await withTimeout(call, timeoutMs);
+        const result = await withTimeout(call, limitMs);
         breaker.failures = 0;
         const callId = await record({
           ...base,
@@ -170,7 +180,7 @@ export function createAiClient({
           });
           throw new AiUnavailableError('invalid_output');
         }
-        if (attempt < retries && retryable(error)) {
+        if (attempt < maxRetries && retryable(error)) {
           await sleep(backoffMs * 2 ** attempt);
           continue;
         }
@@ -197,6 +207,15 @@ export function createAiClient({
     generateJson: ({ requestId, ...options }) =>
       run('generate', options.purpose, requestId, (signal) =>
         provider.generateJson({ ...options, signal }),
+      ),
+    chatWithTools: ({ requestId, timeoutMs: limit, retries: attempts, ...options }) =>
+      run(
+        'generate',
+        options.purpose,
+        requestId,
+        (signal) => provider.chatWithTools({ ...options, signal }),
+        limit ?? CHAT_TIMEOUT_MS,
+        attempts,
       ),
     embed: (texts, purpose, requestId) =>
       run('embed', purpose, requestId, (signal) => provider.embed(texts, purpose, signal)),

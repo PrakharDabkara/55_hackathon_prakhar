@@ -28,7 +28,8 @@
     "eval:resolve": "npm run build -w @kahanmilega/shared -w @kahanmilega/api && node --env-file-if-exists=.env apps/api/dist/evalResolveMain.js",
     "mcp:build": "npm run build -w @kahanmilega/shared -w @kahanmilega/mcp-server",
     "mcp:login": "npm run mcp:build --silent && node apps/mcp-server/dist/loginMain.js",
-    "mcp:start": "npm run mcp:build --silent && node apps/mcp-server/dist/main.js"
+    "mcp:start": "npm run mcp:build --silent && node apps/mcp-server/dist/main.js",
+    "errand:smoke": "npm run build -w @kahanmilega/shared -w @kahanmilega/api && node --env-file=.env apps/api/dist/errandSmokeMain.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",

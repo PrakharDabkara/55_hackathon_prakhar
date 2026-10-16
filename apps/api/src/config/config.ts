@@ -64,6 +64,12 @@ const schema = z
     EMBED_THRESHOLD: z.coerce.number().gt(0).lte(1).default(0.7),
     // ...and ahead of the second best by at least this much.
     EMBED_MARGIN: z.coerce.number().min(0).lt(1).default(0.04),
+    // Errand agent guardrails (ADR-0024). The model never decides these.
+    ERRAND_MAX_ITEMS: z.coerce.number().int().min(1).max(10).default(10),
+    ERRAND_MAX_STEPS: z.coerce.number().int().min(1).max(30).default(8),
+    ERRAND_TOKEN_BUDGET: z.coerce.number().int().min(500).max(1_000_000).default(20_000),
+    ERRAND_USER_HOURLY_LIMIT: z.coerce.number().int().min(1).max(1000).default(5),
+    ERRAND_TASK_MAX_CHARS: z.coerce.number().int().min(20).max(2000).default(500),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -116,6 +122,12 @@ export interface Config {
   embedDim: number;
   embedThreshold: number;
   embedMargin: number;
+  errandMaxItems: number;
+  errandMaxSteps: number;
+  /** Input plus output tokens one errand may spend before it is told to submit its plan. */
+  errandTokenBudget: number;
+  errandUserHourlyLimit: number;
+  errandTaskMaxChars: number;
   gitSha: string;
 }
 
@@ -151,6 +163,11 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     embedDim: e.EMBED_DIM,
     embedThreshold: e.EMBED_THRESHOLD,
     embedMargin: e.EMBED_MARGIN,
+    errandMaxItems: e.ERRAND_MAX_ITEMS,
+    errandMaxSteps: e.ERRAND_MAX_STEPS,
+    errandTokenBudget: e.ERRAND_TOKEN_BUDGET,
+    errandUserHourlyLimit: e.ERRAND_USER_HOURLY_LIMIT,
+    errandTaskMaxChars: e.ERRAND_TASK_MAX_CHARS,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

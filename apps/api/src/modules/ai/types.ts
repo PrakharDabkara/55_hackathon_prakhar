@@ -1,7 +1,7 @@
-import type { ZodType } from 'zod';
+import type { ZodObject, ZodType } from 'zod';
 
 /** Why a call is made. Stored in ai_calls so cost can be traced to a feature. */
-export type Purpose = 'resolve_query' | 'embed_query' | 'embed_catalog';
+export type Purpose = 'resolve_query' | 'embed_query' | 'embed_catalog' | 'errand';
 export type EmbedPurpose = Extract<Purpose, 'embed_query' | 'embed_catalog'>;
 
 export interface Usage {
@@ -26,6 +26,48 @@ export interface GenerateJsonResult<T> {
   latencyMs: number;
 }
 
+/** A function the model may call. The adapter turns `input` into the vendor's function declaration. */
+export interface ChatTool {
+  name: string;
+  /** Written for the model: what it does and when to use it. */
+  description: string;
+  input: ZodObject;
+}
+
+/** The model asked to run a tool. `signature` is the vendor's thought signature, sent back untouched. */
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  signature?: string;
+}
+
+/** One turn of a tool-using conversation. */
+export type ChatMessage =
+  | { role: 'user'; text: string }
+  | { role: 'model'; text?: string; toolCalls?: ToolCall[] }
+  | { role: 'tool'; results: { id: string; name: string; result: unknown }[] };
+
+export interface ChatWithToolsOptions {
+  system: string;
+  messages: ChatMessage[];
+  tools: ChatTool[];
+  maxOutputTokens: number;
+  purpose: Purpose;
+  /** The model must call this tool (used to make it finish when a budget is reached). */
+  forceTool?: string;
+  signal?: AbortSignal;
+}
+
+/** Either `toolCalls` is non-empty, or `text` holds a plain answer. */
+export interface ChatWithToolsResult {
+  toolCalls: ToolCall[];
+  text: string | null;
+  usage: Usage;
+  model: string;
+  latencyMs: number;
+}
+
 export interface EmbedResult {
   vectors: number[][];
   usage: Usage;
@@ -45,6 +87,8 @@ export interface LlmProvider {
   readonly embedModel: string;
   generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>>;
   embed(texts: string[], purpose: EmbedPurpose, signal?: AbortSignal): Promise<EmbedResult>;
+  /** One model turn with function calling (ADR-0024). The caller runs the tools and calls again. */
+  chatWithTools(options: ChatWithToolsOptions): Promise<ChatWithToolsResult>;
 }
 
 /** The provider failed. `status` is the HTTP status when there was one (429 and 5xx are retried). */
