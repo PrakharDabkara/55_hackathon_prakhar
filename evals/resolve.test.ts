@@ -128,6 +128,7 @@ describe('summarise', () => {
       cache: 0,
       synonym: 1,
       trigram: 0,
+      default: 0,
       embedding: 1,
       llm: 1,
       unresolved: 1,
@@ -218,14 +219,20 @@ describe('checkGates (holdout)', () => {
     expect(checkGates(summarise(good, [])).failures).toEqual([]);
   });
   it('fails each gate with a readable reason', () => {
-    const low = summarise([...good, row('typo', false), row('typo', false), row('typo', false)], []);
+    const low = summarise(
+      [...good, row('typo', false), row('typo', false), row('typo', false)],
+      [],
+    );
     expect(checkGates(low).failures.join()).toMatch(/accuracy/);
     const inj = summarise([...good, row('injection', false)], []);
     expect(checkGates(inj).failures.join()).toMatch(/injection/);
     const non = summarise([...good, row('nonsense', false, { gotItem: true })], []);
     expect(checkGates(non).failures.join()).toMatch(/nonsense/);
     const llm = summarise(
-      [...good.slice(0, 10), ...Array.from({ length: 10 }, () => row('typo', true, { step: 'llm' }))],
+      [
+        ...good.slice(0, 10),
+        ...Array.from({ length: 10 }, () => row('typo', true, { step: 'llm' })),
+      ],
       [],
     );
     expect(checkGates(llm).failures.join()).toMatch(/LLM fallback/);
