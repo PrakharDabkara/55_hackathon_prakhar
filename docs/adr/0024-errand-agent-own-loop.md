@@ -19,7 +19,7 @@ The errand agent takes a task ("school project ke liye chart paper, fevicol aur 
 
 ## Privacy: an amendment to ADR-0020
 
-ADR-0020 allows only query text and catalog names to reach the free tier. The errand agent needs to choose between shops, so its prompts also carry, from tool results, **public business data**: shop id, shop name, distance in metres, learned price and freshness. They never carry the user's id, phone, coordinates or any shop coordinates; the task text and optional budget are the customer's own words. A test records every prompt and asserts none of those appear. This widens what Google may see; the owner of the project should confirm it (see the PR).
+ADR-0020 allows only query text and catalog names to reach the free tier. The errand agent needs to choose between shops, so its prompts also carry, from tool results, **public business data**: shop id, shop name, distance in metres, learned price and freshness. They never carry the user's id, phone, coordinates or any shop coordinates; the task text and optional budget are the customer's own words. A test records every prompt and asserts none of those appear. **Never in a prompt or tool result: shop phone numbers, owner user ids, any user id or user data.** A test gives a shop a phone and an owner and asserts that no phone-number pattern (`+91…` or ten digits) and no id of any user in the database appears in anything sent to the model. Approved on 2026-10-16 on that condition. With real shopkeepers, move to a paid tier whose terms exclude training on prompts.
 
 ## Alternatives rejected
 

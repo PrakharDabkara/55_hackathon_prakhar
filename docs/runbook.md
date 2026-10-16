@@ -143,7 +143,7 @@ The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `
 
 Item matching tries a dictionary, trigram similarity, embeddings and then an LLM (ADR-0021). The model is Google's Gemini free tier behind a provider port (ADR-0020).
 
-**Free-tier privacy rule.** Google may review free-tier prompts. The code sends only the customer's query text (cut to 100 characters) and catalog item names. Never add phone numbers, user ids or locations to a prompt. Item resolution sends no prices or shop data; the errand agent (ADR-0024) also sends public shop data from its tools (shop id, name, distance, price, freshness) and never shop or user coordinates. `ai_calls` stores tokens, latency and outcome, never prompt text.
+**Free-tier privacy rule.** Google may review free-tier prompts. The code sends only the customer's query text (cut to 100 characters) and catalog item names. Never add phone numbers (users or shops), user or owner ids, or locations to a prompt. Item resolution sends no prices or shop data; the errand agent (ADR-0024) also sends public shop data from its tools (shop id, name, distance, price, freshness) and never shop or user coordinates. `ai_calls` stores tokens, latency and outcome, never prompt text.
 
 | Variable                             | Where                                                                     | Meaning                                                                                                                                  |
 | ------------------------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |

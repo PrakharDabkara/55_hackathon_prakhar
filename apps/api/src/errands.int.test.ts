@@ -405,7 +405,21 @@ describe('errand agent core (fake model, real database)', () => {
   });
 
   describe('the tools the model can use', () => {
-    it('never sends coordinates, the phone number or the user id to the model', async () => {
+    it('never sends coordinates, phone numbers or user and owner ids to the model', async () => {
+      // A shop with a real-looking phone and an owner account: neither may reach a prompt.
+      const shopPhone = '+919811122233';
+      const ownerId = (
+        await pool.query<{ id: string }>(
+          `INSERT INTO users (phone, role) VALUES ($1, 'shop')
+           ON CONFLICT (phone) DO UPDATE SET role = 'shop' RETURNING id`,
+          [shopPhone],
+        )
+      ).rows[0]?.id as string;
+      await pool.query(`UPDATE shops SET owner_user_id = $2, phone = $3 WHERE id = $1`, [
+        shops['riceNear'],
+        ownerId,
+        shopPhone,
+      ]);
       const { id } = await newErrand();
       provider.playChat([
         { toolCalls: [call('resolve_item', { text: 'rice' })] },
@@ -427,6 +441,15 @@ describe('errand agent core (fake model, real database)', () => {
       expect(everything).not.toContain(String(north(0.4)).slice(0, 8));
       expect(everything).not.toContain(phone.slice(3));
       expect(everything).not.toContain(userId);
+      expect(everything).not.toContain(ownerId);
+      expect(everything).not.toContain(shopPhone);
+      expect(everything).not.toContain(shopPhone.slice(3));
+      // No phone-number pattern at all: +91 followed by 10 digits, or any bare run of 10 digits.
+      expect(everything).not.toMatch(/\+91[\s-]?\d{10}/);
+      expect(everything).not.toMatch(/(?<![\d-])\d{10}(?![\d-])/);
+      // Every user id and owner id in the database, not just the ones this test made.
+      const secrets = (await pool.query<{ id: string }>(`SELECT id FROM users`)).rows;
+      for (const row of secrets) expect(everything).not.toContain(row.id);
       // ...but it does see what it needs to choose: shop ids, names, prices.
       expect(everything).toContain(shops['riceNear']);
       expect(everything).toContain('Near Rice');
