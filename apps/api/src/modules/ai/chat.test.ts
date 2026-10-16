@@ -238,6 +238,18 @@ describe('createAiClient.chatWithTools', () => {
     expect(rows.map((r) => r.outcome)).toEqual(['error']);
   });
 
+  it('retries as often as the caller asks, and no more', async () => {
+    const { provider, client } = setup();
+    const busy = () => new ProviderError('x', 503);
+    provider.playChat([busy(), busy(), busy(), { text: 'at last' }]);
+    expect((await client.chatWithTools({ ...base, retries: 3 })).text).toBe('at last');
+    provider.playChat([busy(), busy(), busy(), busy(), busy()]);
+    await expect(client.chatWithTools({ ...base, retries: 3 })).rejects.toBeInstanceOf(
+      AiUnavailableError,
+    );
+    expect(provider.calls.filter((c) => c.kind === 'chat')).toHaveLength(4 + 4);
+  });
+
   it('succeeds when the retry does', async () => {
     const { provider, client } = setup();
     provider.playChat([new ProviderError('x', 503), { text: 'fine' }]);
