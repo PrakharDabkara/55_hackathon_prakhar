@@ -12,8 +12,57 @@ const keysDeep = (value: unknown): string[] =>
     : [];
 
 describe('the agent tools', () => {
-  it('are resolve_item, find_item_nearby, plan_route and submit_plan: no ask_shops today', () => {
-    expect(names).toEqual(['resolve_item', 'find_item_nearby', 'plan_route', 'submit_plan']);
+  it('are resolve_item, find_item_nearby, ask_shops, get_request_status, ask_user, plan_route and submit_plan', () => {
+    expect(names).toEqual([
+      'resolve_item',
+      'find_item_nearby',
+      'ask_shops',
+      'get_request_status',
+      'ask_user',
+      'plan_route',
+      'submit_plan',
+    ]);
+  });
+
+  it('ask_shops takes an item and an optional target price, and nothing about where', () => {
+    const tool = AGENT_TOOLS.find((t) => t.name === 'ask_shops');
+    expect(tool?.input.safeParse({ itemId: UUID }).success).toBe(true);
+    expect(tool?.input.safeParse({ itemId: UUID, targetPricePaise: 4500 }).success).toBe(true);
+    expect(tool?.input.safeParse({ itemId: 'nope' }).success).toBe(false);
+    expect(tool?.input.safeParse({ itemId: UUID, targetPricePaise: 0 }).success).toBe(false);
+  });
+
+  it('get_request_status takes a requestId', () => {
+    const tool = AGENT_TOOLS.find((t) => t.name === 'get_request_status');
+    expect(tool?.input.safeParse({ requestId: UUID }).success).toBe(true);
+    expect(tool?.input.safeParse({}).success).toBe(false);
+  });
+
+  it('ask_user takes a question and up to four options', () => {
+    const tool = AGENT_TOOLS.find((t) => t.name === 'ask_user');
+    expect(tool?.input.safeParse({ question: 'Kaunsa phenyl?' }).success).toBe(true);
+    expect(tool?.input.safeParse({ question: 'Kaunsa?', options: ['a', 'b'] }).success).toBe(true);
+    expect(
+      tool?.input.safeParse({ question: 'Kaunsa?', options: ['1', '2', '3', '4', '5'] }).success,
+    ).toBe(false);
+    expect(tool?.input.safeParse({ question: '' }).success).toBe(false);
+  });
+
+  it('tell the model the order of work: find first, ask shops for thin items, ask the user on a clarification', () => {
+    const text = (name: string) => AGENT_TOOLS.find((t) => t.name === name)?.description ?? '';
+    expect(text('ask_shops')).toMatch(/find_item_nearby first/i);
+    expect(text('ask_shops')).toMatch(/fewer than 3 fresh/i);
+    expect(text('ask_user')).toMatch(/resolve_item/);
+    expect(text('ask_user')).toMatch(/clarification/i);
+    expect(text('ask_user')).toMatch(/instead of guessing/i);
+  });
+
+  it('submit_plan accepts confirmed as a claim (the server decides)', () => {
+    expect(
+      submitPlanInput.safeParse({
+        items: [{ text: 'x', status: 'confirmed', itemId: UUID, shopId: UUID }],
+      }).success,
+    ).toBe(true);
   });
 
   it('never ask the model for a location: the server injects it', () => {

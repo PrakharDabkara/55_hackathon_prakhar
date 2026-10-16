@@ -72,4 +72,98 @@ describe('buildProgress', () => {
     const lines = buildProgress([], 'FAILED', 'step_limit');
     expect(lines.at(-1)).toMatch(/plan nahi ban paya/i);
   });
+
+  describe('waiting, answers and questions (Day 13)', () => {
+    const at = (sec: number) => new Date(Date.UTC(2026, 9, 24, 10, 0, sec));
+    const ask = (label: string, requestId: string, sec: number): StepView => ({
+      ...tool('ask_shops', { itemId: 'i' }, { label, requestId }),
+      at: at(sec),
+    });
+
+    it('says how many shops were asked, per item: "6 dukaanon se pooch raha hoon: phenyl"', () => {
+      const lines = buildProgress([ask('phenyl', 'r1', 1)], 'PLANNING', null, {
+        pingsSent: { r1: 6 },
+      });
+      expect(lines).toEqual(['6 dukaanon se pooch raha hoon: phenyl']);
+    });
+
+    it('uses the singular for one shop, and no number while the pings are still being sent', () => {
+      expect(
+        buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null, { pingsSent: { r1: 1 } }),
+      ).toEqual(['1 dukaan se pooch raha hoon: jhaadu']);
+      expect(
+        buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null, { pingsSent: { r1: 0 } }),
+      ).toEqual(['Dukaanon se pooch raha hoon: jhaadu']);
+      expect(buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null)).toEqual([
+        'Dukaanon se pooch raha hoon: jhaadu',
+      ]);
+    });
+
+    it('ends with "Jawab ka intezaar…" while the errand waits for shops', () => {
+      const lines = buildProgress([ask('phenyl', 'r1', 1)], 'WAITING_FOR_SHOPS', null, {
+        pingsSent: { r1: 3 },
+      });
+      expect(lines).toEqual(['3 dukaanon se pooch raha hoon: phenyl', 'Jawab ka intezaar…']);
+    });
+
+    it('reports each yes in time order with its price: "Mishra Kirana ne haan kaha ₹42"', () => {
+      const lines = buildProgress(
+        [
+          ask('phenyl', 'r1', 1),
+          { ...tool('find_item_nearby', {}, { label: 'x', count: 0 }), at: at(30) },
+        ],
+        'WAITING_FOR_SHOPS',
+        null,
+        {
+          pingsSent: { r1: 2 },
+          answers: [
+            { shopName: 'Mishra Kirana', pricePaise: 4200, at: at(10) },
+            { shopName: 'Gupta Store', pricePaise: null, at: at(20) },
+          ],
+        },
+      );
+      expect(lines).toEqual([
+        '2 dukaanon se pooch raha hoon: phenyl',
+        'Mishra Kirana ne haan kaha ₹42',
+        'Gupta Store ne haan kaha',
+        'X: kisi dukaan mein nahi mili',
+        'Jawab ka intezaar…',
+      ]);
+    });
+
+    it('shows paise as a decimal rupee amount when needed', () => {
+      const lines = buildProgress([], 'WAITING_FOR_SHOPS', null, {
+        answers: [{ shopName: 'A', pricePaise: 4250, at: at(1) }],
+      });
+      expect(lines[0]).toBe('A ne haan kaha ₹42.50');
+    });
+
+    it('shows the question the agent asked: "Aapse ek sawaal: …"', () => {
+      const lines = buildProgress(
+        [
+          {
+            ...tool('ask_user', { question: 'Kaunsa phenyl chahiye?' }, { asked: true }),
+            at: at(5),
+          },
+        ],
+        'NEEDS_INPUT',
+        null,
+      );
+      expect(lines).toEqual(['Aapse ek sawaal: Kaunsa phenyl chahiye?']);
+    });
+
+    it('ends with plain lines for an expired or a cancelled errand', () => {
+      expect(buildProgress([], 'EXPIRED', null).at(-1)).toMatch(/time khatam/i);
+      expect(buildProgress([], 'CANCELLED', null).at(-1)).toMatch(/cancel/i);
+    });
+
+    it('explains the new failure reason wait_limit', () => {
+      expect(buildProgress([], 'FAILED', 'wait_limit').at(-1)).toMatch(/intezaar/i);
+    });
+
+    it('does not repeat a line for a failed ask_shops (error) step', () => {
+      const failed: StepView = { ...tool('ask_shops', {}, { error: true }), at: at(1) };
+      expect(buildProgress([failed], 'PLANNING', null)).toEqual([]);
+    });
+  });
 });
