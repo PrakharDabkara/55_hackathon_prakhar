@@ -693,7 +693,10 @@ describe('errand agent core (fake model, real database)', () => {
       const outcomes = (await Promise.all([runErrand(deps(), id), runErrand(deps(), id)])).map(
         (r) => r.outcome,
       );
-      expect(outcomes.sort()).toEqual(['busy', 'plan_ready']);
+      // One run does the work; the other is turned away: "busy" while the first still holds the
+      // errand, "skipped" if the first already finished (the fake model is quick).
+      expect(outcomes.filter((o) => o === 'plan_ready')).toHaveLength(1);
+      expect(outcomes.filter((o) => o === 'busy' || o === 'skipped')).toHaveLength(1);
       expect(chatCalls()).toHaveLength(1);
     });
 
