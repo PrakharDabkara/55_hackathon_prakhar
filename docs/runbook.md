@@ -160,7 +160,7 @@ LLM_PROVIDER=gemini npm run ai:embed-catalog   # embeds items whose text changed
 LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queries through the whole pipeline, see docs/evals.md
 ```
 
-`EVAL_SET=dev|holdout|all`, `EVAL_KINDS=variant,ambiguous`, `EVAL_AI_PAUSE_MS` (default 5000) and `EVAL_DB=testcontainers` are described in `docs/evals.md`. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database, or with `EVAL_DB=testcontainers`.
+`EVAL_SET=dev|holdout-v2|holdout|all`, `EVAL_KINDS=variant,ambiguous`, `EVAL_AI_PAUSE_MS` (default 5000) and `EVAL_DB=testcontainers` are described in `docs/evals.md`. Reports go to `evals/reports/` (git-ignored except `sample.json`). `eval:resolve` clears `query_cache` and `ai_calls`, so run it against a local database, or with `EVAL_DB=testcontainers`.
 
 **Watching it.** `GET /admin/ai/stats` (admin token): answers by step, LLM fallback and cache-hit rates, average tokens per LLM call, p95 latency, errors, invalid outputs and breaker skips, for 24 hours and 7 days. The breaker opens after 5 failed calls in a row and AI is skipped for 60 seconds; searches keep working from the dictionary. A 429 in the logs (`AI call failed`, `status: 429`) means a free-tier rate limit.
 

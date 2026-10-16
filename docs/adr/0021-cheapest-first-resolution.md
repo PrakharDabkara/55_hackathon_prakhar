@@ -30,6 +30,12 @@ Around it:
 
 `evals/resolve.dev.jsonl` has 81 labelled queries (Hinglish, Devanagari, typos, variants, ambiguous, nonsense, multi-word, quantity phrases, 5 prompt injections). Gemini embeddings are compressed: correct matches scored 0.70 to 0.77 with a gap of 0.04 to 0.13 to the runner-up, while wrong and ambiguous ones scored 0.55 to 0.71 with a gap under 0.02. `EMBED_THRESHOLD=0.70` and `EMBED_MARGIN=0.04` resolve the clear cases and made no wrong resolution on this set; the unsure ones go on to the LLM. The first run with threshold 0.8 sent everything to the LLM. Three queries ("dal", "oil", "battery") were first labelled as variants and relabelled "ambiguous" after reading the answers (different pulses, different oils, AA versus AAA are choices worth a tap); that is tuning on the eval set and is noted here on purpose. The last run, with `gemini-3.1-flash-lite`: 77 of 81 right (95.1%), 23 LLM calls (about 850 tokens each), p95 3.0 s. Known misses: "pen" and "bottle" are sometimes asked about instead of picked (the model is inconsistent on variants), "paper" once failed on an LLM error, and "xyzzy plugh" resolved to plug top because of letter overlap. Day 10 turns this into a CI gate.
 
+## Injection defence (Day 10 addendum)
+
+Two cheap layers sit in front of the shortlist check. (1) The query is cut to its **first line** (the app's box is one line, so a line break means the text is not from the app) and to 100 characters. (2) A pattern check (`looksLikeInstruction`, English, Hinglish and Devanagari: "ignore previous instructions", "system:", "you are now", "answer X", "pichle nirdesh bhool jao" and similar) makes the query skip the embedding and LLM steps; the free steps still answer, and the skip is logged as `llm_skipped_suspicious`. The patterns are a first line of defence, not a guarantee: the shortlist check stays the hard guard.
+
+**Worst case of a successful injection today is a wrong catalog item** from a list of at most 10 we chose: this step has no tools and no data access. That does not carry over to the Day 12 errand agent, which will call tools; it needs its own, stronger guardrails (tool allow-lists, argument validation, no secrets in context, confirmation for side effects).
+
 ## Alternatives rejected
 
 - **Embeddings or the LLM first:** tokens and latency on every search, when a dictionary answers more than half (44 of 81 here).
