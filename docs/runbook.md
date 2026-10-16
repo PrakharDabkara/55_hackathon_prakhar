@@ -170,7 +170,7 @@ LLM_PROVIDER=gemini npm run eval:resolve       # dev (81) and holdout (62) queri
 
 ## GitHub: the `evals` environment
 
-The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". Run it by hand from Actions, Evals, Run workflow.
+The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". It runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow) and on every push to `main`.
 
 ## npm install scripts
 
