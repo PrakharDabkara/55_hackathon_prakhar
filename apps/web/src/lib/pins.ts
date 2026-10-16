@@ -17,3 +17,17 @@ export function pinSvg(kind: PinKind): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="40" viewBox="0 0 30 40" aria-hidden="true"><path d="M15 38C15 38 3 24 3 14a12 12 0 0 1 24 0c0 10-12 24-12 24z" fill="${colour}" stroke="#ffffff" stroke-width="2"/><circle cx="15" cy="14" r="5" fill="#ffffff"/></svg>`;
 }
+
+/**
+ * Identifies the set of pins on the map: which shops, of which kind, where. The map zooms to fit
+ * everything whenever this changes, so a shop that answers (a new pin, or a learned pin turning
+ * live) is never left outside the view.
+ */
+export function pinsKey(
+  pins: readonly { id: string; kind: string; lat: number; lng: number }[],
+): string {
+  return pins
+    .map((p) => `${p.id}:${p.kind}:${p.lat.toFixed(5)},${p.lng.toFixed(5)}`)
+    .sort()
+    .join('|');
+}

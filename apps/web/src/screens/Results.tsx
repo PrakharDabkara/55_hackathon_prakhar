@@ -57,7 +57,7 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
   const rows = useMemo(() => sortResults(request.results, sort), [request.results, sort]);
   const pins = useMemo(() => pinsFor(request.results), [request.results]);
 
-  const { sent, yes, pending } = request.pingStats;
+  const { sent, yes, no, pending } = request.pingStats;
   const active = request.state === 'PINGING' || request.state === 'ANSWERED';
   const remaining = new Date(request.expiresAt).getTime() - now;
 
@@ -96,7 +96,7 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
 
       <p className="status-line">
         {sent > 0
-          ? t.statusLine(sent, yes, pending)
+          ? t.statusLine(sent, yes, no, pending)
           : active && request.state === 'PINGING'
             ? t.statusWaiting
             : t.statusFromMemory}

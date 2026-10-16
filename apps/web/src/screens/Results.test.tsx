@@ -278,7 +278,7 @@ describe('Results', () => {
       <Results api={fakeSeekerApi()} initial={answered} origin={origin} onDone={vi.fn()} />,
       'en',
     );
-    expect(screen.getByText('10 shops asked · 7 said yes · 3 yet to reply')).toBeTruthy();
+    expect(screen.getByText('10 shops asked · 4 said yes · 6 said no · 0 yet to reply')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cheapest' })).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'Directions' })).toHaveLength(3);
   });

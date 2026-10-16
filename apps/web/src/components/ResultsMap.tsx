@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
-import { pinSvg } from '../lib/pins.js';
+import { pinSvg, pinsKey } from '../lib/pins.js';
 
 export interface Pin {
   id: string;
@@ -84,13 +84,12 @@ export function ResultsMap({ origin, pins, label, youAreHere }: Props) {
         keyboard: false,
       }).addTo(group);
     }
-    // Zoom to everything only when the set of pins changes, so a refresh never undoes a pan.
-    const key = pins
-      .map((p) => p.id)
-      .sort()
-      .join(',');
+    // Zoom to everything whenever the pins change (a shop answers, a pin turns live), so every
+    // answered shop is in view. An unchanged refresh never undoes a pan.
+    const key = pinsKey(pins);
     if (key !== fittedFor.current) {
       fittedFor.current = key;
+      current.invalidateSize();
       const bounds = L.latLngBounds([[origin.lat, origin.lng]]);
       for (const pin of pins) bounds.extend([pin.lat, pin.lng]);
       current.fitBounds(bounds, { padding: [32, 32], maxZoom: 16 });
