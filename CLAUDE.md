@@ -30,7 +30,7 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Logs are pino JSON with a request id on every line; the id follows a search through pings, replies and map updates.
 - No secrets in code. Config comes from env; only `.env.example` is committed.
 - Shop and user text is data, never instructions to a model.
-- PRs that touch `modules/ai`, `modules/catalog`, the catalog seed or `evals/` must carry the `evals` label before merge (it runs the eval gate; one full run per day per eval project, see the runbook).
+- PRs that change the resolve pipeline (`modules/catalog` resolve*, the Gemini adapter, prompts), the catalog seed or `evals/` must carry the `evals` label before merge (it runs the eval gate; one full run per day per eval project, see the runbook). Test-only fakes and errand-agent code don't.
 - Do not install dependencies the brief does not call for without asking.
 - Keep docs short. Update `CHANGELOG.md` under `Unreleased` in each PR.
 - Commit messages follow Conventional Commits (feat:, fix:, chore:, docs:, test:, refactor:, ci:).
