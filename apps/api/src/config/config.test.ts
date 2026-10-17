@@ -325,3 +325,71 @@ describe('AI reliability settings', () => {
     );
   });
 });
+
+describe('production never runs the fake model (Day 14c)', () => {
+  const prod = {
+    ...valid,
+    NODE_ENV: 'production',
+    OTP_MODE: 'simulated',
+    GEMINI_API_KEY: 'k',
+  };
+
+  it('accepts a production config with the real provider', () => {
+    expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini' })).toMatchObject({
+      nodeEnv: 'production',
+      llmProvider: 'gemini',
+      fakeLlmScenario: null,
+    });
+  });
+
+  it('refuses LLM_PROVIDER=fake, with a clear error', () => {
+    expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(
+      /LLM_PROVIDER.*fake.*production/i,
+    );
+  });
+
+  it('refuses FAKE_LLM_SCENARIO whatever the provider is', () => {
+    expect(() =>
+      loadConfig({
+        ...prod,
+        LLM_PROVIDER: 'gemini',
+        FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
+      }),
+    ).toThrowError(/FAKE_LLM_SCENARIO.*production/i);
+    expect(() =>
+      loadConfig({ ...prod, LLM_PROVIDER: 'fake', FAKE_LLM_SCENARIO: 'x.json' }),
+    ).toThrowError(/FAKE_LLM_SCENARIO/);
+  });
+
+  it('refuses it even when it is empty: set at all is set', () => {
+    expect(() =>
+      loadConfig({ ...prod, LLM_PROVIDER: 'gemini', FAKE_LLM_SCENARIO: '' }),
+    ).toThrowError(/FAKE_LLM_SCENARIO/);
+  });
+
+  it('has no bypass: no other variable lets the fake model into production', () => {
+    for (const bypass of [
+      'ALLOW_FAKE_LLM',
+      'ALLOW_FAKE_LLM_IN_PRODUCTION',
+      'FORCE_FAKE_LLM',
+      'CI',
+    ]) {
+      expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake', [bypass]: 'true' })).toThrowError(
+        /production/i,
+      );
+    }
+  });
+
+  it('still allows the scripted model outside production (e2e and local runs)', () => {
+    for (const NODE_ENV of ['development', 'test']) {
+      expect(
+        loadConfig({
+          ...valid,
+          NODE_ENV,
+          LLM_PROVIDER: 'fake',
+          FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
+        }),
+      ).toMatchObject({ llmProvider: 'fake', fakeLlmScenario: 'e2e/errand-scenario.json' });
+    }
+  });
+});

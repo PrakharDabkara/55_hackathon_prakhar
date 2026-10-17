@@ -187,7 +187,6 @@ export function errandPlan(overrides: Partial<ErrandPlan> = {}): ErrandPlan {
   };
   return {
     items: kam.items,
-    notes: null,
     route: kam.route,
     totalPricePaise: kam.totalPricePaise,
     savingsPaise: kam.savingsPaise,

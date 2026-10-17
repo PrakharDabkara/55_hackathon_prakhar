@@ -14,6 +14,7 @@ import {
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import {
   createErrand,
+  getErrand,
   limitsFromConfig,
   moveErrand,
   runErrand,
@@ -565,6 +566,48 @@ describe('errand agent core (fake model, real database)', () => {
       ]);
       await runErrand(deps(), id);
       expect((await errandRow(id)).plan.items[0]).toMatchObject({ status: 'likely' });
+    });
+  });
+
+  describe('the model proposes, the database decides: no model text in the view (Day 14c)', () => {
+    it('GET view and the plan carry no sentence the model wrote; errand_steps keeps it for debugging', async () => {
+      const SAID = 'Shiv Kirana Bhandar mein sarson ka tel mil jayega';
+      const NOTE = 'Sasta tel Shiv Kirana mein hai';
+      const { id } = await newErrand('chawal');
+      provider.playChat([
+        { text: SAID, toolCalls: [call('resolve_item', { text: 'rice' })] },
+        {
+          toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }], NOTE)],
+        },
+      ]);
+      await runErrand(deps(), id);
+      const view = await getErrand({ db: pool, logger }, userId, id);
+      const json = JSON.stringify(view);
+      expect(view?.state).toBe('PLAN_READY');
+      expect(json).not.toContain('Shiv Kirana');
+      expect(json).not.toContain(NOTE);
+      expect(view?.plan).not.toHaveProperty('notes');
+      // the plan itself is still the server's: items, totals, route
+      expect(view?.plan).toMatchObject({ items: [{ status: 'likely' }] });
+      // kept for debugging in the step log
+      const logged = JSON.stringify(await stepRows(id));
+      expect(logged).toContain('Shiv Kirana Bhandar');
+      expect(logged).toContain(NOTE);
+    });
+
+    it('the HTTP response the web uses is clean too', async () => {
+      const { id } = await newErrand('chawal');
+      provider.playChat([
+        { toolCalls: [call('resolve_item', { text: 'rice' })] },
+        {
+          toolCalls: [
+            submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }], 'SECRETNOTE'),
+          ],
+        },
+      ]);
+      await runErrand(deps(), id);
+      const view = await getErrand({ db: pool, logger }, userId, id);
+      expect(JSON.stringify(view)).not.toContain('SECRETNOTE');
     });
   });
 
