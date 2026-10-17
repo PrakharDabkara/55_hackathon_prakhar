@@ -3,6 +3,8 @@ import { LangToggle } from './components/LangToggle.js';
 import { useT } from './i18n/index.js';
 import type { Session } from './lib/session.js';
 import type { SeekerApi, SeekerRequest } from './lib/seekerApi.js';
+import { isErrandPath } from './routing.js';
+import { Errand } from './screens/Errand.js';
 import { Login } from './screens/Login.js';
 import { Results } from './screens/Results.js';
 import { Search } from './screens/Search.js';
@@ -18,14 +20,25 @@ interface Props {
 type Screen =
   | { name: 'login' }
   | { name: 'search' }
+  | { name: 'errand' }
   | { name: 'results'; request: SeekerRequest; origin: { lat: number; lng: number } };
+
+/** Where a signed-in customer lands: the errand screen at its own address, else the search. */
+const landing = (): Screen =>
+  isErrandPath(location.pathname) ? { name: 'errand' } : { name: 'search' };
 
 /** Login → search → results. "Ho gaya" returns to search. */
 export function SeekerApp({ api, session }: Props) {
   const { t } = useT();
   const [screen, setScreen] = useState<Screen>(() =>
-    session.getToken() ? { name: 'search' } : { name: 'login' },
+    session.getToken() ? landing() : { name: 'login' },
   );
+
+  /** The errand screen has an address of its own (/app/errand), so it can be bookmarked. */
+  const go = useCallback((next: 'search' | 'errand') => {
+    window.history.pushState({}, '', next === 'errand' ? '/app/errand' : '/app/');
+    setScreen(next === 'errand' ? { name: 'errand' } : { name: 'search' });
+  }, []);
 
   const logout = useCallback(() => {
     session.clear();
@@ -49,16 +62,29 @@ export function SeekerApp({ api, session }: Props) {
             api={api}
             onLoggedIn={(token) => {
               session.setToken(token);
-              setScreen({ name: 'search' });
+              setScreen(landing());
             }}
           />
         )}
         {screen.name === 'search' && (
-          <Search
-            api={api}
-            onFound={(request, origin) => setScreen({ name: 'results', request, origin })}
-          />
+          <>
+            <Search
+              api={api}
+              onFound={(request, origin) => setScreen({ name: 'results', request, origin })}
+            />
+            <a
+              className="btn btn-no errand-entry"
+              href="/app/errand"
+              onClick={(event) => {
+                event.preventDefault();
+                go('errand');
+              }}
+            >
+              {t.errandEntry}
+            </a>
+          </>
         )}
+        {screen.name === 'errand' && <Errand api={api} onBack={() => go('search')} />}
         {screen.name === 'results' && (
           <Results
             key={screen.request.id}
@@ -68,7 +94,7 @@ export function SeekerApp({ api, session }: Props) {
             onDone={() => setScreen({ name: 'search' })}
           />
         )}
-        {screen.name !== 'results' && (
+        {screen.name !== 'results' && screen.name !== 'errand' && (
           <div className="screen-links">
             <a className="btn btn-quiet" href="/app/shop">
               {t.forShopkeepers}

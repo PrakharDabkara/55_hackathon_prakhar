@@ -551,6 +551,10 @@ export async function progressFacts(db: Queryable, errandId: string) {
       WHERE er.errand_id = $1 GROUP BY er.request_id`,
     [errandId],
   );
+  const opened = await db.query<{ request_id: string; created_at: Date }>(
+    `SELECT request_id, created_at FROM errand_requests WHERE errand_id = $1`,
+    [errandId],
+  );
   const yes = await db.query<{ name: string; price_paise: number | null; answered_at: Date }>(
     `SELECT s.name, p.price_paise, p.answered_at
        FROM errand_requests er
@@ -561,6 +565,7 @@ export async function progressFacts(db: Queryable, errandId: string) {
   );
   return {
     pingsSent: Object.fromEntries(sent.rows.map((r) => [r.request_id, r.n])),
+    requestCreated: Object.fromEntries(opened.rows.map((r) => [r.request_id, r.created_at])),
     answers: yes.rows.map((r) => ({
       shopName: r.name,
       pricePaise: r.price_paise,

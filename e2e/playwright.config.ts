@@ -6,7 +6,8 @@ export const ADMIN_PHONE = '9810000999';
 const baseURL = `http://localhost:${PORT}`;
 
 // The whole stack runs for real: Postgres and Redis (npm run db:up, or CI service containers),
-// the built API serving the built web app, and five simulated shops answering pings.
+// the built API serving the built web app, and five simulated shops answering pings. The model
+// is the fake provider playing a scenario file.
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
@@ -35,6 +36,9 @@ export default defineConfig({
       ADMIN_PHONES: ADMIN_PHONE,
       LOG_LEVEL: 'warn',
       WORKERS_ENABLED: 'true',
+      // The same run every time: a scripted model, never a real one (e2e/errand-scenario.json).
+      LLM_PROVIDER: 'fake',
+      FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
     },
   },
 });

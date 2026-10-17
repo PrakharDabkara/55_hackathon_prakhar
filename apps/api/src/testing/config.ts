@@ -16,6 +16,7 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   workersEnabled: false,
   adminPhones: [],
   llmProvider: 'fake',
+  fakeLlmScenario: null,
   geminiApiKey: null,
   geminiModel: 'gemini-3.1-flash-lite',
   geminiEmbedModel: 'gemini-embedding-001',

@@ -6,6 +6,9 @@ import type { Session } from './lib/session.js';
 import { fakeSeekerApi, result, seekerRequest } from './test/fakes.js';
 import { renderApp } from './test/render.js';
 
+vi.mock('./components/PlanMap.js', () => ({
+  PlanMap: () => <div data-testid="plan-map" />,
+}));
 vi.mock('./components/ResultsMap.js', () => ({
   ResultsMap: () => <div data-testid="map" />,
 }));
@@ -66,5 +69,25 @@ describe('SeekerApp', () => {
   it('links to the shop app for shopkeepers', () => {
     renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession()} />);
     expect(screen.getByRole('link', { name: /Dukaan/ }).getAttribute('href')).toBe('/app/shop');
+  });
+});
+
+describe('SeekerApp: the errand entry (Day 14b)', () => {
+  it('offers "Poora kaam batao" on the search screen and opens the errand screen', async () => {
+    const { user } = renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
+    await user.click(screen.getByRole('link', { name: 'Poora kaam batao' }));
+    expect(await screen.findByLabelText('Kya kaam hai?')).toBeTruthy();
+    expect(location.pathname).toBe('/app/errand');
+
+    await user.click(screen.getByRole('button', { name: 'Wapas' }));
+    expect(await screen.findByLabelText('क्या चाहिए?')).toBeTruthy();
+    expect(location.pathname).toBe('/app/');
+  });
+
+  it('opens straight on the errand screen at /app/errand', async () => {
+    window.history.pushState({}, '', '/app/errand');
+    renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
+    expect(await screen.findByLabelText('Kya kaam hai?')).toBeTruthy();
+    window.history.pushState({}, '', '/app/');
   });
 });

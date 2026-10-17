@@ -4,6 +4,7 @@ import type { Queryable } from '../../db/queryable.js';
 import { connect } from '../../workers/redis.js';
 import { createFakeProvider } from './fake.js';
 import { createGeminiProvider } from './gemini.js';
+import { loadScenario, playScenario } from './scenario.js';
 import { createAi, type AiContext } from './index.js';
 import type { LlmProvider, Purpose } from './types.js';
 
@@ -17,7 +18,10 @@ export function providerFromConfig(config: Config): LlmProvider {
       embedDim: config.embedDim,
     });
   }
-  return createFakeProvider({ dim: config.embedDim });
+  const fake = createFakeProvider({ dim: config.embedDim });
+  // A scripted model for end-to-end runs: FAKE_LLM_SCENARIO=<file> (ADR-0024 amendment, Day 14b).
+  if (config.fakeLlmScenario) playScenario(fake, loadScenario(config.fakeLlmScenario));
+  return fake;
 }
 
 /** The AI the running API (and the scripts) use, and how to close its Redis connection. */

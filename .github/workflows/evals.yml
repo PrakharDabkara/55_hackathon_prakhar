@@ -1,13 +1,13 @@
 name: Evals
 
 # The resolution evals call the real Gemini model and spend free-tier quota, so they run only when
-# asked for (ADR-0022): on a pull request that carries the `evals` label (when it is added, and on
-# every push while it stays), by hand, and once a day at 08:30 UTC on main, after the free tier's
+# asked for (ADR-0022): on a pull request that carries the `evals` label (when it is added, when a
+# labelled one is opened, reopened or marked ready, and on every push while it stays), by hand, and once a day at 08:30 UTC on main, after the free tier's
 # daily reset. The daily run also seeds the main-branch embedding cache that pull requests restore
 # from. There is deliberately no push-to-main trigger: merges would spend the day's quota.
 on:
   pull_request:
-    types: [labeled, synchronize]
+    types: [labeled, synchronize, opened, reopened, ready_for_review]
   schedule:
     - cron: '30 8 * * *'
   workflow_dispatch:

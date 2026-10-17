@@ -19,7 +19,7 @@ import {
   type ErrandQuestion,
   type ErrandRecord,
 } from './persistence.js';
-import { buildProgress } from './progress.js';
+import { buildProgress, lateAnswerLines } from './progress.js';
 import { isFinal, type ErrandState } from './stateMachine.js';
 import { sanitiseTask } from './prompt.js';
 
@@ -167,6 +167,8 @@ export interface ErrandView {
   budgetPaise: number | null;
   /** Short Hinglish lines built from the step log. */
   progress: string[];
+  /** Shops that said yes after the plan was ready: kept out of `progress`. */
+  lateAnswers: string[];
   plan: unknown;
   failureReason: string | null;
   usage: { steps: number; tokensIn: number; tokensOut: number };
@@ -177,12 +179,17 @@ export interface ErrandView {
   updatedAt: Date;
 }
 
-export const viewOf = (e: ErrandRecord, progress: string[]): ErrandView => ({
+export const viewOf = (
+  e: ErrandRecord,
+  progress: string[],
+  lateAnswers: string[] = [],
+): ErrandView => ({
   id: e.id,
   state: e.state,
   task: e.task,
   budgetPaise: e.budgetPaise,
   progress,
+  lateAnswers,
   plan: e.plan,
   failureReason: e.failureReason,
   usage: { steps: e.stepCount, tokensIn: e.tokensIn, tokensOut: e.tokensOut },
@@ -216,7 +223,11 @@ async function viewWithProgress(
     listSteps(ctx.db, errand.id),
     progressFacts(ctx.db, errand.id),
   ]);
-  return viewOf(errand, buildProgress(steps, errand.state, errand.failureReason, facts));
+  return viewOf(
+    errand,
+    buildProgress(steps, errand.state, errand.failureReason, facts),
+    lateAnswerLines(steps, facts),
+  );
 }
 
 type Quiet = Pick<ErrandsContext, 'db' | 'logger' | 'events' | 'requests'>;

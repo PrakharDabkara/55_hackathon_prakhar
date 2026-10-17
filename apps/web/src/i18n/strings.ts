@@ -91,6 +91,60 @@ export interface Strings {
   forShopkeepers: string;
   retry: string;
 
+  // Errand screen (Day 14b)
+  errandEntry: string;
+  errandBack: string;
+  errandTaskLabel: string;
+  errandExamplesTitle: string;
+  errandExamples: string[];
+  errandBudgetLabel: string;
+  errandMake: string;
+  errandMaking: string;
+  errErrandRejected: string;
+  errErrandLimit: string;
+  errandStates: Record<
+    | 'PLANNING'
+    | 'WAITING_FOR_SHOPS'
+    | 'NEEDS_INPUT'
+    | 'PLAN_READY'
+    | 'FAILED'
+    | 'EXPIRED'
+    | 'CANCELLED',
+    string
+  >;
+  errandProgressTitle: string;
+  errandWaiting: string;
+  errandElapsed: (mmss: string) => string;
+  errandCancel: string;
+  errandLateTitle: (count: number) => string;
+  errandQuestionTitle: string;
+  errandAnswerLabel: string;
+  errandPickPlan: string;
+  errandTabKam: string;
+  errandTabSasta: string;
+  errandRecommended: string;
+  /** Why the fewest-shops plan is recommended; `extra` is null when it costs no more. */
+  reasonKam: (extra: string | null, saved: number) => string;
+  reasonSasta: (extra: string, saved: number) => string;
+  reasonSame: string;
+  errandConfirmed: string;
+  errandLikely: string;
+  errandNotFound: string;
+  errandMatched: (said: string, got: string, confirmed: boolean) => string;
+  errandTotals: string;
+  errandTotal: string;
+  errandSavings: string;
+  errandStops: string;
+  errandDistance: string;
+  errandRoute: string;
+  errandMapLabel: string;
+  errandNew: string;
+  errandFailed: string;
+  errandFailedAi: string;
+  errandRetry: string;
+  errandExpired: string;
+  errandCancelled: string;
+
   categories: Record<Category, string>;
   bands: Record<Band, string>;
 }
@@ -174,6 +228,65 @@ export const hi: Strings = {
   youAreHere: 'Aap yahan hain',
   forShopkeepers: 'Dukaandaar hain? Yahan jaayein',
   retry: 'Dobara try karein',
+
+  errandEntry: 'Poora kaam batao',
+  errandBack: 'Wapas',
+  errandTaskLabel: 'Kya kaam hai?',
+  errandExamplesTitle: 'Jaise:',
+  errandExamples: [
+    'chai banane ka saaman',
+    'school project: chart paper, fevicol, sketch pens',
+    'puja ka saaman',
+  ],
+  errandBudgetLabel: 'Budget ₹ (zaroori nahi)',
+  errandMake: 'Plan banao',
+  errandMaking: 'Plan ban raha hai…',
+  errErrandRejected: 'Kaam saaf nahi likha hai. Bas likhein kya kya lena hai.',
+  errErrandLimit: 'Abhi bahut saare kaam ho gaye. Thodi der baad dobara try karein.',
+  errandStates: {
+    PLANNING: 'Soch raha hoon',
+    WAITING_FOR_SHOPS: 'Dukaanon se pooch rahe hain',
+    NEEDS_INPUT: 'Aapka jawab chahiye',
+    PLAN_READY: 'Plan taiyaar',
+    FAILED: 'Plan nahi bana',
+    EXPIRED: 'Time khatam',
+    CANCELLED: 'Cancel ho gaya',
+  },
+  errandProgressTitle: 'Ab tak kya hua',
+  errandWaiting: 'Dukaanon ke jawab ka intezaar…',
+  errandElapsed: (mmss) => `Samay: ${mmss}`,
+  errandCancel: 'Cancel karein',
+  errandLateTitle: (count) => `Baad mein aaye jawab (${count})`,
+  errandQuestionTitle: 'Ek sawaal',
+  errandAnswerLabel: 'Apna jawab likhein',
+  errandPickPlan: 'Plan chunein',
+  errandTabKam: 'Kam dukaan',
+  errandTabSasta: 'Sabse sasta',
+  errandRecommended: 'Recommended',
+  reasonKam: (extra, saved) =>
+    extra === null ? `Same daam, ${saved} dukaan kam` : `${extra} zyada, ${saved} dukaan kam`,
+  reasonSasta: (extra, saved) => `Kam dukaan mein ${extra} zyada lagte, ${saved} dukaan kam`,
+  reasonSame: 'Dono plan ek jaise hain',
+  errandConfirmed: '✓ Confirmed',
+  errandLikely: 'Likely · pichhle jawab se',
+  errandNotFound: 'Nahi mila',
+  errandMatched: (said, got, confirmed) =>
+    confirmed
+      ? `Aapne '${said}' kaha tha — dukaan ne '${got}' confirm kiya`
+      : `Aapne '${said}' kaha tha — dukaan ke paas '${got}' hai`,
+  errandTotals: 'Kul hisaab',
+  errandTotal: 'Kul daam',
+  errandSavings: 'Bachat',
+  errandStops: 'Dukaanein',
+  errandDistance: 'Doori',
+  errandRoute: 'Raasta kholo',
+  errandMapLabel: 'Raasta',
+  errandNew: 'Naya kaam',
+  errandFailed: 'Plan nahi ban paya.',
+  errandFailedAi: 'AI abhi available nahi hai. Thodi der baad dobara try karein.',
+  errandRetry: 'Dobara koshish karein',
+  errandExpired: 'Time khatam ho gaya, plan nahi ban paya.',
+  errandCancelled: 'Errand cancel kar diya.',
 
   categories: {
     grocery: 'किराना',
@@ -270,6 +383,66 @@ export const en: Strings = {
   youAreHere: 'You are here',
   forShopkeepers: 'Own a shop? Go here',
   retry: 'Try again',
+
+  errandEntry: 'Describe a whole errand',
+  errandBack: 'Back',
+  errandTaskLabel: 'What is the errand?',
+  errandExamplesTitle: 'For example:',
+  errandExamples: [
+    'chai banane ka saaman',
+    'school project: chart paper, fevicol, sketch pens',
+    'puja ka saaman',
+  ],
+  errandBudgetLabel: 'Budget ₹ (optional)',
+  errandMake: 'Make a plan',
+  errandMaking: 'Making the plan…',
+  errErrandRejected: 'The errand is not clear. Just write what you need to buy.',
+  errErrandLimit: 'Too many errands for now. Please try again in a little while.',
+  errandStates: {
+    PLANNING: 'Thinking',
+    WAITING_FOR_SHOPS: 'Asking the shops',
+    NEEDS_INPUT: 'Needs your answer',
+    PLAN_READY: 'Plan ready',
+    FAILED: 'No plan',
+    EXPIRED: 'Time is up',
+    CANCELLED: 'Cancelled',
+  },
+  errandProgressTitle: 'What has happened so far',
+  errandWaiting: 'Waiting for the shops to answer…',
+  errandElapsed: (mmss) => `Time: ${mmss}`,
+  errandCancel: 'Cancel',
+  errandLateTitle: (count) => `Answers that came later (${count})`,
+  errandQuestionTitle: 'One question',
+  errandAnswerLabel: 'Write your answer',
+  errandPickPlan: 'Choose a plan',
+  errandTabKam: 'Fewest shops',
+  errandTabSasta: 'Cheapest',
+  errandRecommended: 'Recommended',
+  reasonKam: (extra, saved) =>
+    `${extra === null ? 'Same price' : `${extra} more`}, ${saved} fewer ${saved === 1 ? 'shop' : 'shops'}`,
+  reasonSasta: (extra, saved) =>
+    `Fewest shops would cost ${extra} more, ${saved} fewer ${saved === 1 ? 'shop' : 'shops'}`,
+  reasonSame: 'Both plans are alike',
+  errandConfirmed: '✓ Confirmed',
+  errandLikely: 'Likely · from an earlier answer',
+  errandNotFound: 'Not found',
+  errandMatched: (said, got, confirmed) =>
+    confirmed
+      ? `You said '${said}' — the shop confirmed '${got}'`
+      : `You said '${said}' — the shop has '${got}'`,
+  errandTotals: 'Totals',
+  errandTotal: 'Total',
+  errandSavings: 'You save',
+  errandStops: 'Shops',
+  errandDistance: 'Distance',
+  errandRoute: 'Open route',
+  errandMapLabel: 'Route map',
+  errandNew: 'New errand',
+  errandFailed: 'No plan could be made.',
+  errandFailedAi: 'The AI is not available right now. Please try again in a little while.',
+  errandRetry: 'Try again',
+  errandExpired: 'Time ran out, so there is no plan.',
+  errandCancelled: 'The errand was cancelled.',
 
   categories: {
     grocery: 'Grocery',

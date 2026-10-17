@@ -120,4 +120,50 @@ describe('createSeekerApi', () => {
     await api.getRequest('r1').catch(() => undefined);
     expect(onUnauthorized).toHaveBeenCalled();
   });
+
+  describe('errands', () => {
+    it('creates an errand with the budget in paise and no idempotency header', async () => {
+      const { api, last } = setup(() => json(201, { id: 'e1', state: 'PLANNING' }));
+      expect(
+        await api.createErrand({
+          task: 'puja ka saaman',
+          lat: 22.7,
+          lng: 75.8,
+          budgetPaise: 50000,
+        }),
+      ).toEqual({ id: 'e1', state: 'PLANNING' });
+      const [url, init] = last();
+      expect(url).toBe('/errands');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body as string)).toEqual({
+        task: 'puja ka saaman',
+        lat: 22.7,
+        lng: 75.8,
+        budgetPaise: 50000,
+      });
+    });
+
+    it('reads an errand, answers it by option or by text, and cancels it', async () => {
+      const { api, last } = setup(() => json(200, { id: 'e 1', state: 'PLANNING' }));
+      await api.getErrand('e 1');
+      expect(last()[0]).toBe('/errands/e%201');
+      await api.answerErrand('e1', { optionIndex: 1 });
+      expect(last()[0]).toBe('/errands/e1/answer');
+      expect(JSON.parse(last()[1].body as string)).toEqual({ optionIndex: 1 });
+      await api.answerErrand('e1', { text: 'Dust chai' });
+      expect(JSON.parse(last()[1].body as string)).toEqual({ text: 'Dust chai' });
+      await api.cancelErrand('e1');
+      expect(last()[0]).toBe('/errands/e1/cancel');
+      expect(last()[1].method).toBe('POST');
+    });
+
+    it('turns a refusal into an ApiError with its code', async () => {
+      const { api } = setup(() => json(422, { error: { code: 'task_rejected', message: 'no' } }));
+      await expect(api.createErrand({ task: 'x', lat: 1, lng: 1 })).rejects.toMatchObject({
+        status: 422,
+        code: 'task_rejected',
+      });
+      expect(ApiError).toBeDefined();
+    });
+  });
 });

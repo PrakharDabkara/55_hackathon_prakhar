@@ -45,6 +45,7 @@ const config: Config = {
   errandExpiryMs: 900_000,
   errandResumeDebounceMs: 1000,
   errandFewerStopsMaxExtraPaise: 3000,
+  fakeLlmScenario: null,
   geminiFallbackModel: null,
   gitSha: 'test',
 };

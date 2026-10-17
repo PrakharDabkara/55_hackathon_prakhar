@@ -65,6 +65,18 @@ npm run simulate -- --target https://kahanmilega-api.onrender.com --admin-phone 
 
 Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).
 
+## Try an errand
+
+An errand is a whole task ("chai banane ka saaman") instead of one item. The agent finds every item across nearby shops and gives you two plans: **Kam dukaan** (fewest shops) and **Sabse sasta** (least money), with a route on a map.
+
+1. Start the stack (`npm run db:up`, `npm run db:migrate`, `npm run seed:catalog`) and the API with `LLM_PROVIDER=gemini` and a key in `.env` (the fake model cannot plan a real task).
+2. Start the simulator so shops answer: `npm run simulate -- --target http://localhost:3000 --admin-phone 9876500099 --count 150 --speed 10` (the API needs `ADMIN_PHONES=9876500099`).
+3. Open `http://localhost:3000/app/`, log in with Demo mode, tap **Poora kaam batao** (or go to `/app/errand`).
+4. Tap an example or write a task, tap **Demo location (Indore)**, tap **Plan banao**.
+5. Watch the progress list. If the agent asks a question, answer it. When the plan is ready, switch between the two tabs, then tap **Raasta kholo** to open the route in Google Maps.
+
+No Gemini key? `FAKE_LLM_SCENARIO=e2e/errand-scenario.json` with `LLM_PROVIDER=fake` plays a fixed errand (one question, chai patti, adrak, doodh); `npm run test:e2e` uses it. See the runbook.
+
 ## Use KahanMilega from Claude
 
 An MCP server lets an AI assistant look for an item near you, ask shops, and plan a route, using your own customer login. It talks to the public API only (ADR-0023). Six tools: `resolve_item`, `find_item_nearby`, `ask_shops` (pings real shops), `get_request_status`, `close_request`, `plan_route`.

@@ -1,6 +1,14 @@
 import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
-import type { SeekerApi, SeekerRequest, ShopResult } from '../lib/seekerApi.js';
+import type {
+  ErrandPlan,
+  ErrandView,
+  PlanItem,
+  PlanVariant,
+  SeekerApi,
+  SeekerRequest,
+  ShopResult,
+} from '../lib/seekerApi.js';
 
 export const ping = (overrides: Partial<ShopPing> = {}): ShopPing => ({
   id: 'ping-1',
@@ -111,6 +119,98 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     getRequest: vi.fn(async () => seekerRequest()),
     closeRequest: vi.fn(async () => seekerRequest({ state: 'CLOSED' })),
     eventTicket: vi.fn(async () => 'ticket-1'),
+    createErrand: vi.fn(async () => ({ id: 'errand-1', state: 'PLANNING' as const })),
+    getErrand: vi.fn(async () => errandView()),
+    answerErrand: vi.fn(async () => errandView()),
+    cancelErrand: vi.fn(async () => errandView({ state: 'CANCELLED' })),
     ...overrides,
   };
 }
+
+export const planItem = (overrides: Partial<PlanItem> = {}): PlanItem => ({
+  text: 'chini',
+  itemId: 'i-sugar',
+  itemName: 'sugar',
+  quantity: 1,
+  status: 'confirmed',
+  shopId: 's1',
+  shopName: 'Mishra Kirana',
+  distanceM: 400,
+  pricePaise: 5100,
+  referencePricePaise: 6000,
+  freshness: 'Confirmed 2 min ago',
+  downgraded: null,
+  matchedAs: false,
+  ...overrides,
+});
+
+const stop = (n: number) => ({
+  shopId: `s${n}`,
+  label: n === 1 ? 'Mishra Kirana' : 'Gupta Store',
+  lat: Number((22.72 + n / 1000).toFixed(3)),
+  lng: 75.86,
+});
+
+/** Both plans of the chai errand: sasta uses 2 shops, kam_dukaan 1 (₹25 more). */
+export function errandPlan(overrides: Partial<ErrandPlan> = {}): ErrandPlan {
+  const kam: PlanVariant = {
+    kind: 'kam_dukaan',
+    items: [
+      planItem({ text: 'chai patti', itemName: 'tea leaves', pricePaise: 9900 }),
+      planItem({ text: 'chini', itemName: 'sugar', pricePaise: 5100 }),
+    ],
+    route: { orderedStops: [stop(1)], legsM: [400], totalM: 400 },
+    totalPricePaise: 15000,
+    totalDistanceM: 400,
+    shopCount: 1,
+    savingsPaise: 2400,
+  };
+  const sasta: PlanVariant = {
+    kind: 'sasta',
+    items: [
+      planItem({ text: 'chai patti', itemName: 'tea leaves', pricePaise: 9900 }),
+      planItem({
+        text: 'chini',
+        itemName: 'sugar',
+        pricePaise: 3800,
+        status: 'likely',
+        shopId: 's2',
+        shopName: 'Gupta Store',
+        freshness: '2 days ago',
+      }),
+    ],
+    route: { orderedStops: [stop(1), stop(2)], legsM: [400, 900], totalM: 1300 },
+    totalPricePaise: 12500,
+    totalDistanceM: 1300,
+    shopCount: 2,
+    savingsPaise: 4900,
+  };
+  return {
+    items: kam.items,
+    notes: null,
+    route: kam.route,
+    totalPricePaise: kam.totalPricePaise,
+    savingsPaise: kam.savingsPaise,
+    plans: { sasta, kam_dukaan: kam },
+    recommended: 'kam_dukaan',
+    recommendation: { extraPaise: 2500, stopsSaved: 1, reason: 'fewer_stops_within_limit' },
+    ...overrides,
+  };
+}
+
+export const errandView = (overrides: Partial<ErrandView> = {}): ErrandView => ({
+  id: 'errand-1',
+  state: 'PLANNING',
+  task: 'chai banane ka saaman',
+  budgetPaise: null,
+  progress: [],
+  lateAnswers: [],
+  plan: null,
+  failureReason: null,
+  usage: { steps: 0, tokensIn: 0, tokensOut: 0 },
+  question: null,
+  expiresAt: '2026-10-16T10:15:00.000Z',
+  createdAt: '2026-10-16T10:00:00.000Z',
+  updatedAt: '2026-10-16T10:00:05.000Z',
+  ...overrides,
+});
