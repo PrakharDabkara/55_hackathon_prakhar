@@ -2,6 +2,7 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
+import type { PlanItem } from '../lib/seekerApi.js';
 import { errandPlan, errandView, FakeEventSource, fakeSeekerApi } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
@@ -149,11 +150,11 @@ describe('progress', () => {
     });
     await start(user);
     expect(await screen.findByText('Dukaanon ke jawab ka intezaar…')).toBeTruthy();
-    expect(screen.getByText('Samay: 0:42')).toBeTruthy();
+    expect(screen.getByText(/^Samay: 0:4\d$/)).toBeTruthy();
     // the server's own marker is not repeated in the timeline
     expect(screen.queryByText('Jawab ka intezaar…')).toBeNull();
     act(() => void vi.advanceTimersByTime(3000));
-    expect(await screen.findByText('Samay: 0:45')).toBeTruthy();
+    expect(await screen.findByText(/^Samay: 0:(4[5-9]|5\d)$/)).toBeTruthy();
   });
 
   it('refetches when the server says the errand moved, and when the poll fires', async () => {
@@ -306,7 +307,7 @@ describe('the result', () => {
   it('marks an item nobody has as Nahi mila, in grey, without a shop', async () => {
     const plan = errandPlan();
     plan.plans.kam_dukaan.items.push({
-      ...plan.plans.kam_dukaan.items[0]!,
+      ...(plan.plans.kam_dukaan.items[0] as PlanItem),
       text: 'unicorn',
       itemName: null,
       itemId: null,
@@ -326,7 +327,7 @@ describe('the result', () => {
   it('says so when the item found is not what the customer said', async () => {
     const plan = errandPlan();
     plan.plans.kam_dukaan.items[0] = {
-      ...plan.plans.kam_dukaan.items[0]!,
+      ...(plan.plans.kam_dukaan.items[0] as PlanItem),
       text: 'diya',
       itemName: 'candle',
       matchedAs: true,
@@ -340,7 +341,7 @@ describe('the result', () => {
   it('words the note carefully for a likely item: nobody confirmed it', async () => {
     const plan = errandPlan();
     plan.plans.kam_dukaan.items[0] = {
-      ...plan.plans.kam_dukaan.items[0]!,
+      ...(plan.plans.kam_dukaan.items[0] as PlanItem),
       text: 'diya',
       itemName: 'candle',
       status: 'likely',

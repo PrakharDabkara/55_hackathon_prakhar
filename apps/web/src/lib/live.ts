@@ -7,7 +7,12 @@ export interface EventSourceLike {
 }
 
 /** Event names the server sends. They are hints: the payload is never used, the screen refetches. */
-export const LIVE_EVENTS = ['ping.created', 'ping.closed', 'request.updated'] as const;
+export const LIVE_EVENTS = [
+  'ping.created',
+  'ping.closed',
+  'request.updated',
+  'errand.updated',
+] as const;
 
 export interface LiveOptions {
   /** A new one-time ticket. Called again on every reconnect, because a ticket works once. */

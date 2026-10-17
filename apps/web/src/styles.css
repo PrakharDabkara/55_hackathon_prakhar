@@ -480,3 +480,249 @@ details[open] > summary {
   font-size: 1.2rem;
   font-weight: 700;
 }
+
+/* Errand screen (Day 14b) */
+.errand-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin-top: 16px;
+}
+
+.task-input {
+  width: 100%;
+  min-height: calc(var(--tap) * 2);
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+  font-weight: 400;
+  color: var(--ink);
+  background: var(--paper);
+  resize: vertical;
+}
+
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.example {
+  font-size: 1rem;
+  font-weight: 400;
+  text-align: left;
+  min-height: var(--tap);
+}
+
+.errand-task {
+  margin: 0;
+  font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.state-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.state-PLAN_READY {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.state-FAILED,
+.state-EXPIRED,
+.state-CANCELLED {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.timeline {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.waiting {
+  padding: 12px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.waiting p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.timeline-box,
+.late-box {
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+}
+
+.timeline-box summary,
+.late-box summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.late-box ul {
+  margin: 0;
+  padding-left: 1.4em;
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  flex: 1;
+  min-height: var(--tap);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  border-color: var(--green);
+  background: var(--green);
+  color: #ffffff;
+}
+
+.tab[aria-selected='true'] .badge {
+  background: #ffffff;
+  color: var(--green);
+}
+
+.reason {
+  margin: 0;
+  font-weight: 700;
+}
+
+.plan-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.plan-item p {
+  margin: 0;
+}
+
+.plan-item-name {
+  margin: 0;
+  font-size: 1.4rem;
+  text-transform: capitalize;
+}
+
+.plan-item .meta {
+  color: var(--muted);
+}
+
+.plan-item-not_found {
+  background: #ececec;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.status-badge.ok {
+  background: var(--green);
+  color: #ffffff;
+}
+
+.status-badge.warn {
+  background: #ffe08a;
+  color: #4a3500;
+}
+
+.status-badge.none {
+  background: #cfcfcf;
+  color: #222222;
+}
+
+.note {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 4px solid #ffb400;
+  background: #fff7e0;
+}
+
+.totals dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.totals dl > div {
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.totals dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.totals dd {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.km-stop {
+  background: none;
+  border: 0;
+}
+
+.km-stop-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: var(--green);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
