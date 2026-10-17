@@ -2,6 +2,7 @@ import { withTransaction, type Database } from '../../db/queryable.js';
 import seedJson from './catalog.seed.json' with { type: 'json' };
 import {
   catalogVersionOf,
+  categoriesOf,
   checkCatalog,
   defaultsFor,
   parseCatalog,
@@ -27,17 +28,20 @@ export async function seedCatalog(
   checkCatalog(catalog);
   return withTransaction(db, async (tx) => {
     const { rows } = await tx.query<{ id: string; slug: string }>(
-      `INSERT INTO items (slug, name_en, name_hi, category, ref_price_paise)
-       SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[])
+      `INSERT INTO items (slug, name_en, name_hi, category, categories, ref_price_paise)
+       SELECT s, n, h, c, string_to_array(cs, ','), p
+         FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[])
+              AS t(s, n, h, c, cs, p)
        ON CONFLICT (slug) DO UPDATE
          SET name_en = EXCLUDED.name_en, name_hi = EXCLUDED.name_hi, category = EXCLUDED.category,
-             ref_price_paise = EXCLUDED.ref_price_paise
+             categories = EXCLUDED.categories, ref_price_paise = EXCLUDED.ref_price_paise
        RETURNING id, slug`,
       [
         catalog.items.map((i) => i.slug),
         catalog.items.map((i) => i.nameEn),
         catalog.items.map((i) => i.nameHi),
         catalog.items.map((i) => i.category),
+        catalog.items.map((i) => categoriesOf(i).join(',')),
         catalog.items.map((i) => i.refPricePaise),
       ],
     );

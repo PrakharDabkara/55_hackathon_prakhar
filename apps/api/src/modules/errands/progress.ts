@@ -48,7 +48,17 @@ export function buildProgress(
   let seq = 0;
   const add = (at: Date | undefined, order: number, text: string) =>
     dated.push({ at: at ? at.getTime() : order, seq: seq++, text });
-  const resolved = steps.filter((s) => s.toolName === 'resolve_item' && !s.resultSummary['error']);
+  // Every word the agent tried to understand counts as one item: an unresolved word and a failed
+  // lookup too, and the same word twice is one item. A submitted plan knows the true total.
+  const words = new Set<string>();
+  let planItems = 0;
+  for (const s of steps) {
+    if (s.toolName === 'resolve_item' && typeof s.args['text'] === 'string')
+      words.add(s.args['text'].trim().toLowerCase());
+    if (s.toolName === 'submit_plan' && !s.resultSummary['error'])
+      planItems = Math.max(planItems, num(s.resultSummary['items']));
+  }
+  const understood = Math.max(words.size, planItems);
   let understoodSaid = false;
 
   for (const step of steps) {
@@ -58,7 +68,7 @@ export function buildProgress(
     switch (step.toolName) {
       case 'resolve_item':
         if (!understoodSaid) {
-          line(`Samjha: ${things(resolved.length)}`);
+          line(`Samjha: ${things(understood)}`);
           understoodSaid = true;
         }
         if (s['status'] === 'unresolved') line(`"${String(step.args['text'])}" samajh nahi aaya`);
@@ -95,10 +105,19 @@ export function buildProgress(
         break;
       }
       case 'submit_plan':
-        if (typeof s['likely'] === 'number')
+        if (typeof s['likely'] === 'number') {
+          // Truthful names: say so when the item found is not what the customer asked for.
+          const matched = Array.isArray(s['matched']) ? s['matched'] : [];
+          for (const m of matched as { text?: unknown; itemName?: unknown; status?: unknown }[])
+            line(
+              m.status === 'confirmed'
+                ? `Aapne '${String(m.text)}' kaha tha — dukaan ne '${String(m.itemName)}' confirm kiya`
+                : `Aapne '${String(m.text)}' kaha tha — dukaan ke paas '${String(m.itemName)}' hai`,
+            );
           line(
             `Plan taiyaar: ${things(num(s['likely']) + num(s['confirmed']))} mil gayi, ${num(s['notFound'])} nahi mili`,
           );
+        }
         break;
     }
   }

@@ -1,12 +1,23 @@
 import type { Queryable } from '../../db/queryable.js';
-import { planRoute } from '../routing/index.js';
+import { termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
+import { isExpectedMatch } from './matchedAs.js';
+import {
+  optimise,
+  recommend,
+  type Offer,
+  type OptimisedPlan,
+  type PlanKind,
+  type Recommendation,
+  type Wanted,
+} from './optimiser.js';
 import { isUuid, type Confirmation } from './persistence.js';
 import type { SubmitPlanInput } from './tools.js';
 
 /** A claimed shop must be inside this distance of the user: the widest radius any tool allows. */
 const CHECK_RADIUS_M = 5000;
-const MAX_STOPS = 8;
+/** What kam_dukaan may cost more than sasta and still be recommended (ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE). */
+export const DEFAULT_FEWER_STOPS_MAX_EXTRA_PAISE = 3000;
 
 export type Downgrade =
   | 'unknown_item'
@@ -18,35 +29,61 @@ export type Downgrade =
   | 'not_confirmed';
 
 export interface PlanItem {
+  /** The customer's own words for the item. */
   text: string;
   itemId: string | null;
+  /** The catalog item that was actually resolved and confirmed (ADR-0025). */
   itemName: string | null;
   quantity: number;
   status: 'confirmed' | 'likely' | 'not_found';
   shopId: string | null;
   shopName: string | null;
   distanceM: number | null;
-  /** From the shop's learned stock on record, never from the model. */
+  /** From the shop's answer or learned stock on record, never from the model. */
   pricePaise: number | null;
   referencePricePaise: number | null;
   /** "Confirmed 2 min ago" for a shop that said yes in this errand, else how fresh the learned stock is. */
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
   downgraded: Downgrade | null;
+  /** True when the item is not what the customer's words would lead them to expect ("diya" → candle). */
+  matchedAs: boolean;
 }
 
+export interface PlanRoute {
+  orderedStops: { shopId: string; label: string; lat: number; lng: number }[];
+  legsM: number[];
+  totalM: number;
+}
+
+/** One of the two plans the optimiser builds (ADR-0025). */
+export interface PlanVariant {
+  kind: PlanKind;
+  items: PlanItem[];
+  route: PlanRoute | null;
+  /** Sum of price × quantity over the confirmed and likely items that have a recorded price. */
+  totalPricePaise: number;
+  /** The length of the route in metres. */
+  totalDistanceM: number;
+  shopCount: number;
+  /** Sum of (reference price − price) × quantity where both are known; negative if dearer. */
+  savingsPaise: number;
+}
+
+/**
+ * What errands.plan holds. `plans` has both plans and `recommended` says which to show first. The
+ * top-level items, route and totals are a copy of the recommended plan, so a reader that only
+ * knows one plan keeps working.
+ */
 export interface Plan {
   items: PlanItem[];
   notes: string | null;
-  route: {
-    orderedStops: { shopId: string; label: string; lat: number; lng: number }[];
-    legsM: number[];
-    totalM: number;
-  } | null;
-  /** Sum of price × quantity over the confirmed and likely items that have a recorded price. */
+  route: PlanRoute | null;
   totalPricePaise: number;
-  /** Sum of (reference price − price) × quantity where both are known; negative if dearer. */
   savingsPaise: number;
+  plans: Record<PlanKind, PlanVariant>;
+  recommended: PlanKind;
+  recommendation: Omit<Recommendation, 'recommended'>;
 }
 
 /** "Confirmed just now", "Confirmed 2 min ago": how long ago a shop said yes. */
@@ -63,12 +100,12 @@ interface ItemRecord {
 }
 
 /**
- * Server-side truth (ADR-0024). The model proposes; this decides. An item is "confirmed" only if a
- * shop said yes to it in one of this errand's own requests (`confirmations`), with the price from
- * that answer. Else it is "likely" if the shop has unexpired learned stock of that item within
- * reach of the user. Else "not_found". Whatever the model said, the status is the server's.
- * Prices, names and distances come from the database. The route is planned over the shops that
- * survive.
+ * Server-side truth (ADR-0024, ADR-0025). The model proposes which items the customer wants; this
+ * decides everything else. Every offer the errand has seen is gathered: a shop that said yes to
+ * one of its own requests ("confirmed", the price from that answer) and fresh learned stock
+ * ("likely"). The optimiser builds two plans from them, sasta and kam_dukaan, and the
+ * recommendation rule picks one. Whatever shop or status the model named, the plan is the
+ * server's: names, prices, distances and routes all come from the database.
  */
 export async function buildPlan(
   db: Queryable,
@@ -76,6 +113,7 @@ export async function buildPlan(
   input: SubmitPlanInput,
   confirmations: Confirmation[] = [],
   now: Date = new Date(),
+  options: { fewerStopsMaxExtraPaise?: number } = {},
 ): Promise<Plan> {
   const itemIds = [
     ...new Set(input.items.map((i) => i.itemId).filter((id): id is string => isUuid(id))),
@@ -100,125 +138,123 @@ export async function buildPlan(
     );
     for (const r of rows) shops.add(r.id);
   }
-  const stockCache = new Map<string, Awaited<ReturnType<typeof findLearnedStock>>>();
-  const stockFor = async (itemId: string) => {
-    let stock = stockCache.get(itemId);
-    if (!stock) {
-      stock = await findLearnedStock(db, itemId, where.lat, where.lng, CHECK_RADIUS_M);
-      stockCache.set(itemId, stock);
-    }
-    return stock;
-  };
 
-  const planned: PlanItem[] = [];
-  const stopInfo = new Map<string, { label: string; lat: number; lng: number }>();
-  for (const claim of input.items) {
+  // What the customer wants: every claim whose item is in the catalog and that the model did not
+  // give up on (it never claims more than it checked, and the optimiser never plans less).
+  const wanted: Wanted[] = [];
+  input.items.forEach((claim, index) => {
     const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
-    const base: PlanItem = {
-      text: claim.text,
-      itemId: known ? (claim.itemId as string) : null,
-      itemName: known?.name ?? null,
-      quantity: claim.quantity ?? 1,
-      status: 'not_found',
-      shopId: null,
-      shopName: null,
-      distanceM: null,
-      pricePaise: null,
-      referencePricePaise: known?.refPricePaise ?? null,
-      freshness: null,
-      downgraded: null,
-    };
-    if (claim.status === 'not_found') {
-      planned.push(base);
-      continue;
-    }
+    if (known && claim.status !== 'not_found')
+      wanted.push({
+        key: String(index),
+        itemId: claim.itemId as string,
+        quantity: claim.quantity ?? 1,
+        referencePricePaise: known.refPricePaise,
+      });
+  });
 
-    if (!known) {
-      planned.push({ ...base, downgraded: 'unknown_item' });
-      continue;
-    }
-    if (!claim.shopId) {
-      planned.push({ ...base, downgraded: 'no_shop' });
-      continue;
-    }
-    if (!isUuid(claim.shopId) || !shops.has(claim.shopId)) {
-      planned.push({ ...base, downgraded: 'unknown_shop' });
-      continue;
-    }
-    const said = confirmations.find((c) => c.shopId === claim.shopId && c.itemId === base.itemId);
-    if (said) {
-      stopInfo.set(said.shopId, { label: said.name, lat: said.lat, lng: said.lng });
-      planned.push({
-        ...base,
-        status: 'confirmed',
+  // Every offer seen: confirmed answers from this errand's requests, and fresh learned stock.
+  const offers: Offer[] = [];
+  for (const itemId of new Set(wanted.map((w) => w.itemId))) {
+    for (const said of confirmations.filter((c) => c.itemId === itemId))
+      offers.push({
+        itemId,
         shopId: said.shopId,
         shopName: said.name,
+        lat: said.lat,
+        lng: said.lng,
         distanceM: said.distanceM,
         pricePaise: said.pricePaise,
+        status: 'confirmed',
         freshness: confirmedLabel(said.answeredAt, now),
       });
-      continue;
-    }
-    const stock = (await stockFor(base.itemId as string)).find((s) => s.shopId === claim.shopId);
-    if (!stock) {
-      planned.push({ ...base, downgraded: 'no_fresh_stock' });
-      continue;
-    }
-    stopInfo.set(stock.shopId, { label: stock.name, lat: stock.lat, lng: stock.lng });
-    planned.push({
-      ...base,
-      status: 'likely',
-      shopId: stock.shopId,
-      shopName: stock.name,
-      distanceM: stock.distanceM,
-      pricePaise: stock.pricePaise,
-      freshness: stock.freshness,
-      downgraded: claim.status === 'confirmed' ? 'not_confirmed' : null,
-    });
+    for (const stock of await findLearnedStock(db, itemId, where.lat, where.lng, CHECK_RADIUS_M))
+      offers.push({
+        itemId,
+        shopId: stock.shopId,
+        shopName: stock.name,
+        lat: stock.lat,
+        lng: stock.lng,
+        distanceM: stock.distanceM,
+        pricePaise: stock.pricePaise,
+        status: 'likely',
+        freshness: stock.freshness,
+      });
   }
 
-  // A route holds at most 8 stops: later shops beyond that are not planned.
-  const kept = [...stopInfo.keys()].slice(0, MAX_STOPS);
-  for (const item of planned) {
-    if (item.status !== 'not_found' && item.shopId && !kept.includes(item.shopId)) {
-      Object.assign(item, {
+  const optimised = optimise(where, wanted, offers);
+  const choice = recommend(optimised.sasta, optimised.kam_dukaan, {
+    maxExtraPaise: options.fewerStopsMaxExtraPaise ?? DEFAULT_FEWER_STOPS_MAX_EXTRA_PAISE,
+  });
+
+  // Does the item differ from the customer's words in a way they might not expect?
+  const terms = await termsOfItems(db, [...items.keys()]);
+
+  const variantOf = (plan: OptimisedPlan): PlanVariant => {
+    const bought = new Map(plan.assignments.map((a) => [a.key, a]));
+    const planned: PlanItem[] = input.items.map((claim, index) => {
+      const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
+      const base: PlanItem = {
+        text: claim.text,
+        itemId: known ? (claim.itemId as string) : null,
+        itemName: known?.name ?? null,
+        quantity: claim.quantity ?? 1,
         status: 'not_found',
         shopId: null,
         shopName: null,
         distanceM: null,
         pricePaise: null,
+        referencePricePaise: known?.refPricePaise ?? null,
         freshness: null,
-        downgraded: 'too_many_shops',
-      } satisfies Partial<PlanItem>);
-    }
-  }
-
-  let route: Plan['route'] = null;
-  if (kept.length > 0) {
-    const stops = kept.map((shopId) => ({ shopId, ...(stopInfo.get(shopId) as object) })) as {
-      shopId: string;
-      label: string;
-      lat: number;
-      lng: number;
-    }[];
-    const best = planRoute(where, stops);
-    // Whole metres are plenty for a walk, and the total is the sum of what is shown.
-    const legsM = best.legsM.map(Math.round);
-    route = {
-      orderedStops: best.orderedStops,
-      legsM,
-      totalM: legsM.reduce((a, b) => a + b, 0),
+        downgraded: null,
+        matchedAs: false,
+      };
+      const offer = bought.get(String(index));
+      if (offer) {
+        return {
+          ...base,
+          status: offer.status,
+          shopId: offer.shopId,
+          shopName: offer.shopName,
+          distanceM: offer.distanceM,
+          pricePaise: offer.pricePaise,
+          freshness: offer.freshness,
+          downgraded:
+            claim.status === 'confirmed' && offer.status === 'likely' ? 'not_confirmed' : null,
+          matchedAs: !isExpectedMatch(claim.text, terms.get(offer.itemId) ?? []),
+        };
+      }
+      if (claim.status === 'not_found') return base;
+      if (!known) return { ...base, downgraded: 'unknown_item' };
+      if (plan.tooManyShops.includes(String(index)))
+        return { ...base, downgraded: 'too_many_shops' };
+      if (!claim.shopId) return { ...base, downgraded: 'no_shop' };
+      if (!isUuid(claim.shopId) || !shops.has(claim.shopId))
+        return { ...base, downgraded: 'unknown_shop' };
+      return { ...base, downgraded: 'no_fresh_stock' };
+    });
+    return {
+      kind: plan.kind,
+      items: planned,
+      route: plan.route,
+      totalPricePaise: plan.totalPricePaise,
+      totalDistanceM: plan.totalDistanceM,
+      shopCount: plan.shopIds.length,
+      savingsPaise: plan.savingsPaise,
     };
-  }
+  };
 
-  let totalPricePaise = 0;
-  let savingsPaise = 0;
-  for (const item of planned) {
-    if (item.status === 'not_found' || item.pricePaise === null) continue;
-    totalPricePaise += item.pricePaise * item.quantity;
-    if (item.referencePricePaise !== null)
-      savingsPaise += (item.referencePricePaise - item.pricePaise) * item.quantity;
-  }
-
-  return { items: planned, notes: input.notes ?? null, route, totalPricePaise, savingsPaise };
+  const plans = { sasta: variantOf(optimised.sasta), kam_dukaan: variantOf(optimised.kam_dukaan) };
+  const shown = plans[choice.recommended];
+  const { recommended, ...recommendation } = choice;
+  return {
+    items: shown.items,
+    notes: input.notes ?? null,
+    route: shown.route,
+    totalPricePaise: shown.totalPricePaise,
+    savingsPaise: shown.savingsPaise,
+    plans,
+    recommended,
+    recommendation,
+  };
 }

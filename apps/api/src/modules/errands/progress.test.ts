@@ -27,6 +27,63 @@ describe('buildProgress', () => {
     expect(buildProgress(steps, 'PLANNING', null)).toEqual(['Samjha: 4 cheezein']);
   });
 
+  describe('"Samjha" counts every item in the task (Day 14a bug)', () => {
+    it('counts an item that could not be resolved and one whose lookup failed', () => {
+      const steps = [
+        tool('resolve_item', { text: 'chai patti' }, { status: 'resolved' }),
+        tool('resolve_item', { text: 'xyzzy' }, { status: 'unresolved' }),
+        tool('resolve_item', { text: 'doodh' }, { error: true }),
+        tool('resolve_item', { text: 'chini' }, { status: 'clarification' }),
+      ];
+      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Samjha: 4 cheezein');
+    });
+
+    it('does not count the same word twice', () => {
+      const steps = [
+        tool('resolve_item', { text: 'Phenyl' }, { status: 'clarification' }),
+        tool('resolve_item', { text: 'phenyl ' }, { status: 'resolved' }),
+      ];
+      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Samjha: 1 cheez');
+    });
+
+    it('uses the number of items in the submitted plan when it is larger', () => {
+      const steps = [
+        tool('resolve_item', { text: 'a' }, { status: 'resolved' }),
+        tool('submit_plan', {}, { confirmed: 0, likely: 1, notFound: 2, items: 3 }),
+      ];
+      expect(buildProgress(steps, 'PLAN_READY', null)[0]).toBe('Samjha: 3 cheezein');
+    });
+  });
+
+  describe('truthful names (Day 14a)', () => {
+    const submit = (matched: unknown[]) =>
+      tool('submit_plan', {}, { confirmed: 1, likely: 0, notFound: 0, items: 1, matched });
+
+    it("says what the shop confirmed when it is not what the customer said: 'diya' → 'candle'", () => {
+      const lines = buildProgress(
+        [submit([{ text: 'diya', itemName: 'candle', status: 'confirmed' }])],
+        'PLAN_READY',
+        null,
+      );
+      expect(lines).toContain("Aapne 'diya' kaha tha — dukaan ne 'candle' confirm kiya");
+    });
+
+    it('does not claim a shop confirmed something it only has in learned stock', () => {
+      const lines = buildProgress(
+        [submit([{ text: 'diya', itemName: 'candle', status: 'likely' }])],
+        'PLAN_READY',
+        null,
+      );
+      expect(lines).toContain("Aapne 'diya' kaha tha — dukaan ke paas 'candle' hai");
+      expect(lines.join('\n')).not.toMatch(/confirm kiya/);
+    });
+
+    it('says nothing when the names match', () => {
+      const lines = buildProgress([submit([])], 'PLAN_READY', null);
+      expect(lines.join('\n')).not.toMatch(/kaha tha/);
+    });
+  });
+
   it('uses the singular for one item', () => {
     expect(
       buildProgress(

@@ -278,13 +278,14 @@ describe('errand agent core (fake model, real database)', () => {
         'likely',
         'not_found',
       ]);
+      // The model named the nearer rice shop; the plan is the cheapest one on record (Day 14a).
       expect(plan.route.orderedStops.map((s: { shopId: string }) => s.shopId)).toEqual([
-        shops['riceNear'],
         shops['salt'],
+        shops['riceFar'],
       ]);
-      expect(plan.route.totalM).toBeGreaterThan(790);
-      expect(plan.route.totalM).toBeLessThan(810);
-      expect(plan.totalPricePaise).toBe(6200 + 2500);
+      expect(plan.route.totalM).toBeGreaterThan(1190);
+      expect(plan.route.totalM).toBeLessThan(1210);
+      expect(plan.totalPricePaise).toBe(5900 + 2500);
     });
 
     it('one shop for two items is one stop on the route', async () => {
@@ -337,8 +338,9 @@ describe('errand agent core (fake model, real database)', () => {
       return (await errandRow(id)).plan;
     };
 
-    it('a shop with no stock of that item is downgraded to not_found, whatever price the model names', async () => {
-      // The salt shop has salt only; the model says it has rice, for 1 rupee.
+    it('the shop and price come from the records, whatever shop and price the model names', async () => {
+      // The salt shop has salt only; the model says it has rice, for 1 rupee. Rice is planned
+      // from the shops that really have it (ADR-0025).
       const plan = await planAfter([
         {
           text: 'rice',
@@ -347,6 +349,18 @@ describe('errand agent core (fake model, real database)', () => {
           shopId: shops['salt'],
           pricePaise: 100,
         },
+      ]);
+      expect(plan.items[0]).toMatchObject({
+        status: 'likely',
+        shopId: shops['riceFar'],
+        pricePaise: 5900,
+        downgraded: null,
+      });
+    });
+
+    it('an item no shop has is not_found, whatever shop the model names', async () => {
+      const plan = await planAfter([
+        { text: 'aata', itemId: ids['wheat-flour'], status: 'likely', shopId: shops['salt'] },
       ]);
       expect(plan.items[0]).toMatchObject({ status: 'not_found', shopId: null, pricePaise: null });
       expect(plan.items[0].downgraded).toBe('no_fresh_stock');
@@ -360,17 +374,24 @@ describe('errand agent core (fake model, real database)', () => {
       expect(plan.items[0]).toMatchObject({ status: 'not_found', downgraded: 'no_fresh_stock' });
     });
 
-    it('likely without a shop is not_found', async () => {
-      const plan = await planAfter([{ text: 'rice', itemId: ids['rice'], status: 'likely' }]);
+    it('likely without a shop, for an item no shop has, is not_found', async () => {
+      const plan = await planAfter([
+        { text: 'aata', itemId: ids['wheat-flour'], status: 'likely' },
+      ]);
       expect(plan.items[0]).toMatchObject({ status: 'not_found', downgraded: 'no_shop' });
     });
 
     it('hallucinated ids (unknown, or not even a UUID) become not_found', async () => {
       const plan = await planAfter([
         { text: 'a', itemId: UNKNOWN, status: 'likely', shopId: shops['riceNear'] },
-        { text: 'b', itemId: ids['rice'], status: 'likely', shopId: UNKNOWN },
+        { text: 'b', itemId: ids['wheat-flour'], status: 'likely', shopId: UNKNOWN },
         { text: 'c', itemId: 'item-42', status: 'likely', shopId: 'shop-7' },
-        { text: 'd', itemId: ids['rice'], status: 'likely', shopId: "x'; DROP TABLE shops;--" },
+        {
+          text: 'd',
+          itemId: ids['wheat-flour'],
+          status: 'likely',
+          shopId: "x'; DROP TABLE shops;--",
+        },
       ]);
       expect(plan.items.map((i: { status: string }) => i.status)).toEqual(
         Array(4).fill('not_found'),
@@ -387,12 +408,12 @@ describe('errand agent core (fake model, real database)', () => {
       const farShop = await insertShopWithStock(pool, {
         name: 'Faraway',
         km: 30,
-        itemId: ids['rice'] as string,
+        itemId: ids['wheat-flour'] as string,
         ageHours: 1,
         pricePaise: 100,
       });
       const plan = await planAfter([
-        { text: 'rice', itemId: ids['rice'], status: 'likely', shopId: farShop },
+        { text: 'aata', itemId: ids['wheat-flour'], status: 'likely', shopId: farShop },
       ]);
       expect(plan.items[0]).toMatchObject({ status: 'not_found', downgraded: 'no_fresh_stock' });
     });
@@ -787,7 +808,12 @@ describe('errand agent core (fake model, real database)', () => {
       expect(first.messages[0]?.text).toContain('Fake Mart');
       expect(first.messages[0]?.text?.match(/>>>/g)).toHaveLength(1);
       const { plan } = await errandRow(id);
-      expect(plan.items[0]).toMatchObject({ status: 'not_found', pricePaise: null });
+      // Nothing the model claimed survives: the shop and the price are the real ones.
+      expect(plan.items[0]).toMatchObject({
+        status: 'likely',
+        shopId: shops['riceFar'],
+        pricePaise: 5900,
+      });
     });
   });
 

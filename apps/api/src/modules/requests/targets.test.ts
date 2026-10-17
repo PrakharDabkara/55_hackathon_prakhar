@@ -8,7 +8,7 @@ const shop = (shopId: string, distanceM: number, categories = ['grocery']): Cand
 });
 
 const opts = {
-  itemCategory: 'grocery',
+  itemCategories: ['grocery'],
   radiusM: 2000,
   excludeShopIds: new Set<string>(),
   max: 10,
@@ -27,6 +27,18 @@ describe('selectPingTargets', () => {
       opts,
     );
     expect(picked.map((s) => s.shopId)).toEqual(['near', 'two-cats', 'far']);
+  });
+
+  it('keeps a shop that shares any one of the item categories (fevicol: hardware and stationery)', () => {
+    const picked = selectPingTargets(
+      [
+        shop('stationery-shop', 200, ['stationery']),
+        shop('hardware-shop', 300, ['hardware']),
+        shop('grocery-shop', 100, ['grocery']),
+      ],
+      { ...opts, itemCategories: ['hardware', 'stationery'] },
+    );
+    expect(picked.map((s) => s.shopId)).toEqual(['stationery-shop', 'hardware-shop']);
   });
 
   it('includes a shop exactly on the radius', () => {
@@ -51,7 +63,7 @@ describe('selectPingTargets', () => {
 
   it('returns nothing when nothing qualifies, and does not modify its input', () => {
     const input = [shop('b', 500), shop('a', 100)];
-    expect(selectPingTargets(input, { ...opts, itemCategory: 'stationery' })).toEqual([]);
+    expect(selectPingTargets(input, { ...opts, itemCategories: ['stationery'] })).toEqual([]);
     selectPingTargets(input, opts);
     expect(input.map((s) => s.shopId)).toEqual(['b', 'a']);
   });

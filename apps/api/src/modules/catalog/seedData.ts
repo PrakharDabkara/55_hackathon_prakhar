@@ -1,11 +1,14 @@
 import { createHash } from 'node:crypto';
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@kahanmilega/shared';
 import { z } from 'zod';
 import { normaliseQuery } from './normalise.js';
 
 const item = z.object({
   slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  /** The primary category: the kind of shop that most often carries the item. */
   category: z.enum(CATEGORIES),
+  /** Other kinds of shop that really carry it (fevicol: hardware, and stationery too). */
+  extraCategories: z.array(z.enum(CATEGORIES)).max(3).optional(),
   nameEn: z.string().min(1),
   nameHi: z.string().min(1),
   /** Typical shelf price of the usual pack, in integer paise. AI-estimated; see the file note. */
@@ -37,6 +40,9 @@ export function termsFor(i: SeedItem): string[] {
 }
 
 /** The generic words an item is the default for, normalised. */
+/** Every kind of shop that carries the item, the primary first. */
+export const categoriesOf = (i: SeedItem): Category[] => [i.category, ...(i.extraCategories ?? [])];
+
 export const defaultsFor = (i: SeedItem): string[] => [
   ...new Set((i.defaultFor ?? []).map((t) => normaliseQuery(t).text).filter(Boolean)),
 ];
@@ -48,6 +54,8 @@ export function checkCatalog(catalog: SeedCatalog): void {
   for (const i of catalog.items) {
     if (slugs.has(i.slug)) throw new Error(`duplicate slug: ${i.slug}`);
     slugs.add(i.slug);
+    if (new Set(categoriesOf(i)).size !== categoriesOf(i).length)
+      throw new Error(`${i.slug}: a category is listed twice`);
     for (const raw of [i.nameEn, i.nameHi, ...i.synonyms]) {
       const { text, quantity } = normaliseQuery(raw);
       if (!text || quantity) throw new Error(`${i.slug}: term "${raw}" is empty or a quantity`);

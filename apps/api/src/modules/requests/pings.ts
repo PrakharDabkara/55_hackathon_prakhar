@@ -71,7 +71,7 @@ export async function fanOutPings(
   const targets = selectPingTargets(
     nearby.map((s) => ({ shopId: s.id, categories: s.categories, distanceM: s.distance_m })),
     {
-      itemCategory: item.category,
+      itemCategories: item.categories,
       radiusM: request.radiusM,
       excludeShopIds: new Set(known.map((k) => k.shopId)),
       // Look past the cap: shops the dedupe refuses are replaced by the next-nearest, up to 3x.

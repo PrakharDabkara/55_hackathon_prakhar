@@ -5,7 +5,8 @@ export interface Candidate {
 }
 
 interface Options {
-  itemCategory: string;
+  /** Every kind of shop that carries the item: a shop with any one of them is a target. */
+  itemCategories: readonly string[];
   radiusM: number;
   /** Shops that already have the item in learned stock: no need to ask them. */
   excludeShopIds: ReadonlySet<string>;
@@ -13,7 +14,7 @@ interface Options {
 }
 
 /**
- * Who to ping: shops inside the radius that sell this kind of item and are not already known to
+ * Who to ping: shops inside the radius that sell this kind of item (any of the item's categories) and are not already known to
  * have it, nearest first, at most `max`. Returns a new array.
  */
 export function selectPingTargets<T extends Candidate>(candidates: T[], opts: Options): T[] {
@@ -21,7 +22,7 @@ export function selectPingTargets<T extends Candidate>(candidates: T[], opts: Op
     .filter(
       (c) =>
         c.distanceM <= opts.radiusM &&
-        c.categories.includes(opts.itemCategory) &&
+        c.categories.some((category) => opts.itemCategories.includes(category)) &&
         !opts.excludeShopIds.has(c.shopId),
     )
     .sort((a, b) => a.distanceM - b.distanceM)

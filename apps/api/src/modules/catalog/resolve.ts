@@ -29,7 +29,10 @@ export interface CatalogItem {
   slug: string;
   nameEn: string;
   nameHi: string;
+  /** The primary category: the kind of shop that most often carries the item. */
   category: string;
+  /** Every kind of shop that carries the item, the primary first. */
+  categories: string[];
 }
 
 /** Several words: a rival item this close to the best match makes the match a coin toss. */
@@ -81,6 +84,7 @@ const toItem = (r: ItemRow): CatalogItem => ({
   nameEn: r.name_en,
   nameHi: r.name_hi,
   category: r.category,
+  categories: r.categories,
 });
 
 const toCandidate = (r: ItemRow): Candidate => ({
@@ -164,7 +168,7 @@ async function findItem(
 
   // b) An exact synonym.
   const exact = await db.query<ItemRow>(
-    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category
+    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories
        FROM item_synonyms s JOIN items i ON i.id = s.item_id
       WHERE s.term = $1`,
     [text],
@@ -176,7 +180,7 @@ async function findItem(
   // "several plausible items". The weaker candidates are kept as the LLM's shortlist.
   const fuzzy = await db.query<ItemRow>(
     `SELECT * FROM (
-       SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category,
+       SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories,
               s.term, similarity(s.term, $1) AS sim
          FROM item_synonyms s JOIN items i ON i.id = s.item_id
         WHERE s.term % $1
@@ -343,7 +347,7 @@ export async function getRefPricePaise(db: Queryable, itemId: string): Promise<n
 
 export async function getItem(db: Queryable, id: string): Promise<CatalogItem | null> {
   const { rows } = await db.query<ItemRow>(
-    `SELECT id, slug, name_en, name_hi, category FROM items WHERE id = $1`,
+    `SELECT id, slug, name_en, name_hi, category, categories FROM items WHERE id = $1`,
     [id],
   );
   return rows[0] ? toItem(rows[0]) : null;

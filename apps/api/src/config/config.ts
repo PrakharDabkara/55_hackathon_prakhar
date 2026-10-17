@@ -84,6 +84,7 @@ const schema = z
     ERRAND_MAX_WAIT_MS: z.coerce.number().int().min(100).max(1_800_000).default(300_000),
     ERRAND_ANSWER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(3_600_000).default(600_000),
     ERRAND_EXPIRY_MS: z.coerce.number().int().min(1000).max(7_200_000).default(900_000),
+    ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE: z.coerce.number().int().min(0).max(1_000_000).default(3000),
     ERRAND_RESUME_DEBOUNCE_MS: z.coerce.number().int().min(0).max(30_000).default(1000),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
@@ -160,6 +161,8 @@ export interface Config {
   errandExpiryMs: number;
   /** A burst of answers within this window causes one resume check. */
   errandResumeDebounceMs: number;
+  /** ADR-0025: kam_dukaan is recommended if it costs at most this many paise more than sasta. */
+  errandFewerStopsMaxExtraPaise: number;
   gitSha: string;
 }
 
@@ -209,6 +212,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandAnswerTimeoutMs: e.ERRAND_ANSWER_TIMEOUT_MS,
     errandExpiryMs: e.ERRAND_EXPIRY_MS,
     errandResumeDebounceMs: e.ERRAND_RESUME_DEBOUNCE_MS,
+    errandFewerStopsMaxExtraPaise: e.ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

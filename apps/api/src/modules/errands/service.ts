@@ -46,6 +46,8 @@ export interface ErrandLimits {
   expiryMs: number;
   /** A burst of answers within this window causes one resume check. */
   resumeDebounceMs: number;
+  /** kam_dukaan is recommended if it costs at most this many paise more than sasta (or 10 %). */
+  fewerStopsMaxExtraPaise: number;
 }
 
 export const limitsFromConfig = (config: Config): ErrandLimits => ({
@@ -61,6 +63,7 @@ export const limitsFromConfig = (config: Config): ErrandLimits => ({
   answerTimeoutMs: config.errandAnswerTimeoutMs,
   expiryMs: config.errandExpiryMs,
   resumeDebounceMs: config.errandResumeDebounceMs,
+  fewerStopsMaxExtraPaise: config.errandFewerStopsMaxExtraPaise,
 });
 
 /**
