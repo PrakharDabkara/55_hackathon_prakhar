@@ -8,14 +8,17 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   page,
 }) => {
   await page.goto('/app/');
-  await page.getByLabel(/mobile number/i).fill('9810000502');
+  // A new number each run, so a local re-run never meets the OTP limit. The errand uses items the
+  // sugar search in seeker.spec.ts does not (its shops would otherwise already know the answer).
+  const phone = `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+  await page.getByLabel(/mobile number/i).fill(phone);
   await page.getByRole('button', { name: 'OTP bhejo' }).click();
   await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
   await page.getByRole('button', { name: 'Login karein' }).click();
 
   await page.getByRole('link', { name: 'Poora kaam batao' }).click();
   await expect(page).toHaveURL(/\/app\/errand$/);
-  await page.getByLabel('Kya kaam hai?').fill('chai banane ka saaman: chai patti, chini, doodh');
+  await page.getByLabel('Kya kaam hai?').fill('chai banane ka saaman: chai patti, adrak, doodh');
   await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
   await page.getByRole('button', { name: 'Plan banao' }).click();
 

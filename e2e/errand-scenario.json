@@ -12,21 +12,21 @@
     {
       "toolCalls": [
         { "name": "resolve_item", "args": { "text": "chai patti" } },
-        { "name": "resolve_item", "args": { "text": "chini" } },
+        { "name": "resolve_item", "args": { "text": "adrak" } },
         { "name": "resolve_item", "args": { "text": "doodh" } }
       ]
     },
     {
       "toolCalls": [
         { "name": "find_item_nearby", "args": { "itemId": "$item:chai patti" } },
-        { "name": "find_item_nearby", "args": { "itemId": "$item:chini" } },
+        { "name": "find_item_nearby", "args": { "itemId": "$item:adrak" } },
         { "name": "find_item_nearby", "args": { "itemId": "$item:doodh" } }
       ]
     },
     {
       "toolCalls": [
         { "name": "ask_shops", "args": { "itemId": "$item:chai patti" } },
-        { "name": "ask_shops", "args": { "itemId": "$item:chini" } },
+        { "name": "ask_shops", "args": { "itemId": "$item:adrak" } },
         { "name": "ask_shops", "args": { "itemId": "$item:doodh" } }
       ]
     },
@@ -37,7 +37,7 @@
           "args": {
             "items": [
               { "text": "chai patti", "itemId": "$item:chai patti", "status": "confirmed" },
-              { "text": "chini", "itemId": "$item:chini", "status": "confirmed" },
+              { "text": "adrak", "itemId": "$item:adrak", "status": "confirmed" },
               { "text": "doodh", "itemId": "$item:doodh", "status": "confirmed" }
             ],
             "notes": "Chai ka saaman mil gaya."

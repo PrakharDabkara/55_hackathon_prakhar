@@ -79,6 +79,10 @@ curl -s -X POST $B/requests -H "authorization: Bearer $CUSTOMER" -H "$J" \
 
 Then answer on the phone and read the result as the customer: `curl -s $B/requests/<id> -H "authorization: Bearer $CUSTOMER"`.
 
+## Scripted fake model
+
+`LLM_PROVIDER=fake FAKE_LLM_SCENARIO=<file>` makes the errand agent play a fixed script instead of calling a model; the browser test uses it so a whole errand is the same every time. The file is JSON, `{"turns": [{"toolCalls": [{"name", "args"}], "text"?}]}`. Turn _n_ is played when the conversation already holds _n_ model messages, so the script survives waiting for shops, the customer's answer and an API restart. An argument that is exactly `$item:<words>` becomes the id `resolve_item` returned for those words earlier in the conversation, so a script never needs database ids. `e2e/errand-scenario.json` asks one question, resolves chai patti, adrak and doodh, asks the shops and submits. It only drives the errand agent: item resolution and search still use the normal free steps (synonyms, trigram), so use words that are in the catalog. Never set it in production.
+
 ## Run the simulator against the live site
 
 The simulator makes fake shops around a point and answers real pings, so a seeker sees live answers without real shopkeepers. It needs an admin: a phone listed in `ADMIN_PHONES`.

@@ -261,7 +261,10 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
 
   if (!view) return <p className="empty">{t.loading}</p>;
 
-  const lines = shownProgress(view.progress);
+  // While a question is open the question box says it; the timeline repeating it is noise.
+  const lines = shownProgress(view.progress).filter(
+    (line) => view.state !== 'NEEDS_INPUT' || !line.startsWith('Aapse ek sawaal'),
+  );
   const active =
     view.state === 'PLANNING' || view.state === 'WAITING_FOR_SHOPS' || view.state === 'NEEDS_INPUT';
   const elapsed = formatCountdown(Math.max(0, now - new Date(view.createdAt).getTime()));

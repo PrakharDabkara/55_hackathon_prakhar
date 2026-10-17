@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 14b)
+
+- Errand screen in the customer app at `/app/errand`, reached from the search screen by "Poora kaam batao": task box with three examples, optional budget, location, "Plan banao"; live progress (state chip, timeline, waiting state with elapsed time, Cancel) refetched on `errand.updated` with a polling fallback; the agent's question as option buttons and a text box; the result as two tabs ("Kam dukaan", "Sabse sasta") with a Recommended badge and a one-line reason, per-item status (Confirmed, Likely, Nahi mila), totals, a map with numbered stops and a line through them, and "Raasta kholo" (Google Maps with every stop); friendly FAILED, EXPIRED and CANCELLED endings with "Dobara koshish karein". Hindi and English.
+- `ErrandView.lateAnswers`: shops that said yes after the plan was ready are no longer in `progress`; the screen shows them collapsed under "Baad mein aaye jawab (N)".
+- A scripted fake model for end-to-end runs: `LLM_PROVIDER=fake` with `FAKE_LLM_SCENARIO=<file>` plays a JSON list of turns (`modules/ai/scenario.ts`, `e2e/errand-scenario.json`); a full-errand Playwright test saves `e2e/artifacts/errand-result.png`.
+
+### Changed (Day 14b)
+
+- Every "pooch raha hoon" progress line has its count: while the pings are still going out the line waits, and "Poochne ke liye koi dukaan nahi mili" appears if none were sent.
+
+### Fixed (Day 14b)
+
+- The `evals` workflow also starts for a labelled pull request that is opened, reopened or marked ready for review (it ran only on `labeled` and `synchronize`).
+
 ### Added (Day 14a)
 
 - Plan optimiser (ADR-0025): `modules/errands/optimiser.ts` builds two plans in code from every offer the errand has seen, `sasta` (least money) and `kam_dukaan` (fewest shops, found exactly), with a route, total price, total distance and savings each; `recommend` picks `kam_dukaan` when it costs at most `ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE` (default 3000) or 10 % more. `errands.plan` stores both plans, `recommended` and `recommendation`; the top level mirrors the recommended plan. Confirmed answers beat learned stock for the same item.

@@ -204,6 +204,21 @@ describe('a question', () => {
     expect(screen.queryByText('Kaunsi chai?')).toBeNull();
   });
 
+  it('does not repeat the open question in the timeline', async () => {
+    const { user } = setup({
+      getErrand: vi.fn(async () =>
+        errandView({
+          state: 'NEEDS_INPUT',
+          question: { question: 'Kaunsi chai?' },
+          progress: ['Samjha: 3 cheezein', 'Aapse ek sawaal: Kaunsi chai?'],
+        }),
+      ),
+    });
+    await start(user);
+    await screen.findByText('Samjha: 3 cheezein');
+    expect(screen.getAllByText(/Kaunsi chai\?/)).toHaveLength(1);
+  });
+
   it('also takes a typed answer', async () => {
     const answerErrand = vi.fn(async () => errandView({ state: 'PLANNING' }));
     const { user } = setup({ getErrand: vi.fn(async () => asking), answerErrand });
