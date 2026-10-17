@@ -104,7 +104,7 @@ describe('loadConfig', () => {
     it('must be set explicitly in production (fails closed)', () => {
       const prod = { ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated' };
       expect(() => loadConfig(prod)).toThrowError(/LLM_PROVIDER/);
-      expect(loadConfig({ ...prod, LLM_PROVIDER: 'fake' }).llmProvider).toBe('fake');
+      expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(/fake.*production/i);
       expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).llmProvider).toBe(
         'gemini',
       );
@@ -203,8 +203,13 @@ describe('loadConfig', () => {
   it('requires OTP_MODE in production (fails closed) and defaults it elsewhere', () => {
     expect(() => loadConfig({ ...valid, NODE_ENV: 'production' })).toThrowError(/OTP_MODE/);
     expect(
-      loadConfig({ ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated', LLM_PROVIDER: 'fake' })
-        .otpMode,
+      loadConfig({
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        LLM_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'k',
+      }).otpMode,
     ).toBe('simulated');
     expect(loadConfig({ ...valid, NODE_ENV: 'development' }).otpMode).toBe('simulated');
     expect(loadConfig({ ...valid, NODE_ENV: 'test' }).otpMode).toBe('simulated');

@@ -575,7 +575,8 @@ describe('errand agent core (fake model, real database)', () => {
       const NOTE = 'Sasta tel Shiv Kirana mein hai';
       const { id } = await newErrand('chawal');
       provider.playChat([
-        { text: SAID, toolCalls: [call('resolve_item', { text: 'rice' })] },
+        { text: SAID },
+        { toolCalls: [call('resolve_item', { text: 'rice' })] },
         {
           toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }], NOTE)],
         },

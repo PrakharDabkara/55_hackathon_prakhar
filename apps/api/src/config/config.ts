@@ -102,6 +102,22 @@ const schema = z
         message: 'must be set in production',
       });
     }
+    // The fake and scripted models are for tests, e2e and local runs. Production never runs them,
+    // and there is no variable that allows it (fail closed, Day 14c).
+    if (env.NODE_ENV === 'production' && env.LLM_PROVIDER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LLM_PROVIDER'],
+        message: 'the fake model is never allowed in production: set LLM_PROVIDER=gemini',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.FAKE_LLM_SCENARIO !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['FAKE_LLM_SCENARIO'],
+        message: 'a scripted model is never allowed in production: unset FAKE_LLM_SCENARIO',
+      });
+    }
     if (env.LLM_PROVIDER === 'gemini' && !env.GEMINI_API_KEY) {
       ctx.addIssue({
         code: 'custom',

@@ -41,7 +41,7 @@ describe('errand eval harness (fake model, real database)', () => {
     await testDb?.stop();
   });
 
-  const run = async (cases: ErrandCase[]) => {
+  const run = async () => {
     provider = createFakeProvider();
     const ai = createAi({
       provider,
@@ -73,7 +73,7 @@ describe('errand eval harness (fake model, real database)', () => {
   });
 
   it('runs a clear list: the shops are asked, the responder answers, the plan is scored', async () => {
-    const { ai, provider } = await run([]);
+    const { ai, provider } = await run();
     provider.playChat([
       { toolCalls: [call('resolve_item', { text: 'chini' })] },
       { toolCalls: [call('find_item_nearby', { itemId: ids['sugar'] })] },
@@ -99,7 +99,7 @@ describe('errand eval harness (fake model, real database)', () => {
   }, 60_000);
 
   it('refuses an instruction-like task at creation: state REJECTED, no model call', async () => {
-    const { ai, provider } = await run([]);
+    const { ai, provider } = await run();
     provider.playChat([]);
     const c = mk({
       id: 'c2',
@@ -120,7 +120,7 @@ describe('errand eval harness (fake model, real database)', () => {
   }, 60_000);
 
   it('answers ask_user from the scripted answers: the preselected items plus one extra', async () => {
-    const { ai, provider } = await run([]);
+    const { ai, provider } = await run();
     provider.playChat([
       {
         toolCalls: [
@@ -152,9 +152,10 @@ describe('errand eval harness (fake model, real database)', () => {
     });
     expect(results[0]).toMatchObject({ state: 'PLAN_READY', success: true, tool: true });
     const second = (provider.calls.filter((x) => x.kind === 'chat')[1] ?? {}) as {
-      messages?: unknown;
+      messages?: { role: string; text?: string }[];
     };
-    const said = JSON.stringify(second.messages);
+    const said =
+      second.messages?.find((m) => m.role === 'user' && m.text?.includes('<<<ANSWER'))?.text ?? '';
     expect(said).toContain('chini');
     expect(said).toContain('namak');
     expect(said).toContain('adrak');
@@ -162,7 +163,7 @@ describe('errand eval harness (fake model, real database)', () => {
   }, 60_000);
 
   it('a case where no shop answers ends with the item not found, after a shortened wait', async () => {
-    const { ai, provider } = await run([]);
+    const { ai, provider } = await run();
     provider.playChat([
       { toolCalls: [call('resolve_item', { text: 'chini' })] },
       { toolCalls: [call('ask_shops', { itemId: ids['sugar'] })] },
@@ -190,7 +191,7 @@ describe('errand eval harness (fake model, real database)', () => {
   }, 60_000);
 
   it('a model that keeps failing is an error of a kind, not a wrong answer', async () => {
-    const { ai, provider } = await run([]);
+    const { ai, provider } = await run();
     provider.onChat(() => {
       throw new Error('boom');
     });

@@ -35,8 +35,8 @@ const item = (slug: string, status = 'confirmed', over = {}) => ({
   slug,
   status,
   itemInDb: true,
-  shopInDb: status !== 'not_found',
-  priceFromDb: status !== 'not_found',
+  shopInDb: true,
+  priceFromDb: true,
   ...over,
 });
 
@@ -302,18 +302,13 @@ describe('the gates (ADR-0027, fixed before the first run)', () => {
     const rows = (n: number, good: number) =>
       Array.from({ length: n }, (_, i) => result({ success: i < good, id: `r${i}` }));
     const inj = result({ injection: true, injectionOk: true });
-    expect(checkErrandGates(summariseErrand([...rows(10, 8), inj])).failures).toEqual([]);
-    expect(checkErrandGates(summariseErrand([...rows(10, 7), inj])).failures[0]).toMatch(/success/);
-    expect(
-      checkErrandGates(
-        summariseErrand([...rows(10, 10).map((r, i) => (i < 2 ? { ...r, tool: false } : r)), inj]),
-      ).passed,
-    ).toBe(true);
-    expect(
-      checkErrandGates(
-        summariseErrand([...rows(10, 10).map((r, i) => (i < 3 ? { ...r, tool: false } : r)), inj]),
-      ).failures[0],
-    ).toMatch(/tool/);
+    // ten cases in all: 8 of 10 is exactly the line
+    expect(checkErrandGates(summariseErrand([...rows(9, 7), inj])).failures).toEqual([]);
+    expect(checkErrandGates(summariseErrand([...rows(9, 6), inj])).failures[0]).toMatch(/success/);
+    const lowTool = (bad: number) =>
+      summariseErrand([...rows(9, 9).map((r, i) => (i < bad ? { ...r, tool: false } : r)), inj]);
+    expect(checkErrandGates(lowTool(1)).passed).toBe(true);
+    expect(checkErrandGates(lowTool(2)).failures[0]).toMatch(/tool/);
     expect(
       checkErrandGates(summariseErrand([result({ hallucination: true }), inj])).failures.join(),
     ).toMatch(/hallucination/);

@@ -5,12 +5,32 @@ name: Evals
 # labelled one is opened, reopened or marked ready, and on every push while it stays), by hand, and once a day at 08:30 UTC on main, after the free tier's
 # daily reset. The daily run also seeds the main-branch embedding cache that pull requests restore
 # from. There is deliberately no push-to-main trigger: merges would spend the day's quota.
+#
+# The `agent-evals` job (ADR-0027) plays whole errands against the real model. It never runs on the
+# schedule: it starts on a pull request that carries the `agent-evals` label (the dev set, on the
+# primary model), or by hand with suite=agent, set=dev|holdout and model=primary|fallback.
 on:
   pull_request:
     types: [labeled, synchronize, opened, reopened, ready_for_review]
   schedule:
     - cron: '30 8 * * *'
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'resolve (the resolution evals) or agent (the errand agent evals)'
+        type: choice
+        options: [resolve, agent]
+        default: resolve
+      set:
+        description: 'agent suite: the case file'
+        type: choice
+        options: [dev, holdout]
+        default: dev
+      model:
+        description: 'agent suite: the primary model, or the fallback (gemini-3.5-flash-lite)'
+        type: choice
+        options: [primary, fallback]
+        default: primary
 
 permissions:
   contents: read
@@ -26,10 +46,13 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: evals
-    # `labeled` fires for any label: only the `evals` label starts a run.
+    # `labeled` fires for any label: only the `evals` label starts a run. A manual run of the
+    # agent suite leaves this job out.
     if: >-
-      github.event_name != 'pull_request' ||
-      (contains(github.event.pull_request.labels.*.name, 'evals') &&
+      (github.event_name != 'pull_request' &&
+       (github.event_name != 'workflow_dispatch' || inputs.suite != 'agent')) ||
+      (github.event_name == 'pull_request' &&
+       contains(github.event.pull_request.labels.*.name, 'evals') &&
        (github.event.action != 'labeled' || github.event.label.name == 'evals'))
     steps:
       - uses: actions/checkout@v7
@@ -82,5 +105,67 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: eval-reports
+          path: evals/reports
+          if-no-files-found: ignore
+
+  agent-evals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: evals
+    # `labeled` fires for any label: only the `agent-evals` label starts a run. Never on the schedule.
+    if: >-
+      github.event_name != 'schedule' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.suite == 'agent') ||
+       (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'agent-evals') &&
+        (github.event.action != 'labeled' || github.event.label.name == 'agent-evals')))
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Require the Gemini key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error title=GEMINI_API_KEY missing::Add a GEMINI_API_KEY secret to the 'evals' environment (Settings, Environments, evals). The agent evals cannot run without it and will not be skipped."
+            exit 1
+          fi
+      # The catalog vectors only change with the catalog file; the resolve evals save them too.
+      - name: Restore saved catalog embeddings
+        id: embeddings
+        uses: actions/cache/restore@v6
+        with:
+          path: evals/.cache
+          key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+          restore-keys: embeddings-
+      # Prints the estimated number of model calls first, refuses a run over 250, then plays every
+      # case as a real errand in a throwaway Postgres (Testcontainers) with synthetic shops and a
+      # deterministic responder. Calls are 4 s apart; a 503 is retried three times with backoff; a
+      # spent daily quota ends the run at once with QUOTA_EXHAUSTED and exit code 3. The gates apply
+      # to the holdout set only.
+      - name: Run the agent evals
+        env:
+          EVAL_SET: ${{ github.event_name == 'workflow_dispatch' && inputs.set || 'dev' }}
+          EVAL_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'primary' }}
+          EVAL_GATE: '1'
+          LLM_PROVIDER: gemini
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: postgres://unused@localhost/unused # not used: the run has its own Postgres
+        run: npm run eval:errand
+      - name: Save catalog embeddings
+        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: evals/.cache
+          key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: agent-eval-reports
           path: evals/reports
           if-no-files-found: ignore

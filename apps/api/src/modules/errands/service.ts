@@ -182,6 +182,19 @@ export interface ErrandView {
   updatedAt: Date;
 }
 
+/**
+ * The plan as the customer's screen gets it. The model's own free text (`notes`) stays in the
+ * database and in errand_steps for debugging but is never returned: it is written before the
+ * last answers arrive and can say what the plan does not (Day 14c). The screen's summary is
+ * built from the plan's numbers.
+ */
+export function planForView(plan: unknown): unknown {
+  if (plan === null || typeof plan !== 'object' || Array.isArray(plan)) return plan;
+  const rest = { ...(plan as Record<string, unknown>) };
+  delete rest['notes'];
+  return rest;
+}
+
 export const viewOf = (
   e: ErrandRecord,
   progress: string[],
@@ -195,7 +208,7 @@ export const viewOf = (
   lng: e.lng,
   progress,
   lateAnswers,
-  plan: e.plan,
+  plan: planForView(e.plan),
   failureReason: e.failureReason,
   usage: { steps: e.stepCount, tokensIn: e.tokensIn, tokensOut: e.tokensOut },
   question: e.state === 'NEEDS_INPUT' ? e.question : null,

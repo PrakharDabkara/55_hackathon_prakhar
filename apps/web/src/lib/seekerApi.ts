@@ -94,7 +94,6 @@ export interface PlanVariant {
 
 export interface ErrandPlan {
   items: PlanItem[];
-  notes: string | null;
   route: PlanRoute | null;
   totalPricePaise: number;
   savingsPaise: number;
