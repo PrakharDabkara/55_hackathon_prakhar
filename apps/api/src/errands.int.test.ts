@@ -507,6 +507,67 @@ describe('errand agent core (fake model, real database)', () => {
     });
   });
 
+  describe('a product-form conflict (itr is not powder)', () => {
+    beforeAll(async () => {
+      // Sandalwood powder is in stock nearby: it must still not be offered for "chandan itr".
+      await insertShopWithStock(pool, {
+        name: 'Chandan Corner',
+        km: 0.3,
+        itemId: ids['chandan'] as string,
+        ageHours: 1,
+        pricePaise: 5000,
+      });
+    }, 60_000);
+
+    it('resolve_item does not place it, and the item ends under not_found', async () => {
+      const { id } = await newErrand('chandan itr');
+      provider.playChat([
+        { toolCalls: [call('resolve_item', { text: 'chandan itr' })] },
+        { toolCalls: [submit([{ text: 'chandan itr', status: 'not_found' }])] },
+      ]);
+      await runErrand(deps(), id);
+      const told = toolResult(chatCalls()[1]);
+      expect(told.unresolved).toBe(true);
+      expect(told.item).toBeUndefined();
+      const plan = (await errandRow(id)).plan;
+      for (const items of [plan.items, plan.plans.sasta.items, plan.plans.kam_dukaan.items])
+        expect(items).toMatchObject([{ text: 'chandan itr', status: 'not_found', itemId: null }]);
+    });
+
+    it('even if the model claims the powder for it, the server does not plan it', async () => {
+      const { id } = await newErrand('chandan itr');
+      provider.playChat([
+        {
+          toolCalls: [
+            submit([{ text: 'chandan itr', itemId: ids['chandan'], status: 'confirmed' }]),
+          ],
+        },
+      ]);
+      await runErrand(deps(), id);
+      const plan = (await errandRow(id)).plan;
+      expect(plan.items[0]).toMatchObject({
+        status: 'not_found',
+        itemId: null,
+        shopId: null,
+        downgraded: 'unknown_item',
+      });
+    });
+
+    it('the same words in the right form are planned: "chandan powder"', async () => {
+      const { id } = await newErrand('chandan powder');
+      provider.playChat([
+        { toolCalls: [call('resolve_item', { text: 'chandan powder' })] },
+        {
+          toolCalls: [
+            submit([{ text: 'chandan powder', itemId: ids['chandan'], status: 'likely' }]),
+          ],
+        },
+      ]);
+      await runErrand(deps(), id);
+      expect((await errandRow(id)).plan.items[0]).toMatchObject({ status: 'likely' });
+    });
+  });
+
   describe('the tools the model can use', () => {
     it('never sends coordinates, phone numbers or user and owner ids to the model', async () => {
       // A shop with a real-looking phone and an owner account: neither may reach a prompt.

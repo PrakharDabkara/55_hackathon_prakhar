@@ -48,3 +48,14 @@ Two cheap layers sit in front of the shortlist check. (1) The query is cut to it
 - The cache can hold a stale "nothing fits" after the catalog grows; clear it with `TRUNCATE query_cache` after a large catalog change (or delete single rows).
 - The shortlist is capped at 10, so an item the first steps do not surface can never be chosen by the LLM; that is by design and the unresolved log shows what to add to the catalog.
 - Free-tier LLM latency (2 to 5 s) is added to a search only when the first four steps fail; the seeker sees the question or the unresolved message after it.
+
+## Amendment 2026-10-17 (Day 14c): product-form guard
+
+A live errand resolved "chandan itr" (attar, a perfume) to "sandalwood powder" at the **trigram** step (similarity 0.67 against the term "chandan powder"; one candidate, no rival, coverage 7/11), a shop confirmed it, and the plan showed it as Confirmed. Sharing the leading word is not sharing the product.
+
+- **Rule.** `modules/catalog/productForm.ts` holds a short curated list of product forms (attar, oil, powder, soap, incense, pickle) in Latin and Devanagari spellings. If the query names a form and the candidate item's own names (`name_en`, `name_hi`) name a different one, and none of the query's, the item is **not a candidate**. No opinion when either side names no form.
+- **Every step.** The check runs on the cache hit (a wrong cached item, or a cached question offering one, is ignored and the query is resolved again), the exact synonym, the trigram candidates (before the ambiguity and coverage tests), the default, the embedding candidates and the LLM shortlist, and the model's pick is checked again. If nothing valid is left the query is unresolved; there is no nearest-item fallback. The errand plan applies the same check to the item id the model claims for a customer's words.
+- **Names, not synonyms.** The item's form comes from its names only, so a stray synonym row ("itr" added to the powder) cannot excuse itself. A unit test walks the seed and fails if any catalog term conflicts with its own item's names.
+- **Cache.** `CATALOG_VERSION` now hashes the seed and the form list, so changing either retires every cached answer (the existing hygiene design); cached wrong answers are also refused on read.
+- **Eval.** Seven `form` cases (chandan itr, gulab itr, kesar itr, rose attar, sarson tel, sarson ka tel, haldi powder) are in `evals/resolve.dev.jsonl` only; the holdouts are untouched.
+- **Rejected.** A per-word fix for "itr" (it is the same bug for gulab itr and sarson tel), and relying on the LLM to notice (a trigram match never reaches it).

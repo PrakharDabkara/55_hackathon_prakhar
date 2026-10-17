@@ -89,3 +89,10 @@
 {"q": "elaichi", "kind": "hinglish", "expected": "cardamom"}
 {"q": "belan chakla", "kind": "multiword", "expected": "rolling-pin-board"}
 {"q": "practical file", "kind": "multiword", "expected": "project-file"}
+{"q": "chandan itr", "kind": "form", "expected": null}
+{"q": "gulab itr", "kind": "form", "expected": null}
+{"q": "kesar itr", "kind": "form", "expected": null}
+{"q": "rose attar", "kind": "form", "expected": null}
+{"q": "sarson tel", "kind": "form", "expected": "mustard-oil"}
+{"q": "sarson ka tel", "kind": "form", "expected": "mustard-oil"}
+{"q": "haldi powder", "kind": "form", "expected": "turmeric-powder"}

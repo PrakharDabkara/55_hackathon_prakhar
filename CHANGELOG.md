@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Day 14c, live findings from PR #26)
+
+- A product-form guard in the resolve pipeline (ADR-0021 amendment): "chandan itr" no longer resolves to "sandalwood powder". A form word in the query (itr/attar, tel/oil, powder/churan, sabun/soap, agarbatti, pickle/achaar) that the item's names contradict rejects that item at every step, including cached answers and the model's pick; nothing valid left means not found. `CATALOG_VERSION` includes the form list, so cached answers are retired. Seven form cases in `evals/resolve.dev.jsonl`.
+- The plan ignores an item id whose names conflict with the customer's words.
+- The result screen leads with a summary built from the plan in the screen's language ("2 mein se 1 cheez mili · 1 dukaan · 206 m", the not-found items named, a likely item never called available); the model's own sentence moved into "Ab tak kya hua".
+- "X: kisi dukaan mein nahi mili" is said only after the shops had their say and none answered; before that the step reads "pichhle jawabon mein nahi mili" (and ", dukaanon se pooch rahe hain" while asking).
+
 ### Added (Day 14b live fixes)
 
 - Vague goals are confirmed once: for "chai banane ka saaman" the agent proposes the usual items and the screen shows them as checkboxes (defaults ticked) with "Kuch aur?" and "Theek hai". `ask_user` gains `multiSelect` and `preselected`; `POST /errands/:id/answer` accepts `selected` (indexes) with optional `text` (ADR-0026). A fourth example, "chai: chai patti, chini, doodh".

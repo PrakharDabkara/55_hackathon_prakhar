@@ -105,8 +105,57 @@ describe('buildProgress', () => {
       'Samjha: 1 cheez',
       'Chini: 7 dukaanon mein mili',
       'Tape: 1 dukaan mein mili',
-      'Glue: kisi dukaan mein nahi mili',
+      'Glue: pichhle jawabon mein nahi mili',
     ]);
+  });
+
+  describe('"not found" is final only after the shops had their say (Day 14c)', () => {
+    const none = (label: string) =>
+      tool('find_item_nearby', { itemId: 'i' }, { label, count: 0, freshCount: 0 });
+    const ask = (label: string, requestId: string) =>
+      tool('ask_shops', { itemId: 'i' }, { label, requestId });
+    const sent = { pingsSent: { r1: 4 } };
+
+    it('before any shop is asked it only says there are no past answers', () => {
+      expect(buildProgress([none('chandan itr')], 'PLANNING', null)).toEqual([
+        'Chandan itr: pichhle jawabon mein nahi mili',
+      ]);
+    });
+
+    it('while the shops are being asked it says so', () => {
+      const steps = [none('chandan itr'), ask('chandan itr', 'r1')];
+      expect(buildProgress(steps, 'WAITING_FOR_SHOPS', null, sent)).toEqual([
+        'Chandan itr: pichhle jawabon mein nahi mili, dukaanon se pooch rahe hain',
+        '4 dukaanon se pooch raha hoon: chandan itr',
+        'Jawab ka intezaar…',
+      ]);
+    });
+
+    it('after the wait, with no shop having it, it is final: "kisi dukaan mein nahi mili"', () => {
+      const steps = [none('chandan itr'), ask('chandan itr', 'r1')];
+      expect(buildProgress(steps, 'PLAN_READY', null, sent)).toContain(
+        'Chandan itr: kisi dukaan mein nahi mili',
+      );
+      expect(buildProgress(steps, 'EXPIRED', null, sent)).toContain(
+        'Chandan itr: kisi dukaan mein nahi mili',
+      );
+    });
+
+    it('if a shop did say yes, it is never called final', () => {
+      const steps = [none('chandan itr'), ask('chandan itr', 'r1')];
+      const lines = buildProgress(steps, 'PLAN_READY', null, {
+        ...sent,
+        answers: [{ shopName: 'Mishra', pricePaise: 5000, at: new Date(), requestId: 'r1' }],
+      });
+      expect(lines).toContain('Chandan itr: pichhle jawabon mein nahi mili');
+      expect(lines.join('\n')).not.toMatch(/kisi dukaan mein nahi mili/);
+    });
+
+    it('an item nobody was asked about is never final either', () => {
+      expect(buildProgress([none('glue')], 'PLAN_READY', null)).toEqual([
+        'Glue: pichhle jawabon mein nahi mili',
+      ]);
+    });
   });
 
   it('says when a word was not understood', () => {
@@ -203,7 +252,7 @@ describe('buildProgress', () => {
         '2 dukaanon se pooch raha hoon: phenyl',
         'Mishra Kirana ne haan kaha ₹42',
         'Gupta Store ne haan kaha',
-        'X: kisi dukaan mein nahi mili',
+        'X: pichhle jawabon mein nahi mili',
         'Jawab ka intezaar…',
       ]);
     });

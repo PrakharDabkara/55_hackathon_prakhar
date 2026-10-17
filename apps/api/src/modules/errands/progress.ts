@@ -19,7 +19,7 @@ export interface ProgressFacts {
   /** The clock for that; defaults to now. */
   now?: Date;
   /** Each shop that said yes to one of the errand's requests. */
-  answers?: { shopName: string; pricePaise: number | null; at: Date }[];
+  answers?: { shopName: string; pricePaise: number | null; at: Date; requestId?: string }[];
 }
 
 const FAILURE_TEXT: Record<string, string> = {
@@ -89,6 +89,15 @@ export function buildProgress(
       planItems = Math.max(planItems, num(s.resultSummary['items']));
   }
   const understood = Math.max(words.size, planItems);
+  // Which request asked about which word, to tell "nobody was asked yet" from "nobody had it".
+  const askedAbout = new Map<string, string>();
+  for (const s of steps)
+    if (s.toolName === 'ask_shops' && !s.resultSummary['error'] && s.resultSummary['label'])
+      askedAbout.set(
+        String(s.resultSummary['label']).trim().toLowerCase(),
+        String(s.resultSummary['requestId']),
+      );
+  const waiting = state === 'PLANNING' || state === 'WAITING_FOR_SHOPS' || state === 'NEEDS_INPUT';
   let understoodSaid = false;
 
   for (const step of steps) {
@@ -106,11 +115,18 @@ export function buildProgress(
       case 'find_item_nearby': {
         const label = cap(String(s['label'] ?? 'Item'));
         const count = num(s['count']);
-        line(
-          count === 0
-            ? `${label}: kisi dukaan mein nahi mili`
-            : `${label}: ${count} ${count === 1 ? 'dukaan' : 'dukaanon'} mein mili`,
-        );
+        if (count > 0) {
+          line(`${label}: ${count} ${count === 1 ? 'dukaan' : 'dukaanon'} mein mili`);
+          break;
+        }
+        // No past answers is not "nobody has it": the final wording waits until the shops that
+        // were asked have had their say and none said yes.
+        const requestId = askedAbout.get(label.trim().toLowerCase());
+        const anyYes = (facts.answers ?? []).some((a) => a.requestId === requestId);
+        if (requestId && !waiting && !anyYes) line(`${label}: kisi dukaan mein nahi mili`);
+        else if (requestId && waiting && !anyYes)
+          line(`${label}: pichhle jawabon mein nahi mili, dukaanon se pooch rahe hain`);
+        else line(`${label}: pichhle jawabon mein nahi mili`);
         break;
       }
       case 'ask_shops': {

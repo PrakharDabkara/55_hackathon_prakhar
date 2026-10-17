@@ -1,5 +1,5 @@
 import type { Queryable } from '../../db/queryable.js';
-import { termsOfItems } from '../catalog/index.js';
+import { formConflict, termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
 import { isExpectedMatch } from './matchedAs.js';
 import {
@@ -109,6 +109,7 @@ export function previousAnswerLabel(lastConfirmedAt: Date, now: Date): string {
 
 interface ItemRecord {
   name: string;
+  nameHi: string;
   refPricePaise: number | null;
 }
 
@@ -151,10 +152,20 @@ export async function buildPlan(
     const { rows } = await db.query<{
       id: string;
       name_en: string;
+      name_hi: string;
       ref_price_paise: number | null;
-    }>(`SELECT id, name_en, ref_price_paise FROM items WHERE id = ANY($1::uuid[])`, [itemIds]);
-    for (const r of rows) items.set(r.id, { name: r.name_en, refPricePaise: r.ref_price_paise });
+    }>(`SELECT id, name_en, name_hi, ref_price_paise FROM items WHERE id = ANY($1::uuid[])`, [
+      itemIds,
+    ]);
+    for (const r of rows)
+      items.set(r.id, { name: r.name_en, nameHi: r.name_hi, refPricePaise: r.ref_price_paise });
   }
+  // An item whose own name is another product form than the customer's words (itr, not powder)
+  // is not the item they asked for, whatever id the model gave: it counts as unknown.
+  const knownFor = (claim: { text: string; itemId?: string | undefined }) => {
+    const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
+    return known && !formConflict(claim.text, [known.name, known.nameHi]) ? known : undefined;
+  };
   const shops = new Set<string>();
   if (shopIds.length > 0) {
     const { rows } = await db.query<{ id: string }>(
@@ -169,7 +180,7 @@ export async function buildPlan(
   // every item it resolved: the server looks at the stock on record for those itself.
   const wanted: Wanted[] = [];
   claims.forEach((claim, index) => {
-    const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
+    const known = knownFor(claim);
     if (known && (claim.status !== 'not_found' || resolved.has(claim.itemId as string)))
       wanted.push({
         key: String(index),
@@ -219,7 +230,7 @@ export async function buildPlan(
   const variantOf = (plan: OptimisedPlan): PlanVariant => {
     const bought = new Map(plan.assignments.map((a) => [a.key, a]));
     const planned: PlanItem[] = claims.map((claim, index) => {
-      const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
+      const known = knownFor(claim);
       const base: PlanItem = {
         text: claim.text,
         itemId: known ? (claim.itemId as string) : null,
