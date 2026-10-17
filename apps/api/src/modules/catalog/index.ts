@@ -1,5 +1,6 @@
 export { normaliseQuery } from './normalise.js';
 export type { NormalisedQuery, Quantity, Unit } from './normalise.js';
+export { formConflict } from './productForm.js';
 export { isTypoOf } from './editDistance.js';
 export { termsOfItems } from './itemTerms.js';
 export { embedCatalog } from './embedCatalog.js';

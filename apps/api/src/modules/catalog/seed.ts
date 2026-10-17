@@ -9,9 +9,13 @@ import {
   termsFor,
   type SeedCatalog,
 } from './seedData.js';
+import { PRODUCT_FORMS } from './productForm.js';
 
-/** Identifies this catalog file. Cached AI answers carry it, so a changed catalog retires them. */
-export const CATALOG_VERSION = catalogVersionOf(seedJson);
+/**
+ * Identifies this catalog file and the product-form list. Cached AI answers carry it, so a changed
+ * catalog or form list retires them.
+ */
+export const CATALOG_VERSION = catalogVersionOf({ seed: seedJson, forms: PRODUCT_FORMS });
 
 /** The catalog file that ships with the API. */
 export const loadSeedCatalog = (): SeedCatalog => parseCatalog(seedJson);

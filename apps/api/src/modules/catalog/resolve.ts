@@ -10,6 +10,7 @@ import {
   type Candidate,
 } from '../ai/index.js';
 import { isTypoOf } from './editDistance.js';
+import { formConflict } from './productForm.js';
 import { firstLine, normaliseQuery, type Quantity } from './normalise.js';
 import {
   defaultItem,
@@ -147,20 +148,25 @@ async function findItem(
   query: string,
 ): Promise<Found> {
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
+  // An item whose own name is a different product form than the query ("itr" vs "powder") is
+  // never a candidate, at any step (productForm.ts).
+  const fits = (row: ItemRow) => !formConflict(text, [row.name_en, row.name_hi]);
 
-  // a) A query we have answered before.
+  // a) A query we have answered before. A cached answer that breaks the form rule is ignored.
   const hit = await readCache(db, text, CATALOG_VERSION);
   if (hit) {
     if (hit.itemId) {
       const item = (await itemsByIds(db, [hit.itemId]))[0];
-      if (item) return { item: toItem(item), matchedBy: 'cache', similarity: 1 };
+      if (item && fits(item)) return { item: toItem(item), matchedBy: 'cache', similarity: 1 };
     } else if (hit.optionIds && hit.question) {
-      return {
-        item: null,
-        matchedBy: 'cache',
-        similarity: 0,
-        ambiguous: await choiceFor(db, hit.question, hit.optionIds),
-      };
+      const options = await itemsByIds(db, hit.optionIds);
+      if (options.every(fits))
+        return {
+          item: null,
+          matchedBy: 'cache',
+          similarity: 0,
+          ambiguous: await choiceFor(db, hit.question, hit.optionIds),
+        };
     } else {
       return { ...none, matchedBy: 'cache' };
     }
@@ -173,12 +179,13 @@ async function findItem(
       WHERE s.term = $1`,
     [text],
   );
-  if (exact.rows[0]) return { item: toItem(exact.rows[0]), matchedBy: 'synonym', similarity: 1 };
+  if (exact.rows[0] && fits(exact.rows[0]))
+    return { item: toItem(exact.rows[0]), matchedBy: 'synonym', similarity: 1 };
 
   // c) Trigram similarity. `%` lets the GIN index prefilter (at pg_trgm's default 0.3); the
   // threshold is applied below. One best term per item, so we can tell "one clear item" from
   // "several plausible items". The weaker candidates are kept as the LLM's shortlist.
-  const fuzzy = await db.query<ItemRow>(
+  const fuzzyAll = await db.query<ItemRow>(
     `SELECT * FROM (
        SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories,
               s.term, similarity(s.term, $1) AS sim
@@ -190,6 +197,7 @@ async function findItem(
      LIMIT $2`,
     [text, CANDIDATES_PER_STEP],
   );
+  const fuzzy = { rows: fuzzyAll.rows.filter(fits) };
   // Unresolved when the match is not clear-cut. A wrong guess costs the user more than asking again.
   // - One word ("tape", "nail"): any second item at or above the threshold is too close, and a
   //   word that only resembles part of a longer phrase ("band" vs "rubber band") is no typo.
@@ -213,7 +221,7 @@ async function findItem(
 
   // c2) A generic word the catalog file names a usual item for ("pen"): data, not a model's guess.
   const usual = await defaultItem(db, text);
-  if (usual) return { item: toItem(usual), matchedBy: 'default', similarity: 1 };
+  if (usual && fits(usual)) return { item: toItem(usual), matchedBy: 'default', similarity: 1 };
 
   const ai = opts.ai;
   if (!ai) return none;
@@ -232,7 +240,7 @@ async function findItem(
   if (await hasEmbeddings(db)) {
     try {
       const { vectors } = await ai.client.embed([text], 'embed_query', opts.requestId);
-      nearest = await nearestItems(db, vectors[0] as number[], CANDIDATES_PER_STEP);
+      nearest = (await nearestItems(db, vectors[0] as number[], CANDIDATES_PER_STEP)).filter(fits);
     } catch (error) {
       if (!(error instanceof AiUnavailableError)) throw error;
     }
@@ -264,7 +272,7 @@ async function findItem(
   }
   if (shortlistRows.size === 0) return none;
   if (opts.userId && !(await ai.limiter.allow(opts.userId))) return none;
-  return askLlm(db, ai, text, [...shortlistRows.values()], opts.requestId);
+  return askLlm(db, ai, text, [...shortlistRows.values()], opts.requestId, fits);
 }
 
 async function askLlm(
@@ -273,6 +281,7 @@ async function askLlm(
   text: string,
   shortlist: ItemRow[],
   requestId: string | undefined,
+  fits: (row: ItemRow) => boolean,
 ): Promise<Found> {
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
   const candidates = shortlist.map(toCandidate);
@@ -298,6 +307,9 @@ async function askLlm(
     await ai.client.markInvalid(result.callId);
     return none;
   }
+  // The shortlist already leaves out conflicting items; this is the second lock on the model's pick.
+  if (verdict.kind === 'item' && !fits(shortlist.find((r) => r.id === verdict.itemId) as ItemRow))
+    return none;
   if (verdict.kind === 'item') {
     const row = shortlist.find((r) => r.id === verdict.itemId) as ItemRow;
     await writeCache(

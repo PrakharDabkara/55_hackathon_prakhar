@@ -59,6 +59,10 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
     await expect(page.getByText('Recommended')).toHaveCount(0);
   }
   await expect(page.locator('.plan-item')).toHaveCount(3);
+  // The summary is built from the plan, not the model's sentence.
+  await expect(page.getByRole('status', { name: 'Saaransh' })).toContainText(
+    '3 mein se 3 cheezein mili',
+  );
   await expect(page.getByText(/Confirmed|Pichhla jawab/).first()).toBeVisible();
   await expect(page.getByRole('group', { name: 'Kul hisaab' })).toContainText('₹');
 

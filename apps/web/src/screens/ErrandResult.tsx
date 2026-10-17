@@ -63,10 +63,28 @@ export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) 
         </>
       )}
 
-      {found.length === 0 && (
+      {found.length === 0 ? (
         <p className="nothing-yet" role="status">
           {t.errandNothingYet}
         </p>
+      ) : (
+        // Built from the plan, in this screen's language: never the model's own sentence.
+        <div className="summary" role="status" aria-label={t.errandSummaryTitle}>
+          <p>
+            {t.errandSummary(
+              found.length,
+              variant.items.length,
+              variant.shopCount,
+              formatDistance(variant.totalDistanceM),
+            )}
+          </p>
+          {missing.length > 0 && (
+            <p>{t.errandNotFoundNames(missing.map((m) => m.itemName ?? m.text).join(', '))}</p>
+          )}
+          {found.some((item) => item.status === 'likely') && (
+            <p>{t.errandNotConfirmed(found.filter((item) => item.status === 'likely').length)}</p>
+          )}
+        </div>
       )}
 
       <div
@@ -136,7 +154,6 @@ export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) 
           )}
         </>
       )}
-      {plan.notes && <p className="note">{plan.notes}</p>}
     </section>
   );
 }

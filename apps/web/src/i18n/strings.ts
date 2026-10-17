@@ -145,6 +145,10 @@ export interface Strings {
   errandExpired: string;
   errandCancelled: string;
   errandConfirmList: string;
+  errandSummaryTitle: string;
+  errandSummary: (found: number, total: number, shops: number, distance: string) => string;
+  errandNotFoundNames: (names: string) => string;
+  errandNotConfirmed: (count: number) => string;
   errandMore: string;
   errandFoundTitle: string;
   errandNothingYet: string;
@@ -295,6 +299,12 @@ export const hi: Strings = {
   errandExpired: 'Time khatam ho gaya, plan nahi ban paya.',
   errandCancelled: 'Errand cancel kar diya.',
   errandConfirmList: 'Theek hai',
+  errandSummaryTitle: 'Saaransh',
+  errandSummary: (found, total, shops, distance) =>
+    `${total} mein se ${found} ${found === 1 ? 'cheez' : 'cheezein'} mili · ${shops} ${shops === 1 ? 'dukaan' : 'dukaanein'} · ${distance}`,
+  errandNotFoundNames: (names) => `Nahi mila: ${names}`,
+  errandNotConfirmed: (count) =>
+    `Abhi confirm nahi: ${count} ${count === 1 ? 'cheez' : 'cheezein'} (pichhle jawab se)`,
   errandMore: 'Kuch aur?',
   errandFoundTitle: 'Mil gaya',
   errandNothingYet: 'Abhi kisi dukaan ne jawab nahi diya',
@@ -458,6 +468,12 @@ export const en: Strings = {
   errandExpired: 'Time ran out, so there is no plan.',
   errandCancelled: 'The errand was cancelled.',
   errandConfirmList: 'Looks right',
+  errandSummaryTitle: 'Summary',
+  errandSummary: (found, total, shops, distance) =>
+    `${found} of ${total} items found · ${shops} ${shops === 1 ? 'shop' : 'shops'} · ${distance}`,
+  errandNotFoundNames: (names) => `Not found: ${names}`,
+  errandNotConfirmed: (count) =>
+    `Not confirmed just now: ${count} ${count === 1 ? 'item' : 'items'} (from earlier answers)`,
   errandMore: 'Anything else?',
   errandFoundTitle: 'Found',
   errandNothingYet: 'No shop has answered yet',

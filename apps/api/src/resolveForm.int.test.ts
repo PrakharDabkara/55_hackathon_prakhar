@@ -117,8 +117,8 @@ describe('product-form guard in resolve (itr is not powder)', () => {
 
   it('LLM: the conflicting item is not on the shortlist, and a pick of it anyway is refused', async () => {
     const { provider, ai } = setup();
-    await setEmbeddings(pool, { chandan: vec({ 1: 1 }), sugar: vec({ 1: 0.5, 2: 1 }) });
-    provider.onEmbed((texts) => texts.map(() => vec({ 1: 0.3, 2: 1 })));
+    await setEmbeddings(pool, { chandan: vec({ 1: 1 }), sugar: vec({ 1: 1, 2: 1 }) });
+    provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
     const shown: string[] = [];
     provider.onGenerate(({ user }) => {
       shown.push(user);

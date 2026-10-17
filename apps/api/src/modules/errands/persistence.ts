@@ -559,8 +559,13 @@ export async function progressFacts(db: Queryable, errandId: string) {
     `SELECT request_id, created_at FROM errand_requests WHERE errand_id = $1`,
     [errandId],
   );
-  const yes = await db.query<{ name: string; price_paise: number | null; answered_at: Date }>(
-    `SELECT s.name, p.price_paise, p.answered_at
+  const yes = await db.query<{
+    name: string;
+    price_paise: number | null;
+    answered_at: Date;
+    request_id: string;
+  }>(
+    `SELECT s.name, p.price_paise, p.answered_at, er.request_id
        FROM errand_requests er
        JOIN pings p ON p.request_id = er.request_id AND p.state = 'YES'
        JOIN shops s ON s.id = p.shop_id
@@ -574,6 +579,7 @@ export async function progressFacts(db: Queryable, errandId: string) {
       shopName: r.name,
       pricePaise: r.price_paise,
       at: r.answered_at,
+      requestId: r.request_id,
     })),
   };
 }

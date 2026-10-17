@@ -290,3 +290,22 @@ describe('renderMarkdown with a retired and a current holdout', () => {
     expect(md).toMatch(/Gate \(holdout-v2\): passed/);
   });
 });
+
+describe('form-conflict cases (Day 14c)', () => {
+  const form = cases.filter((c) => c.kind === 'form');
+
+  it('are in the dev set only: the holdouts are never touched', () => {
+    expect(form.map((c) => c.q)).toEqual(
+      expect.arrayContaining(['chandan itr', 'gulab itr', 'sarson tel', 'haldi powder']),
+    );
+    expect([...holdoutV1, ...holdout].some((c) => c.kind === 'form')).toBe(false);
+  });
+
+  it('expect nothing for a conflicting form and the item for the matching one', () => {
+    const by = Object.fromEntries(form.map((c) => [c.q, c.expected]));
+    expect(by['chandan itr']).toBeNull();
+    expect(by['gulab itr']).toBeNull();
+    expect(by['sarson tel']).toBe('mustard-oil');
+    expect(by['haldi powder']).toBe('turmeric-powder');
+  });
+});
