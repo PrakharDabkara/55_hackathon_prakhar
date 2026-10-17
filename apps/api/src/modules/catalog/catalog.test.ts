@@ -75,6 +75,63 @@ const item = (slug: string, synonyms: string[], nameEn = slug, nameHi = `ना�
 
 const file = (...items: ReturnType<typeof item>[]) => ({ version: 1, note: 'x', items });
 
+describe('Day 14a catalog gaps and categories', () => {
+  const bySlug = new Map(catalog.items.map((i) => [i.slug, i]));
+  const owner = (query: string) =>
+    catalog.items.find((i) => termsFor(i).includes(normaliseQuery(query).text))?.slug;
+
+  it('has the puja, cleaning, stationery and kitchen items people ask for together', () => {
+    for (const slug of [
+      'diya',
+      'kapoor',
+      'roli',
+      'chandan',
+      'kalawa',
+      'cotton-batti',
+      'puja-thali',
+      'dishwash-bar',
+      'glass-cleaner',
+      'naphthalene-balls',
+    ]) {
+      expect(bySlug.has(slug), slug).toBe(true);
+    }
+  });
+
+  it('knows an earthen lamp is a diya, not a candle', () => {
+    expect(owner('diya')).toBe('diya');
+    expect(owner('दीया')).toBe('diya');
+    expect(owner('deepak')).toBe('diya');
+    expect(owner('mombatti')).toBe('candle');
+    expect(owner('kapoor')).toBe('kapoor');
+    expect(owner('कपूर')).toBe('kapoor');
+    expect(owner('mauli')).toBe('kalawa');
+    expect(owner('rui ki batti')).toBe('cotton-batti');
+  });
+
+  it('keeps the primary category first and never repeats a category', () => {
+    for (const i of catalog.items) {
+      const all = [i.category, ...(i.extraCategories ?? [])];
+      expect(new Set(all).size, i.slug).toBe(all.length);
+    }
+  });
+
+  it('lists the shops that really carry fevicol, candles, phenyl and batteries', () => {
+    const cats = (slug: string) => [
+      (bySlug.get(slug) as { category: string }).category,
+      ...(bySlug.get(slug)?.extraCategories ?? []),
+    ];
+    for (const slug of ['wood-glue', 'super-glue']) {
+      expect(cats(slug)).toEqual(['hardware', 'stationery']);
+    }
+    expect(cats('candle')).toEqual(['household_kitchen', 'general_store']);
+    expect(cats('floor-cleaner')).toEqual(['household_kitchen', 'general_store']);
+    expect(cats('battery-aa')).toEqual(
+      expect.arrayContaining(['electrical', 'mobile_accessories', 'general_store']),
+    );
+    expect(cats('battery-aa')[0]).toBe('electrical');
+  });
+});
+
 describe('termsFor', () => {
   it('normalises names and synonyms and drops duplicates within the item', () => {
     const terms = termsFor(

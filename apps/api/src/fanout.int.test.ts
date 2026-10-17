@@ -436,6 +436,32 @@ describe('fan-out, ping answers and the price check', () => {
       expect(names).toContain('Does not');
     });
 
+    it('pings a stationery shop for fevicol: the item sits in hardware and stationery', async () => {
+      const stationery = await makeShop('Stationery Fevicol', 0.12, ['stationery']);
+      const grocery = await makeShop('Grocery Not Fevicol', 0.13, ['grocery']);
+      const { rows } = await pool.query<{ categories: string[]; category: string }>(
+        `SELECT category, categories FROM items WHERE slug = 'wood-glue'`,
+      );
+      expect(rows[0]).toMatchObject({
+        category: 'hardware',
+        categories: ['hardware', 'stationery'],
+      });
+      const id = await pingingRequest('fevicol');
+      await fanOutPings(
+        fanCtx(50),
+        id,
+        claims(() => true),
+      );
+      const names = (
+        await pool.query(
+          `SELECT s.name FROM pings p JOIN shops s ON s.id = p.shop_id WHERE p.request_id = $1`,
+          [id],
+        )
+      ).rows.map((r) => r.name);
+      expect(names).toContain(stationery.name);
+      expect(names).not.toContain(grocery.name);
+    });
+
     it('does not ping a shop the dedupe refuses, and gives back claims when the request is no longer live', async () => {
       await makeShop('Dedupe me', 0.05, ['mobile_accessories']);
       const id = await pingingRequest('power bank');
