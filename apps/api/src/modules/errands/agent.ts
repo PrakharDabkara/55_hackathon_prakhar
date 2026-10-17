@@ -479,12 +479,24 @@ async function runTool(
         lat: errand.lat,
         lng: errand.lng,
       });
-      plan = await buildPlan(deps.db, errand, outcome.submitted, confirmations);
+      plan = await buildPlan(deps.db, errand, outcome.submitted, confirmations, new Date(), {
+        fewerStopsMaxExtraPaise: deps.limits.fewerStopsMaxExtraPaise,
+      });
       const confirmed = plan.items.filter((i) => i.status === 'confirmed').length;
       const likely = plan.items.filter((i) => i.status === 'likely').length;
       outcome = {
         ...outcome,
-        summary: { confirmed, likely, notFound: plan.items.length - confirmed - likely },
+        summary: {
+          confirmed,
+          likely,
+          notFound: plan.items.length - confirmed - likely,
+          items: plan.items.length,
+          recommended: plan.recommended,
+          // Where what the customer said and what was found differ, for the progress list.
+          matched: plan.items
+            .filter((i) => i.matchedAs && i.itemName !== null)
+            .map((i) => ({ text: i.text, itemName: i.itemName, status: i.status })),
+        },
       };
     } catch (error) {
       log.warn({ tool: call.name, err: error }, 'errand plan check failed');

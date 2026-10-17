@@ -15,5 +15,19 @@ ALTER TABLE items
     ]
   );
 
+-- Code that still inserts an item with only `category` gets categories = {category}.
+CREATE FUNCTION items_default_categories() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.categories IS NULL THEN
+    NEW.categories := ARRAY[NEW.category];
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER items_default_categories BEFORE INSERT ON items
+  FOR EACH ROW EXECUTE FUNCTION items_default_categories();
+
 -- Down Migration
+DROP TRIGGER items_default_categories ON items;
+DROP FUNCTION items_default_categories();
 ALTER TABLE items DROP CONSTRAINT items_categories_valid, DROP COLUMN categories;

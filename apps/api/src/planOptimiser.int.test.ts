@@ -128,7 +128,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
       userId,
       id,
     )) as {
-      plan: Record<string, any>;
+      plan: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
       progress: string[];
       state: string;
     };
@@ -191,9 +191,9 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     expect(kam.route.orderedStops).toHaveLength(1);
     expect(sasta.route.orderedStops).toHaveLength(2);
     expect(kam.totalDistanceM).toBe(kam.route.totalM);
-    // 2,200 paise dearer for one shop fewer: inside the default limit of 3,000 paise.
+    // 2,700 paise dearer for one shop fewer: inside the default limit of 3,000 paise.
     expect(plan['recommended']).toBe('kam_dukaan');
-    expect(plan['recommendation']).toMatchObject({ extraPaise: 2200, stopsSaved: 1 });
+    expect(plan['recommendation']).toMatchObject({ extraPaise: 2700, stopsSaved: 1 });
     // The top level mirrors the recommended plan, so older readers still work.
     expect(plan['items']).toEqual(kam.items);
     expect(plan['totalPricePaise']).toBe(kam.totalPricePaise);
@@ -205,7 +205,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     play(chaiWords, chaiClaims());
     await runErrand(deps({ fewerStopsMaxExtraPaise: 100 }), id);
     const { plan } = await view(id);
-    // Extra 2,200 on 19,300 is 11.4 %: over 10 %, over 100 paise.
+    // Extra 2,700 on 19,300 is 14 %: over 10 %, over 100 paise.
     expect(plan['recommended']).toBe('sasta');
     expect(plan['items']).toEqual(plan['plans'].sasta.items);
   });

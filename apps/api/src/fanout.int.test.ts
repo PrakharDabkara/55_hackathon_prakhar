@@ -490,7 +490,7 @@ describe('fan-out, ping answers and the price check', () => {
     });
 
     it('logs and moves on when no shop qualifies', async () => {
-      const id = await pingingRequest('torch'); // electrical: no such shop exists
+      const id = await pingingRequest('ceiling fan'); // electrical only: no such shop exists
       const result = await fanOutPings(
         fanCtx(),
         id,

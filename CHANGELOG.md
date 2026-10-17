@@ -6,6 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 14a)
+
+- Plan optimiser (ADR-0025): `modules/errands/optimiser.ts` builds two plans in code from every offer the errand has seen, `sasta` (least money) and `kam_dukaan` (fewest shops, found exactly), with a route, total price, total distance and savings each; `recommend` picks `kam_dukaan` when it costs at most `ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE` (default 3000) or 10 % more. `errands.plan` stores both plans, `recommended` and `recommendation`; the top level mirrors the recommended plan. Confirmed answers beat learned stock for the same item.
+- Plan items show `itemName` (the catalog item confirmed) next to `text`, and `matchedAs: true` with a progress line when the two differ ("Aapne 'diya' kaha tha — dukaan ne 'candle' confirm kiya").
+- Items can belong to several categories (migration 013, `items.categories`, primary first): fan-out pings shops of any of them (a stationery shop is pinged for fevicol). `resolve_item` in the agent returns `categories`.
+- Catalog v5: 55 everyday items with Hinglish and Devanagari synonyms (puja, cleaning, school, kitchen basics, utensils) and extra categories for 61 existing items; ten dev eval queries.
+
+### Changed (Day 14a)
+
+- The shop, status and price the model names in `submit_plan` are ignored; the plan comes from the optimiser. An item the model marks `not_found` stays out. The prompt no longer asks the model to compare prices. `dhoop` is now its own item (was a synonym of incense sticks).
+
+### Fixed (Day 14a)
+
+- "Samjha: N cheezein" counts every item in the task, including words that could not be resolved, failed lookups and the total in the submitted plan; the same word twice counts once.
+
 ### Fixed (evals workflow)
 
 - The `evals` workflow no longer runs on push to `main`; it runs daily at 08:30 UTC on `main`, on the `evals` label and by hand, with a 30-minute timeout and no overlapping runs. The eval runner does a preflight call and stops at once with `QUOTA_EXHAUSTED — rerun after the daily reset` (exit 3) on a daily-quota 429 or three consecutive 429s with a retry hint over 60 s (`modules/ai/quota.ts`; the Gemini adapter keeps `ProviderError.rateLimit`).

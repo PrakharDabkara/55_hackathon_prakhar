@@ -146,7 +146,13 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     env.state.labels.set(item.id, text);
     return {
       result: {
-        item: { id: item.id, name: item.nameEn, nameHi: item.nameHi, category: item.category },
+        item: {
+          id: item.id,
+          name: item.nameEn,
+          nameHi: item.nameHi,
+          category: item.category,
+          categories: item.categories,
+        },
       },
       summary: { status: 'resolved', itemName: item.nameEn },
     };

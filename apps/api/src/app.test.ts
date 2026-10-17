@@ -38,6 +38,7 @@ const config: Config = {
   errandAnswerTimeoutMs: 600_000,
   errandExpiryMs: 900_000,
   errandResumeDebounceMs: 1000,
+  errandFewerStopsMaxExtraPaise: 3000,
   geminiFallbackModel: null,
   gitSha: 'abc1234',
 };
