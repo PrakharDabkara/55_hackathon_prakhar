@@ -50,6 +50,8 @@ const schema = z
     // Which model answers when the dictionary cannot (ADR-0020). Default fake outside production,
     // so nothing leaves the machine by accident; production must choose.
     LLM_PROVIDER: z.enum(['gemini', 'fake']).optional(),
+    // A file of scripted model turns for the fake provider (end-to-end runs only).
+    FAKE_LLM_SCENARIO: z.string().min(1).optional(),
     // An empty value (as .env.example ships it) means not set.
     GEMINI_API_KEY: z
       .string()
@@ -132,6 +134,8 @@ export interface Config {
   /** E.164 phones that get the admin role on login. Empty: no admin. */
   adminPhones: string[];
   llmProvider: 'gemini' | 'fake';
+  /** A file of scripted turns for the fake provider (end-to-end runs only). */
+  fakeLlmScenario: string | null;
   geminiApiKey: string | null;
   geminiModel: string;
   geminiFallbackModel: string | null;
@@ -192,6 +196,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     workersEnabled: e.WORKERS_ENABLED,
     adminPhones: e.ADMIN_PHONES,
     llmProvider: e.LLM_PROVIDER ?? 'fake',
+    fakeLlmScenario: e.FAKE_LLM_SCENARIO ?? null,
     geminiApiKey: e.GEMINI_API_KEY ?? null,
     geminiModel: e.GEMINI_MODEL,
     geminiFallbackModel: e.GEMINI_FALLBACK_MODEL ?? null,

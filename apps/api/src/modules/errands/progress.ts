@@ -14,6 +14,10 @@ export interface StepView {
 export interface ProgressFacts {
   /** Pings sent per request id (0 while the fan-out has not run yet). */
   pingsSent?: Record<string, number>;
+  /** When each request was opened, to tell "not sent yet" from "nobody to ask". */
+  requestCreated?: Record<string, Date>;
+  /** The clock for that; defaults to now. */
+  now?: Date;
   /** Each shop that said yes to one of the errand's requests. */
   answers?: { shopName: string; pricePaise: number | null; at: Date }[];
 }
@@ -27,11 +31,37 @@ const FAILURE_TEXT: Record<string, string> = {
   internal_error: 'kuch gadbad ho gayi',
 };
 
+/** The fan-out runs within moments of the request; after this long, zero pings means no shop. */
+const FANOUT_GRACE_MS = 20_000;
+
 const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const things = (n: number) => `${n} ${n === 1 ? 'cheez' : 'cheezein'}`;
 const num = (value: unknown): number => (typeof value === 'number' ? value : 0);
 const rupees = (paise: number) =>
   `₹${Number.isInteger(paise / 100) ? paise / 100 : (paise / 100).toFixed(2)}`;
+
+type Answer = NonNullable<ProgressFacts['answers']>[number];
+const answerLine = (a: Answer) =>
+  `${a.shopName} ne haan kaha${a.pricePaise !== null ? ` ${rupees(a.pricePaise)}` : ''}`;
+
+/** When the plan was handed in, if it was. */
+const planReadyAt = (steps: StepView[]): number | null => {
+  const done = steps.filter(
+    (s) => s.toolName === 'submit_plan' && !s.resultSummary['error'] && s.at !== undefined,
+  );
+  const last = done.at(-1)?.at;
+  return last ? last.getTime() : null;
+};
+
+/** The shops' yes answers that came after the plan was ready, in time order. */
+export function lateAnswerLines(steps: StepView[], facts: ProgressFacts = {}): string[] {
+  const readyAt = planReadyAt(steps);
+  if (readyAt === null) return [];
+  return (facts.answers ?? [])
+    .filter((a) => a.at.getTime() > readyAt)
+    .sort((x, y) => x.at.getTime() - y.at.getTime())
+    .map(answerLine);
+}
 
 /**
  * The steps as short Hinglish lines for the person waiting ("Samjha: 4 cheezein", "Chini: 7
@@ -85,13 +115,19 @@ export function buildProgress(
       }
       case 'ask_shops': {
         if (s['reused']) break;
-        const sent = num(facts.pingsSent?.[String(s['requestId'])]);
+        const requestId = String(s['requestId']);
+        const sent = num(facts.pingsSent?.[requestId]);
         const label = String(s['label'] ?? 'item');
-        line(
-          sent === 0
-            ? `Dukaanon se pooch raha hoon: ${label}`
-            : `${sent} ${sent === 1 ? 'dukaan' : 'dukaanon'} se pooch raha hoon: ${label}`,
-        );
+        if (sent > 0) {
+          line(`${sent} ${sent === 1 ? 'dukaan' : 'dukaanon'} se pooch raha hoon: ${label}`);
+        } else {
+          // Every asking line carries its count. While the pings are still going out there is no
+          // count yet, so the line waits; if none ever go out, say that instead.
+          const opened = facts.requestCreated?.[requestId];
+          const now = (facts.now ?? new Date()).getTime();
+          if (opened && now - opened.getTime() >= FANOUT_GRACE_MS)
+            line(`Poochne ke liye koi dukaan nahi mili: ${label}`);
+        }
         break;
       }
       case 'ask_user':
@@ -121,12 +157,10 @@ export function buildProgress(
         break;
     }
   }
+  // Answers that come after the plan is ready are late: they go in their own list, not here.
+  const readyAt = planReadyAt(steps);
   for (const a of facts.answers ?? [])
-    add(
-      a.at,
-      0,
-      `${a.shopName} ne haan kaha${a.pricePaise !== null ? ` ${rupees(a.pricePaise)}` : ''}`,
-    );
+    if (!readyAt || a.at.getTime() <= readyAt) add(a.at, 0, answerLine(a));
 
   const lines = dated.sort((x, y) => x.at - y.at || x.seq - y.seq).map((d) => d.text);
   if (state === 'WAITING_FOR_SHOPS') lines.push('Jawab ka intezaar…');
