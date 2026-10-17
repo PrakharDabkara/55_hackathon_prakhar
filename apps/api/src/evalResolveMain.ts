@@ -2,6 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pino } from 'pino';
+import { z } from 'zod';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
 import {
@@ -16,7 +17,7 @@ import {
   type Step,
   type Summary,
 } from './evalScore.js';
-import { aiFromConfig } from './modules/ai/index.js';
+import { aiFromConfig, providerFromConfig, QuotaWatch, watchProvider } from './modules/ai/index.js';
 import {
   embedCatalog,
   loadSeedCatalog,
@@ -66,8 +67,56 @@ if (config.llmProvider !== 'gemini' || !config.geminiApiKey) {
   console.warn(`warning: ${message}`);
 }
 
-const testDb: TestDatabase | null =
-  env['EVAL_DB'] === 'testcontainers' ? await startPostgres() : null;
+// A run that cannot finish today stops at once instead of retrying 429s for the whole job (ADR-0022):
+// a daily-quota 429, or three 429s in a row asking for a wait over 60 s. Exit code 3, so the job
+// fails and the summary says why.
+const quota = new QuotaWatch();
+let testDb: TestDatabase | null = null;
+const QUOTA_EXHAUSTED = 'QUOTA_EXHAUSTED — rerun after the daily reset';
+let stopping = false;
+function stopForQuota(reason: string): void {
+  if (stopping) return;
+  stopping = true;
+  console.error(`::error title=QUOTA_EXHAUSTED::${QUOTA_EXHAUSTED}. ${reason}.`);
+  if (env['GITHUB_STEP_SUMMARY'])
+    appendFileSync(
+      env['GITHUB_STEP_SUMMARY'],
+      `### Resolve evals: ${QUOTA_EXHAUSTED}\n\nStopped: ${reason}. The eval project's free Gemini quota resets daily; the scheduled run (08:30 UTC) or a manual run after the reset will work. See docs/runbook.md, "QUOTA_EXHAUSTED".\n`,
+    );
+  // Best effort: the throwaway Postgres goes away with the job anyway (Ryuk removes it).
+  void Promise.race([testDb?.stop(), new Promise((res) => setTimeout(res, 5000))]).finally(() =>
+    process.exit(3),
+  );
+}
+const watched = (provider: Parameters<typeof watchProvider>[0]) =>
+  watchProvider(provider, quota, stopForQuota);
+
+// Preflight: one embedding and one tiny answer, before any container starts, so a spent quota fails
+// in seconds. Only a quota verdict stops the run; a busy model (503) is the runner's usual business.
+if (config.llmProvider === 'gemini' && config.geminiApiKey) {
+  const provider = watched(providerFromConfig(config));
+  const calls = [
+    () => provider.embed(['preflight'], 'embed_query'),
+    () =>
+      provider.generateJson({
+        system: 'Answer with {"ok": true}.',
+        user: 'ping',
+        schema: z.object({ ok: z.boolean() }),
+        maxOutputTokens: 500,
+        purpose: 'resolve_query',
+      }),
+  ];
+  for (const call of calls) {
+    try {
+      await call();
+    } catch (error) {
+      console.warn(`preflight call failed (${(error as Error).message}); carrying on`);
+    }
+  }
+  if (!stopping) console.log('preflight ok: the Gemini quota has room');
+}
+
+testDb = env['EVAL_DB'] === 'testcontainers' ? await startPostgres() : null;
 const pool = testDb?.pool ?? createPool(config.databaseUrl, pino({ level: 'warn' }));
 // Patient on purpose: a 429 waits 2, 4, 8, 16, 32 seconds before the query is given up on.
 const ai = aiFromConfig({
@@ -75,12 +124,14 @@ const ai = aiFromConfig({
   db: pool,
   logger: pino({ level: 'warn' }),
   client: { timeoutMs: 30_000, retries: 5, backoffMs: 2000 },
+  wrapProvider: watched,
 });
 const embedder = aiFromConfig({
   config,
   db: pool,
   logger: pino({ level: 'warn' }),
   client: { retries: 3, backoffMs: 20_000 },
+  wrapProvider: watched,
 });
 
 const loadCases = (set: string): Case[] =>

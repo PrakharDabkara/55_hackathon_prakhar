@@ -2,27 +2,29 @@ name: Evals
 
 # The resolution evals call the real Gemini model and spend free-tier quota, so they run only when
 # asked for (ADR-0022): on a pull request that carries the `evals` label (when it is added, and on
-# every push while it stays), by hand, and on every push to main (which also seeds the main-branch
-# embedding cache that pull requests restore from).
+# every push while it stays), by hand, and once a day at 08:30 UTC on main, after the free tier's
+# daily reset. The daily run also seeds the main-branch embedding cache that pull requests restore
+# from. There is deliberately no push-to-main trigger: merges would spend the day's quota.
 on:
   pull_request:
     types: [labeled, synchronize]
-  push:
-    branches: [main]
+  schedule:
+    - cron: '30 8 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# One run at a time across the repo: the free Gemini quota is shared by every run.
+# Two eval runs never overlap: the free Gemini quota is shared by every run. A run that arrives
+# while another is going waits its turn (only the newest waiting run is kept).
 concurrency:
   group: evals
   cancel-in-progress: false
 
 jobs:
   evals:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     environment: evals
     # `labeled` fires for any label: only the `evals` label starts a run.
     if: >-
@@ -30,8 +32,8 @@ jobs:
       (contains(github.event.pull_request.labels.*.name, 'evals') &&
        (github.event.action != 'labeled' || github.event.label.name == 'evals'))
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -49,7 +51,7 @@ jobs:
       # vectors only change when the catalog file does, so they are kept between runs.
       - name: Restore saved catalog embeddings
         id: embeddings
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
@@ -58,7 +60,8 @@ jobs:
       # dev set and the holdout set, writes the table to the job summary, and fails the job if the
       # holdout gates fail (accuracy, injections, nonsense, LLM fallback). 429s are retried with
       # backoff, and queries that call the model are paced (EVAL_AI_PAUSE_MS) to stay under the
-      # free-tier limits.
+      # free-tier limits. A preflight call runs first, and a spent daily quota (or three 429s in a
+      # row asking for a wait over 60 s) ends the run at once with QUOTA_EXHAUSTED and exit code 3.
       - name: Run the resolve evals
         env:
           EVAL_DB: testcontainers
@@ -70,13 +73,13 @@ jobs:
         run: npm run eval:resolve
       - name: Save catalog embeddings
         if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
       - name: Upload the reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: eval-reports
           path: evals/reports

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 import { sanitiseMessage } from './failure.js';
+import { rateLimitInfo, type RateLimitBody } from './quota.js';
 import {
   InvalidOutputError,
   ProviderError,
@@ -125,12 +126,16 @@ const NETWORK_CODES = new Set([
 ]);
 
 /** Google's error text is JSON: {"error": {"code", "message", "status": "UNAVAILABLE"}}. */
-function parseBody(message: unknown): { message?: string; status?: string } | null {
+function parseBody(message: unknown): RateLimitBody | null {
   if (typeof message !== 'string') return null;
   try {
-    const error = (JSON.parse(message) as { error?: { message?: unknown; status?: unknown } })
-      .error;
+    const error = (
+      JSON.parse(message) as {
+        error?: { message?: unknown; status?: unknown; details?: unknown };
+      }
+    ).error;
     return {
+      ...(error?.details !== undefined && { details: error.details }),
       ...(typeof error?.message === 'string' && { message: error.message }),
       ...(typeof error?.status === 'string' &&
         /^[A-Z_]{3,40}$/.test(error.status) && { status: error.status }),
@@ -161,6 +166,7 @@ function wrap(error: unknown): ProviderError {
     return new ProviderError(`the Gemini call failed: ${why}`, e.status, {
       kind: 'http',
       ...(body?.status && { code: body.status }),
+      ...(e.status === 429 && body && { rateLimit: rateLimitInfo(body) }),
     });
   }
   if (e.name === 'AbortError') {

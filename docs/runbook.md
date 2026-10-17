@@ -203,7 +203,17 @@ curl -s $B/errands/$ID -H "Authorization: Bearer $TOKEN" | jq '{state, progress,
 
 ## GitHub: the `evals` environment
 
-The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". It runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow) and on every push to `main`.
+The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". It runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow) and every day at 08:30 UTC on `main` (not on push: a merge would spend the day's quota). The scheduled run also refreshes the embedding cache that PRs restore from. Runs never overlap (one concurrency group) and the job times out after 30 minutes. Every job in every workflow runs on `ubuntu-24.04`, pinned so GitHub's move of `ubuntu-latest` to Ubuntu 26 (2026-10-19) changes nothing; bump it on purpose.
+
+**Three Google projects, three keys.** Never share one: a quota used in one place must not stop another.
+
+| Project   | Key lives in                                        | Used by                                                            |
+| --------- | --------------------------------------------------- | ------------------------------------------------------------------ |
+| Live      | Render env, GitHub `production` environment secret  | the running site and the deploy's catalog embedding                |
+| CI evals  | GitHub `evals` environment secret                   | the `evals` workflow (scheduled, labelled PRs, manual runs)        |
+| Local dev | your `.env` (git-ignored; never print or commit it) | `npm run eval:resolve`, `ai:embed-catalog`, `errand:smoke` locally |
+
+**`QUOTA_EXHAUSTED — rerun after the daily reset`.** The eval run stopped on purpose, exit code 3, with this message in the step summary. It means the eval project's free Gemini quota is used up for today: either Google answered 429 `RESOURCE_EXHAUSTED` naming a per-day quota, or three 429s in a row asked for a wait of more than 60 s. (An ordinary per-minute 429 is retried as before.) A preflight call (one embedding, one tiny answer) runs before anything starts, so a spent quota fails in seconds, not after 45 minutes of retries. The code does not look broken; do not change it. Rerun after the daily reset, or let the 08:30 UTC schedule do it. The reset is at midnight Pacific time (07:00 or 08:00 UTC depending on the season), so 08:30 UTC is after it. The budget is one full run per day per project: a local `eval:resolve` with the same project's key spends the same quota the schedule needs, so use a separate local-dev project.
 
 ## npm install scripts
 
