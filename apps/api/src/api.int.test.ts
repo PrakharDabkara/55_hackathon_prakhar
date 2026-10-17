@@ -45,6 +45,8 @@ const config: Config = {
   errandFewerStopsMaxExtraPaise: 3000,
   fakeLlmScenario: null,
   geminiFallbackModel: null,
+  errandModel: 'gemini-3.1-flash-lite',
+  errandFallbackModel: null,
   gitSha: 'test',
 };
 
