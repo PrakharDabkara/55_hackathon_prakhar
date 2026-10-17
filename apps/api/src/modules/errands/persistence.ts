@@ -35,6 +35,10 @@ export interface ErrandRecord {
 export interface ErrandQuestion {
   question: string;
   options?: string[];
+  /** The customer ticks any number of the options (a list to confirm). */
+  multiSelect?: boolean;
+  /** 0-based indexes of the options that start ticked. */
+  preselected?: number[];
 }
 export type ErrandAnswer = { text: string } | { timedOut: true };
 export type ResumeReason = 'replies' | 'timer' | 'answered' | 'answer_timeout';

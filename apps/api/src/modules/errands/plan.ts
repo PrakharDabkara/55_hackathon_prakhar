@@ -12,7 +12,7 @@ import {
   type Wanted,
 } from './optimiser.js';
 import { isUuid, type Confirmation } from './persistence.js';
-import type { SubmitPlanInput } from './tools.js';
+import { MAX_PLAN_ITEMS, type SubmitPlanInput } from './tools.js';
 
 /** A claimed shop must be inside this distance of the user: the widest radius any tool allows. */
 const CHECK_RADIUS_M = 5000;
@@ -42,7 +42,7 @@ export interface PlanItem {
   /** From the shop's answer or learned stock on record, never from the model. */
   pricePaise: number | null;
   referencePricePaise: number | null;
-  /** "Confirmed 2 min ago" for a shop that said yes in this errand, else how fresh the learned stock is. */
+  /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Pichhla jawab: kal" for learned stock. */
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
   downgraded: Downgrade | null;
@@ -94,6 +94,19 @@ export function confirmedLabel(answeredAt: Date, now: Date): string {
   return `Confirmed ${Math.floor(minutes / 60)} h ago`;
 }
 
+const DAY_MS = 24 * 3_600_000;
+
+/**
+ * What a remembered answer reads like on the plan (learned stock is never "Confirmed": nobody
+ * checked just now): "Pichhla jawab: aaj", "…: kal", "…: 3 din pehle".
+ */
+export function previousAnswerLabel(lastConfirmedAt: Date, now: Date): string {
+  const days = Math.max(0, Math.floor((now.getTime() - lastConfirmedAt.getTime()) / DAY_MS));
+  if (days < 1) return 'Pichhla jawab: aaj';
+  if (days === 1) return 'Pichhla jawab: kal';
+  return `Pichhla jawab: ${days} din pehle`;
+}
+
 interface ItemRecord {
   name: string;
   refPricePaise: number | null;
@@ -113,13 +126,25 @@ export async function buildPlan(
   input: SubmitPlanInput,
   confirmations: Confirmation[] = [],
   now: Date = new Date(),
-  options: { fewerStopsMaxExtraPaise?: number } = {},
+  options: {
+    fewerStopsMaxExtraPaise?: number;
+    /** itemId → the customer's word, for every item resolve_item placed in this errand. */
+    resolved?: Iterable<[string, string]>;
+  } = {},
 ): Promise<Plan> {
+  // Every item the agent resolved is planned, whatever it then claimed (or forgot) in submit_plan.
+  const resolved = new Map(options.resolved ?? []);
+  const claims: SubmitPlanInput['items'] = [...input.items];
+  for (const [itemId, text] of resolved) {
+    if (claims.length >= MAX_PLAN_ITEMS) break;
+    if (!claims.some((c) => c.itemId === itemId))
+      claims.push({ text: text.slice(0, 100), itemId, status: 'not_found' });
+  }
   const itemIds = [
-    ...new Set(input.items.map((i) => i.itemId).filter((id): id is string => isUuid(id))),
+    ...new Set(claims.map((i) => i.itemId).filter((id): id is string => isUuid(id))),
   ];
   const shopIds = [
-    ...new Set(input.items.map((i) => i.shopId).filter((id): id is string => isUuid(id))),
+    ...new Set(claims.map((i) => i.shopId).filter((id): id is string => isUuid(id))),
   ];
   const items = new Map<string, ItemRecord>();
   if (itemIds.length > 0) {
@@ -140,11 +165,12 @@ export async function buildPlan(
   }
 
   // What the customer wants: every claim whose item is in the catalog and that the model did not
-  // give up on (it never claims more than it checked, and the optimiser never plans less).
+  // give up on (it never claims more than it checked, and the optimiser never plans less), and
+  // every item it resolved: the server looks at the stock on record for those itself.
   const wanted: Wanted[] = [];
-  input.items.forEach((claim, index) => {
+  claims.forEach((claim, index) => {
     const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
-    if (known && claim.status !== 'not_found')
+    if (known && (claim.status !== 'not_found' || resolved.has(claim.itemId as string)))
       wanted.push({
         key: String(index),
         itemId: claim.itemId as string,
@@ -178,7 +204,7 @@ export async function buildPlan(
         distanceM: stock.distanceM,
         pricePaise: stock.pricePaise,
         status: 'likely',
-        freshness: stock.freshness,
+        freshness: previousAnswerLabel(stock.lastConfirmedAt, now),
       });
   }
 
@@ -192,7 +218,7 @@ export async function buildPlan(
 
   const variantOf = (plan: OptimisedPlan): PlanVariant => {
     const bought = new Map(plan.assignments.map((a) => [a.key, a]));
-    const planned: PlanItem[] = input.items.map((claim, index) => {
+    const planned: PlanItem[] = claims.map((claim, index) => {
       const known = isUuid(claim.itemId) ? items.get(claim.itemId) : undefined;
       const base: PlanItem = {
         text: claim.text,

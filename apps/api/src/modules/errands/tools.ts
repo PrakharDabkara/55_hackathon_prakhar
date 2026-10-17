@@ -54,20 +54,55 @@ export type SubmitPlanInput = z.infer<typeof submitPlanInput>;
 export const findItemNearbyAgentInput = findItemNearbyTool.input.omit({ lat: true, lng: true });
 export const askShopsAgentInput = askShopsTool.input.pick({ itemId: true, targetPricePaise: true });
 export const getRequestStatusAgentInput = getRequestStatusTool.input;
-export const askUserInput = z.object({
-  question: z
-    .string()
-    .trim()
-    .min(1)
-    .max(200)
-    .describe("One short question, in the customer's language"),
-  options: z
-    .array(z.string().trim().min(1).max(80))
-    .min(1)
-    .max(4)
-    .optional()
-    .describe('Up to 4 answers to choose from (the customer may also type)'),
-});
+export const askUserInput = z
+  .object({
+    question: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .describe("One short question, in the customer's language"),
+    options: z
+      .array(z.string().trim().min(1).max(80))
+      .min(1)
+      .max(8)
+      .optional()
+      .describe(
+        'Answers to choose from (the customer may also type): up to 4, or up to 8 with multiSelect',
+      ),
+    multiSelect: z
+      .boolean()
+      .optional()
+      .describe(
+        'true: the customer ticks any number of the options (a list to confirm). Default false: they pick one.',
+      ),
+    preselected: z
+      .array(z.number().int().min(0))
+      .max(8)
+      .optional()
+      .describe('With multiSelect: the 0-based indexes of the options that start ticked'),
+  })
+  .superRefine((value, ctx) => {
+    const count = value.options?.length ?? 0;
+    if (!value.multiSelect && count > 4)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['options'],
+        message: 'at most 4 options without multiSelect',
+      });
+    if (value.preselected && !value.multiSelect)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['preselected'],
+        message: 'preselected needs multiSelect',
+      });
+    if (value.preselected && value.preselected.some((i) => i >= count))
+      ctx.addIssue({
+        code: 'custom',
+        path: ['preselected'],
+        message: 'preselected must be indexes of options',
+      });
+  });
 export const planRouteAgentInput = z.object({
   shopIds: z
     .array(z.uuid())
@@ -117,6 +152,7 @@ export const AGENT_TOOLS: ChatTool[] = [
     description:
       'FINISH THIS RUN by asking the customer one short question; the errand pauses until they answer, then you continue. ' +
       'Use it when resolve_item returns a clarification: pass its question and options to ask_user instead of guessing. Also for a task too vague to act on. ' +
+      'For a goal with no items listed (for example "chai banane ka saaman"), propose the usual items as options with multiSelect true and the defaults in preselected, and ask once. ' +
       'Use it rarely; at most a couple of times per errand. Do not ask what you can find out with the other tools.',
     input: askUserInput,
   },

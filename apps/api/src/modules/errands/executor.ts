@@ -8,7 +8,7 @@ import { planRoute } from '../routing/index.js';
 import { findLearnedStock } from '../shops/index.js';
 import { createRequest, type RequestsContext } from '../requests/index.js';
 import { statusForModel } from './bridge.js';
-import { linkRequest, listLinks } from './persistence.js';
+import { linkRequest, listLinks, type ErrandQuestion } from './persistence.js';
 import {
   askShopsAgentInput,
   askUserInput,
@@ -42,6 +42,8 @@ export interface RunState {
   /** itemId → the customer's own word for it, learned from resolve_item. */
   labels: Map<string, string>;
   found: Map<string, FoundItem>;
+  /** itemId → the customer's word, for every item resolve_item placed (not the options of a question). */
+  resolved: Map<string, string>;
   /** Questions put to the customer so far in this errand, across runs. */
   questionsAsked: number;
 }
@@ -49,6 +51,7 @@ export interface RunState {
 export const newRunState = (): RunState => ({
   labels: new Map(),
   found: new Map(),
+  resolved: new Map(),
   questionsAsked: 0,
 });
 
@@ -78,7 +81,7 @@ export interface ToolOutcome {
   /** Set when submit_plan was accepted. */
   submitted?: SubmitPlanInput;
   /** Set when ask_user was accepted: the run ends and the errand waits for the customer. */
-  question?: { question: string; options?: string[] };
+  question?: ErrandQuestion;
   /** Set when ask_shops opened (or found) a request: the agent now has something to wait for. */
   asked?: boolean;
 }
@@ -144,6 +147,7 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     }
     const { item } = resolution;
     env.state.labels.set(item.id, text);
+    if (!env.state.resolved.has(item.id)) env.state.resolved.set(item.id, text);
     return {
       result: {
         item: {
@@ -296,11 +300,16 @@ async function askUser(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     );
   }
   env.state.questionsAsked++;
-  const { question, options } = parsed.data;
+  const { question, options, multiSelect, preselected } = parsed.data;
   return {
     result: { ok: true, asked: true },
     summary: { asked: true, question },
-    question: { question, ...(options && { options }) },
+    question: {
+      question,
+      ...(options && { options }),
+      ...(options && multiSelect && { multiSelect: true }),
+      ...(options && multiSelect && preselected && { preselected: [...new Set(preselected)] }),
+    },
   };
 }
 

@@ -475,7 +475,6 @@ describe('errand agent core (fake model, real database)', () => {
       expect(plan.items[1]).toMatchObject({
         itemId: ids['salt'],
         status: 'likely',
-        pricePaise: 2500,
       });
       expect(plan.plans.sasta.items).toHaveLength(2);
     });

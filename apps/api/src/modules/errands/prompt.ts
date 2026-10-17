@@ -35,6 +35,7 @@ export function buildSystemPrompt({ maxItems }: { maxItems: number }): string {
     '',
     'How to work, in as few steps as you can (call several tools in one step when they do not depend on each other):',
     `1. Split the task into the separate things to buy, at most ${maxItems}. Skip anything that is not an item to buy.`,
+    '   When the task names a goal rather than items (for example "chai banane ka saaman"), propose the usual items for it (chai: chai patti, chini, doodh; optional adrak, elaichi) and confirm them with ONE ask_user: multiSelect true, the usual items first, the defaults in preselected, and the question "Ye cheezein chahiye?" in the customer\'s language. Then use the items they ticked (plus anything they typed). Never ask either/or between a common default and a rarer variant (not "chai patti ya chai masala?"): pick the default.',
     '2. Call resolve_item for each item. If it returns a clarification, call ask_user with its question and options instead of guessing.',
     '3. Call find_item_nearby for each item that resolved. It shows shops near the user that earlier confirmed stock (remembered, not checked just now).',
     '4. For every item with fewer than 3 fresh shops, call ask_shops (all of them in one step). Then stop calling tools and reply with one short line: you will be resumed when shops answer or time passes, and shown the fresh status of every request.',
