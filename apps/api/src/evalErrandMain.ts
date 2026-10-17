@@ -5,6 +5,7 @@ import { pino } from 'pino';
 import { z } from 'zod';
 import { loadConfig } from './config/config.js';
 import { loadErrandCases } from './evalErrand/cases.js';
+import { errandEvalEnv } from './evalErrand/model.js';
 import { pacedProvider } from './evalErrand/pace.js';
 import { prepareCatalog } from './evalErrand/prepare.js';
 import { runErrandEval } from './evalErrand/run.js';
@@ -25,7 +26,8 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 // catalog and synthetic shops, and a deterministic shop responder. All metrics are computed in code.
 //
 //   EVAL_SET=dev|holdout      which case file (evals/errand.<set>.jsonl); default dev
-//   EVAL_MODEL=primary|fallback  GEMINI_MODEL, or the fallback model (gemini-3.5-flash-lite)
+//   EVAL_MODEL=primary|fallback  the errand agent's model: GEMINI_MODEL, or the fallback model
+//                             (GEMINI_FALLBACK_MODEL, default gemini-3.5-flash-lite); sets GEMINI_ERRAND_MODEL
 //   EVAL_CASES=d01,d02        only these case ids (to split a run under the call budget)
 //   EVAL_GATE=1               apply the gates (holdout only) and exit 1 if one fails
 //   EVAL_PACE_MS=4000         least time between two provider calls
@@ -38,16 +40,10 @@ if (which !== 'primary' && which !== 'fallback') throw new Error(`EVAL_MODEL: "$
 const gate = env['EVAL_GATE'] === '1';
 const paceMs = Number(env['EVAL_PACE_MS'] ?? 4000);
 const MAX_CALLS = 250;
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
 
-// The fallback run measures the fallback model alone: the provider's own automatic fallback is off.
-const rest = { ...env };
-delete rest['GEMINI_FALLBACK_MODEL'];
-const config = loadConfig({
-  ...rest,
-  WORKERS_ENABLED: 'false',
-  ...(which === 'fallback' && { GEMINI_MODEL: env['GEMINI_FALLBACK_MODEL'] ?? FALLBACK_MODEL }),
-});
+// "primary" and "fallback" name the model the errand agent runs on (GEMINI_ERRAND_MODEL); query
+// resolution keeps GEMINI_MODEL, as in production. No automatic fallback: a run measures one model.
+const config = loadConfig({ ...errandEvalEnv(env, which), WORKERS_ENABLED: 'false' });
 if (config.llmProvider !== 'gemini' || !config.geminiApiKey) {
   console.error(
     '::error::The agent evals need LLM_PROVIDER=gemini and GEMINI_API_KEY. Without them the run would measure the fake model.',
@@ -65,7 +61,7 @@ const cases = loadErrandCases(path.join(root, 'evals', `errand.${set}.jsonl`)).f
 const catalogBatches = Math.ceil(loadSeedCatalog().items.length / 20);
 const estimate = estimateCalls(cases, catalogBatches);
 console.log(
-  `agent evals: set ${set}, model ${config.geminiModel} (${which}), ${cases.length} cases, ` +
+  `agent evals: set ${set}, model ${config.errandModel} (${which}), ${cases.length} cases, ` +
     `estimated up to ${estimate} LLM calls (${cases.length} errands × 10 + ${catalogBatches} embedding batches if none are cached), ` +
     `${paceMs} ms between calls`,
 );
@@ -174,7 +170,7 @@ try {
   const report = {
     set,
     at: new Date().toISOString(),
-    model: config.geminiModel,
+    model: config.errandModel,
     which,
     paceMs,
     summary,
@@ -187,7 +183,7 @@ try {
   const file = `evals/reports/errand-${set}-${which}-${stamp}.json`;
   writeFileSync(path.join(root, file), JSON.stringify(report, null, 2));
   const markdown = renderErrandMarkdown([
-    { model: config.geminiModel, set, summary, results: run.results },
+    { model: config.errandModel, set, summary, results: run.results },
   ]);
   const extra = `\nModel call latency (provider only): ${run.modelLatency.calls} calls, p50 ${(run.modelLatency.p50Ms / 1000).toFixed(1)} s, p95 ${(run.modelLatency.p95Ms / 1000).toFixed(1)} s.\n`;
   writeFileSync(

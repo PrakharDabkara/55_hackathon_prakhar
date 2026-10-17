@@ -38,6 +38,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   errandResumeDebounceMs: 1000,
   errandFewerStopsMaxExtraPaise: 3000,
   geminiFallbackModel: null,
+  errandModel: 'gemini-3.1-flash-lite',
+  errandFallbackModel: null,
   gitSha: 'test',
   ...overrides,
 });

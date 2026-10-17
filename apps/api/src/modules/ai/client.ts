@@ -71,6 +71,11 @@ interface Options {
   timeoutMs?: number;
   /** Longer (or shorter) limits for some purposes; the rest use `timeoutMs`. */
   purposeTimeoutMs?: Partial<Record<Purpose, number>>;
+  /**
+   * A model (and fallback) for some purposes; the rest use the provider's own. The errand agent
+   * can run on a different model from query resolution, whose gate was proven on another one.
+   */
+  models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
   /** Extra attempts after the first, only for 429 and 5xx. */
   retries?: number;
   backoffMs?: number;
@@ -121,6 +126,7 @@ export function createAiClient({
   recorder,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   purposeTimeoutMs = {},
+  models = {},
   retries = 1,
   backoffMs = 500,
   breaker: { threshold = 5, cooldownMs = 60_000 } = {},
@@ -158,15 +164,18 @@ export function createAiClient({
     maxRetries: number,
   ): Promise<R & { callId: string | null }> {
     const state = breakerFor(purpose);
+    const own = models[purpose];
+    const primaryModel = own?.model ?? provider.model;
+    const fallbackName = own ? own.fallbackModel : provider.fallbackModel;
     const base = { purpose, requestId: requestId ?? null };
     if (now() < state.openUntil) {
       logger?.warn(
-        { purpose, model: provider.model, attempt: 0, kind: 'breaker', latencyMs: 0 },
+        { purpose, model: primaryModel, attempt: 0, kind: 'breaker', latencyMs: 0 },
         'AI call skipped',
       );
       await record({
         ...base,
-        model: provider.model,
+        model: primaryModel,
         inputTokens: 0,
         outputTokens: 0,
         latencyMs: 0,
@@ -178,11 +187,13 @@ export function createAiClient({
     const started = now();
     let useFallback = false;
     for (let attempt = 0; ; attempt++) {
-      const fallback = useFallback ? provider.fallbackModel : null;
-      const model = fallback ?? provider.model;
+      const fallback = useFallback ? fallbackName : null;
+      const model = fallback ?? primaryModel;
       const attemptStarted = now();
       try {
-        const result = await withTimeout((signal) => call(signal, fallback ?? undefined), limitMs);
+        // The provider's own primary is its default; a per-purpose model is named on every call.
+        const named = fallback ?? (own ? own.model : undefined);
+        const result = await withTimeout((signal) => call(signal, named), limitMs);
         state.failures = 0;
         const answeredBy =
           result && 'model' in result ? String((result as { model: string }).model) : model;
@@ -220,7 +231,7 @@ export function createAiClient({
           // The service worked, so this is not a reason to open the breaker.
           state.failures = 0;
         } else if (attempt < maxRetries && retryable(failure)) {
-          if (provider.fallbackModel && wantsFallback(failure)) useFallback = true;
+          if (fallbackName && wantsFallback(failure)) useFallback = true;
           await sleep(backoffMs * 2 ** attempt);
           continue;
         } else if (++state.failures >= threshold) {

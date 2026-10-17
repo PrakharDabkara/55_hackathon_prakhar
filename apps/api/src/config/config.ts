@@ -64,6 +64,16 @@ const schema = z
       .string()
       .optional()
       .transform((m) => (m === '' ? undefined : m)),
+    // The errand agent's own models. Unset (or blank): the errand agent uses GEMINI_MODEL and
+    // GEMINI_FALLBACK_MODEL, as before. Query resolution never reads these two.
+    GEMINI_ERRAND_MODEL: z
+      .string()
+      .optional()
+      .transform((m) => (m === '' ? undefined : m)),
+    GEMINI_ERRAND_FALLBACK_MODEL: z
+      .string()
+      .optional()
+      .transform((m) => (m === '' ? undefined : m)),
     GEMINI_EMBED_MODEL: z.string().min(1).default('gemini-embedding-001'),
     // The size of items.embedding (migration 008). Changing it needs a new migration.
     EMBED_DIM: z.coerce.number().int().min(8).max(3072).default(768),
@@ -155,6 +165,10 @@ export interface Config {
   geminiApiKey: string | null;
   geminiModel: string;
   geminiFallbackModel: string | null;
+  /** The model the errand agent runs on: GEMINI_ERRAND_MODEL, else GEMINI_MODEL. */
+  errandModel: string;
+  /** Its fallback: GEMINI_ERRAND_FALLBACK_MODEL, else GEMINI_FALLBACK_MODEL, else none. */
+  errandFallbackModel: string | null;
   geminiEmbedModel: string;
   embedDim: number;
   embedThreshold: number;
@@ -216,6 +230,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     geminiApiKey: e.GEMINI_API_KEY ?? null,
     geminiModel: e.GEMINI_MODEL,
     geminiFallbackModel: e.GEMINI_FALLBACK_MODEL ?? null,
+    errandModel: e.GEMINI_ERRAND_MODEL ?? e.GEMINI_MODEL,
+    errandFallbackModel: e.GEMINI_ERRAND_FALLBACK_MODEL ?? e.GEMINI_FALLBACK_MODEL ?? null,
     geminiEmbedModel: e.GEMINI_EMBED_MODEL,
     embedDim: e.EMBED_DIM,
     embedThreshold: e.EMBED_THRESHOLD,

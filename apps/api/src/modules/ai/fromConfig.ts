@@ -39,6 +39,7 @@ export function aiFromConfig({
   client?: {
     timeoutMs?: number;
     purposeTimeoutMs?: Partial<Record<Purpose, number>>;
+    models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
   };
@@ -56,7 +57,12 @@ export function aiFromConfig({
     embedThreshold: config.embedThreshold,
     embedMargin: config.embedMargin,
     redis,
-    client: { purposeTimeoutMs: { errand: config.errandAiTimeoutMs }, ...client },
+    client: {
+      purposeTimeoutMs: { errand: config.errandAiTimeoutMs },
+      // Only the errand agent follows GEMINI_ERRAND_MODEL; resolve keeps GEMINI_MODEL.
+      models: { errand: { model: config.errandModel, fallbackModel: config.errandFallbackModel } },
+      ...client,
+    },
   });
   return { ...ai, close: () => redis?.disconnect() };
 }

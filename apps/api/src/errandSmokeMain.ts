@@ -84,7 +84,7 @@ async function demoSeeker(): Promise<string> {
 
 try {
   console.log(
-    `provider: ${config.llmProvider}, model: ${config.llmProvider === 'gemini' ? config.geminiModel : 'fake'}`,
+    `provider: ${config.llmProvider}, model: ${config.llmProvider === 'gemini' ? config.errandModel : 'fake'}`,
   );
   await seedDemoShops();
   const userId = await demoSeeker();

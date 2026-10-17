@@ -2,6 +2,8 @@
 
 Harness, gates and decision: [ADR-0027](../adr/0027-errand-agent-evals.md). Runs were made in CI (`agent-evals` job, eval project, 2026-10-17) with 4 s between model calls. Duration includes that pacing and the shortened shop waits; the model-latency column is the provider call alone.
 
+Note: the runs below set `GEMINI_MODEL`, which at the time also moved query resolution inside the run. Since the per-purpose errand model (ADR-0027, point 11) the harness sets `GEMINI_ERRAND_MODEL` and resolve keeps `GEMINI_MODEL`; the `agent-evals` check on the final commit of PR #28 (dev set, primary) is the first run that way.
+
 ## 1. First run: dev set (17 cases), prompt as it was before any tuning
 
 | Model                            | Success | Tool   | Halluc. | Injection | Errors | Tokens / errand | Calls / errand | p50    | p95    | Model call p95 | Failures                                |

@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (Day 14c, part 2)
 
+- `GEMINI_ERRAND_MODEL` and `GEMINI_ERRAND_FALLBACK_MODEL`: the errand agent can run on its own model; unset, it uses `GEMINI_MODEL` and `GEMINI_FALLBACK_MODEL` as before. Query resolution never reads them. The AI client takes a model and fallback per purpose; the eval harness's `model` input sets the errand model.
+
 - Production refuses to start with `LLM_PROVIDER=fake` or with `FAKE_LLM_SCENARIO` set at all; there is no bypass. (e2e and CI run as `development`.)
 - The errand result no longer carries any sentence the model wrote: `plan.notes` is dropped from `GET /errands/:id` and the screen shows only the summary built from the plan. The text stays in `errand_steps` for debugging.
 - `CLAUDE.md` label rule: `agent-evals` for the errand agent, `evals` for the resolve pipeline.
