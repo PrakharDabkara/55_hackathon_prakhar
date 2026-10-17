@@ -1,0 +1,49 @@
+{
+  "note": "The scripted model for e2e/errand.spec.ts (LLM_PROVIDER=fake, FAKE_LLM_SCENARIO). Turn n is played when the conversation holds n model messages. '$item:<words>' becomes the item id that resolve_item returned for those words. See docs/runbook.md, 'Scripted fake model'.",
+  "turns": [
+    {
+      "toolCalls": [
+        {
+          "name": "ask_user",
+          "args": { "question": "Kaunsi chai chahiye?", "options": ["Dust chai", "Patti chai"] }
+        }
+      ]
+    },
+    {
+      "toolCalls": [
+        { "name": "resolve_item", "args": { "text": "chai patti" } },
+        { "name": "resolve_item", "args": { "text": "chini" } },
+        { "name": "resolve_item", "args": { "text": "doodh" } }
+      ]
+    },
+    {
+      "toolCalls": [
+        { "name": "find_item_nearby", "args": { "itemId": "$item:chai patti" } },
+        { "name": "find_item_nearby", "args": { "itemId": "$item:chini" } },
+        { "name": "find_item_nearby", "args": { "itemId": "$item:doodh" } }
+      ]
+    },
+    {
+      "toolCalls": [
+        { "name": "ask_shops", "args": { "itemId": "$item:chai patti" } },
+        { "name": "ask_shops", "args": { "itemId": "$item:chini" } },
+        { "name": "ask_shops", "args": { "itemId": "$item:doodh" } }
+      ]
+    },
+    {
+      "toolCalls": [
+        {
+          "name": "submit_plan",
+          "args": {
+            "items": [
+              { "text": "chai patti", "itemId": "$item:chai patti", "status": "confirmed" },
+              { "text": "chini", "itemId": "$item:chini", "status": "confirmed" },
+              { "text": "doodh", "itemId": "$item:doodh", "status": "confirmed" }
+            ],
+            "notes": "Chai ka saaman mil gaya."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildProgress, type StepView } from './progress.js';
+import { buildProgress, lateAnswerLines, type StepView } from './progress.js';
 
 let n = 0;
 const tool = (
@@ -144,16 +144,36 @@ describe('buildProgress', () => {
       expect(lines).toEqual(['6 dukaanon se pooch raha hoon: phenyl']);
     });
 
-    it('uses the singular for one shop, and no number while the pings are still being sent', () => {
+    it('uses the singular for one shop', () => {
       expect(
         buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null, { pingsSent: { r1: 1 } }),
       ).toEqual(['1 dukaan se pooch raha hoon: jhaadu']);
-      expect(
-        buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null, { pingsSent: { r1: 0 } }),
-      ).toEqual(['Dukaanon se pooch raha hoon: jhaadu']);
-      expect(buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null)).toEqual([
-        'Dukaanon se pooch raha hoon: jhaadu',
-      ]);
+    });
+
+    describe('every asking line has its count (Day 14b)', () => {
+      const created = at(0);
+      const facts = (sent: number, nowSec: number) => ({
+        pingsSent: { r1: sent },
+        requestCreated: { r1: created },
+        now: at(nowSec),
+      });
+
+      it('waits for the count while the pings are still being sent', () => {
+        expect(buildProgress([ask('diya', 'r1', 1)], 'PLANNING', null, facts(0, 3))).toEqual([]);
+        expect(buildProgress([ask('diya', 'r1', 1)], 'PLANNING', null)).toEqual([]);
+      });
+
+      it('shows the count as soon as there is one', () => {
+        expect(buildProgress([ask('diya', 'r1', 1)], 'PLANNING', null, facts(4, 3))).toEqual([
+          '4 dukaanon se pooch raha hoon: diya',
+        ]);
+      });
+
+      it('says so when nobody could be asked, once the fan-out has had time to run', () => {
+        expect(
+          buildProgress([ask('diya', 'r1', 1)], 'WAITING_FOR_SHOPS', null, facts(0, 40)),
+        ).toEqual(['Poochne ke liye koi dukaan nahi mili: diya', 'Jawab ka intezaar…']);
+      });
     });
 
     it('ends with "Jawab ka intezaar…" while the errand waits for shops', () => {
@@ -193,6 +213,39 @@ describe('buildProgress', () => {
         answers: [{ shopName: 'A', pricePaise: 4250, at: at(1) }],
       });
       expect(lines[0]).toBe('A ne haan kaha ₹42.50');
+    });
+
+    describe('answers that arrive after the plan is ready (Day 14b)', () => {
+      const plan: StepView = {
+        ...tool('submit_plan', {}, { confirmed: 1, likely: 0, notFound: 0, items: 1 }),
+        at: at(30),
+      };
+      const answers = [
+        { shopName: 'Early Shop', pricePaise: 4200, at: at(10) },
+        { shopName: 'Late Shop', pricePaise: 3900, at: at(45) },
+        { shopName: 'Later Shop', pricePaise: null, at: at(50) },
+      ];
+
+      it('keeps them out of the main timeline', () => {
+        const lines = buildProgress([plan], 'PLAN_READY', null, { answers });
+        expect(lines.join('\n')).toContain('Early Shop ne haan kaha ₹42');
+        expect(lines.join('\n')).not.toContain('Late Shop');
+        expect(lines.join('\n')).not.toContain('Later Shop');
+      });
+
+      it('lists them on their own, in time order', () => {
+        expect(lateAnswerLines([plan], { answers })).toEqual([
+          'Late Shop ne haan kaha ₹39',
+          'Later Shop ne haan kaha',
+        ]);
+      });
+
+      it('has none before a plan exists', () => {
+        expect(lateAnswerLines([], { answers })).toEqual([]);
+        expect(buildProgress([], 'WAITING_FOR_SHOPS', null, { answers }).join('\n')).toContain(
+          'Late Shop',
+        );
+      });
     });
 
     it('shows the question the agent asked: "Aapse ek sawaal: …"', () => {

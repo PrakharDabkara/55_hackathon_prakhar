@@ -130,6 +130,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     )) as {
       plan: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
       progress: string[];
+      lateAnswers: string[];
       state: string;
     };
   const claim = (text: string, slug: string, shopId?: string, status = 'likely') => ({
@@ -315,5 +316,24 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     await runErrand(deps(), id);
     const { progress } = await view(id);
     expect(progress[0]).toBe('Samjha: 2 cheezein');
+  });
+
+  it('puts answers that arrive after the plan under lateAnswers, not in the timeline', async () => {
+    const { mishra } = await threeItemsTwoWays();
+    const { id } = await newErrand('chini');
+    await confirm(id, mishra, 'sugar', 5000);
+    play([['chini', 'sugar']], [claim('chini', 'sugar')]);
+    await runErrand(deps(), id);
+    const before = await view(id);
+    expect(before.progress.join('\n')).toContain('ne haan kaha ₹50');
+    expect(before.lateAnswers).toEqual([]);
+
+    const late = await shop('Late Shop', 0.5);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await confirm(id, late, 'sugar', 4100);
+    const after = await view(id);
+    expect(after.progress.join('\n')).not.toContain('Late Shop');
+    expect(after.progress.join('\n')).toContain('ne haan kaha ₹50');
+    expect(after.lateAnswers).toEqual(['P14 Late Shop ne haan kaha ₹41']);
   });
 });

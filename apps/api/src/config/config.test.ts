@@ -27,6 +27,7 @@ describe('loadConfig', () => {
       adminPhones: [],
       errandMaxItems: 10,
       errandFewerStopsMaxExtraPaise: 3000,
+      fakeLlmScenario: null,
       errandMaxSteps: 8,
       errandTokenBudget: 20_000,
       errandUserHourlyLimit: 5,

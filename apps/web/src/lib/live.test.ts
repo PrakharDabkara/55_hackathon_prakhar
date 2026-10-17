@@ -113,3 +113,10 @@ describe('connectLive', () => {
     expect(FakeEventSource.instances).toHaveLength(0);
   });
 });
+
+describe('LIVE_EVENTS (Day 14b)', () => {
+  it('includes errand.updated, so an errand screen refetches when its errand moves', async () => {
+    const { LIVE_EVENTS } = await import('./live.js');
+    expect(LIVE_EVENTS).toContain('errand.updated');
+  });
+});
