@@ -609,6 +609,86 @@ describe('the result', () => {
     });
   });
 
+  describe('the summary is built from the plan, in the screen’s language (Day 14c)', () => {
+    const lostItem = (item: PlanItem): PlanItem => ({
+      ...item,
+      text: 'chandan itr',
+      itemName: null,
+      itemId: null,
+      status: 'not_found',
+      shopId: null,
+      shopName: null,
+      pricePaise: null,
+      freshness: null,
+      distanceM: null,
+    });
+    const withLost = () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items.push(lostItem(plan.plans.kam_dukaan.items[0] as PlanItem));
+      return plan;
+    };
+
+    it('says how many items were found, the shops and the distance, and names the ones not found', async () => {
+      await showResult(withLost());
+      expect(screen.getByText('3 mein se 2 cheezein mili · 1 dukaan · 400 m')).toBeTruthy();
+      expect(screen.getByText('Nahi mila: chandan itr')).toBeTruthy();
+    });
+
+    it('uses the singular for one item', async () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items = [
+        plan.plans.kam_dukaan.items[0] as PlanItem,
+        lostItem(plan.plans.kam_dukaan.items[0] as PlanItem),
+      ];
+      await showResult(plan);
+      expect(screen.getByText('2 mein se 1 cheez mili · 1 dukaan · 400 m')).toBeTruthy();
+    });
+
+    it('never calls a likely item available or confirmed; it says it is from an earlier answer', async () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items[1] = {
+        ...(plan.plans.kam_dukaan.items[1] as PlanItem),
+        status: 'likely',
+        freshness: 'Pichhla jawab: kal',
+      };
+      await showResult(plan);
+      expect(screen.getByText('Abhi confirm nahi: 1 cheez (pichhle jawab se)')).toBeTruthy();
+      const summary = screen.getByRole('status', { name: 'Saaransh' });
+      expect(summary.textContent).not.toMatch(/available|confirmed/i);
+    });
+
+    it('the same summary in English', async () => {
+      const api = fakeSeekerApi({ getErrand: vi.fn(async () => ready(withLost())) });
+      const { user } = renderApp(
+        <Errand api={api} onBack={vi.fn()} pollMs={60_000} live={live} />,
+        'en',
+      );
+      await user.type(screen.getByLabelText('What is the errand?'), 'chai');
+      await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+      await user.click(screen.getByRole('button', { name: 'Make a plan' }));
+      expect(await screen.findByText('2 of 3 items found · 1 shop · 400 m')).toBeTruthy();
+      expect(screen.getByText('Not found: chandan itr')).toBeTruthy();
+    });
+
+    it('shows no summary when nothing was found (the screen says so on its own)', async () => {
+      const plan = errandPlan();
+      for (const k of ['kam_dukaan', 'sasta'] as const)
+        plan.plans[k].items = plan.plans[k].items.map(lostItem);
+      await showResult(plan);
+      expect(screen.queryByRole('status', { name: 'Saaransh' })).toBeNull();
+      expect(screen.getByText('Abhi kisi dukaan ne jawab nahi diya')).toBeTruthy();
+    });
+
+    it('keeps the model’s own text only inside "Ab tak kya hua"', async () => {
+      const notes = 'Chandan (sandalwood) is available at Mishra Kirana';
+      await showResult(errandPlan({ notes }));
+      const box = screen.getByText(notes).closest('details') as HTMLDetailsElement;
+      expect(box.querySelector('summary')?.textContent).toBe('Ab tak kya hua');
+      expect(box.open).toBe(false);
+      expect(screen.getByRole('region', { name: 'Plan taiyaar' }).textContent).not.toContain(notes);
+    });
+  });
+
   it('starts a new errand with "Naya kaam"', async () => {
     const { user } = await showResult();
     await user.click(screen.getByRole('button', { name: 'Naya kaam' }));
