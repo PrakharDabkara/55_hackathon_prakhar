@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 14b live fixes)
+
+- Vague goals are confirmed once: for "chai banane ka saaman" the agent proposes the usual items and the screen shows them as checkboxes (defaults ticked) with "Kuch aur?" and "Theek hai". `ask_user` gains `multiSelect` and `preselected`; `POST /errands/:id/answer` accepts `selected` (indexes) with optional `text` (ADR-0026). A fourth example, "chai: chai patti, chini, doodh".
+- The errand id is in the address (`/app/errand/<id>`), so a reload shows the same errand; `ErrandView` has `lat` and `lng`.
+- The result screen: identical plans are shown once (no tabs, no Recommended badge); found items come first and the rest sit under "Nahi mila"; with nothing found there are no zero tiles, only "Abhi kisi dukaan ne jawab nahi diya" and "Dukaanon se phir poochein" (a new errand, same task and place).
+
+### Changed (Day 14b live fixes)
+
+- The server plans every item `resolve_item` placed, loading its stock itself, whatever the agent claimed or left out of `submit_plan`. The prompt no longer allows either/or questions between a common default and a rarer variant.
+- A likely item reads "Pichhla jawab: aaj / kal / N din pehle" instead of "Confirmed …".
+- At 420 px and below the status chip sits under the errand title, so a long chip cannot squeeze the title to one word per line.
+- `CLAUDE.md`: never read `.env` in any form.
+
 ### Added (Day 14b)
 
 - Errand screen in the customer app at `/app/errand`, reached from the search screen by "Poora kaam batao": task box with three examples, optional budget, location, "Plan banao"; live progress (state chip, timeline, waiting state with elapsed time, Cancel) refetched on `errand.updated` with a polling fallback; the agent's question as option buttons and a text box; the result as two tabs ("Kam dukaan", "Sabse sasta") with a Recommended badge and a one-line reason, per-item status (Confirmed, Likely, Nahi mila), totals, a map with numbered stops and a line through them, and "Raasta kholo" (Google Maps with every stop); friendly FAILED, EXPIRED and CANCELLED endings with "Dobara koshish karein". Hindi and English.

@@ -144,6 +144,12 @@ export interface Strings {
   errandRetry: string;
   errandExpired: string;
   errandCancelled: string;
+  errandConfirmList: string;
+  errandMore: string;
+  errandFoundTitle: string;
+  errandNothingYet: string;
+  errandAskAgain: string;
+  errandGone: string;
 
   categories: Record<Category, string>;
   bands: Record<Band, string>;
@@ -235,6 +241,7 @@ export const hi: Strings = {
   errandExamplesTitle: 'Jaise:',
   errandExamples: [
     'chai banane ka saaman',
+    'chai: chai patti, chini, doodh',
     'school project: chart paper, fevicol, sketch pens',
     'puja ka saaman',
   ],
@@ -287,6 +294,12 @@ export const hi: Strings = {
   errandRetry: 'Dobara koshish karein',
   errandExpired: 'Time khatam ho gaya, plan nahi ban paya.',
   errandCancelled: 'Errand cancel kar diya.',
+  errandConfirmList: 'Theek hai',
+  errandMore: 'Kuch aur?',
+  errandFoundTitle: 'Mil gaya',
+  errandNothingYet: 'Abhi kisi dukaan ne jawab nahi diya',
+  errandAskAgain: 'Dukaanon se phir poochein',
+  errandGone: 'Ye kaam nahi mila.',
 
   categories: {
     grocery: 'किराना',
@@ -390,6 +403,7 @@ export const en: Strings = {
   errandExamplesTitle: 'For example:',
   errandExamples: [
     'chai banane ka saaman',
+    'chai: chai patti, chini, doodh',
     'school project: chart paper, fevicol, sketch pens',
     'puja ka saaman',
   ],
@@ -443,6 +457,12 @@ export const en: Strings = {
   errandRetry: 'Try again',
   errandExpired: 'Time ran out, so there is no plan.',
   errandCancelled: 'The errand was cancelled.',
+  errandConfirmList: 'Looks right',
+  errandMore: 'Anything else?',
+  errandFoundTitle: 'Found',
+  errandNothingYet: 'No shop has answered yet',
+  errandAskAgain: 'Ask the shops again',
+  errandGone: 'That errand was not found.',
 
   categories: {
     grocery: 'Grocery',

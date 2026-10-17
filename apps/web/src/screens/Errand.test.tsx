@@ -566,7 +566,10 @@ describe('the result', () => {
         plan.plans[k].items = plan.plans[k].items.map(lost);
         plan.plans[k].route = null;
       }
-      const createErrand = vi.fn(async () => ({ id: 'errand-2', state: 'PLANNING' as const }));
+      const createErrand = vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'errand-1', state: 'PLANNING' })
+        .mockResolvedValueOnce({ id: 'errand-2', state: 'PLANNING' });
       const getErrand = vi.fn(async (id: string) =>
         id === 'errand-2'
           ? errandView({ id: 'errand-2', state: 'PLANNING', progress: ['Samjha: 2 cheezein'] })

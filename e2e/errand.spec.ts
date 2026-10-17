@@ -25,7 +25,8 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   await page.getByRole('button', { name: 'Plan banao' }).click();
 
   // The agent proposes the usual items and asks once: defaults ticked, the customer adds one.
-  await expect(page.getByText('Ye cheezein chahiye?')).toBeVisible({ timeout: 30_000 });
+  // (The timeline can name the question a moment before the box opens: wait for the box.)
+  await expect(page.getByRole('checkbox', { name: 'chai patti' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('checkbox', { name: 'chai patti' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'doodh' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'adrak' })).not.toBeChecked();
@@ -37,6 +38,7 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   const column = await page.locator('.screen').boundingBox();
   expect(chip?.y).toBeGreaterThanOrEqual((title?.y ?? 0) + (title?.height ?? 0) - 1);
   expect(title?.width).toBeGreaterThan((column?.width ?? 0) * 0.8);
+  expect(title?.height).toBeLessThan(40); // one line, not one word per line
   await page.screenshot({ path: 'e2e/artifacts/errand-question.png', fullPage: true });
 
   await page.getByRole('button', { name: 'Theek hai' }).click();
@@ -44,13 +46,20 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   // Progress lines appear while the shops answer.
   await expect(page.getByText('Samjha: 3 cheezein')).toBeVisible({ timeout: 30_000 });
 
-  // The plan: both tabs, the recommended one open first.
+  // The plan. The simulated shops answer at random, so the two plans are sometimes the same
+  // (shown once, no tabs, no badge) and sometimes differ (two tabs, one Recommended).
+  await expect(page.getByText('Plan taiyaar', { exact: true })).toBeVisible({ timeout: 60_000 });
   const tabs = page.getByRole('tab');
-  await expect(tabs).toHaveCount(2, { timeout: 60_000 });
-  await expect(tabs.nth(0)).toContainText('Kam dukaan');
-  await expect(tabs.nth(1)).toContainText('Sabse sasta');
-  await expect(page.getByText('Recommended')).toHaveCount(1);
-  await expect(page.getByRole('tabpanel').locator('li')).toHaveCount(3);
+  const plans = (await tabs.count()) === 0 ? 1 : 2;
+  if (plans === 2) {
+    await expect(tabs.nth(0)).toContainText('Kam dukaan');
+    await expect(tabs.nth(1)).toContainText('Sabse sasta');
+    await expect(page.getByText('Recommended')).toHaveCount(1);
+  } else {
+    await expect(page.getByText('Recommended')).toHaveCount(0);
+  }
+  await expect(page.locator('.plan-item')).toHaveCount(3);
+  await expect(page.getByText(/Confirmed|Pichhla jawab/).first()).toBeVisible();
   await expect(page.getByRole('group', { name: 'Kul hisaab' })).toContainText('₹');
 
   // Numbered stops on the map, in route order, and a link that opens Google Maps with them.
@@ -66,17 +75,19 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   );
 
   // The other plan opens too, with its own totals.
-  await tabs.nth(1).click();
-  await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('tabpanel').locator('li')).toHaveCount(3);
-
-  await tabs.nth(0).click();
+  if (plans === 2) {
+    await tabs.nth(1).click();
+    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.plan-item')).toHaveCount(3);
+    await tabs.nth(0).click();
+  }
 
   // A reload shows the same errand: its id is in the address.
   await expect(page).toHaveURL(/\/app\/errand\/[0-9a-f-]{36}$/);
   await page.reload();
-  await expect(page.getByRole('tab')).toHaveCount(2, { timeout: 15_000 });
-  await expect(page.getByRole('tabpanel').locator('li')).toHaveCount(3);
+  await expect(page.getByText('Plan taiyaar', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('tab')).toHaveCount(plans === 2 ? 2 : 0);
+  await expect(page.locator('.plan-item')).toHaveCount(3);
   await expect(page.getByLabel('Kya kaam hai?')).toHaveCount(0);
 
   await page.screenshot({ path: 'e2e/artifacts/errand-result.png', fullPage: true });

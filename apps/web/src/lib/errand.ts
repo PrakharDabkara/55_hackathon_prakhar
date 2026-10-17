@@ -1,4 +1,4 @@
-import type { PlanRoute } from './seekerApi.js';
+import type { PlanRoute, PlanVariant } from './seekerApi.js';
 
 export interface MapStop {
   /** 1 for the first shop to visit. */
@@ -39,3 +39,16 @@ export const shownProgress = (lines: string[]): string[] =>
 
 export const isFinalState = (state: string): boolean =>
   state === 'PLAN_READY' || state === 'FAILED' || state === 'EXPIRED' || state === 'CANCELLED';
+
+/**
+ * Two plans that buy the same things from the same shops at the same prices are one plan: the
+ * screen then shows it once, with no tabs and no "recommended".
+ */
+export function plansIdentical(a: PlanVariant, b: PlanVariant): boolean {
+  const key = (v: PlanVariant) =>
+    JSON.stringify({
+      items: v.items.map((i) => [i.text, i.itemId, i.status, i.shopId, i.pricePaise, i.quantity]),
+      stops: (v.route?.orderedStops ?? []).map((s) => s.shopId),
+    });
+  return key(a) === key(b);
+}
