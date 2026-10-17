@@ -148,6 +148,7 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process (including `ask_shops` and `get_request_status`), plus `ask_user` and a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters 6 items asked about per errand, 2 questions, 5 minutes of waiting in total, 15 minutes overall | Eval set of 20 errands (Day 14) |
 | MCP server | Any AI assistant → tools `resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route` (one registry shared with the agent, ADR-0023) | No LLM inside; plain tools | Contract tests per tool |
 
+- **Errand agent evals (ADR-0027):** `npm run eval:errand` plays whole errands against the real model with synthetic shops; every metric is computed in code. Production refuses to start with the fake or scripted model. The errand result carries no sentence the model wrote: the summary is built from the plan.
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.
 - **Token metrics:** tokens per search, LLM fallback rate, cache hit rate, cost per 1,000 searches, tracked per release.
 
@@ -187,7 +188,7 @@ Tests come first: Prakhar writes the acceptance criteria, the test commit lands 
 | Contract | Messaging channels (in-app, simulated WhatsApp) and each MCP tool | Vitest |
 | End-to-end | Search → ping → reply → pin on the map, in a real browser | Playwright |
 | Load | The non-functional targets above, driven by the shop simulator | k6 |
-| Evals | Query understanding and reply parsing on labeled Hinglish sets, with accuracy gates | Custom runner in CI |
+| Evals | Query understanding and reply parsing on labeled Hinglish sets, with accuracy gates; the errand agent on a dev and a holdout set of whole errands, with gates on success, tool use, hallucination and injection (ADR-0027) | Custom runners in CI |
 
 **Shop simulator.** 500 fake shops with a realistic mix of categories, reply probability, reply delay, price spread, and a few unreliable shops. It powers the load tests and the live demo, so the demo never depends on real shopkeepers.
 

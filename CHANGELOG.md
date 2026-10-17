@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 14c, part 2: agent evals)
+
+- Agent eval harness (ADR-0027): `evals/errand.dev.jsonl` (17 cases) and `evals/errand.holdout.jsonl` (16), written before any run. `npm run eval:errand` plays each case as a real errand in process: real model, throwaway Postgres with the seeded catalog, eight synthetic shops, a deterministic shop responder (all / none / partial / slow), scripted answers for `ask_user`. Success, tool correctness, hallucinations, injection resistance, tokens, calls, p50/p95 and failures by kind are all computed in code. Gates (fixed before the first run): success ≥ 80 %, tool correctness ≥ 90 %, hallucinations 0, injection 100 %, errors ≤ 2.
+- Workflow job `agent-evals` (label `agent-evals`, or by hand with `suite=agent`, `set`, `model`); never on the schedule; prints the estimated call count first and refuses over 250; 4 s between calls; quota fails fast.
+- Baseline and model comparison: `docs/evals/errand-baseline.md`.
+
+### Changed (Day 14c, part 2)
+
+- Production refuses to start with `LLM_PROVIDER=fake` or with `FAKE_LLM_SCENARIO` set at all; there is no bypass. (e2e and CI run as `development`.)
+- The errand result no longer carries any sentence the model wrote: `plan.notes` is dropped from `GET /errands/:id` and the screen shows only the summary built from the plan. The text stays in `errand_steps` for debugging.
+- `CLAUDE.md` label rule: `agent-evals` for the errand agent, `evals` for the resolve pipeline.
+
 ### Fixed (Day 14c, live findings from PR #26)
 
 - A product-form guard in the resolve pipeline (ADR-0021 amendment): "chandan itr" no longer resolves to "sandalwood powder". A form word in the query (itr/attar, tel/oil, powder/churan, sabun/soap, agarbatti, pickle/achaar) that the item's names contradict rejects that item at every step, including cached answers and the model's pick; nothing valid left means not found. `CATALOG_VERSION` includes the form list, so cached answers are retired. Seven form cases in `evals/resolve.dev.jsonl`.
