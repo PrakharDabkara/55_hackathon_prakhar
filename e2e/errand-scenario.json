@@ -5,29 +5,79 @@
       "toolCalls": [
         {
           "name": "ask_user",
-          "args": { "question": "Kaunsi chai chahiye?", "options": ["Dust chai", "Patti chai"] }
+          "args": {
+            "question": "Ye cheezein chahiye?",
+            "options": ["chai patti", "doodh", "adrak", "elaichi"],
+            "multiSelect": true,
+            "preselected": [0, 1]
+          }
         }
       ]
     },
     {
       "toolCalls": [
-        { "name": "resolve_item", "args": { "text": "chai patti" } },
-        { "name": "resolve_item", "args": { "text": "adrak" } },
-        { "name": "resolve_item", "args": { "text": "doodh" } }
+        {
+          "name": "resolve_item",
+          "args": {
+            "text": "chai patti"
+          }
+        },
+        {
+          "name": "resolve_item",
+          "args": {
+            "text": "adrak"
+          }
+        },
+        {
+          "name": "resolve_item",
+          "args": {
+            "text": "doodh"
+          }
+        }
       ]
     },
     {
       "toolCalls": [
-        { "name": "find_item_nearby", "args": { "itemId": "$item:chai patti" } },
-        { "name": "find_item_nearby", "args": { "itemId": "$item:adrak" } },
-        { "name": "find_item_nearby", "args": { "itemId": "$item:doodh" } }
+        {
+          "name": "find_item_nearby",
+          "args": {
+            "itemId": "$item:chai patti"
+          }
+        },
+        {
+          "name": "find_item_nearby",
+          "args": {
+            "itemId": "$item:adrak"
+          }
+        },
+        {
+          "name": "find_item_nearby",
+          "args": {
+            "itemId": "$item:doodh"
+          }
+        }
       ]
     },
     {
       "toolCalls": [
-        { "name": "ask_shops", "args": { "itemId": "$item:chai patti" } },
-        { "name": "ask_shops", "args": { "itemId": "$item:adrak" } },
-        { "name": "ask_shops", "args": { "itemId": "$item:doodh" } }
+        {
+          "name": "ask_shops",
+          "args": {
+            "itemId": "$item:chai patti"
+          }
+        },
+        {
+          "name": "ask_shops",
+          "args": {
+            "itemId": "$item:adrak"
+          }
+        },
+        {
+          "name": "ask_shops",
+          "args": {
+            "itemId": "$item:doodh"
+          }
+        }
       ]
     },
     {
@@ -36,9 +86,21 @@
           "name": "submit_plan",
           "args": {
             "items": [
-              { "text": "chai patti", "itemId": "$item:chai patti", "status": "confirmed" },
-              { "text": "adrak", "itemId": "$item:adrak", "status": "confirmed" },
-              { "text": "doodh", "itemId": "$item:doodh", "status": "confirmed" }
+              {
+                "text": "chai patti",
+                "itemId": "$item:chai patti",
+                "status": "confirmed"
+              },
+              {
+                "text": "adrak",
+                "itemId": "$item:adrak",
+                "status": "confirmed"
+              },
+              {
+                "text": "doodh",
+                "itemId": "$item:doodh",
+                "status": "confirmed"
+              }
             ],
             "notes": "Chai ka saaman mil gaya."
           }

@@ -49,4 +49,12 @@ describe('the two dictionaries', () => {
       'Customer ne ₹60 mein dekha hai — kya aapke paas isse kam mein hai?',
     );
   });
+
+  it('give four examples: a vague goal and an explicit list among them', () => {
+    for (const dict of [en, hi]) {
+      expect(dict.errandExamples).toHaveLength(4);
+      expect(dict.errandExamples).toContain('chai banane ka saaman');
+      expect(dict.errandExamples).toContain('chai: chai patti, chini, doodh');
+    }
+  });
 });

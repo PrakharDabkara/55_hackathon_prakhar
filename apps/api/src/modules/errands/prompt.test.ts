@@ -31,4 +31,14 @@ describe('prompts', () => {
     expect(system).toMatch(/submit_plan/);
     expect(system).toMatch(/find_item_nearby/);
   });
+
+  it('for a goal without items: propose the usual items and confirm them with one multi-select ask_user', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/goal rather than items|names a goal/i);
+    expect(system).toMatch(/chai patti, chini, doodh/);
+    expect(system).toMatch(/multiSelect/);
+    expect(system).toMatch(/preselected/);
+    expect(system).toMatch(/Ye cheezein chahiye\?/);
+    expect(system).toMatch(/never ask either\/or|either\/or/i);
+  });
 });

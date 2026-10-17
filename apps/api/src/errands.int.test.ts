@@ -425,6 +425,89 @@ describe('errand agent core (fake model, real database)', () => {
     });
   });
 
+  describe('the server loads the stock itself for every resolved item', () => {
+    const planFor = async (turns: unknown[]) => {
+      const { id } = await newErrand('chawal aur namak');
+      provider.playChat(turns as never);
+      await runErrand(deps(), id);
+      return (await errandRow(id)).plan;
+    };
+
+    it('the agent never calls find_item_nearby: the item it claimed is still planned as likely', async () => {
+      const plan = await planFor([
+        { toolCalls: [call('resolve_item', { text: 'rice' })] },
+        {
+          toolCalls: [
+            submit([
+              { text: 'rice', itemId: ids['rice'], status: 'likely', shopId: shops['riceNear'] },
+            ]),
+          ],
+        },
+      ]);
+      expect(plan.items[0]).toMatchObject({ status: 'likely', pricePaise: 5900 });
+    });
+
+    it('a resolved item the agent marked not_found without looking is planned from the stock on record', async () => {
+      const plan = await planFor([
+        { toolCalls: [call('resolve_item', { text: 'rice' })] },
+        { toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'not_found' }])] },
+      ]);
+      expect(plan.items[0]).toMatchObject({ text: 'rice', status: 'likely' });
+    });
+
+    it('a resolved item the agent left out of submit_plan is added, under the customer’s own word', async () => {
+      const plan = await planFor([
+        {
+          toolCalls: [
+            call('resolve_item', { text: 'rice' }),
+            call('resolve_item', { text: 'namak' }),
+          ],
+        },
+        {
+          toolCalls: [
+            submit([
+              { text: 'rice', itemId: ids['rice'], status: 'likely', shopId: shops['riceNear'] },
+            ]),
+          ],
+        },
+      ]);
+      expect(plan.items.map((i: { text: string }) => i.text)).toEqual(['rice', 'namak']);
+      expect(plan.items[1]).toMatchObject({
+        itemId: ids['salt'],
+        status: 'likely',
+        pricePaise: 2500,
+      });
+      expect(plan.plans.sasta.items).toHaveLength(2);
+    });
+
+    it('an item that did not resolve stays out, and one with no stock is not_found', async () => {
+      const plan = await planFor([
+        {
+          toolCalls: [
+            call('resolve_item', { text: 'rice' }),
+            call('resolve_item', { text: 'qwertyuiop' }),
+            call('resolve_item', { text: 'aata' }),
+          ],
+        },
+        { toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }])] },
+      ]);
+      // aata (wheat flour) only has expired stock: listed, but not_found
+      expect(plan.items.map((i: { text: string; status: string }) => [i.text, i.status])).toEqual([
+        ['rice', 'likely'],
+        ['aata', 'not_found'],
+      ]);
+    });
+
+    it('a likely item says when the shop last answered; it never says "Confirmed"', async () => {
+      const plan = await planFor([
+        { toolCalls: [call('resolve_item', { text: 'rice' })] },
+        { toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }])] },
+      ]);
+      expect(plan.items[0].freshness).toBe('Pichhla jawab: aaj');
+      expect(JSON.stringify(plan)).not.toMatch(/Confirmed|Had it/);
+    });
+  });
+
   describe('the tools the model can use', () => {
     it('never sends coordinates, phone numbers or user and owner ids to the model', async () => {
       // A shop with a real-looking phone and an owner account: neither may reach a prompt.
