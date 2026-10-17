@@ -104,7 +104,7 @@ describe('loadConfig', () => {
     it('must be set explicitly in production (fails closed)', () => {
       const prod = { ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated' };
       expect(() => loadConfig(prod)).toThrowError(/LLM_PROVIDER/);
-      expect(loadConfig({ ...prod, LLM_PROVIDER: 'fake' }).llmProvider).toBe('fake');
+      expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(/fake.*production/i);
       expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).llmProvider).toBe(
         'gemini',
       );
@@ -203,8 +203,13 @@ describe('loadConfig', () => {
   it('requires OTP_MODE in production (fails closed) and defaults it elsewhere', () => {
     expect(() => loadConfig({ ...valid, NODE_ENV: 'production' })).toThrowError(/OTP_MODE/);
     expect(
-      loadConfig({ ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated', LLM_PROVIDER: 'fake' })
-        .otpMode,
+      loadConfig({
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        LLM_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'k',
+      }).otpMode,
     ).toBe('simulated');
     expect(loadConfig({ ...valid, NODE_ENV: 'development' }).otpMode).toBe('simulated');
     expect(loadConfig({ ...valid, NODE_ENV: 'test' }).otpMode).toBe('simulated');
@@ -323,5 +328,128 @@ describe('AI reliability settings', () => {
     expect(() => loadConfig({ ...base, ERRAND_AI_TIMEOUT_MS: '900000' })).toThrow(
       /ERRAND_AI_TIMEOUT_MS/,
     );
+  });
+});
+
+describe('production never runs the fake model (Day 14c)', () => {
+  const prod = {
+    ...valid,
+    NODE_ENV: 'production',
+    OTP_MODE: 'simulated',
+    GEMINI_API_KEY: 'k',
+  };
+
+  it('accepts a production config with the real provider', () => {
+    expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini' })).toMatchObject({
+      nodeEnv: 'production',
+      llmProvider: 'gemini',
+      fakeLlmScenario: null,
+    });
+  });
+
+  it('refuses LLM_PROVIDER=fake, with a clear error', () => {
+    expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(
+      /LLM_PROVIDER.*fake.*production/i,
+    );
+  });
+
+  it('refuses FAKE_LLM_SCENARIO whatever the provider is', () => {
+    expect(() =>
+      loadConfig({
+        ...prod,
+        LLM_PROVIDER: 'gemini',
+        FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
+      }),
+    ).toThrowError(/FAKE_LLM_SCENARIO.*production/i);
+    expect(() =>
+      loadConfig({ ...prod, LLM_PROVIDER: 'fake', FAKE_LLM_SCENARIO: 'x.json' }),
+    ).toThrowError(/FAKE_LLM_SCENARIO/);
+  });
+
+  it('refuses it even when it is empty: set at all is set', () => {
+    expect(() =>
+      loadConfig({ ...prod, LLM_PROVIDER: 'gemini', FAKE_LLM_SCENARIO: '' }),
+    ).toThrowError(/FAKE_LLM_SCENARIO/);
+  });
+
+  it('has no bypass: no other variable lets the fake model into production', () => {
+    for (const bypass of [
+      'ALLOW_FAKE_LLM',
+      'ALLOW_FAKE_LLM_IN_PRODUCTION',
+      'FORCE_FAKE_LLM',
+      'CI',
+    ]) {
+      expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake', [bypass]: 'true' })).toThrowError(
+        /production/i,
+      );
+    }
+  });
+
+  it('still allows the scripted model outside production (e2e and local runs)', () => {
+    for (const NODE_ENV of ['development', 'test']) {
+      expect(
+        loadConfig({
+          ...valid,
+          NODE_ENV,
+          LLM_PROVIDER: 'fake',
+          FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
+        }),
+      ).toMatchObject({ llmProvider: 'fake', fakeLlmScenario: 'e2e/errand-scenario.json' });
+    }
+  });
+});
+
+describe('a model for the errand agent (Day 14c)', () => {
+  it('defaults to the shared models, so nothing changes until it is set', () => {
+    expect(loadConfig(valid)).toMatchObject({
+      geminiModel: 'gemini-3.1-flash-lite',
+      errandModel: 'gemini-3.1-flash-lite',
+      errandFallbackModel: null,
+    });
+    expect(loadConfig({ ...valid, GEMINI_MODEL: 'm1', GEMINI_FALLBACK_MODEL: 'f1' })).toMatchObject(
+      { errandModel: 'm1', errandFallbackModel: 'f1' },
+    );
+  });
+
+  it('GEMINI_ERRAND_MODEL moves only the errand agent; resolve keeps GEMINI_MODEL', () => {
+    expect(loadConfig({ ...valid, GEMINI_ERRAND_MODEL: 'gemini-3.5-flash-lite' })).toMatchObject({
+      geminiModel: 'gemini-3.1-flash-lite',
+      errandModel: 'gemini-3.5-flash-lite',
+    });
+  });
+
+  it('GEMINI_ERRAND_FALLBACK_MODEL overrides the shared fallback for the errand agent only', () => {
+    const config = loadConfig({
+      ...valid,
+      GEMINI_FALLBACK_MODEL: 'shared-fallback',
+      GEMINI_ERRAND_MODEL: 'e',
+      GEMINI_ERRAND_FALLBACK_MODEL: 'errand-fallback',
+    });
+    expect(config).toMatchObject({
+      geminiFallbackModel: 'shared-fallback',
+      errandFallbackModel: 'errand-fallback',
+    });
+    expect(
+      loadConfig({ ...valid, GEMINI_FALLBACK_MODEL: 'shared-fallback', GEMINI_ERRAND_MODEL: 'e' }),
+    ).toMatchObject({ errandFallbackModel: 'shared-fallback' });
+  });
+
+  it('treats blank like unset, as the other model settings do', () => {
+    expect(
+      loadConfig({ ...valid, GEMINI_ERRAND_MODEL: '', GEMINI_ERRAND_FALLBACK_MODEL: '' }),
+    ).toMatchObject({ errandModel: 'gemini-3.1-flash-lite', errandFallbackModel: null });
+  });
+
+  it('is allowed in production with the real provider', () => {
+    expect(
+      loadConfig({
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        LLM_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'k',
+        GEMINI_ERRAND_MODEL: 'gemini-3.5-flash-lite',
+      }).errandModel,
+    ).toBe('gemini-3.5-flash-lite');
   });
 });

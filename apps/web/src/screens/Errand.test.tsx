@@ -679,13 +679,12 @@ describe('the result', () => {
       expect(screen.getByText('Abhi kisi dukaan ne jawab nahi diya')).toBeTruthy();
     });
 
-    it('keeps the model’s own text only inside "Ab tak kya hua"', async () => {
-      const notes = 'Chandan (sandalwood) is available at Mishra Kirana';
-      await showResult(errandPlan({ notes }));
-      const box = screen.getByText(notes).closest('details') as HTMLDetailsElement;
-      expect(box.querySelector('summary')?.textContent).toBe('Ab tak kya hua');
-      expect(box.open).toBe(false);
-      expect(screen.getByRole('region', { name: 'Plan taiyaar' }).textContent).not.toContain(notes);
+    it('never shows free text written by the model, not even inside "Ab tak kya hua" (Day 14c)', async () => {
+      const notes = 'Shiv Kirana Bhandar mein sarson ka tel mil jayega';
+      const plan = { ...errandPlan(), notes } as unknown as ReturnType<typeof errandPlan>;
+      await showResult(plan);
+      expect(screen.queryByText(notes)).toBeNull();
+      expect(document.body.textContent).not.toContain('Shiv Kirana');
     });
   });
 

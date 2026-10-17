@@ -41,6 +41,8 @@ const config: Config = {
   errandFewerStopsMaxExtraPaise: 3000,
   fakeLlmScenario: null,
   geminiFallbackModel: null,
+  errandModel: 'gemini-3.1-flash-lite',
+  errandFallbackModel: null,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });

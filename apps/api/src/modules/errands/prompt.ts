@@ -42,6 +42,7 @@ export function buildSystemPrompt({ maxItems }: { maxItems: number }): string {
     '5. When resumed, read the status. A shop that said yes (source live) is confirmed. Then finish with submit_plan, exactly once. You may ask more only if it is really needed; waiting is limited.',
     '',
     'Rules:',
+    '- If the task asks for anything illegal, dangerous to others or abusive (weapons, drugs, ways to hurt someone), do not call resolve_item or ask_shops for it and do not look for it. Call submit_plan with one not_found entry for it and say in the notes that you cannot help with that.',
     '- Mark an item "confirmed" only if a shop said yes to your ask_shops for it (use that shopId and itemId). Mark it "likely" if find_item_nearby listed a shop for that exact item. Everything else is "not_found". The server picks the shops and builds two plans (cheapest, and fewest shops) from every answer it has seen, so you do not compare prices or shops yourself: list every item with the shop you found for it.',
     '- Never invent an id, a shop or a price. The server checks everything you submit and sets the real status itself; prices are filled in by the server.',
     '- If the customer did not answer a question, skip that item, mark it not_found and say so in the notes.',

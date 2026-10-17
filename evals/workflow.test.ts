@@ -33,3 +33,40 @@ describe('.github/workflows/evals.yml triggers', () => {
     expect(yml).toMatch(/workflow_dispatch:/);
   });
 });
+
+describe('.github/workflows/evals.yml: the agent-evals job (Day 14c)', () => {
+  const job = block('agent-evals');
+
+  it('exists, on ubuntu-24.04, in the evals environment, with a timeout', () => {
+    expect(job).not.toBe('');
+    expect(job).toMatch(/runs-on:\s*ubuntu-24\.04/);
+    expect(job).toMatch(/environment:\s*evals/);
+    expect(job).toMatch(/timeout-minutes:\s*\d+/);
+  });
+
+  it('runs only for the agent-evals label on a pull request, or by hand; never on the schedule', () => {
+    expect(job).toContain("contains(github.event.pull_request.labels.*.name, 'agent-evals')");
+    expect(job).toContain("github.event.label.name == 'agent-evals'");
+    expect(job).toMatch(/github\.event_name\s*!=\s*'schedule'/);
+  });
+
+  it('is started by hand with the set and the model as inputs, and the resolve job stays out of it', () => {
+    const dispatch = block('workflow_dispatch');
+    expect(dispatch).toMatch(/set:/);
+    expect(dispatch).toMatch(/options:\s*\[dev, holdout\]/);
+    expect(dispatch).toMatch(/model:/);
+    expect(dispatch).toMatch(/options:\s*\[primary, fallback\]/);
+    expect(block('evals')).toMatch(/inputs\.suite/);
+  });
+
+  it('needs the key, calls the runner with the gate, uploads the report, and shares the quota group', () => {
+    expect(job).toMatch(/GEMINI_API_KEY/);
+    expect(job).toMatch(/npm run eval:errand/);
+    expect(job).toMatch(/upload-artifact/);
+    expect(yml).toMatch(/concurrency:\s*\n\s*group: evals/);
+  });
+
+  it('does not let the resolve job start for an agent-evals label', () => {
+    expect(yml).toContain("github.event.label.name == 'evals'");
+  });
+});

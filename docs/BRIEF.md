@@ -148,6 +148,7 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 | Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process (including `ask_shops` and `get_request_status`), plus `ask_user` and a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters 6 items asked about per errand, 2 questions, 5 minutes of waiting in total, 15 minutes overall | Eval set of 20 errands (Day 14) |
 | MCP server | Any AI assistant → tools `resolve_item`, `find_item_nearby`, `ask_shops`, `get_request_status`, `close_request`, `plan_route` (one registry shared with the agent, ADR-0023) | No LLM inside; plain tools | Contract tests per tool |
 
+- **Errand agent evals (ADR-0027):** `npm run eval:errand` plays whole errands against the real model with synthetic shops; every metric is computed in code. Production refuses to start with the fake or scripted model. The errand result carries no sentence the model wrote: the summary is built from the plan.
 - **Safety:** shop and user text is data, never instructions, so text like "ignore previous instructions" in an item name cannot steer the model.
 - **Token metrics:** tokens per search, LLM fallback rate, cache hit rate, cost per 1,000 searches, tracked per release.
 
@@ -187,7 +188,7 @@ Tests come first: Prakhar writes the acceptance criteria, the test commit lands 
 | Contract | Messaging channels (in-app, simulated WhatsApp) and each MCP tool | Vitest |
 | End-to-end | Search → ping → reply → pin on the map, in a real browser | Playwright |
 | Load | The non-functional targets above, driven by the shop simulator | k6 |
-| Evals | Query understanding and reply parsing on labeled Hinglish sets, with accuracy gates | Custom runner in CI |
+| Evals | Query understanding and reply parsing on labeled Hinglish sets, with accuracy gates; the errand agent on a dev and a holdout set of whole errands, with gates on success, tool use, hallucination and injection (ADR-0027) | Custom runners in CI |
 
 **Shop simulator.** 500 fake shops with a realistic mix of categories, reply probability, reply delay, price spread, and a few unreliable shops. It powers the load tests and the live demo, so the demo never depends on real shopkeepers.
 
@@ -246,7 +247,7 @@ kahanmilega/
 | Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code at a demo inbox endpoint); opaque hashed session tokens (ADR-0013) | Real flow without SMS cost; sessions can be revoked |
-| Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier, behind an `LlmProvider` port (ADR-0020), for query understanding and, since Day 12, the errand agent (ADR-0024). Claude Haiku 5.5 stays the plan for reply parsing and the digest, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |
+| Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier (the errand agent can be moved to its own model with `GEMINI_ERRAND_MODEL`, ADR-0027; resolve keeps this one), behind an `LlmProvider` port (ADR-0020), for query understanding and, since Day 12, the errand agent (ADR-0024). Claude Haiku 5.5 stays the plan for reply parsing and the digest, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |
 | Embeddings | Gemini `gemini-embedding-001` (768 dimensions), stored in pgvector (ADR-0020). Replaces OpenAI text-embedding-3-small for now | No paid API; free-tier Gemini serves both generation and embeddings; no extra database |
 | Runtime and data | Node 24 LTS; PostgreSQL 18 + PostGIS 3.6 + pgvector 0.8.x; Redis 8.8 | Node 20 is end of life; the Postgres 17 image cannot install pgvector via apt (ADR-0008) |
 

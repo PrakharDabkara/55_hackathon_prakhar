@@ -349,7 +349,6 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
           <details className="timeline-box">
             <summary>{t.errandProgressTitle}</summary>
             {timeline}
-            {view.plan.notes && <p className="note">{view.plan.notes}</p>}
           </details>
           {view.lateAnswers.length > 0 && (
             <details className="late-box">

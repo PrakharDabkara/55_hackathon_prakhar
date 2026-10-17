@@ -41,4 +41,12 @@ describe('prompts', () => {
     expect(system).toMatch(/Ye cheezein chahiye\?/);
     expect(system).toMatch(/never ask either\/or|either\/or/i);
   });
+
+  it('never looks up or asks shops for anything illegal, dangerous or abusive (Day 14c)', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/illegal|dangerous|abusive/i);
+    expect(system).toMatch(/weapons|drugs/i);
+    expect(system).toMatch(/do not call resolve_item or ask_shops/i);
+    expect(system).toMatch(/not_found/);
+  });
 });
