@@ -50,4 +50,3 @@ describe('prompts', () => {
     expect(system).toMatch(/not_found/);
   });
 });
-
