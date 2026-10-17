@@ -398,3 +398,58 @@ describe('production never runs the fake model (Day 14c)', () => {
     }
   });
 });
+
+describe('a model for the errand agent (Day 14c)', () => {
+  it('defaults to the shared models, so nothing changes until it is set', () => {
+    expect(loadConfig(valid)).toMatchObject({
+      geminiModel: 'gemini-3.1-flash-lite',
+      errandModel: 'gemini-3.1-flash-lite',
+      errandFallbackModel: null,
+    });
+    expect(loadConfig({ ...valid, GEMINI_MODEL: 'm1', GEMINI_FALLBACK_MODEL: 'f1' })).toMatchObject(
+      { errandModel: 'm1', errandFallbackModel: 'f1' },
+    );
+  });
+
+  it('GEMINI_ERRAND_MODEL moves only the errand agent; resolve keeps GEMINI_MODEL', () => {
+    expect(loadConfig({ ...valid, GEMINI_ERRAND_MODEL: 'gemini-3.5-flash-lite' })).toMatchObject({
+      geminiModel: 'gemini-3.1-flash-lite',
+      errandModel: 'gemini-3.5-flash-lite',
+    });
+  });
+
+  it('GEMINI_ERRAND_FALLBACK_MODEL overrides the shared fallback for the errand agent only', () => {
+    const config = loadConfig({
+      ...valid,
+      GEMINI_FALLBACK_MODEL: 'shared-fallback',
+      GEMINI_ERRAND_MODEL: 'e',
+      GEMINI_ERRAND_FALLBACK_MODEL: 'errand-fallback',
+    });
+    expect(config).toMatchObject({
+      geminiFallbackModel: 'shared-fallback',
+      errandFallbackModel: 'errand-fallback',
+    });
+    expect(
+      loadConfig({ ...valid, GEMINI_FALLBACK_MODEL: 'shared-fallback', GEMINI_ERRAND_MODEL: 'e' }),
+    ).toMatchObject({ errandFallbackModel: 'shared-fallback' });
+  });
+
+  it('treats blank like unset, as the other model settings do', () => {
+    expect(
+      loadConfig({ ...valid, GEMINI_ERRAND_MODEL: '', GEMINI_ERRAND_FALLBACK_MODEL: '' }),
+    ).toMatchObject({ errandModel: 'gemini-3.1-flash-lite', errandFallbackModel: null });
+  });
+
+  it('is allowed in production with the real provider', () => {
+    expect(
+      loadConfig({
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        LLM_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'k',
+        GEMINI_ERRAND_MODEL: 'gemini-3.5-flash-lite',
+      }).errandModel,
+    ).toBe('gemini-3.5-flash-lite');
+  });
+});

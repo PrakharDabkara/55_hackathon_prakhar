@@ -253,3 +253,54 @@ describe('createAiClient', () => {
     });
   });
 });
+
+describe('createAiClient: a model per purpose (Day 14c)', () => {
+  const chat = { system: 's', messages: [], tools: [], purpose: 'errand' as const };
+  const models = { errand: { model: 'errand-model', fallbackModel: 'errand-fallback' } };
+
+  it('runs the errand agent on its own model and leaves every other purpose on the provider’s', async () => {
+    const { client, provider } = setup({ models });
+    provider.onChat(() => ({ text: 'ok' }));
+    await client.chatWithTools(chat as never);
+    await client.generateJson({ ...opts, requestId: 'r' });
+    const chatCall = provider.calls.find((c) => c.kind === 'chat');
+    const jsonCall = provider.calls.find((c) => c.kind === 'generate');
+    expect(chatCall).toMatchObject({ model: 'errand-model' });
+    expect(jsonCall?.model).toBeUndefined();
+  });
+
+  it('after a 503 the errand agent tries its own fallback, not the provider’s', async () => {
+    const { client, provider } = setup({ models });
+    let n = 0;
+    provider.onChat(() => {
+      if (n++ === 0) throw new ProviderError('busy', 503, { kind: 'http' });
+      return { text: 'ok' };
+    });
+    await client.chatWithTools({ ...chat, retries: 1 } as never);
+    const models_ = provider.calls.filter((c) => c.kind === 'chat').map((c) => c.model);
+    expect(models_).toEqual(['errand-model', 'errand-fallback']);
+  });
+
+  it('an errand model with no fallback never switches model on a retry', async () => {
+    const { client, provider } = setup({
+      models: { errand: { model: 'errand-model', fallbackModel: null } },
+    });
+    let n = 0;
+    provider.onChat(() => {
+      if (n++ === 0) throw new ProviderError('busy', 503, { kind: 'http' });
+      return { text: 'ok' };
+    });
+    await client.chatWithTools({ ...chat, retries: 1 } as never);
+    expect(provider.calls.filter((c) => c.kind === 'chat').map((c) => c.model)).toEqual([
+      'errand-model',
+      'errand-model',
+    ]);
+  });
+
+  it('with no per-purpose models nothing changes', async () => {
+    const { client, provider } = setup();
+    provider.onChat(() => ({ text: 'ok' }));
+    await client.chatWithTools(chat as never);
+    expect(provider.calls.find((c) => c.kind === 'chat')?.model).toBeUndefined();
+  });
+});
