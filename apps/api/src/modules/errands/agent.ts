@@ -27,6 +27,7 @@ import {
   moveErrand,
   recordStep,
   renewLease,
+  type ErrandQuestion,
   type ErrandRecord,
 } from './persistence.js';
 import { buildPlan, type Plan } from './plan.js';
@@ -319,7 +320,7 @@ async function loop(
 
     const results: { id: string; name: string; result: unknown }[] = [];
     let submitted: Plan | undefined;
-    let question: { question: string; options?: string[] } | undefined;
+    let question: ErrandQuestion | undefined;
     let askedShops = 0;
     for (const call of turn.toolCalls) {
       if (question) {
@@ -481,6 +482,7 @@ async function runTool(
       });
       plan = await buildPlan(deps.db, errand, outcome.submitted, confirmations, new Date(), {
         fewerStopsMaxExtraPaise: deps.limits.fewerStopsMaxExtraPaise,
+        resolved: state.resolved,
       });
       const confirmed = plan.items.filter((i) => i.status === 'confirmed').length;
       const likely = plan.items.filter((i) => i.status === 'likely').length;

@@ -5,7 +5,13 @@ import { isFinalState, shownProgress } from '../lib/errand.js';
 import { formatCountdown } from '../lib/format.js';
 import type { LiveOptions } from '../lib/live.js';
 import { rupeesToPaise } from '../lib/money.js';
-import type { ErrandView, NewErrand, SeekerApi } from '../lib/seekerApi.js';
+import type {
+  ErrandAnswer,
+  ErrandQuestion,
+  ErrandView,
+  NewErrand,
+  SeekerApi,
+} from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
 import { ErrandResult } from './ErrandResult.js';
 
@@ -15,30 +21,38 @@ const DEMO = { lat: 22.7196, lng: 75.8577 };
 interface Props {
   api: SeekerApi;
   onBack: () => void;
+  /** The errand to show on arrival: a reload at /app/errand/<id> comes back to the same one. */
+  errandId?: string | null | undefined;
+  /** The errand on screen changed (a new id), or went back to the empty form (null). */
+  onOpened?: ((id: string | null) => void) | undefined;
   /** Fallback poll. Events do the real work; this only covers a stream that is down. */
   pollMs?: number;
   live?: Pick<LiveOptions, 'createSource' | 'retryMs'>;
 }
 
 /** The errand screen: describe the task, watch the agent work, read the two plans. */
-export function Errand({ api, onBack, pollMs = 5000, live }: Props) {
-  const [run, setRun] = useState<{ id: string; input: NewErrand } | null>(null);
+export function Errand({ api, onBack, errandId, onOpened, pollMs = 5000, live }: Props) {
+  const [runId, setRunId] = useState<string | null>(errandId ?? null);
+
+  function open(id: string | null) {
+    setRunId(id);
+    onOpened?.(id);
+  }
 
   async function start(input: NewErrand) {
     const created = await api.createErrand(input);
-    setRun({ id: created.id, input });
+    open(created.id);
   }
 
-  return run ? (
+  return runId ? (
     <ErrandRun
-      key={run.id}
+      key={runId}
       api={api}
-      id={run.id}
-      input={run.input}
+      id={runId}
       pollMs={pollMs}
       live={live}
-      onRetry={() => start(run.input)}
-      onNew={() => setRun(null)}
+      onRestart={start}
+      onNew={() => open(null)}
     />
   ) : (
     <ErrandForm onStart={start} onBack={onBack} />
@@ -188,23 +202,26 @@ function errorText(error: unknown, t: ReturnType<typeof useT>['t']): string {
 interface RunProps {
   api: SeekerApi;
   id: string;
-  input: NewErrand;
   pollMs: number;
   live: Props['live'] | undefined;
-  onRetry: () => Promise<void>;
+  /** A new errand with this errand's task and place. */
+  onRestart: (input: NewErrand) => Promise<void>;
   onNew: () => void;
 }
 
 /** One errand in flight: refetched on every server hint, and on a slow poll as a fallback. */
-function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
+function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
   const { t } = useT();
   const [view, setView] = useState<ErrandView | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gone, setGone] = useState(false);
   const alive = useRef(true);
   const finished = useRef(false);
-  const origin = useMemo(() => ({ lat: input.lat, lng: input.lng }), [input.lat, input.lng]);
+  const lat = view?.lat ?? 0;
+  const lng = view?.lng ?? 0;
+  const origin = useMemo(() => ({ lat, lng }), [lat, lng]);
 
   useEffect(() => {
     alive.current = true;
@@ -227,7 +244,10 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
     api
       .getErrand(id)
       .then(show)
-      .catch(() => undefined);
+      .catch((e: unknown) => {
+        // An old or foreign link: say so once, instead of waiting for ever.
+        if (alive.current && e instanceof ApiError && e.status === 404) setGone(true);
+      });
   }, [api, id, show]);
   useEffect(() => refresh(), [refresh]);
   const getTicket = useCallback(() => api.eventTicket(), [api]);
@@ -246,11 +266,18 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
     }
   }
 
-  async function retry() {
+  /** A new errand with the same words, place and budget (a failed one, or one nobody answered). */
+  async function again() {
+    if (!view) return;
     setBusy(true);
     setError(null);
     try {
-      await onRetry();
+      await onRestart({
+        task: view.task,
+        lat: view.lat,
+        lng: view.lng,
+        ...(view.budgetPaise !== null && { budgetPaise: view.budgetPaise }),
+      });
     } catch (e) {
       if (alive.current) {
         setError(errorText(e, t));
@@ -258,6 +285,16 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
       }
     }
   }
+
+  if (gone)
+    return (
+      <section className="stack">
+        <p className="alert">{t.errandGone}</p>
+        <button type="button" className="btn btn-quiet" onClick={onNew}>
+          {t.errandNew}
+        </button>
+      </section>
+    );
 
   if (!view) return <p className="empty">{t.loading}</p>;
 
@@ -280,7 +317,7 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
 
   return (
     <section className="stack" aria-live="polite">
-      <header className="results-head">
+      <header className="results-head errand-head">
         <h1 className="errand-task">{view.task}</h1>
         <span className={`state-chip state-${view.state}`}>{t.errandStates[view.state]}</span>
       </header>
@@ -294,6 +331,7 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
 
       {view.state === 'NEEDS_INPUT' && view.question && (
         <QuestionBox
+          key={`${view.question.question}|${view.question.options?.join('|') ?? ''}`}
           question={view.question}
           busy={busy}
           onAnswer={(answer) => void act(() => api.answerErrand(id, answer))}
@@ -302,7 +340,12 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
 
       {ready && view.plan ? (
         <>
-          <ErrandResult plan={view.plan} origin={origin} />
+          <ErrandResult
+            plan={view.plan}
+            origin={origin}
+            busy={busy}
+            onAskAgain={() => void again()}
+          />
           <details className="timeline-box">
             <summary>{t.errandProgressTitle}</summary>
             {timeline}
@@ -347,7 +390,7 @@ function ErrandRun({ api, id, input, pollMs, live, onRetry, onNew }: RunProps) {
         </button>
       )}
       {view.state === 'FAILED' && (
-        <button type="button" className="btn btn-yes" disabled={busy} onClick={() => void retry()}>
+        <button type="button" className="btn btn-yes" disabled={busy} onClick={() => void again()}>
           {t.errandRetry}
         </button>
       )}
@@ -365,12 +408,64 @@ function QuestionBox({
   busy,
   onAnswer,
 }: {
-  question: { question: string; options?: string[] };
+  question: ErrandQuestion;
   busy: boolean;
-  onAnswer: (answer: { text: string } | { optionIndex: number }) => void;
+  onAnswer: (answer: ErrandAnswer) => void;
 }) {
   const { t } = useT();
   const [text, setText] = useState('');
+  const [ticked, setTicked] = useState<Set<number>>(() => new Set(question.preselected ?? []));
+  const list = question.multiSelect === true && (question.options?.length ?? 0) > 0;
+
+  if (list) {
+    const extra = text.trim();
+    return (
+      <form
+        className="choice"
+        role="group"
+        aria-label={t.errandQuestionTitle}
+        onSubmit={(event) => {
+          event.preventDefault();
+          onAnswer({
+            selected: [...ticked].sort((a, b) => a - b),
+            ...(extra !== '' && { text: extra }),
+          });
+        }}
+      >
+        <p className="choice-question">{question.question}</p>
+        {question.options?.map((option, i) => (
+          <label key={option} className="check-option">
+            <input
+              type="checkbox"
+              checked={ticked.has(i)}
+              disabled={busy}
+              onChange={(e) =>
+                setTicked((current) => {
+                  const next = new Set(current);
+                  if (e.target.checked) next.add(i);
+                  else next.delete(i);
+                  return next;
+                })
+              }
+            />
+            <span>{option}</span>
+          </label>
+        ))}
+        <label className="field">
+          <span>{t.errandMore}</span>
+          <input type="text" value={text} onChange={(e) => setText(e.target.value)} />
+        </label>
+        <button
+          type="submit"
+          className="btn btn-yes"
+          disabled={busy || (ticked.size === 0 && extra === '')}
+        >
+          {t.errandConfirmList}
+        </button>
+      </form>
+    );
+  }
+
   return (
     <div className="choice" role="group" aria-label={t.errandQuestionTitle}>
       <p className="choice-question">{question.question}</p>

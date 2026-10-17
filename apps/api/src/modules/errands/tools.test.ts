@@ -48,6 +48,24 @@ describe('the agent tools', () => {
     expect(tool?.input.safeParse({ question: '' }).success).toBe(false);
   });
 
+  it('ask_user can ask for several answers at once: multiSelect with preselected defaults', () => {
+    const tool = AGENT_TOOLS.find((t) => t.name === 'ask_user');
+    const options = ['chai patti', 'chini', 'doodh', 'adrak', 'elaichi'];
+    const multi = { question: 'Ye cheezein chahiye?', options, multiSelect: true };
+    expect(tool?.input.safeParse({ ...multi, preselected: [0, 1, 2] }).success).toBe(true);
+    // up to eight choices when several can be picked; four when only one can
+    expect(tool?.input.safeParse(multi).success).toBe(true);
+    expect(tool?.input.safeParse({ question: 'Kaunsa?', options }).success).toBe(false);
+    expect(
+      tool?.input.safeParse({ ...multi, options: [...options, 'a', 'b', 'c', 'd'] }).success,
+    ).toBe(false);
+    // a default that points at no option is a mistake the model can read
+    expect(tool?.input.safeParse({ ...multi, preselected: [5] }).success).toBe(false);
+    expect(tool?.input.safeParse({ question: 'x', options: ['a'], preselected: [0] }).success).toBe(
+      false,
+    );
+  });
+
   it('tell the model the order of work: find first, ask shops for thin items, ask the user on a clarification', () => {
     const text = (name: string) => AGENT_TOOLS.find((t) => t.name === name)?.description ?? '';
     expect(text('ask_shops')).toMatch(/find_item_nearby first/i);

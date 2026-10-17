@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isErrandPath, isShopPath } from './routing.js';
+import { errandIdFromPath, isErrandPath, isShopPath } from './routing.js';
 
 describe('isShopPath', () => {
   it('sends /app/shop and anything under it to the shop app', () => {
@@ -21,8 +21,16 @@ describe('isErrandPath', () => {
     expect(isErrandPath('/app/errand/')).toBe(true);
   });
 
+  it('is also one errand at its own address, /app/errand/<id>', () => {
+    expect(isErrandPath('/app/errand/3f2a-91')).toBe(true);
+    expect(errandIdFromPath('/app/errand/3f2a-91')).toBe('3f2a-91');
+    expect(errandIdFromPath('/app/errand/3f2a-91/')).toBe('3f2a-91');
+    expect(errandIdFromPath('/app/errand')).toBeNull();
+    expect(errandIdFromPath('/app/')).toBeNull();
+  });
+
   it('is not anything else', () => {
-    for (const p of ['/app/', '/app/errands', '/app/errand/x', '/app/shop']) {
+    for (const p of ['/app/', '/app/errands', '/app/errand/a/b', '/app/errand/a b', '/app/shop']) {
       expect(isErrandPath(p), p).toBe(false);
     }
   });

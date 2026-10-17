@@ -43,10 +43,11 @@ async function start(user: ReturnType<typeof setup>['user'], task = 'chai banane
 }
 
 describe('the form', () => {
-  it('asks "Kya kaam hai?" and offers three examples that fill the box', async () => {
+  it('asks "Kya kaam hai?" and offers four examples that fill the box', async () => {
     const { user } = setup();
     for (const example of [
       'chai banane ka saaman',
+      'chai: chai patti, chini, doodh',
       'school project: chart paper, fevicol, sketch pens',
       'puja ka saaman',
     ]) {
@@ -228,6 +229,82 @@ describe('a question', () => {
     expect(answerErrand).toHaveBeenCalledWith('errand-1', { text: 'Kadak chai' });
   });
 
+  describe('a list to confirm (multi-select)', () => {
+    const confirm = errandView({
+      state: 'NEEDS_INPUT',
+      question: {
+        question: 'Ye cheezein chahiye?',
+        options: ['chai patti', 'chini', 'doodh', 'adrak', 'elaichi'],
+        multiSelect: true,
+        preselected: [0, 1, 2],
+      },
+    });
+    const box = () => screen.getByRole('group', { name: 'Ek sawaal' });
+
+    it('shows a checkbox for each item, the defaults ticked, and "Theek hai"', async () => {
+      const { user } = setup({ getErrand: vi.fn(async () => confirm) });
+      await start(user);
+      expect(await screen.findByText('Ye cheezein chahiye?')).toBeTruthy();
+      const boxes = within(box()).getAllByRole('checkbox') as HTMLInputElement[];
+      expect(boxes.map((b) => [b.labels?.[0]?.textContent, b.checked])).toEqual([
+        ['chai patti', true],
+        ['chini', true],
+        ['doodh', true],
+        ['adrak', false],
+        ['elaichi', false],
+      ]);
+      expect(screen.getByRole('button', { name: 'Theek hai' })).toBeTruthy();
+      // the options are not one-tap answers here
+      expect(within(box()).queryByRole('button', { name: 'chini' })).toBeNull();
+    });
+
+    it('sends the ticked ones as they are when the customer taps "Theek hai"', async () => {
+      const answerErrand = vi.fn(async () => errandView({ state: 'PLANNING' }));
+      const { user } = setup({ getErrand: vi.fn(async () => confirm), answerErrand });
+      await start(user);
+      await user.click(await screen.findByRole('button', { name: 'Theek hai' }));
+      expect(answerErrand).toHaveBeenCalledWith('errand-1', { selected: [0, 1, 2] });
+    });
+
+    it('sends changes: an added item, a removed one, and the "Kuch aur?" text', async () => {
+      const answerErrand = vi.fn(async () => errandView({ state: 'PLANNING' }));
+      const { user } = setup({ getErrand: vi.fn(async () => confirm), answerErrand });
+      await start(user);
+      await user.click(await screen.findByRole('checkbox', { name: 'chini' }));
+      await user.click(screen.getByRole('checkbox', { name: 'elaichi' }));
+      await user.type(screen.getByLabelText('Kuch aur?'), 'kesar');
+      await user.click(screen.getByRole('button', { name: 'Theek hai' }));
+      expect(answerErrand).toHaveBeenCalledWith('errand-1', { selected: [0, 2, 4], text: 'kesar' });
+    });
+
+    it('cannot be sent with nothing ticked and nothing typed', async () => {
+      const { user } = setup({ getErrand: vi.fn(async () => confirm) });
+      await start(user);
+      for (const name of ['chai patti', 'chini', 'doodh'])
+        await user.click(await screen.findByRole('checkbox', { name }));
+      expect(
+        (screen.getByRole('button', { name: 'Theek hai' }) as HTMLButtonElement).disabled,
+      ).toBe(true);
+      await user.type(screen.getByLabelText('Kuch aur?'), 'sirf chai');
+      expect(
+        (screen.getByRole('button', { name: 'Theek hai' }) as HTMLButtonElement).disabled,
+      ).toBe(false);
+    });
+
+    it('keeps the ticks while the errand refetches (the customer is mid-choice)', async () => {
+      const getErrand = vi.fn(async () => confirm);
+      const { user } = setup({ getErrand });
+      await start(user);
+      await user.click(await screen.findByRole('checkbox', { name: 'adrak' }));
+      await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
+      act(() => FakeEventSource.last().emit('errand.updated', { errandId: 'errand-1' }));
+      await waitFor(() => expect(getErrand.mock.calls.length).toBeGreaterThan(1));
+      expect((screen.getByRole('checkbox', { name: 'adrak' }) as HTMLInputElement).checked).toBe(
+        true,
+      );
+    });
+  });
+
   it('works for a question with no options: only the text box', async () => {
     const { user } = setup({
       getErrand: vi.fn(async () =>
@@ -335,7 +412,7 @@ describe('the result', () => {
     });
     await showResult(plan);
     const row = screen.getByText('unicorn').closest('li') as HTMLElement;
-    expect(within(row).getByText('Nahi mila')).toBeTruthy();
+    expect(row.closest('ul')?.getAttribute('aria-label')).toBe('Nahi mila');
     expect(within(row).queryByText(/₹/)).toBeNull();
   });
 
@@ -409,6 +486,129 @@ describe('the result', () => {
     expect(screen.queryByText(/Baad mein aaye jawab/)).toBeNull();
   });
 
+  describe('one plan, or none, or part of one', () => {
+    const sameBoth = () => {
+      const plan = errandPlan();
+      plan.plans.sasta = { ...plan.plans.kam_dukaan, kind: 'sasta' };
+      return plan;
+    };
+    const lost = (item: PlanItem): PlanItem => ({
+      ...item,
+      status: 'not_found',
+      shopId: null,
+      shopName: null,
+      pricePaise: null,
+      freshness: null,
+      distanceM: null,
+    });
+    async function showPlain(plan: ReturnType<typeof errandPlan>, extra = {}) {
+      const utils = setup({ getErrand: vi.fn(async () => ready(plan, extra)) });
+      await start(utils.user);
+      await screen.findByRole('region', { name: 'Plan taiyaar' });
+      return utils;
+    }
+
+    it('identical plans: one plan, no tabs, no Recommended badge, no "which is better" line', async () => {
+      await showPlain(sameBoth());
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(screen.queryByRole('tab')).toBeNull();
+      expect(screen.queryByText('Recommended')).toBeNull();
+      expect(screen.queryByText('Dono plan ek jaise hain')).toBeNull();
+      expect(screen.getByText('tea leaves')).toBeTruthy();
+      expect(screen.getByRole('group', { name: 'Kul hisaab' })).toBeTruthy();
+      expect(screen.getByTestId('plan-map')).toBeTruthy();
+    });
+
+    it('plans that really differ stay two plans, with tabs', async () => {
+      await showPlain(errandPlan());
+      expect(screen.getAllByRole('tab')).toHaveLength(2);
+    });
+
+    it('a likely item shows the server’s "Pichhla jawab" line, and no "Confirmed" anywhere on it', async () => {
+      const plan = errandPlan();
+      const likely = {
+        ...plan.plans.kam_dukaan.items[1],
+        status: 'likely',
+        freshness: 'Pichhla jawab: kal',
+      } as PlanItem;
+      plan.plans.kam_dukaan.items[1] = likely;
+      await showPlain(plan);
+      const row = screen.getByText('sugar').closest('li') as HTMLElement;
+      expect(within(row).getByText('Pichhla jawab: kal')).toBeTruthy();
+      expect(within(row).queryByText(/Confirmed/)).toBeNull();
+    });
+
+    it('nothing found: no zero tiles, no map; the items are listed under "Abhi kisi dukaan ne jawab nahi diya"', async () => {
+      const plan = sameBoth();
+      for (const k of ['kam_dukaan', 'sasta'] as const) {
+        const v = plan.plans[k];
+        v.items = v.items.map(lost);
+        v.route = null;
+        v.totalPricePaise = 0;
+        v.totalDistanceM = 0;
+        v.shopCount = 0;
+        v.savingsPaise = 0;
+      }
+      await showPlain(plan);
+      expect(screen.getByText('Abhi kisi dukaan ne jawab nahi diya')).toBeTruthy();
+      expect(screen.getByText('tea leaves')).toBeTruthy();
+      expect(screen.getByText('sugar')).toBeTruthy();
+      expect(screen.queryByRole('group', { name: 'Kul hisaab' })).toBeNull();
+      expect(screen.queryByText('₹0')).toBeNull();
+      expect(screen.queryByTestId('plan-map')).toBeNull();
+      expect(screen.queryByRole('tablist')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Dukaanon se phir poochein' })).toBeTruthy();
+    });
+
+    it('"Dukaanon se phir poochein" starts a new errand with the same task, place and budget', async () => {
+      const plan = sameBoth();
+      for (const k of ['kam_dukaan', 'sasta'] as const) {
+        plan.plans[k].items = plan.plans[k].items.map(lost);
+        plan.plans[k].route = null;
+      }
+      const createErrand = vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'errand-1', state: 'PLANNING' })
+        .mockResolvedValueOnce({ id: 'errand-2', state: 'PLANNING' });
+      const getErrand = vi.fn(async (id: string) =>
+        id === 'errand-2'
+          ? errandView({ id: 'errand-2', state: 'PLANNING', progress: ['Samjha: 2 cheezein'] })
+          : ready(plan, { task: 'chai ka saaman', budgetPaise: 30000, lat: 22.7, lng: 75.8 }),
+      );
+      const { user } = setup({ createErrand, getErrand });
+      await start(user);
+      await user.click(await screen.findByRole('button', { name: 'Dukaanon se phir poochein' }));
+      expect(createErrand).toHaveBeenLastCalledWith({
+        task: 'chai ka saaman',
+        lat: 22.7,
+        lng: 75.8,
+        budgetPaise: 30000,
+      });
+      expect(await screen.findByText('Samjha: 2 cheezein')).toBeTruthy();
+    });
+
+    it('some found, some not: found items first, the others together under "Nahi mila"', async () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items = [
+        lost({ ...(plan.plans.kam_dukaan.items[0] as PlanItem), text: 'unicorn', itemName: null }),
+        ...plan.plans.kam_dukaan.items,
+      ];
+      await showPlain(plan);
+      const found = screen.getByRole('list', { name: 'Mil gaya' });
+      const missing = screen.getByRole('list', { name: 'Nahi mila' });
+      expect(within(found).getAllByRole('listitem')).toHaveLength(2);
+      expect(within(found).getByText('tea leaves')).toBeTruthy();
+      expect(within(missing).getAllByRole('listitem')).toHaveLength(1);
+      expect(within(missing).getByText('unicorn')).toBeTruthy();
+      // found first in the page
+      expect(
+        found.compareDocumentPosition(missing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      // the nothing-found message is only for when nothing was found
+      expect(screen.queryByText('Abhi kisi dukaan ne jawab nahi diya')).toBeNull();
+    });
+  });
+
   it('starts a new errand with "Naya kaam"', async () => {
     const { user } = await showResult();
     await user.click(screen.getByRole('button', { name: 'Naya kaam' }));
@@ -437,7 +637,13 @@ describe('endings that are not a plan', () => {
       .mockResolvedValueOnce({ id: 'errand-2', state: 'PLANNING' });
     const getErrand = vi.fn(async (id: string) =>
       id === 'errand-1'
-        ? errandView({ state: 'FAILED', failureReason: 'ai_unavailable', progress: [] })
+        ? errandView({
+            state: 'FAILED',
+            failureReason: 'ai_unavailable',
+            progress: [],
+            task: 'puja ka saaman',
+            budgetPaise: 30000,
+          })
         : errandView({ id: 'errand-2', state: 'PLANNING', progress: ['Samjha: 1 cheez'] }),
     );
     const { user } = setup({ createErrand, getErrand });
@@ -484,5 +690,60 @@ describe('accessibility', () => {
     expect(await screen.findByRole('tablist', { name: 'Plan chunein' })).toBeTruthy();
     expect(screen.getByRole('tabpanel')).toBeTruthy();
     expect(screen.getByRole('list', { name: 'Ab tak kya hua' })).toBeTruthy();
+  });
+});
+
+describe('opened by id (after a reload)', () => {
+  it('loads that errand without the form, and tells the app about starts and restarts', async () => {
+    const getErrand = vi.fn(async () =>
+      errandView({ id: 'errand-9', state: 'WAITING_FOR_SHOPS', task: 'puja ka saaman' }),
+    );
+    const onOpened = vi.fn();
+    const api = fakeSeekerApi({ getErrand });
+    const { user } = renderApp(
+      <Errand
+        api={api}
+        onBack={vi.fn()}
+        errandId="errand-9"
+        onOpened={onOpened}
+        pollMs={60_000}
+        live={live}
+      />,
+    );
+    expect(await screen.findByText('puja ka saaman')).toBeTruthy();
+    expect(getErrand).toHaveBeenCalledWith('errand-9');
+    expect(screen.queryByLabelText('Kya kaam hai?')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cancel karein' }));
+    expect(api.cancelErrand).toHaveBeenCalledWith('errand-9');
+  });
+
+  it('tells the app the new id when an errand starts, and null on "Naya kaam"', async () => {
+    const onOpened = vi.fn();
+    const api = fakeSeekerApi({
+      getErrand: vi.fn(async () => errandView({ state: 'EXPIRED' })),
+    });
+    const { user } = renderApp(
+      <Errand api={api} onBack={vi.fn()} onOpened={onOpened} pollMs={60_000} live={live} />,
+    );
+    await user.type(screen.getByLabelText('Kya kaam hai?'), 'chai');
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    await user.click(screen.getByRole('button', { name: 'Plan banao' }));
+    await user.click(await screen.findByRole('button', { name: 'Naya kaam' }));
+    expect(onOpened.mock.calls).toEqual([['errand-1'], [null]]);
+  });
+
+  it('says so, kindly, when the errand cannot be found (an old link)', async () => {
+    const getErrand = vi.fn().mockRejectedValue(new ApiError(404, 'not_found', 'No such errand'));
+    renderApp(
+      <Errand
+        api={fakeSeekerApi({ getErrand })}
+        onBack={vi.fn()}
+        errandId="gone"
+        pollMs={60_000}
+        live={live}
+      />,
+    );
+    expect(await screen.findByText('Ye kaam nahi mila.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Naya kaam' })).toBeTruthy();
   });
 });

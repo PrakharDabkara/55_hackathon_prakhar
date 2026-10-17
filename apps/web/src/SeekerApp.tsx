@@ -3,7 +3,7 @@ import { LangToggle } from './components/LangToggle.js';
 import { useT } from './i18n/index.js';
 import type { Session } from './lib/session.js';
 import type { SeekerApi, SeekerRequest } from './lib/seekerApi.js';
-import { isErrandPath } from './routing.js';
+import { errandIdFromPath, isErrandPath } from './routing.js';
 import { Errand } from './screens/Errand.js';
 import { Login } from './screens/Login.js';
 import { Results } from './screens/Results.js';
@@ -20,12 +20,14 @@ interface Props {
 type Screen =
   | { name: 'login' }
   | { name: 'search' }
-  | { name: 'errand' }
+  | { name: 'errand'; id: string | null }
   | { name: 'results'; request: SeekerRequest; origin: { lat: number; lng: number } };
 
 /** Where a signed-in customer lands: the errand screen at its own address, else the search. */
 const landing = (): Screen =>
-  isErrandPath(location.pathname) ? { name: 'errand' } : { name: 'search' };
+  isErrandPath(location.pathname)
+    ? { name: 'errand', id: errandIdFromPath(location.pathname) }
+    : { name: 'search' };
 
 /** Login → search → results. "Ho gaya" returns to search. */
 export function SeekerApp({ api, session }: Props) {
@@ -37,7 +39,12 @@ export function SeekerApp({ api, session }: Props) {
   /** The errand screen has an address of its own (/app/errand), so it can be bookmarked. */
   const go = useCallback((next: 'search' | 'errand') => {
     window.history.pushState({}, '', next === 'errand' ? '/app/errand' : '/app/');
-    setScreen(next === 'errand' ? { name: 'errand' } : { name: 'search' });
+    setScreen(next === 'errand' ? { name: 'errand', id: null } : { name: 'search' });
+  }, []);
+
+  /** The errand on screen is in the address, so a reload shows the same one (not the empty form). */
+  const errandOpened = useCallback((id: string | null) => {
+    window.history.replaceState({}, '', id ? `/app/errand/${id}` : '/app/errand');
   }, []);
 
   const logout = useCallback(() => {
@@ -84,7 +91,14 @@ export function SeekerApp({ api, session }: Props) {
             </a>
           </>
         )}
-        {screen.name === 'errand' && <Errand api={api} onBack={() => go('search')} />}
+        {screen.name === 'errand' && (
+          <Errand
+            api={api}
+            errandId={screen.id}
+            onOpened={errandOpened}
+            onBack={() => go('search')}
+          />
+        )}
         {screen.name === 'results' && (
           <Results
             key={screen.request.id}

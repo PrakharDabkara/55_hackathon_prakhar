@@ -165,6 +165,9 @@ export interface ErrandView {
   state: ErrandState;
   task: string;
   budgetPaise: number | null;
+  /** Where the customer was when they asked: the map's origin, and a restart's place. */
+  lat: number;
+  lng: number;
   /** Short Hinglish lines built from the step log. */
   progress: string[];
   /** Shops that said yes after the plan was ready: kept out of `progress`. */
@@ -188,6 +191,8 @@ export const viewOf = (
   state: e.state,
   task: e.task,
   budgetPaise: e.budgetPaise,
+  lat: e.lat,
+  lng: e.lng,
   progress,
   lateAnswers,
   plan: e.plan,
@@ -266,7 +271,12 @@ export async function cancelErrand(ctx: Quiet, userId: string, id: string): Prom
   return viewWithProgress(ctx, (await findErrand(ctx.db, id)) ?? errand);
 }
 
-export type AnswerInput = { text?: string | undefined; optionIndex?: number | undefined };
+export type AnswerInput = {
+  text?: string | undefined;
+  optionIndex?: number | undefined;
+  /** The ticked options of a multi-select question; `text` then adds what the options missed. */
+  selected?: number[] | undefined;
+};
 
 const MAX_ANSWER_CHARS = 200;
 
@@ -291,21 +301,21 @@ export async function answerErrand(
   }
   const hasText = input.text !== undefined;
   const hasOption = input.optionIndex !== undefined;
-  if (hasText === hasOption)
-    throw new ApiError(400, 'invalid_request', 'Send exactly one of text or optionIndex');
+  const hasSelected = input.selected !== undefined;
+  const valid = hasSelected ? !hasOption : hasText !== hasOption;
+  if (!valid)
+    throw new ApiError(
+      400,
+      'invalid_request',
+      'Send exactly one of text, optionIndex or selected (selected may come with text)',
+    );
 
-  let text: string;
-  if (hasOption) {
-    const options = errand.question?.options ?? [];
-    const picked = options[input.optionIndex as number];
-    if (!Number.isInteger(input.optionIndex) || picked === undefined)
-      throw new ApiError(400, 'invalid_request', 'optionIndex does not match any option');
-    text = picked;
-  } else {
-    text = sanitiseTask(String(input.text));
-    if (text.length === 0 || text.length > MAX_ANSWER_CHARS)
+  const options = errand.question?.options ?? [];
+  const typed = (): string => {
+    const clean = sanitiseTask(String(input.text));
+    if (clean.length === 0 || clean.length > MAX_ANSWER_CHARS)
       throw new ApiError(400, 'invalid_request', `text: 1 to ${MAX_ANSWER_CHARS} characters`);
-    if (looksLikeInstruction(text)) {
+    if (looksLikeInstruction(clean)) {
       ctx.logger.warn(
         { event: 'errand_answer_rejected' },
         'errand answer looked like an instruction',
@@ -316,6 +326,31 @@ export async function answerErrand(
         'Please answer only the question, for example "floor cleaner".',
       );
     }
+    return clean;
+  };
+
+  let text: string;
+  if (hasSelected) {
+    const picks = [...new Set(input.selected)].sort((a, b) => a - b);
+    const chosen = picks.map((i) => options[i]);
+    if (chosen.some((o) => o === undefined))
+      throw new ApiError(400, 'invalid_request', 'selected does not match the options');
+    const extra = hasText && String(input.text).trim() !== '' ? typed() : null;
+    if (chosen.length === 0 && extra === null)
+      throw new ApiError(400, 'invalid_request', 'Pick at least one option or type something');
+    text = [
+      chosen.length > 0 ? chosen.join(', ') : null,
+      extra !== null ? (chosen.length > 0 ? `also: ${extra}` : extra) : null,
+    ]
+      .filter((part) => part !== null)
+      .join('; ');
+  } else if (hasOption) {
+    const picked = options[input.optionIndex as number];
+    if (!Number.isInteger(input.optionIndex) || picked === undefined)
+      throw new ApiError(400, 'invalid_request', 'optionIndex does not match any option');
+    text = picked;
+  } else {
+    text = typed();
   }
 
   const resumed = await resumeAnswered(ctx.db, id, { text }, ctx.events);

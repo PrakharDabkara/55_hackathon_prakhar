@@ -516,6 +516,28 @@ details[open] > summary {
   min-height: var(--tap);
 }
 
+.errand-head {
+  display: flex;
+  gap: 8px;
+}
+
+.errand-head .errand-task {
+  min-width: 0;
+  flex: 1;
+}
+
+/* On a phone the long status chip goes under the title, so the title keeps the whole line. */
+@media (max-width: 420px) {
+  .errand-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .errand-head .errand-task {
+    align-self: stretch;
+  }
+}
+
 .errand-task {
   margin: 0;
   font-size: 1.2rem;
@@ -725,4 +747,41 @@ details[open] > summary {
   font-weight: 700;
   font-size: 1rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--tap);
+  padding: 0 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.check-option input {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.nothing-yet {
+  margin: 0;
+  padding: 12px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.group-title {
+  margin: 8px 0 0;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.result-list-missing .plan-item {
+  color: var(--muted);
+  border-style: dashed;
 }

@@ -3,7 +3,7 @@ import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SeekerApp, SEEKER_UNAUTHORIZED_EVENT } from './SeekerApp.js';
 import type { Session } from './lib/session.js';
-import { fakeSeekerApi, result, seekerRequest } from './test/fakes.js';
+import { errandView, fakeSeekerApi, result, seekerRequest } from './test/fakes.js';
 import { renderApp } from './test/render.js';
 
 vi.mock('./components/PlanMap.js', () => ({
@@ -88,6 +88,35 @@ describe('SeekerApp: the errand entry (Day 14b)', () => {
     window.history.pushState({}, '', '/app/errand');
     renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
     expect(await screen.findByLabelText('Kya kaam hai?')).toBeTruthy();
+    window.history.pushState({}, '', '/app/');
+  });
+
+  it('puts the errand id in the address when an errand starts, and "Naya kaam" takes it out', async () => {
+    window.history.pushState({}, '', '/app/errand');
+    const api = fakeSeekerApi({
+      createErrand: vi.fn(async () => ({ id: 'errand-7', state: 'PLANNING' as const })),
+      getErrand: vi.fn(async () => errandView({ id: 'errand-7', state: 'CANCELLED' })),
+    });
+    const { user } = renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    await user.type(await screen.findByLabelText('Kya kaam hai?'), 'chai');
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    await user.click(screen.getByRole('button', { name: 'Plan banao' }));
+    await screen.findByRole('button', { name: 'Naya kaam' });
+    expect(location.pathname).toBe('/app/errand/errand-7');
+    await user.click(screen.getByRole('button', { name: 'Naya kaam' }));
+    expect(location.pathname).toBe('/app/errand');
+    window.history.pushState({}, '', '/app/');
+  });
+
+  it('a reload at /app/errand/<id> shows the same errand, not the empty form', async () => {
+    window.history.pushState({}, '', '/app/errand/errand-7');
+    const getErrand = vi.fn(async () =>
+      errandView({ id: 'errand-7', state: 'WAITING_FOR_SHOPS', task: 'puja ka saaman' }),
+    );
+    renderApp(<SeekerApp api={fakeSeekerApi({ getErrand })} session={memorySession('t')} />);
+    expect(await screen.findByText('puja ka saaman')).toBeTruthy();
+    expect(getErrand).toHaveBeenCalledWith('errand-7');
+    expect(screen.queryByLabelText('Kya kaam hai?')).toBeNull();
     window.history.pushState({}, '', '/app/');
   });
 });

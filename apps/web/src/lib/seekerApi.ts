@@ -107,11 +107,25 @@ export interface ErrandPlan {
   };
 }
 
+/** What the agent asks. With `multiSelect` the options are ticked, `preselected` ones from the start. */
+export interface ErrandQuestion {
+  question: string;
+  options?: string[];
+  multiSelect?: boolean;
+  preselected?: number[];
+}
+
+export type ErrandAnswer =
+  { text: string } | { optionIndex: number } | { selected: number[]; text?: string };
+
 export interface ErrandView {
   id: string;
   state: ErrandState;
   task: string;
   budgetPaise: number | null;
+  /** Where the customer asked from: the map's origin, and the place of a restart. */
+  lat: number;
+  lng: number;
   /** Short Hinglish lines, built by the server from the step log. */
   progress: string[];
   /** Shops that said yes after the plan was ready. */
@@ -120,7 +134,7 @@ export interface ErrandView {
   plan: ErrandPlan | null;
   failureReason: string | null;
   usage: { steps: number; tokensIn: number; tokensOut: number };
-  question: { question: string; options?: string[] } | null;
+  question: ErrandQuestion | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -143,7 +157,7 @@ export interface SeekerApi extends Pick<
   closeRequest(id: string): Promise<SeekerRequest>;
   createErrand(input: NewErrand): Promise<{ id: string; state: ErrandState }>;
   getErrand(id: string): Promise<ErrandView>;
-  answerErrand(id: string, answer: { text: string } | { optionIndex: number }): Promise<ErrandView>;
+  answerErrand(id: string, answer: ErrandAnswer): Promise<ErrandView>;
   cancelErrand(id: string): Promise<ErrandView>;
 }
 

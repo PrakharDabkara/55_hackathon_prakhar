@@ -203,6 +203,8 @@ export const errandView = (overrides: Partial<ErrandView> = {}): ErrandView => (
   state: 'PLANNING',
   task: 'chai banane ka saaman',
   budgetPaise: null,
+  lat: 22.7196,
+  lng: 75.8577,
   progress: [],
   lateAnswers: [],
   plan: null,

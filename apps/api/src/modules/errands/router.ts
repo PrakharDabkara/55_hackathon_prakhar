@@ -41,10 +41,12 @@ export function errandsRouter(deps: ErrandsContext): Router {
     res.json(view);
   });
 
-  // Owner only. Exactly one of text or optionIndex; checked in the service so every caller gets the same rules.
+  // Owner only. Exactly one of text, optionIndex or selected (selected may carry text); checked in the service so every caller gets the same rules.
   const answerBody = z.object({
     text: z.string().optional(),
     optionIndex: z.number().int().min(0).max(10).optional(),
+    /** For a multi-select question: the indexes of the ticked options; `text` is then "Kuch aur?". */
+    selected: z.array(z.number().int().min(0).max(10)).max(10).optional(),
   });
   router.post('/errands/:id/answer', requireAuth, async (req, res) => {
     const body = parse(answerBody, req.body ?? {});

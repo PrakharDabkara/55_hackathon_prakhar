@@ -79,6 +79,7 @@ export function rebuildMessages(first: ChatMessage, steps: StepRecord[]): Rebuil
 export function rebuildRunState(steps: StepRecord[], questionsAsked: number): RunState {
   const labels = new Map<string, string>();
   const found = new Map<string, FoundItem>();
+  const resolved = new Map<string, string>();
   for (const step of steps) {
     if (step.kind !== 'tool') continue;
     const result = (step.payload as ToolPayload | null)?.result as
@@ -87,7 +88,10 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
     if (step.toolName === 'resolve_item') {
       const text = String(step.args['text'] ?? '');
       const item = result['item'] as { id?: string } | undefined;
-      if (item?.id) labels.set(item.id, text);
+      if (item?.id) {
+        labels.set(item.id, text);
+        if (!resolved.has(item.id)) resolved.set(item.id, text);
+      }
       const clar = result['clarification'] as { options?: { itemId: string }[] } | undefined;
       for (const o of clar?.options ?? []) if (!labels.has(o.itemId)) labels.set(o.itemId, text);
     } else if (step.toolName === 'find_item_nearby') {
@@ -101,7 +105,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
       });
     }
   }
-  return { labels, found, questionsAsked };
+  return { labels, found, resolved, questionsAsked };
 }
 
 /** What a failed or expired errand keeps: what the agent had found so far. */
