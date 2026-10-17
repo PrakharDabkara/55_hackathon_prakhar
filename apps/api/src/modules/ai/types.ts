@@ -1,4 +1,5 @@
 import type { ZodObject, ZodType } from 'zod';
+import type { RateLimitInfo } from './quota.js';
 
 /** Why a call is made. Stored in ai_calls so cost can be traced to a feature. */
 export type Purpose = 'resolve_query' | 'embed_query' | 'embed_catalog' | 'errand';
@@ -110,15 +111,18 @@ export class ProviderError extends Error {
   readonly status: number | undefined;
   readonly code: string | undefined;
   readonly kind: Exclude<FailureKind, 'invalid_output' | 'breaker'>;
+  /** On a 429: whether a daily quota is used up, and how long Google asked us to wait. */
+  readonly rateLimit: RateLimitInfo | undefined;
   constructor(
     message: string,
     status?: number,
-    options: { kind?: ProviderError['kind']; code?: string } = {},
+    options: { kind?: ProviderError['kind']; code?: string; rateLimit?: RateLimitInfo } = {},
   ) {
     super(message);
     this.name = 'ProviderError';
     this.status = status;
     this.code = options.code;
+    this.rateLimit = options.rateLimit;
     this.kind = options.kind ?? (status !== undefined ? 'http' : 'other');
   }
 }

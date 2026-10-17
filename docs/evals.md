@@ -30,7 +30,7 @@ Each query goes through the whole pipeline (cache, synonym, trigram, default, em
 
 **Errors are not wrong answers.** A query whose model call fails (429, 5xx, timeout) is retried twice inside the runner. If it still fails it is counted as an error, reported in its own column and left out of accuracy; the errors gate keeps a broken API from passing quietly. p95 latency is the provider call only, not the runner's pacing.
 
-**When it runs.** On a pull request that carries the `evals` label (when the label is added and on every push while it stays), by hand (Actions, Evals, Run workflow), and on every push to `main`, which also seeds the cache pull requests restore from. PRs that touch `modules/ai`, `modules/catalog`, the catalog seed or `evals/` must carry the label before merge (CLAUDE.md). The job (`.github/workflows/evals.yml`, environment `evals`) fails with a message if `GEMINI_API_KEY` is missing and never skips itself. It uses a throwaway Testcontainers Postgres, never Neon. See the runbook for quotas and pacing.
+**When it runs.** On a pull request that carries the `evals` label (when the label is added and on every push while it stays), by hand (Actions, Evals, Run workflow), and every day at 08:30 UTC on `main` (after the free tier's daily reset), which also seeds the cache pull requests restore from. A run whose daily quota is spent stops at once with `QUOTA_EXHAUSTED — rerun after the daily reset` (see the runbook). PRs that touch `modules/ai`, `modules/catalog`, the catalog seed or `evals/` must carry the label before merge (CLAUDE.md). The job (`.github/workflows/evals.yml`, environment `evals`) fails with a message if `GEMINI_API_KEY` is missing and never skips itself. It uses a throwaway Testcontainers Postgres, never Neon. See the runbook for quotas and pacing.
 
 **LLM results vary between runs.** Identical runs on the dev set scored 97.5 % and 100 %, and one injection was obeyed once and resisted once. The gates leave room for that; a single failure is a prompt to look, not a verdict.
 
@@ -68,7 +68,7 @@ Answers per step: dev: synonym 45, trigram 6, default 2, embedding 4, LLM 12, un
 | [38865827535](https://github.com/PrakharDabkara/55_hackathon_prakhar/actions/runs/38865827535) | 91.8 %   | 100 %     | 0                 | 26.2 %       | 0      | **pass** |
 | [38867197231](https://github.com/PrakharDabkara/55_hackathon_prakhar/actions/runs/38867197231) | 88.5 %   | 100 %     | 0                 | 26.2 %       | 1      | **pass** |
 
-The new runner code (retries, error column, errors gate, provider-only latency) has unit tests but has not yet run against the real model; the first labelled PR run or push to `main` will be its first live run.
+The new runner code (retries, error column, errors gate, provider-only latency) has unit tests but has not yet run against the real model; the first labelled PR run or scheduled run will be its first live run. The same holds for the quota stop and the preflight.
 
 **Holdout v2 misses in the passing run (5):** four are single generic words the model answered with one item instead of asking ("dabba" → container set, "stand" → mobile stand, "holder" → bulb holder, "wrench" → adjustable wrench); one is a wrong trigram match ("chilli packet" → chips). Accuracy has only 1.8 points of margin over the gate; ambiguity is where the model is least stable, so watch it before tightening anything else.
 

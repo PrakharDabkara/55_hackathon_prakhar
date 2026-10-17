@@ -26,6 +26,7 @@ export function aiFromConfig({
   db,
   logger,
   client,
+  wrapProvider,
 }: {
   config: Config;
   db: Queryable;
@@ -37,13 +38,15 @@ export function aiFromConfig({
     retries?: number;
     backoffMs?: number;
   };
+  /** Lets a script observe every provider call (the evals watch for an exhausted quota). */
+  wrapProvider?: (provider: LlmProvider) => LlmProvider;
 }): AiContext & { close(): void } {
   // The per-user limit counter fails fast and open: a slow Redis must never slow a search.
   const redis = config.redisUrl
     ? connect(config.redisUrl, logger, { maxRetriesPerRequest: 1, commandTimeout: 500 })
     : null;
   const ai = createAi({
-    provider: providerFromConfig(config),
+    provider: wrapProvider ? wrapProvider(providerFromConfig(config)) : providerFromConfig(config),
     db,
     logger,
     embedThreshold: config.embedThreshold,

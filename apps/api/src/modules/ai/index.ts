@@ -10,6 +10,8 @@ export type { AiCallRow, AiClient, Recorder } from './client.js';
 export { createFakeProvider } from './fake.js';
 export type { FakeCall, FakeChatScript, FakeChatTurn, FakeProvider } from './fake.js';
 export { createGeminiProvider } from './gemini.js';
+export { QuotaWatch, rateLimitInfo, watchProvider } from './quota.js';
+export type { RateLimitInfo } from './quota.js';
 export { createUserLimiter } from './limiter.js';
 export type { UserLimiter } from './limiter.js';
 export {

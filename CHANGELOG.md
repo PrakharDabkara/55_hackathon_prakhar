@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (evals workflow)
+
+- The `evals` workflow no longer runs on push to `main`; it runs daily at 08:30 UTC on `main`, on the `evals` label and by hand, with a 30-minute timeout and no overlapping runs. The eval runner does a preflight call and stops at once with `QUOTA_EXHAUSTED — rerun after the daily reset` (exit 3) on a daily-quota 429 or three consecutive 429s with a retry hint over 60 s (`modules/ai/quota.ts`; the Gemini adapter keeps `ProviderError.rateLimit`).
+- All jobs run on `ubuntu-24.04`; `checkout` v7, `setup-node` v7, `cache` v6, `upload-artifact` v7 (Node 24). Runbook and ADR-0022 note: three Google projects, the schedule, `QUOTA_EXHAUSTED`.
+
 ### Added (Day 13)
 
 - Errand agent patience (ADR-0024 amendment): `ask_shops`, `get_request_status` and `ask_user` tools; states `WAITING_FOR_SHOPS`, `NEEDS_INPUT`, `EXPIRED`, `CANCELLED`; wake-up by replies (debounced `request.updated` hook), a timer or the sweeper; maximum wait; `POST /errands/:id/answer` and `POST /errands/:id/cancel`; 15-minute expiry; errand sweeper in the 60 s sweep; the conversation (function calls, thought signatures) persisted in `errand_steps.payload` and rebuilt on resume; `confirmed` plan status backed by a yes in the errand's own requests, with "Confirmed 2 min ago"; progress lines for asking, answers, waiting and questions; `errand.updated` SSE hints; `GET /admin/errands/stats`; migration 012; `realtime.onPublish`.
