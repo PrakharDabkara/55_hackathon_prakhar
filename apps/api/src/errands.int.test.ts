@@ -654,7 +654,26 @@ describe('errand agent core (fake model, real database)', () => {
       expect(everything).not.toContain(shopPhone.slice(3));
       // No phone-number pattern at all: +91 followed by 10 digits, or any bare run of 10 digits.
       expect(everything).not.toMatch(/\+91[\s-]?\d{10}/);
-      expect(everything).not.toMatch(/(?<![\d-])\d{10}(?![\d-])/);
+      // A word character on either side excludes the tail of a UUID (hex such as ...-a8a4989949550),
+      // which this pattern once mistook for a phone number about one run in fifty.
+      expect(everything).not.toMatch(/(?<![\w-])\d{10}(?![\w-])/);
+      // Every seeded phone, with and without +91, and every shop coordinate, exactly.
+      const phones = await pool.query<{ phone: string }>(
+        `SELECT phone FROM users UNION SELECT phone FROM shops`,
+      );
+      for (const { phone: p } of phones.rows) {
+        expect(everything).not.toContain(p);
+        expect(everything).not.toContain(p.replace(/^\+91/, ''));
+      }
+      const spots = await pool.query<{ lat: number; lng: number }>(
+        `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng FROM shops`,
+      );
+      expect(spots.rowCount).toBeGreaterThan(2);
+      for (const { lat, lng } of spots.rows)
+        for (const v of [lat, lng]) {
+          expect(everything).not.toContain(String(v));
+          expect(everything).not.toContain(v.toFixed(3));
+        }
       // Every user id and owner id in the database, not just the ones this test made.
       const secrets = (await pool.query<{ id: string }>(`SELECT id FROM users`)).rows;
       for (const row of secrets) expect(everything).not.toContain(row.id);

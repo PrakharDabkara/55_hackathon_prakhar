@@ -1226,7 +1226,37 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       const everything = JSON.stringify(chatCalls());
       expect(everything).not.toMatch(/"lat"|"lng"|latitude|longitude/i);
       expect(everything).not.toMatch(/\+91[\s-]?\d{10}/);
-      expect(everything).not.toMatch(/(?<![\d-])\d{10}(?![\d-])/);
+      // The generic pattern: a ten-digit number standing alone. A run of digits inside an id (the
+      // tail of a UUID such as ...-a8a4989949550) is hex, not a phone, so a word character on
+      // either side excludes it (this fired about one run in fifty before).
+      expect(everything).not.toMatch(/(?<![\w-])\d{10}(?![\w-])/);
+      // And the exact values that were seeded: every phone (with and without +91), every user and
+      // shop owner id, every coordinate of a shop, the errand or a request.
+      const phones = (
+        await pool.query<{ phone: string }>(`SELECT phone FROM users UNION SELECT phone FROM shops`)
+      ).rows.map((r) => r.phone);
+      for (const phone of phones) {
+        expect(everything).not.toContain(phone);
+        expect(everything).not.toContain(phone.replace(/^\+91/, ''));
+      }
+      const places = (
+        await pool.query<{ lat: number; lng: number }>(
+          `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng FROM shops
+           UNION SELECT ST_Y(location::geometry), ST_X(location::geometry) FROM errands
+           UNION SELECT ST_Y(location::geometry), ST_X(location::geometry) FROM requests`,
+        )
+      ).rows;
+      expect(places.length).toBeGreaterThan(3);
+      for (const { lat, lng } of places)
+        for (const value of [lat, lng]) {
+          expect(everything).not.toContain(String(value));
+          // A coordinate cut to 3 decimals is still a location.
+          expect(everything).not.toContain(value.toFixed(3));
+        }
+      const owners = await pool.query<{ id: string }>(
+        `SELECT owner_user_id AS id FROM shops WHERE owner_user_id IS NOT NULL`,
+      );
+      for (const owner of owners.rows) expect(everything).not.toContain(owner.id);
       for (const u of (await pool.query<{ id: string }>(`SELECT id FROM users`)).rows)
         expect(everything).not.toContain(u.id);
       expect(everything).toContain('P13 Mishra Kirana');
