@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evals (ADR-0022, ADR-0027 amendments, scoring fixed before any run): a new item is right for a non-nonsense case that expects no catalog item; nonsense and injections must never create one. Dev cases only: `newitem` resolve cases, the school-project errand, "ghar ki safai", a second harmful task. No run has been made.
 - e2e: the school-project errand at 360 px with a scripted model (`scripts` per task and `classify` in the scenario file).
 
+### Changed (Day 15, PR A, after the first eval run)
+
+- New items need a confident model: the classifier returns a confidence and may say "unsure"; only real and confident creates an item, and code checks (word-like text, not mash, a sentence, a vehicle, phone or property itself) run first. The unresolved message is now "Ye cheez samajh nahi aayi — thoda aur batayein". 18 new dev cases. The resolve prompt refuses an item that is only related to the text.
+
 ### Changed (Day 15, PR A)
 
 - The deploy's embedding step never blocks the deploy: a failure is a warning and a job-summary count of un-embedded items; the next deploy finishes them (ADR-0021 amendment).

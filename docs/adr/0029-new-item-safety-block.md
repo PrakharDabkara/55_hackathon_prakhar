@@ -28,3 +28,13 @@ Code-level, before any shop sees a new item, in `modules/safety`:
 - **Model only:** costs a call for obvious cases and fails open if the prompt is attacked.
 - **Deny list only:** cannot see a phrasing it does not list.
 - **Failing open when the model is down:** the one time it matters most.
+
+## Amendment 2026-10-18: when unsure, do not create
+
+The first holdout run of the open catalog (PR #29) failed one gate: one nonsense query came back as a new user item, because the classifier called it a real product. Rule written afterwards, against new dev cases only (the holdout text was not read):
+
+- The classifier returns `confidence` (`high` or `low`) and may answer `unsure`. A new item is created only when the model says `allowed` **and** `high`; a missing or low confidence, or `unsure`, is "not found". The prompt now also names person, place, feeling, idea, service, vehicle, phone and property as not products.
+- Code checks run first (`catalog/itemSanity.ts`, free): at least one word-like token (a vowel, no five consonants in a row, no keyboard run, no tripled letter) and at least half of the real-length tokens word-like; not mostly repeated characters; not a sentence or question (question and pronoun words, more than 6 words); not a vehicle, phone, laptop, property, service or place itself, unless a word marks an accessory, toy or care product ("iphone charger", "car freshener" pass). Refused text never reaches the model.
+- The screen says "Ye cheez samajh nahi aayi — thoda aur batayein".
+- 16 new dev nonsense and borderline cases and 2 new-item cases were written for this; the holdouts are untouched.
+- The dev miss of the same run was a different bug: the resolve model matched a bead kit to the catalog item "glitter". The resolve prompt now says an item that is only related (similar look, use or word) is not the item, and a kit or set the list lacks is none.
