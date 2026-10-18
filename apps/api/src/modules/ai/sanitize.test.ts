@@ -219,4 +219,3 @@ describe('the resolve prompt does not match on a loose relation (dev miss: a bea
     expect(system).toMatch(/"itemId": null/);
   });
 });
-
