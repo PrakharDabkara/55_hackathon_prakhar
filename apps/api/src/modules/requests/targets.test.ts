@@ -67,4 +67,58 @@ describe('selectPingTargets', () => {
     selectPingTargets(input, opts);
     expect(input.map((s) => s.shopId)).toEqual(['b', 'a']);
   });
+
+  describe('fallback to any category (ADR-0028)', () => {
+    const unrelated = [
+      shop('h1', 100, ['hardware']),
+      shop('h2', 200, ['hardware']),
+      shop('h3', 300, ['hardware']),
+      shop('h4', 400, ['hardware']),
+    ];
+
+    it('tops up with the nearest shops of any category when fewer than 3 match', () => {
+      const picked = selectPingTargets([shop('g1', 900), ...unrelated], {
+        ...opts,
+        itemCategories: ['stationery'],
+        minTargets: 3,
+      });
+      expect(picked.map((s) => s.shopId)).toEqual(['h1', 'h2', 'h3']);
+    });
+
+    it('keeps the category matches first, and only fills up to the minimum', () => {
+      const picked = selectPingTargets(
+        [shop('s1', 900, ['stationery']), shop('s2', 1500, ['stationery']), ...unrelated],
+        { ...opts, itemCategories: ['stationery'], minTargets: 3 },
+      );
+      expect(picked.map((s) => s.shopId)).toEqual(['s1', 's2', 'h1']);
+    });
+
+    it('does nothing when enough shops match', () => {
+      const matching = [1, 2, 3].map((n) => shop(`s${n}`, n * 100, ['stationery']));
+      const picked = selectPingTargets([...matching, ...unrelated], {
+        ...opts,
+        itemCategories: ['stationery'],
+        minTargets: 3,
+      });
+      expect(picked.map((s) => s.shopId)).toEqual(['s1', 's2', 's3']);
+    });
+
+    it('still respects the radius, the exclusions and max', () => {
+      const picked = selectPingTargets(
+        [shop('far', 2600, ['hardware']), shop('known', 50, ['hardware']), ...unrelated],
+        {
+          ...opts,
+          itemCategories: ['stationery'],
+          minTargets: 3,
+          excludeShopIds: new Set(['known']),
+          max: 2,
+        },
+      );
+      expect(picked.map((s) => s.shopId)).toEqual(['h1', 'h2']);
+    });
+
+    it('without minTargets nothing changes (the old behaviour)', () => {
+      expect(selectPingTargets(unrelated, { ...opts, itemCategories: ['stationery'] })).toEqual([]);
+    });
+  });
 });
