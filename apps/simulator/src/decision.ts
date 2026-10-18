@@ -4,6 +4,8 @@ export interface ShopProfile {
   replyProbability: number;
   /** About 5 % of shops never have anything. */
   alwaysNo: boolean;
+  /** For tests and demos that must not depend on luck: this shop accepts every delivery order. */
+  neverDeclines?: boolean;
 }
 
 export interface PingInfo {
@@ -172,4 +174,29 @@ export function decide(
   }
   if (rng() < HINT_RATE) body.quantityHint = rng() < 0.5 ? 'few' : 'plenty';
   return { kind: 'answer', delayMs, body: extras(body, ping.category, rng) };
+}
+
+/** What a shop does with a delivery order (ADR-0031): take it and bring it, or say no. */
+export type OrderDecision =
+  | { kind: 'accept'; acceptMs: number; outMs: number; deliveredMs: number }
+  | { kind: 'decline'; delayMs: number };
+
+const ORDER_DECLINE_RATE = 0.2;
+const between = (rng: () => number, low: number, high: number) => low + rng() * (high - low);
+
+/**
+ * Most orders are accepted after 3 to 30 s, set out 5 to 30 s later and delivered 10 to 60 s after
+ * that (all divided by `speed`); about one in five is declined after 3 to 30 s. All randomness
+ * comes from `rng`, so a seeded run is repeatable.
+ */
+export function decideOrder(profile: ShopProfile, rng: () => number, speed: number): OrderDecision {
+  const declines = !profile.neverDeclines && rng() < ORDER_DECLINE_RATE;
+  const acceptMs = between(rng, 3000, 30_000) / speed;
+  if (declines) return { kind: 'decline', delayMs: acceptMs };
+  return {
+    kind: 'accept',
+    acceptMs,
+    outMs: between(rng, 5000, 30_000) / speed,
+    deliveredMs: between(rng, 10_000, 60_000) / speed,
+  };
 }

@@ -20,10 +20,16 @@ export function announceTransition(
     },
     log,
   );
+  // Why the ping went away, so the shop's screen can say "thanks" instead of just dropping it.
+  const reason = result.event === 'SHOP_SAID_YES' ? 'enough_answers' : 'request_ended';
   for (const ping of result.closedPings) {
     if (!ping.ownerUserId) continue;
     events.publish(
-      { to: { userId: ping.ownerUserId }, type: 'ping.closed', data: { pingId: ping.id } },
+      {
+        to: { userId: ping.ownerUserId },
+        type: 'ping.closed',
+        data: { pingId: ping.id, reason },
+      },
       log,
     );
   }

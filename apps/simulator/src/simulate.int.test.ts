@@ -228,8 +228,9 @@ describe('the simulator against a real API', () => {
 
   it("a shop outside the item's category says no, a shop inside it says yes (every shop answers)", async () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
+    const lines: string[] = [];
     const sim = await runSimulator({
-      ...options([]),
+      ...options(lines),
       adminPhone: '9810000204',
       count: 12,
       seed: 31,
@@ -283,5 +284,68 @@ describe('the simulator against a real API', () => {
     for (const row of inside) expect(row.state).toBe('YES');
     for (const row of paper.filter((r) => !r.categories.includes('stationery')))
       expect(row.state).toBe('NO');
+  }, 60_000);
+  it('accepts an order for a simulated shop, sets out and delivers it, step by step', async () => {
+    await Promise.all(running.splice(0).map((s) => s.stop()));
+    const lines: string[] = [];
+    const sim = await runSimulator({
+      ...options(lines),
+      adminPhone: '9810000204',
+      count: 20,
+      seed: 31,
+      eager: true,
+      stateFile: path.join(path.dirname(stateFile), 'orders.json'),
+    });
+    running.push(sim);
+    const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.token}` });
+    const seeker = await loginAs(app, 'seeker', String(phone++));
+    const asked = await request(app)
+      .post('/requests')
+      .set(auth(seeker))
+      .send({ q: 'aata', lat: ORIGIN.lat, lng: ORIGIN.lng });
+    const answered = await waitFor(
+      async () =>
+        (
+          await testDb.pool.query<{ shop_id: string }>(
+            `SELECT p.shop_id FROM pings p JOIN shops s ON s.id = p.shop_id
+              WHERE p.request_id = $1 AND p.state = 'YES' AND s.is_simulated LIMIT 1`,
+            [asked.body.id],
+          )
+        ).rows[0],
+      (row) => row !== undefined,
+      20_000,
+    );
+    // Make that shop's yes a delivery offer, as a shop that says "Ghar bhej denge" would have.
+    await testDb.pool.query(
+      `UPDATE pings SET delivers = true, delivery_fee_paise = 2000, delivery_minutes = 30
+        WHERE request_id = $1 AND shop_id = $2`,
+      [asked.body.id, answered?.shop_id],
+    );
+    const placed = await request(app).post('/orders').set(auth(seeker)).send({
+      shopId: answered?.shop_id,
+      requestId: asked.body.id,
+      addressText: 'Flat 4B, Sapna Apartments, Vijay Nagar',
+    });
+    expect(placed.status).toBe(201);
+
+    const seen: string[] = [];
+    await waitFor(
+      async () => {
+        const state = (await request(app).get(`/orders/${placed.body.id}`).set(auth(seeker))).body
+          .state as string;
+        if (seen.at(-1) !== state) seen.push(state);
+        return state;
+      },
+      (state) => state === 'DELIVERED',
+      30_000,
+    );
+    expect(seen.at(-1)).toBe('DELIVERED');
+    expect(seen).not.toContain('DECLINED');
+    // One line per step, and the simulator never saw the address: it is told an id and a shop.
+    const orderLines = lines.filter((l) => /order/i.test(l));
+    expect(orderLines.join('\n')).toMatch(/accepted/);
+    expect(orderLines.join('\n')).toMatch(/out for delivery/);
+    expect(orderLines.join('\n')).toMatch(/delivered/);
+    expect(lines.join('')).not.toContain('Sapna');
   }, 60_000);
 });

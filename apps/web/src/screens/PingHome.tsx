@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ShopOrders } from '../components/ShopOrders.js';
 import { useT } from '../i18n/index.js';
 import { ApiError, type AnswerBody, type MyShop, type ShopApi, type ShopPing } from '../lib/api.js';
 import { canGoLive, connectLive, type LiveOptions } from '../lib/live.js';
+import type { ShopOrder } from '../lib/orders.js';
 import { PingCard } from './PingCard.js';
 import { ShopBar } from './ShopBar.js';
 
@@ -13,7 +15,10 @@ interface Props {
   live?: Pick<LiveOptions, 'createSource' | 'retryMs'>;
 }
 
-/** The whole home screen: the newest question, or a calm empty state. */
+/** How long "the customer already has an answer" stays on screen before the next question. */
+const THANKS_MS = 3500;
+
+/** The whole home screen: delivery orders, the newest question, or a calm empty state. */
 export function PingHome({ api, pollMs = 30_000, live }: Props) {
   const { t } = useT();
   const [pings, setPings] = useState<ShopPing[] | null>(null);
@@ -22,6 +27,11 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
   const [busy, setBusy] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [shop, setShop] = useState<MyShop | null>(null);
+  const [orders, setOrders] = useState<ShopOrder[]>([]);
+  /** "Grahak ko jawab mil gaya": a question that went away because it was answered elsewhere. */
+  const [thanks, setThanks] = useState(false);
+  const thanksTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const shownId = useRef<string | undefined>(undefined);
   const alive = useRef(true);
 
   // The shop's own record: the open switch and the standing delivery offer. Without it the screen
@@ -38,6 +48,13 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
   }, [api]);
 
   const refresh = useCallback(async () => {
+    // Orders are an extra: a failure leaves the questions alone.
+    api.listOrders().then(
+      (next) => {
+        if (alive.current) setOrders(next);
+      },
+      () => undefined,
+    );
     try {
       const next = await api.listPings();
       if (!alive.current) return;
@@ -55,24 +72,44 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
     return () => {
       alive.current = false;
       clearInterval(timer);
+      clearTimeout(thanksTimer.current);
     };
   }, [refresh, pollMs]);
+
+  /** The question on screen is gone because the customer already has enough answers. */
+  const sayThanks = useCallback(() => {
+    setThanks(true);
+    clearTimeout(thanksTimer.current);
+    thanksTimer.current = setTimeout(() => {
+      if (alive.current) setThanks(false);
+    }, THANKS_MS);
+  }, []);
 
   // Events are hints: each one just triggers a refetch, so a missed event cannot leave the screen wrong.
   useEffect(() => {
     if (!live?.createSource && !canGoLive()) return;
     const connection = connectLive({
       getTicket: () => api.eventTicket(),
-      onEvent: () => void refresh(),
+      onEvent: (type, data) => {
+        // Not dropped silently: if the card in front of the shop is the one withdrawn, say why.
+        if (
+          type === 'ping.closed' &&
+          data?.['reason'] === 'enough_answers' &&
+          data['pingId'] === shownId.current
+        )
+          sayThanks();
+        void refresh();
+      },
       onStatus: (up) => {
         if (alive.current) setIsLive(up);
       },
       ...live,
     });
     return () => connection.close();
-  }, [api, refresh, live]);
+  }, [api, refresh, live, sayThanks]);
 
   const current = pings?.[0];
+  shownId.current = current?.id;
 
   async function answer(body: AnswerBody) {
     if (!current) return;
@@ -109,7 +146,12 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
           {t.errSend}
         </p>
       )}
-      {pings === null ? (
+      <ShopOrders api={api} orders={orders} onChange={() => void refresh()} />
+      {thanks ? (
+        <p className="ping-gone" role="status">
+          {t.pingGone}
+        </p>
+      ) : pings === null ? (
         <p className="empty">{t.loading}</p>
       ) : current ? (
         <PingCard

@@ -12,6 +12,7 @@ import { photosRouter } from './modules/photos/index.js';
 import { errandsAdminRouter, errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
+import { ordersRouter } from './modules/orders/index.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
 import { simulationRouter } from './modules/simulation/index.js';
@@ -106,6 +107,14 @@ export function createApp({
       ...(errandHooks && { enqueue: errandHooks.enqueue }),
       events: realtime.events,
       requests: requestsContext,
+    }),
+  );
+  app.use(
+    ordersRouter({
+      db,
+      logger,
+      limits: limitsFromConfig(config),
+      events: realtime.events,
     }),
   );
   app.use(notFound);

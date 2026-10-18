@@ -9,6 +9,7 @@ import {
   sweepErrands,
   type ErrandWaker,
 } from '../modules/errands/index.js';
+import { sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
@@ -79,6 +80,8 @@ export function startWorkers({
         lastPhotoSweep = Date.now();
         return (await sweepPhotos({ db, logger }, new Date())).deleted;
       },
+      // A shop that did not answer an order in 10 minutes: expire it and tell the customer.
+      () => sweepOrders({ db, logger, events }),
       async () =>
         errands
           ? sweepErrands({

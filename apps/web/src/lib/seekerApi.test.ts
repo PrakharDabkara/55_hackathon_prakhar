@@ -167,3 +167,34 @@ describe('createSeekerApi', () => {
     });
   });
 });
+
+describe('createSeekerApi: delivery orders (ADR-0031)', () => {
+  it('places an order with the typed address, from a request or an errand', async () => {
+    const { api, last } = setup(() => json(201, { id: 'o1' }));
+    await api.placeOrder({ shopId: 's1', requestId: 'r1', addressText: 'Flat 4B, Vijay Nagar' });
+    expect(last()[0]).toBe('/orders');
+    expect(last()[1].method).toBe('POST');
+    expect(JSON.parse(last()[1].body as string)).toEqual({
+      shopId: 's1',
+      requestId: 'r1',
+      addressText: 'Flat 4B, Vijay Nagar',
+    });
+  });
+
+  it('lists the orders of a request or an errand', async () => {
+    const { api, last } = setup(() => json(200, []));
+    await api.listOrders({ requestId: 'r 1' });
+    expect(last()[0]).toBe('/orders?requestId=r%201');
+    await api.listOrders({ errandId: 'e1' });
+    expect(last()[0]).toBe('/orders?errandId=e1');
+  });
+
+  it('cancels an order and reads the saved address', async () => {
+    const { api, last } = setup(() => json(200, {}));
+    await api.cancelOrder('o 1');
+    expect(last()[0]).toBe('/orders/o%201/cancel');
+    expect(last()[1].method).toBe('POST');
+    await api.savedAddress();
+    expect(last()[0]).toBe('/orders/saved-address');
+  });
+});

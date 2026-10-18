@@ -14,6 +14,7 @@ import type {
   NewErrand,
   SeekerApi,
 } from '../lib/seekerApi.js';
+import type { SeekerOrder } from '../lib/orders.js';
 import { useLive } from '../lib/useLive.js';
 import { ErrandResult } from './ErrandResult.js';
 
@@ -215,6 +216,7 @@ interface RunProps {
 function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
   const { t } = useT();
   const [view, setView] = useState<ErrandView | null>(null);
+  const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -241,16 +243,31 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
     finished.current = isFinalState(next.state);
     setView(next);
   }, []);
-  const refresh = useCallback(() => {
-    if (finished.current) return;
-    api
-      .getErrand(id)
-      .then(show)
-      .catch((e: unknown) => {
-        // An old or foreign link: say so once, instead of waiting for ever.
-        if (alive.current && e instanceof ApiError && e.status === 404) setGone(true);
-      });
-  }, [api, id, show]);
+  // Delivery orders from this plan. An extra: if they cannot be fetched the plan still shows.
+  const loadOrders = useCallback(() => {
+    api.listOrders({ errandId: id }).then(
+      (next) => {
+        if (alive.current) setOrders(next);
+      },
+      () => undefined,
+    );
+  }, [api, id]);
+  const refresh = useCallback(
+    (type?: unknown) => {
+      loadOrders();
+      // A finished plan is not polled, but an order that moved (or a shop put back on pickup) is
+      // news about it: those events fetch it again.
+      if (finished.current && type !== 'order.updated' && type !== 'errand.updated') return;
+      api
+        .getErrand(id)
+        .then(show)
+        .catch((e: unknown) => {
+          // An old or foreign link: say so once, instead of waiting for ever.
+          if (alive.current && e instanceof ApiError && e.status === 404) setGone(true);
+        });
+    },
+    [api, id, show, loadOrders],
+  );
   useEffect(() => refresh(), [refresh]);
   const getTicket = useCallback(() => api.eventTicket(), [api]);
   useLive({ getTicket, refresh, pollMs, live });
@@ -348,6 +365,13 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
             plan={view.plan}
             photos={api}
             onMode={(shopId, mode) => void act(() => api.setDeliveryMode(id, shopId, mode))}
+            orderApi={api}
+            errandId={id}
+            orders={orders}
+            onOrderChange={() => {
+              loadOrders();
+              refresh();
+            }}
             origin={origin}
             busy={busy}
             onAskAgain={() => void again()}

@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 16, PR D: delivery orders)
+
+- "Ghar mangwao" → "Order bhejo" → address step on result and plan cards of a shop that delivers: typed address, optional first name, the request's own location as the pin, the customer's last address offered, a fixed "Cash on delivery" line. The status follows live. `delivery_orders` (migration 017), `POST /orders`, `GET /orders`, `GET /orders/saved-address`, `POST /orders/:id/cancel`. ADR-0032.
+- The shop's order card (`GET /shops/me/orders`, `POST /orders/:id/accept|decline|out|delivered`): Accept / Decline; only after Accept the address, a "Map par dekho" link and the contact line (first name or "Grahak", never a phone); then "Nikal gaye" and "Pahuncha diya". States are guarded in SQL; a new order expires after 10 minutes (read and 60 s sweep) and a decline or expiry puts the plan's shop back on pickup and tells the customer.
+- The simulator accepts most orders, declines about one in five, and moves accepted ones to out for delivery and delivered after short delays.
+- A shop's question that goes away because the customer already has enough answers shows "Grahak ko jawab mil gaya — shukriya" for a moment (`ping.closed` now carries a reason).
+
+### Fixed (Day 16, PR D)
+
+- After choosing delivery, the plan's recommendation ignored `ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE` and used the default; it now uses the configured value.
+
 ### Added (Day 16, PR C: quantity and delivery offer)
 
 - Exact quantity on a yes (kg, g, L, ml, piece, packet), stored on pings and learned stock (migration 016); "5 kg hai", "Sirf 1 kg hai" with "Kam hai (not enough)", "Pichhli baar: 5 kg" for learned stock (3 days, never subtracted). ADR-0031.

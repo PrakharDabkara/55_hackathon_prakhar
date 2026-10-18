@@ -2,7 +2,7 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
-import { FakeEventSource, fakeApi, ping, shop } from '../test/fakes.js';
+import { FakeEventSource, fakeApi, ping, shop, shopOrder } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { PingHome } from './PingHome.js';
 
@@ -253,5 +253,145 @@ describe('PingHome: the open / closed switch and the standing delivery offer (AD
     await user.click(screen.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }));
     await user.click(screen.getByRole('button', { name: 'Save karein' }));
     await waitFor(() => expect(api.updateDelivery).toHaveBeenLastCalledWith(null));
+  });
+});
+
+describe('delivery orders on the shop home (ADR-0031)', () => {
+  const live = { createSource: (url: string) => new FakeEventSource(url), retryMs: 1000 };
+  beforeEach(() => FakeEventSource.reset());
+
+  it('lists the shop’s orders, with Accept and Decline on a new one', async () => {
+    const listOrders = vi.fn(async () => [shopOrder()]);
+    renderApp(<PingHome api={fakeApi({ listOrders })} />);
+    expect(await screen.findByRole('button', { name: 'Accept' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeTruthy();
+  });
+
+  it('shows a new order above the question, so neither hides the other', async () => {
+    const api = fakeApi({
+      listPings: vi.fn(async () => [ping()]),
+      listOrders: vi.fn(async () => [shopOrder()]),
+    });
+    renderApp(<PingHome api={api} />);
+    expect(await screen.findByRole('button', { name: 'Accept' })).toBeTruthy();
+    expect(screen.getByText('आटा')).toBeTruthy();
+  });
+
+  it('refetches the orders on order.created and order.updated, so a missed event cannot leave it wrong', async () => {
+    const listOrders = vi
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([shopOrder()])
+      .mockResolvedValue([shopOrder({ state: 'CANCELLED', final: true })]);
+    renderApp(<PingHome api={fakeApi({ listOrders })} live={live} />);
+    await screen.findByText(/Abhi koi sawaal nahi/);
+    act(() => FakeEventSource.last().emit('order.created', { orderId: 'order-1' }));
+    expect(await screen.findByRole('button', { name: 'Accept' })).toBeTruthy();
+    act(() =>
+      FakeEventSource.last().emit('order.updated', { orderId: 'order-1', state: 'CANCELLED' }),
+    );
+    expect(await screen.findByText(/Grahak ne order cancel kiya/)).toBeTruthy();
+  });
+
+  it('works when the orders cannot be fetched: the questions still show', async () => {
+    const api = fakeApi({
+      listPings: vi.fn(async () => [ping()]),
+      listOrders: vi.fn(async () => {
+        throw new Error('offline');
+      }),
+    });
+    renderApp(<PingHome api={api} />);
+    expect(await screen.findByText('आटा')).toBeTruthy();
+  });
+
+  it('after Accept the card shows the address the server now sends', async () => {
+    const listOrders = vi
+      .fn()
+      .mockResolvedValueOnce([shopOrder()])
+      .mockResolvedValue([
+        shopOrder({
+          state: 'ACCEPTED',
+          addressText: 'Flat 4B, Sapna Apartments',
+          mapUrl: 'https://www.google.com/maps/search/?api=1&query=22.72,75.86',
+        }),
+      ]);
+    const { user } = renderApp(<PingHome api={fakeApi({ listOrders })} />);
+    await user.click(await screen.findByRole('button', { name: 'Accept' }));
+    expect(await screen.findByText('Flat 4B, Sapna Apartments')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Map par dekho' })).toBeTruthy();
+  });
+});
+
+describe('a question that the customer no longer needs', () => {
+  const live = { createSource: (url: string) => new FakeEventSource(url), retryMs: 1000 };
+  beforeEach(() => FakeEventSource.reset());
+  const THANKS = 'Grahak ko jawab mil gaya — shukriya';
+
+  it('is not dropped silently: it says "Grahak ko jawab mil gaya — shukriya" for a moment, then goes', async () => {
+    const listPings = vi
+      .fn<() => Promise<ReturnType<typeof ping>[]>>()
+      .mockResolvedValueOnce([ping({ id: 'p1' })])
+      .mockResolvedValue([]);
+    renderApp(<PingHome api={fakeApi({ listPings })} live={live} />);
+    await screen.findByText('आटा');
+    act(() =>
+      FakeEventSource.last().emit('ping.closed', { pingId: 'p1', reason: 'enough_answers' }),
+    );
+    expect(await screen.findByText(THANKS)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Haan hai/ })).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(screen.queryByText(THANKS)).toBeNull();
+    expect(screen.getByText(/Abhi koi sawaal nahi/)).toBeTruthy();
+  });
+
+  it('says nothing when the shop answered it itself', async () => {
+    const listPings = vi
+      .fn<() => Promise<ReturnType<typeof ping>[]>>()
+      .mockResolvedValueOnce([ping({ id: 'p1' })])
+      .mockResolvedValue([]);
+    renderApp(<PingHome api={fakeApi({ listPings })} live={live} />);
+    await screen.findByText('आटा');
+    act(() => FakeEventSource.last().emit('ping.closed', { pingId: 'p1', reason: 'answered' }));
+    expect(await screen.findByText(/Abhi koi sawaal nahi/)).toBeTruthy();
+    expect(screen.queryByText(THANKS)).toBeNull();
+  });
+
+  it('says nothing about a question the shop was not looking at', async () => {
+    const listPings = vi
+      .fn<() => Promise<ReturnType<typeof ping>[]>>()
+      .mockResolvedValueOnce([ping({ id: 'p1' }), ping({ id: 'p2' })])
+      .mockResolvedValue([ping({ id: 'p1' })]);
+    renderApp(<PingHome api={fakeApi({ listPings })} live={live} />);
+    await screen.findByText('आटा');
+    act(() =>
+      FakeEventSource.last().emit('ping.closed', { pingId: 'p2', reason: 'enough_answers' }),
+    );
+    await waitFor(() => expect(listPings).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(THANKS)).toBeNull();
+    expect(screen.getByText('आटा')).toBeTruthy();
+  });
+
+  it('shows the next question after the thanks', async () => {
+    const listPings = vi
+      .fn<() => Promise<ReturnType<typeof ping>[]>>()
+      .mockResolvedValueOnce([
+        ping({ id: 'p1' }),
+        ping({ id: 'p2', item: { slug: 'rice', nameEn: 'rice', nameHi: 'चावल' } }),
+      ])
+      .mockResolvedValue([
+        ping({ id: 'p2', item: { slug: 'rice', nameEn: 'rice', nameHi: 'चावल' } }),
+      ]);
+    renderApp(<PingHome api={fakeApi({ listPings })} live={live} />);
+    await screen.findByText('आटा');
+    act(() =>
+      FakeEventSource.last().emit('ping.closed', { pingId: 'p1', reason: 'enough_answers' }),
+    );
+    expect(await screen.findByText(THANKS)).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    expect(await screen.findByText('चावल')).toBeTruthy();
   });
 });

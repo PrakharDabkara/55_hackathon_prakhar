@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decide, makeProfile, type ShopProfile } from './decision.ts';
+import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.ts';
 import { createRng, hashSeed } from './rng.ts';
 
 const profile = (overrides: Partial<ShopProfile> = {}): ShopProfile => ({
@@ -297,5 +297,53 @@ describe('decide: a yes sometimes carries an exact quantity and a delivery offer
       }
     }
     expect(yeses('hardware', 50)).toEqual(yeses('hardware', 50));
+  });
+});
+
+describe('decideOrder: a delivery order reaches a simulated shop (ADR-0031)', () => {
+  const draws = (n: number, seed: number, speed = 1, p: ShopProfile = profile()) => {
+    const rng = createRng(seed);
+    return Array.from({ length: n }, () => decideOrder(p, rng, speed));
+  };
+
+  it('accepts most orders and declines some', () => {
+    const all = draws(5000, 6);
+    const accepted = all.filter((d) => d.kind === 'accept').length / all.length;
+    expect(accepted).toBeGreaterThan(0.75);
+    expect(accepted).toBeLessThan(0.85);
+  });
+
+  it('an accepted order is set out and delivered after short delays, divided by the speed', () => {
+    for (const speed of [1, 100]) {
+      for (const d of draws(300, 7, speed, profile({ neverDeclines: true }))) {
+        if (d.kind !== 'accept') throw new Error('should accept');
+        expect(d.acceptMs).toBeGreaterThanOrEqual(3000 / speed);
+        expect(d.acceptMs).toBeLessThanOrEqual(30_000 / speed);
+        expect(d.outMs).toBeGreaterThanOrEqual(5000 / speed);
+        expect(d.outMs).toBeLessThanOrEqual(30_000 / speed);
+        expect(d.deliveredMs).toBeGreaterThanOrEqual(10_000 / speed);
+        expect(d.deliveredMs).toBeLessThanOrEqual(60_000 / speed);
+      }
+    }
+  });
+
+  it('a decline comes after a short wait too', () => {
+    const declines = draws(500, 8).filter((d) => d.kind === 'decline');
+    expect(declines.length).toBeGreaterThan(0);
+    for (const d of declines) {
+      if (d.kind !== 'decline') continue;
+      expect(d.delayMs).toBeGreaterThanOrEqual(3000);
+      expect(d.delayMs).toBeLessThanOrEqual(30_000);
+    }
+  });
+
+  it('a shop that must not decline (the eager test mode) accepts every order', () => {
+    expect(
+      draws(1000, 9, 1, profile({ neverDeclines: true })).every((d) => d.kind === 'accept'),
+    ).toBe(true);
+  });
+
+  it('is the same for the same seed', () => {
+    expect(draws(20, 10)).toEqual(draws(20, 10));
   });
 });

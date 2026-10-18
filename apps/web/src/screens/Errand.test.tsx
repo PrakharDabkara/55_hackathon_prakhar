@@ -3,7 +3,14 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { PlanItem } from '../lib/seekerApi.js';
-import { errandPlan, errandView, FakeEventSource, fakeSeekerApi, planItem } from '../test/fakes.js';
+import {
+  errandPlan,
+  errandView,
+  FakeEventSource,
+  fakeSeekerApi,
+  planItem,
+  seekerOrder,
+} from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
 
@@ -1014,5 +1021,78 @@ describe('opened by id (after a reload)', () => {
     );
     expect(await screen.findByText('Ye kaam nahi mila.')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Naya kaam' })).toBeTruthy();
+  });
+});
+
+describe('ordering a delivery from the plan (ADR-0031)', () => {
+  const delivering = (mode: 'pickup' | 'delivery'): PlanItem =>
+    ({
+      ...planItem({ text: 'chai patti', itemName: 'tea leaves', pricePaise: 9900 }),
+      delivery: { feePaise: 3000, minutes: 45 },
+      mode,
+    }) as PlanItem;
+  const ready = (mode: 'pickup' | 'delivery') => {
+    const plan = errandPlan();
+    for (const k of ['kam_dukaan', 'sasta'] as const)
+      plan.plans[k] = { ...plan.plans[k], items: [delivering(mode)] } as typeof plan.plans.sasta;
+    return errandView({ state: 'PLAN_READY', plan });
+  };
+  async function show(
+    mode: 'pickup' | 'delivery',
+    overrides: Parameters<typeof fakeSeekerApi>[0] = {},
+  ) {
+    const utils = setup({ getErrand: vi.fn(async () => ready(mode)), ...overrides });
+    await start(utils.user);
+    await screen.findByRole('region', { name: 'Plan taiyaar' });
+    return utils;
+  }
+
+  it('offers "Order bhejo" once delivery is chosen for the shop, not before', async () => {
+    await show('pickup');
+    expect(screen.queryByRole('button', { name: 'Order bhejo' })).toBeNull();
+  });
+
+  it('chosen delivery → "Order bhejo" → address → the order is placed for this errand and shop', async () => {
+    const { user, api } = await show('delivery');
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Flat 4B, Sapna Apartments');
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith({
+      shopId: 's1',
+      errandId: 'errand-1',
+      addressText: 'Flat 4B, Sapna Apartments',
+    });
+    expect(api.listOrders).toHaveBeenCalledWith({ errandId: 'errand-1' });
+  });
+
+  it('shows the order’s status on the shop’s card and follows it live', async () => {
+    const listOrders = vi
+      .fn()
+      .mockResolvedValueOnce([
+        seekerOrder({ state: 'ACCEPTED', errandId: 'errand-1', requestId: null }),
+      ])
+      .mockResolvedValue([
+        seekerOrder({ state: 'OUT_FOR_DELIVERY', errandId: 'errand-1', requestId: null }),
+      ]);
+    await show('delivery', { listOrders });
+    expect(await screen.findByText('Dukaan ne order le liya')).toBeTruthy();
+    act(() => FakeEventSource.last().emit('order.updated', { orderId: 'order-1' }));
+    expect(await screen.findByText('Nikal gaye — raste mein hai')).toBeTruthy();
+  });
+
+  it('a declined order is shown as pickup: the message stays even though the shop is back on pickup', async () => {
+    const listOrders = vi.fn(async () => [
+      seekerOrder({
+        state: 'DECLINED',
+        pickupFallback: true,
+        errandId: 'errand-1',
+        requestId: null,
+      }),
+    ]);
+    await show('pickup', { listOrders });
+    expect(await screen.findByText(/Dukaan ne mana kiya/)).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Khud lene jaunga' }).getAttribute('aria-pressed'),
+    ).toBe('true');
   });
 });

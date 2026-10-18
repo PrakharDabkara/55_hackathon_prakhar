@@ -201,6 +201,8 @@ export const viewOf = (
   e: ErrandRecord,
   progress: string[],
   lateAnswers: string[] = [],
+  /** ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE; without it the plan's default applies. */
+  maxExtraPaise?: number,
 ): ErrandView => ({
   id: e.id,
   state: e.state,
@@ -210,7 +212,9 @@ export const viewOf = (
   lng: e.lng,
   progress,
   lateAnswers,
-  plan: planForView(planWithModes(e.plan, { lat: e.lat, lng: e.lng }, e.deliveryModes)),
+  plan: planForView(
+    planWithModes(e.plan, { lat: e.lat, lng: e.lng }, e.deliveryModes, maxExtraPaise),
+  ),
   failureReason: e.failureReason,
   usage: { steps: e.stepCount, tokensIn: e.tokensIn, tokensOut: e.tokensOut },
   question: e.state === 'NEEDS_INPUT' ? e.question : null,
@@ -219,9 +223,14 @@ export const viewOf = (
   updatedAt: e.updatedAt,
 });
 
+/** What a plan view needs; `limits` is there when the caller has the app's configuration. */
+type Quiet = Pick<ErrandsContext, 'db' | 'logger' | 'events' | 'requests'> & {
+  limits?: ErrandsContext['limits'] | undefined;
+};
+
 /** The owner's view of an errand, or null for an unknown id or someone else's errand. */
 export async function getErrand(
-  ctx: Pick<ErrandsContext, 'db' | 'logger' | 'events' | 'requests'>,
+  ctx: Quiet,
   userId: string,
   id: string,
 ): Promise<ErrandView | null> {
@@ -236,7 +245,7 @@ export async function getErrand(
 }
 
 async function viewWithProgress(
-  ctx: Pick<ErrandsContext, 'db'>,
+  ctx: Pick<Quiet, 'db' | 'limits'>,
   errand: ErrandRecord,
 ): Promise<ErrandView> {
   const [steps, facts] = await Promise.all([
@@ -247,10 +256,9 @@ async function viewWithProgress(
     errand,
     buildProgress(steps, errand.state, errand.failureReason, facts),
     lateAnswerLines(steps, facts),
+    ctx.limits?.fewerStopsMaxExtraPaise,
   );
 }
-
-type Quiet = Pick<ErrandsContext, 'db' | 'logger' | 'events' | 'requests'>;
 
 /** Ends an errand that ran out of time, keeping what the agent had found. */
 export async function expireErrand(ctx: Quiet, id: string): Promise<boolean> {
@@ -308,6 +316,70 @@ export async function chooseDeliveryMode(
     throw new ApiError(400, 'no_delivery', 'That shop did not offer delivery');
   await setDeliveryMode(ctx.db, id, shopId, mode);
   return viewWithProgress(ctx, (await findErrand(ctx.db, id)) ?? errand);
+}
+
+/** What an order needs from a finished plan: the shop's lines and its delivery offer. */
+export interface ErrandDeliveryOffer {
+  lat: number;
+  lng: number;
+  lines: { name: string; count: number; pricePaise: number | null }[];
+  feePaise: number | null;
+  minutes: number | null;
+}
+
+/**
+ * What a shop of this errand's finished plan offered for delivery, for an order (ADR-0031). 404
+ * for an unknown or someone else's errand; 409 when there is no finished plan or the shop did not
+ * offer delivery. The lines come from the plan the customer is looking at, never from the client.
+ */
+export async function deliveryOfferForErrand(
+  ctx: Quiet,
+  userId: string,
+  id: string,
+  shopId: string,
+): Promise<ErrandDeliveryOffer> {
+  const errand = await findErrand(ctx.db, id);
+  if (!errand || errand.userId !== userId) throw new ApiError(404, 'not_found', 'No such errand');
+  if (!errand.plan || errand.state !== 'PLAN_READY')
+    throw new ApiError(409, 'no_plan', 'There is no finished plan to order from yet');
+  const origin = { lat: errand.lat, lng: errand.lng };
+  const shown = planWithModes(
+    errand.plan,
+    origin,
+    errand.deliveryModes,
+    ctx.limits?.fewerStopsMaxExtraPaise,
+  ) as { items?: Record<string, unknown>[] };
+  const mine = (shown.items ?? []).filter(
+    (i) => i['shopId'] === shopId && i['status'] !== 'not_found',
+  );
+  const offers = mine.flatMap((i) => {
+    const d = i['delivery'] as { feePaise: number | null; minutes: number | null } | null;
+    return d ? [d] : [];
+  });
+  if (offers.length === 0)
+    throw new ApiError(409, 'no_delivery_offer', 'That shop did not offer delivery');
+  const named = <T>(values: (T | null)[]): T[] => values.filter((v): v is T => v !== null);
+  const fees = named(offers.map((o) => o.feePaise));
+  const minutes = named(offers.map((o) => o.minutes));
+  return {
+    ...origin,
+    lines: mine.map((i) => ({
+      name: String(i['itemName'] ?? i['text']),
+      count: Number(i['quantity']) || 1,
+      pricePaise: typeof i['pricePaise'] === 'number' ? i['pricePaise'] : null,
+    })),
+    feePaise: fees.length > 0 ? Math.max(...fees) : null,
+    minutes: minutes.length > 0 ? Math.max(...minutes) : null,
+  };
+}
+
+/** A shop did not take the order: the plan goes back to pickup from it (ADR-0031). */
+export async function fallBackToPickup(
+  db: Pick<ErrandsContext, 'db'>['db'],
+  errandId: string,
+  shopId: string,
+): Promise<void> {
+  await setDeliveryMode(db, errandId, shopId, 'pickup');
 }
 
 export type AnswerInput = {

@@ -31,6 +31,13 @@ export interface Client {
     body: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<void>;
+  /** Moves a delivery order as its shop would: accept, decline, out or delivered. */
+  orderAction(
+    token: string,
+    orderId: string,
+    verb: 'accept' | 'decline' | 'out' | 'delivered',
+    signal?: AbortSignal,
+  ): Promise<void>;
   /** Whether a shop token still works. */
   shopIsAlive(token: string): Promise<boolean>;
   streamUrl(ticket: string): string;
@@ -97,6 +104,12 @@ export function createClient(target: string): Client {
       await call('POST', `/pings/${encodeURIComponent(pingId)}/answer`, {
         token,
         body,
+        ...(signal && { signal }),
+      });
+    },
+    async orderAction(token, orderId, verb, signal) {
+      await call('POST', `/orders/${encodeURIComponent(orderId)}/${verb}`, {
+        token,
         ...(signal && { signal }),
       });
     },
