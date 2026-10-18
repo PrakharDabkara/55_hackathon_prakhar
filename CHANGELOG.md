@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 16, PR F: Web Push notifications)
+
+- Notifications through Web Push (VAPID), off until `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set; without them the app works as before and logs one warning. `npm run push:keys` makes a key pair (run by the owner). `web-push` added. ADR-0034.
+- `push_subscriptions` (migration 019), `GET /push/config`, `POST /push/subscribe`, `POST /push/unsubscribe`; only https addresses of the four browser push services are accepted; a 404 or 410 from the push service removes the subscription.
+- Shops hear "Naya sawaal: item" and "Naya order: item"; customers hear "Dukaan ne jawab diya: item" (the first answer, held 3 s), "Plan taiyaar" and order updates (accepted, declined, out for delivery, delivered). Sent from the BullMQ `push` queue after the commit, 5 tries with backoff, never for simulated shops, at most 5 per person per minute.
+- A push holds a title, the item name and a link, nothing else; a test enforces it.
+- "Notification chalu karein" / "Notification band karein" on the customer home and the shop screen (asks only when tapped), with "Pehle 'Add to Home Screen' karein" on an iPhone that has not installed the app. Service worker `/app/sw.js` shows the notification and opens or focuses the right screen on a tap.
+
 ### Added (Day 16, PR E: finding an order again)
 
 - "Mere orders" on the home screen (a badge for orders still moving) and `/app/orders`: every order with shop, items, total including the fee and state, open ones first. `/app/order/<id>` shows one order live, works after a reload, says the final state plainly (delivered, declined or expired with the pickup message, cancelled) and can cancel while requested or accepted. `GET /orders` without a query, ADR-0033.

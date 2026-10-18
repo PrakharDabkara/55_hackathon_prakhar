@@ -264,3 +264,28 @@ Nothing here is needed to build or run the app. Approve one (`npm install-script
 - **Migration 016 runs on deploy** and only adds columns; nothing to set by hand.
 - **A shop stuck closed:** `UPDATE shops SET closed_until = NULL WHERE id = ...`. Closing lasts until the end of the day in India by itself.
 - **What a shop offered:** `SELECT qty_amount, qty_unit, delivers, delivery_fee_paise, delivery_minutes FROM pings WHERE id = ...` (and the same columns on `shop_stock`). Orders and addresses come with the next PR.
+
+## Web Push notifications (Day 16, PR F)
+
+Off until you give it keys. Nothing breaks without them: the API logs one warning at startup (`web push is off`) and the notification button is hidden.
+
+**Turn it on (Render)**
+
+1. In your own terminal run `npm run push:keys`. It prints a public key, a private key and the three names to set. Keep the output to yourself.
+2. In Render, service → Environment, add: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (a secret), `VAPID_SUBJECT` (`mailto:` plus an email you read). Save; Render redeploys. For local trials put the same three in your `.env`. Optional: `PUSH_MAX_PER_MINUTE` (default 5).
+3. Migration 019 runs on deploy. Redis and `WORKERS_ENABLED=true` must already be on; push shares the queue's Redis.
+4. Check: `GET /push/config` answers `{"enabled":true,"publicKey":"..."}`; the logs no longer show `web push is off`.
+
+**Try it live**
+
+- _Desktop Chrome:_ open the site, log in as a shop, tap "Notification chalu karein", allow. From another browser or window ask for an item the shop sells; a "Naya sawaal: ..." notification appears even with the tab in the background; clicking it focuses the app.
+- _Android Chrome:_ same, on the phone. Add the site to the Home Screen first if you want the icon; it is not required on Android.
+- _iPhone:_ push works only from the Home Screen app (iOS 16.4 or later): Share → Add to Home Screen, open it from there, then tap the button.
+
+**When it does not work**
+
+- `push queued` in the logs but nothing on the phone: look for `push job failed` with a status. 401 or 403 means the keys on Render do not match the key the browser subscribed with; tap "Notification band karein" then "chalu karein" again.
+- `push subscription gone, removed`: the browser unsubscribed; normal.
+- Nothing queued: the shop is simulated (never pushed), has no subscription, or hit the per-minute limit (`push dropped`).
+- Replacing the public key cancels every subscription; everyone taps the button once more.
+- Inspect: `SELECT user_id, created_at, last_success_at FROM push_subscriptions;` (never select `endpoint` or the keys into a chat or ticket).
