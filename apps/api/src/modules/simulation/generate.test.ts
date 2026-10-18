@@ -131,4 +131,42 @@ describe('generateShops', () => {
       ).toBe(true);
     });
   });
+
+  describe('the mix for live use: 200 shops spread over 3 km (the demo centre, a customer at the middle)', () => {
+    const near = (s: { lat: number; lng: number }) =>
+      Math.hypot(
+        (s.lat - centre.lat) * 111_000,
+        (s.lng - centre.lng) * 111_000 * Math.cos((centre.lat * Math.PI) / 180),
+      ) <= 2000;
+    // The fewest shops of a kind inside 2 km, over ten different seeds.
+    const fewest = (category: string) =>
+      Math.min(
+        ...Array.from(
+          { length: 10 },
+          (_, i) =>
+            generateShops({ count: 200, centre, radiusM: 3000, seed: i + 1 }).filter(
+              (s) => near(s) && s.categories.includes(category as never),
+            ).length,
+        ),
+      );
+
+    it('has plenty of grocery, general, stationery, hardware, electrical, household and personal-care shops near', () => {
+      expect(fewest('grocery')).toBeGreaterThanOrEqual(20);
+      for (const c of [
+        'general_store',
+        'stationery',
+        'hardware',
+        'electrical',
+        'household_kitchen',
+        'personal_care',
+        'mobile_accessories',
+      ])
+        expect(fewest(c), c).toBeGreaterThanOrEqual(6);
+    });
+
+    it('has enough dairy, sabzi, pooja, medical and bakery shops near for a new item of those kinds', () => {
+      for (const c of ['dairy', 'sabzi_fruit', 'pooja', 'medical', 'bakery_sweets'])
+        expect(fewest(c), c).toBeGreaterThanOrEqual(4);
+    });
+  });
 });
