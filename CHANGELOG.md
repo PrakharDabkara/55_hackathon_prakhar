@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 16, PR G: Le liya? and Aaj ki maang)
+
+- "Le liya?": tapping "Raasta" on a result or plan card for a pickup shop is noted (`POST /pickups`, `pickup_visits`, migration 020). The home screen later asks "Kya aapko <item> <shop> par mila?" (`GET /pickups/pending`, after `PICKUP_ASK_AFTER_MINUTES`, default 15) with "Mil gaya", "Wahan nahi tha" and "Gaya nahi"; an hour after the tap, if it was not asked, one push through the existing push module and rate limit. Once per customer, shop and item; never for delivery orders. ADR-0035.
+- "Mil gaya" refreshes the shop's learned answer and marks it "Grahak ne confirm kiya". "Wahan nahi tha" invalidates it at once (no longer Likely) and counts against the shop for that item; from 2 reports the shop ranks lower for it. "Gaya nahi" changes nothing. The shop never sees who reported; visits are deleted after 30 days.
+- "Aaj ki maang" on the shop screen (`GET /shops/me/demand`): requests received, answered and said yes today; "Log ye pooch rahe the" (items asked of this shop that it said no to or did not answer); "Aas-paas ki maang" (items in its categories asked within 3 km, only when 3 or more different customers asked, counts only).
+
 ### Added (Day 16, PR F: Web Push notifications)
 
 - Notifications through Web Push (VAPID), off until `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` are set; without them the app works as before and logs one warning. `npm run push:keys` makes a key pair (run by the owner). `web-push` added. ADR-0034.

@@ -289,3 +289,11 @@ Off until you give it keys. Nothing breaks without them: the API logs one warnin
 - Nothing queued: the shop is simulated (never pushed), has no subscription, or hit the per-minute limit (`push dropped`).
 - Replacing the public key cancels every subscription; everyone taps the button once more.
 - Inspect: `SELECT user_id, created_at, last_success_at FROM push_subscriptions;` (never select `endpoint` or the keys into a chat or ticket).
+
+## "Le liya?" and "Aaj ki maang" (Day 16, PR G)
+
+Nothing to set up. Migration 020 runs on deploy and only adds.
+
+- `PICKUP_ASK_AFTER_MINUTES` (default 15): how long after a tap on "Raasta" the home screen asks. The reminder push an hour after the tap needs push keys (see above); without them only the home screen asks.
+- A shop says customers did not find its item: nothing to do, that is the point. To look, `SELECT shop_id, item_id, wrong_reports, customer_verified_at FROM shop_stock WHERE wrong_reports > 0;`. A shop's next real yes clears nothing in the counter, but "Mil gaya" lowers it by one.
+- Visits (`pickup_visits`) hold a customer, a shop and an item for 30 days, then an hourly sweep deletes them. Do not export them.
