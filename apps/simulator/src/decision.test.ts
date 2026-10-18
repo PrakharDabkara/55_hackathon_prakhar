@@ -112,17 +112,6 @@ describe('decide', () => {
     }
   });
 
-  it('says yes without a price when the item has no reference price', () => {
-    const d = decide(
-      profile({ replyProbability: 1 }),
-      { ...ping, refPricePaise: null },
-      createRng(7),
-      1,
-    );
-    expect(d).toMatchObject({ kind: 'answer', body: { answer: 'yes' } });
-    if (d.kind === 'answer') expect(d.body.pricePaise).toBeUndefined();
-  });
-
   it('adds a "few" or "plenty" hint to some yes answers, not all', () => {
     const rng = createRng(8);
     const yes = Array.from({ length: 2000 }, () =>

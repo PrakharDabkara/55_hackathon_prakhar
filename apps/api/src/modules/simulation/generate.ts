@@ -31,14 +31,19 @@ function rng(seed: number): () => number {
 
 /** How common each kind of shop is on a typical Indian street. */
 const WEIGHTS: [Category, number][] = [
-  ['grocery', 34],
-  ['general_store', 16],
-  ['household_kitchen', 10],
+  ['grocery', 28],
+  ['general_store', 12],
+  ['household_kitchen', 8],
   ['stationery', 10],
   ['hardware', 9],
-  ['electrical', 8],
-  ['mobile_accessories', 7],
-  ['personal_care', 6],
+  ['electrical', 7],
+  ['mobile_accessories', 5],
+  ['personal_care', 5],
+  ['dairy', 5],
+  ['sabzi_fruit', 5],
+  ['pooja', 5],
+  ['medical', 4],
+  ['bakery_sweets', 4],
 ];
 
 const SURNAMES = [
@@ -113,6 +118,11 @@ const TEMPLATES: Record<Category, string[]> = {
   household_kitchen: ['{s} Home Needs', '{g} Kitchenware', '{s} Steel & Plastics'],
   personal_care: ['{s} Cosmetics & General', '{g} Beauty & Personal Care', '{s} Ladies Corner'],
   general_store: ['{s} General Store', 'Shree {g} General Stores', 'New {s} Gift & General'],
+  dairy: ['{s} Dairy', '{g} Doodh Dairy', 'Shree {g} Milk Parlour'],
+  sabzi_fruit: ['{s} Fruits & Vegetables', '{g} Sabzi Bhandar', 'New {s} Fresh Fruits'],
+  pooja: ['{g} Pooja Samagri', '{s} Pooja Store', 'Shree {g} Puja Bhandar'],
+  medical: ['{s} Medical Store', '{g} Medicos', 'New {s} Medical & General'],
+  bakery_sweets: ['{s} Bakery', '{g} Sweets & Namkeen', 'New {s} Bakers & Sweets'],
 };
 
 const pick = <T>(list: readonly T[], next: () => number): T =>
@@ -131,7 +141,7 @@ function pickCategory(next: () => number, allowed: readonly Category[], not?: Ca
 const METRES_PER_DEGREE = 111_320;
 
 /**
- * Plausible shops around a point: a realistic mix of the 8 categories, Indian-style names, spread
+ * Plausible shops around a point: a realistic mix of the 13 categories, Indian-style names, spread
  * evenly over the disc, each with a phone from a reserved block (+9160xxxxxxxx) that real users do
  * not use. Pure and deterministic: the same input always gives the same shops.
  */

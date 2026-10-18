@@ -149,13 +149,21 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   }
 
   function onPing(data: unknown) {
-    const d = data as { pingId?: unknown; shopId?: unknown; refPricePaise?: unknown } | null;
+    const d = data as {
+      pingId?: unknown;
+      shopId?: unknown;
+      refPricePaise?: unknown;
+      category?: unknown;
+    } | null;
     if (typeof d?.pingId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
     if (!shop) return; // a simulated shop from some other run
     const decision = decide(
       shop.profile,
-      { refPricePaise: typeof d.refPricePaise === 'number' ? d.refPricePaise : null },
+      {
+        refPricePaise: typeof d.refPricePaise === 'number' ? d.refPricePaise : null,
+        category: typeof d.category === 'string' ? d.category : null,
+      },
       createRng(hashSeed(seed, d.shopId, d.pingId)),
       speed,
     );

@@ -160,6 +160,7 @@ export async function fanOutPings(
             pingId: ping.id,
             shopId: ping.shopId,
             item: { slug: item.slug, nameEn: item.nameEn },
+            category: item.category,
             refPricePaise,
           },
         },

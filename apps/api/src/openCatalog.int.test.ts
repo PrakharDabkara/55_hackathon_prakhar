@@ -132,10 +132,10 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
 
   it('never sends the user id, the item category list or anything but the name to the model', async () => {
     const { ai, provider } = setup();
-    await open('chart paper', ai);
+    await open('foam glitter sheet', ai);
     const sent = JSON.stringify(provider.calls);
     expect(sent).not.toContain(userId);
-    expect(sent.toLowerCase()).toContain('chart paper');
+    expect(sent.toLowerCase()).toContain('foam glitter sheet');
   });
 
   it('nonsense is never created: the model says nonsense', async () => {
@@ -237,16 +237,16 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
   it('limits: at most 10 new items per user per day; another user is unaffected', async () => {
     const { ai } = setup();
     for (const word of [
-      'qorvex',
-      'blintz',
-      'zumbo',
-      'flarn',
-      'gribble',
-      'snorfle',
-      'plimk',
-      'dorvan',
-      'wexel',
-      'yumbo',
+      'qzorv',
+      'xblin',
+      'zumqo',
+      'flqrn',
+      'gribx',
+      'snqrf',
+      'pxlim',
+      'dqrvn',
+      'wxzel',
+      'yqmbo',
     ]) {
       expect((await open(`${word} kit`, ai)).item, word).not.toBeNull();
     }
@@ -259,8 +259,8 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
 
   it('dedupes: a high-similarity or exact match reuses the existing item, even a catalog one', async () => {
     const { ai, provider } = setup();
-    const a = await open('chart paper', ai);
-    const b = await open('Chart  Paper!', ai, { userId: otherUserId });
+    const a = await open('foam glitter sheet', ai);
+    const b = await open('Foam  Glitter Sheet!', ai, { userId: otherUserId });
     expect(b.item?.id).toBe(a.item?.id);
     expect(classifierCalls(provider)).toHaveLength(1);
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(1);
@@ -285,12 +285,12 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
     const { ai } = setup();
     await pool.query(
       `INSERT INTO query_cache (normalised, item_id, method, catalog_version, expires_at)
-       VALUES ('chart paper', NULL, 'llm', $1, now() + interval '1 day')`,
+       VALUES ('foam glitter sheet', NULL, 'llm', $1, now() + interval '1 day')`,
       [CATALOG_VERSION],
     );
-    const first = await open('chart paper', ai);
+    const first = await open('foam glitter sheet', ai);
     expect(first.item).not.toBeNull();
-    const second = await open('chart paper', ai, { userId: otherUserId });
+    const second = await open('foam glitter sheet', ai, { userId: otherUserId });
     expect(second.item?.id).toBe(first.item?.id);
   });
 
