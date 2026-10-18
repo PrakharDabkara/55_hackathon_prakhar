@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { PhotoPicker } from '../components/PhotoPicker.js';
 import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
@@ -50,6 +51,7 @@ export function Search({ api, onFound }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
+  const [photoId, setPhotoId] = useState<string | null>(null);
 
   const latValue = coordinate(lat, 90);
   const lngValue = coordinate(lng, 180);
@@ -89,6 +91,7 @@ export function Search({ api, onFound }: Props) {
     if (!ready || latValue === null || lngValue === null) return;
     const input: NewRequest = { q: query.trim(), lat: latValue, lng: lngValue };
     if (itemId) input.itemId = itemId;
+    if (photoId) input.photoId = photoId;
     if (price.trim() !== '') {
       const parsed = rupeesToPaise(price);
       if (!parsed.ok) {
@@ -133,6 +136,8 @@ export function Search({ api, onFound }: Props) {
           }}
         />
       </label>
+
+      <PhotoPicker api={api} role="request" onChange={setPhotoId} />
 
       <label className="field">
         <span>{t.seenLabel}</span>

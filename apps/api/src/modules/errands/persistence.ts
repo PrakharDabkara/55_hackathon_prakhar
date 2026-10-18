@@ -506,6 +506,8 @@ export interface Confirmation {
   distanceM: number;
   pricePaise: number | null;
   answeredAt: Date;
+  /** The shop's photo of the item with its yes. */
+  photoId: string | null;
 }
 
 /** Shops that said yes to one of this errand's own requests: the only source of "confirmed". */
@@ -523,11 +525,13 @@ export async function listConfirmations(
     distance_m: number;
     price_paise: number | null;
     answered_at: Date;
+    photo_id: string | null;
   }>(
     `SELECT p.shop_id, p.item_id, s.name, ST_Y(s.location::geometry) AS lat,
             ST_X(s.location::geometry) AS lng,
             ST_Distance(s.location, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) AS distance_m,
-            p.price_paise, p.answered_at
+            p.price_paise, p.answered_at,
+            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id
        FROM errand_requests er
        JOIN pings p ON p.request_id = er.request_id AND p.item_id = er.item_id
        JOIN shops s ON s.id = p.shop_id
@@ -544,6 +548,7 @@ export async function listConfirmations(
     distanceM: Math.round(r.distance_m),
     pricePaise: r.price_paise,
     answeredAt: r.answered_at,
+    photoId: r.photo_id,
   }));
 }
 

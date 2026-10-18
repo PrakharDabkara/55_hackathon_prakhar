@@ -161,6 +161,24 @@ export interface Strings {
   errandAskAgain: string;
   errandGone: string;
 
+  // Photos (optional, both sides)
+  photoAdd: string;
+  photoAddFor: (what: string) => string;
+  photoRemove: string;
+  photoPreparing: string;
+  photoUploading: (percent: number) => string;
+  photoPreviewAlt: string;
+  photoCustomer: string;
+  photoShop: string;
+  photoEnlarge: (what: string) => string;
+  photoClose: string;
+  errPhotoTooLarge: string;
+  errPhotoLimit: string;
+  errPhotoBad: string;
+  errPhotoNetwork: string;
+  errPhotoFull: string;
+  errPhoto: string;
+
   categories: Record<Category, string>;
   bands: Record<Band, string>;
 }
@@ -324,6 +342,23 @@ export const hi: Strings = {
   errandNothingYet: 'Abhi kisi dukaan ne jawab nahi diya',
   errandAskAgain: 'Dukaanon se phir poochein',
   errandGone: 'Ye kaam nahi mila.',
+
+  photoAdd: 'Photo jodein',
+  photoAddFor: (what) => `Photo jodein: ${what}`,
+  photoRemove: 'Photo hatayein',
+  photoPreparing: 'Photo taiyaar ho rahi hai…',
+  photoUploading: (percent) => `Upload ho raha hai ${percent}%`,
+  photoPreviewAlt: 'Aapki photo',
+  photoCustomer: 'Customer ki photo',
+  photoShop: 'Dukaan ki photo',
+  photoEnlarge: (what) => `${what}: bada karein`,
+  photoClose: 'Band karein',
+  errPhotoTooLarge: 'Photo bahut badi hai. Chhoti photo chunein.',
+  errPhotoLimit: 'Aaj ke liye 10 photo ho chuki hain. Kal phir jodein.',
+  errPhotoBad: 'Ye photo nahi chalegi. JPEG, PNG ya WebP photo chunein.',
+  errPhotoNetwork: 'Internet nahi chal raha. Dobara try karein.',
+  errPhotoFull: 'Abhi photo nahi le sakte. Bina photo ke aage badhein.',
+  errPhoto: 'Photo upload nahi ho payi. Dobara try karein.',
 
   categories: {
     grocery: 'किराना',
@@ -506,6 +541,23 @@ export const en: Strings = {
   errandNothingYet: 'No shop has answered yet',
   errandAskAgain: 'Ask the shops again',
   errandGone: 'That errand was not found.',
+
+  photoAdd: 'Photo jodein',
+  photoAddFor: (what) => `Photo jodein: ${what}`,
+  photoRemove: 'Photo hatayein',
+  photoPreparing: 'Preparing the photo…',
+  photoUploading: (percent) => `Uploading ${percent}%`,
+  photoPreviewAlt: 'Your photo',
+  photoCustomer: "Customer's photo",
+  photoShop: "Shop's photo",
+  photoEnlarge: (what) => `${what}: enlarge`,
+  photoClose: 'Close',
+  errPhotoTooLarge: 'The photo is too big. Pick a smaller one.',
+  errPhotoLimit: "You've added 10 photos today. Try again tomorrow.",
+  errPhotoBad: "That photo won't work. Pick a JPEG, PNG or WebP photo.",
+  errPhotoNetwork: 'No internet. Please try again.',
+  errPhotoFull: "Photos can't be added right now. Carry on without one.",
+  errPhoto: 'The photo could not be uploaded. Please try again.',
 
   categories: {
     grocery: 'Grocery',

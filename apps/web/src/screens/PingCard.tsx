@@ -1,12 +1,17 @@
 import { useState } from 'react';
+import { AuthPhoto } from '../components/AuthPhoto.js';
+import { PhotoPicker } from '../components/PhotoPicker.js';
 import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import type { Band } from '../i18n/strings.js';
 import type { AnswerBody, ShopPing } from '../lib/api.js';
 import { formatRupees, rupeesToPaise } from '../lib/money.js';
+import type { PhotoApi } from '../lib/photoApi.js';
 
 interface Props {
   ping: ShopPing;
+  /** Shows the customer's photo and lets the shop add its own with a yes. Without it, no photos. */
+  photos?: PhotoApi;
   /** True while an answer is on its way; the buttons wait. */
   busy?: boolean;
   onAnswer: (body: AnswerBody) => void;
@@ -16,12 +21,13 @@ interface Props {
  * One question, two big buttons. "Haan hai" opens an optional price and a "few / plenty" chip; the
  * shopkeeper can always skip both. The card never decides what happens next: the parent does.
  */
-export function PingCard({ ping, busy = false, onAnswer }: Props) {
+export function PingCard({ ping, photos, busy = false, onAnswer }: Props) {
   const { t } = useT();
   const [step, setStep] = useState<'ask' | 'details'>('ask');
   const [price, setPrice] = useState('');
   const [hint, setHint] = useState<'few' | 'plenty' | null>(null);
   const [priceError, setPriceError] = useState(false);
+  const [photoId, setPhotoId] = useState<string | null>(null);
 
   const band = t.bands[ping.distanceBand as Band] ?? ping.distanceBand;
   const quantity = ping.quantity ? `${ping.quantity.quantity} ${ping.quantity.unit}` : null;
@@ -37,6 +43,7 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
       body.pricePaise = parsed.paise;
     }
     if (hint) body.quantityHint = hint;
+    if (photoId) body.photoId = photoId;
     setPriceError(false);
     onAnswer(body);
   }
@@ -54,6 +61,7 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
         <p className="target">{t.targetLine(formatRupees(ping.targetPricePaise))}</p>
       )}
       <p className="detail">{t.customerDistance(band)}</p>
+      {photos && ping.photoId && <AuthPhoto api={photos} id={ping.photoId} alt={t.photoCustomer} />}
 
       {step === 'ask' ? (
         <div className="actions">
@@ -113,6 +121,7 @@ export function PingCard({ ping, busy = false, onAnswer }: Props) {
               </button>
             ))}
           </div>
+          {photos && <PhotoPicker api={photos} role="answer" onChange={setPhotoId} />}
           <div className="actions">
             <button type="submit" className="btn btn-yes" disabled={busy}>
               {t.send}

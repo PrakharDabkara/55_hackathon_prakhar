@@ -43,6 +43,8 @@ export interface PlanItem {
   /** From the shop's answer or learned stock on record, never from the model. */
   pricePaise: number | null;
   referencePricePaise: number | null;
+  /** The shop's photo of the item with its yes, to show on the card (GET /photos/:id). */
+  photoId: string | null;
   /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Pichhla jawab: kal" for learned stock. */
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
@@ -226,6 +228,7 @@ export async function buildPlan(
         pricePaise: said.pricePaise,
         status: 'confirmed',
         freshness: confirmedLabel(said.answeredAt, now),
+        photoId: said.photoId,
       });
     for (const stock of await findLearnedStock(db, itemId, where.lat, where.lng, CHECK_RADIUS_M))
       offers.push({
@@ -264,6 +267,7 @@ export async function buildPlan(
         distanceM: null,
         pricePaise: null,
         referencePricePaise: known?.refPricePaise ?? null,
+        photoId: null,
         freshness: null,
         downgraded: null,
         matchedAs: false,
@@ -279,6 +283,7 @@ export async function buildPlan(
           shopName: offer.shopName,
           distanceM: offer.distanceM,
           pricePaise: offer.pricePaise,
+          photoId: offer.status === 'confirmed' ? (offer.photoId ?? null) : null,
           freshness: offer.freshness,
           downgraded:
             claim.status === 'confirmed' && offer.status === 'likely' ? 'not_confirmed' : null,

@@ -250,3 +250,9 @@ Nothing here is needed to build or run the app. Approve one (`npm install-script
 - **The deploy's embedding step can fail without stopping the deploy.** Look in the job summary of the deploy run ("Catalog embeddings not finished: N items still un-embedded"). Search still works; only the closest-meaning step skips those items. The next deploy embeds exactly the missing ones. To do it sooner by hand: `LLM_PROVIDER=gemini npm run ai:embed-catalog` with your own key.
 - **New items.** `SELECT slug, name_en, category, unverified, created_at FROM items WHERE source = 'user' ORDER BY created_at DESC` lists what customers added; `new_item_attempts` shows created and blocked attempts (the rule only, never the text). Logs: search `new_item_blocked` and `new_item_created`. To remove one: `DELETE FROM items WHERE id = ...` (its stock and synonyms go with it).
 - **Blocked item that should be allowed:** add an `ALLOWED_PHRASES` entry and a test in `modules/safety/denyList.ts`. **Safety check down** shows as `item_unavailable` (503); `/admin/ai/ping` shows each model by purpose.
+
+## Photos (Day 15)
+
+- **Setting:** `PHOTO_STORAGE_CAP_MB` (Render env, default 300). Uploads above it get 503 `photo_storage_full`; the app keeps working without photos. **Migration 015 runs on deploy** and only adds a table; nothing to set by hand.
+- **How much is stored:** `SELECT count(*), pg_size_pretty(sum(size)) FROM photos`; every upload logs `photo_stored` with `totalBytes`, the sweeper logs `photos_swept`. To free space now: `DELETE FROM photos WHERE created_at < now() - interval '1 day'` (cards simply show no photo).
+- **A photo that should not be there:** `DELETE FROM photos WHERE id = ...`. No photo is ever sent to Gemini or anywhere outside Postgres.

@@ -9,11 +9,14 @@ import {
   sweepErrands,
   type ErrandWaker,
 } from '../modules/errands/index.js';
+import { sweepPhotos } from '../modules/photos/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
 import { startErrandWorker, type ErrandWorker } from './errandWorker.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
 import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
+
+const PHOTO_SWEEP_EVERY_MS = 10 * 60_000;
 
 export interface Workers {
   /** Hand to createApp so new requests schedule expiry and queue their ping fan-out. */
@@ -58,6 +61,7 @@ export function startWorkers({
     ...(events && { events }),
   });
   const limits = limitsFromConfig(config);
+  let lastPhotoSweep = 0;
   // The errand worker is made after the expiry sweeper, which needs to sweep errands too.
   let errands: ErrandWorker | null = null;
   const requestHooks: RequestHooks = {};
@@ -69,6 +73,12 @@ export function startWorkers({
     ...(events && { events }),
     ...(sweepEveryMs !== undefined && { sweepEveryMs }),
     extraSweeps: [
+      // Photos 7 days past their request's expiry go; looked at every 10 minutes, not every 60 s.
+      async () => {
+        if (Date.now() - lastPhotoSweep < PHOTO_SWEEP_EVERY_MS) return 0;
+        lastPhotoSweep = Date.now();
+        return (await sweepPhotos({ db, logger }, new Date())).deleted;
+      },
       async () =>
         errands
           ? sweepErrands({

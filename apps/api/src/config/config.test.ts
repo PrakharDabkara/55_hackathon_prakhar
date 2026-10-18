@@ -453,3 +453,17 @@ describe('a model for the errand agent (Day 14c)', () => {
     ).toBe('gemini-3.5-flash-lite');
   });
 });
+
+describe('photo storage cap (ADR-0030)', () => {
+  it("defaults to 300 MB, for Neon's free 0.5 GB", () => {
+    expect(loadConfig(valid)).toMatchObject({ photoStorageCapMb: 300 });
+  });
+
+  it('is configurable, and must be a positive number', () => {
+    expect(loadConfig({ ...valid, PHOTO_STORAGE_CAP_MB: '150' })).toMatchObject({
+      photoStorageCapMb: 150,
+    });
+    expect(() => loadConfig({ ...valid, PHOTO_STORAGE_CAP_MB: '0' })).toThrow();
+    expect(() => loadConfig({ ...valid, PHOTO_STORAGE_CAP_MB: 'lots' })).toThrow();
+  });
+});

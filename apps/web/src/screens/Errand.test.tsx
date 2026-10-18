@@ -7,6 +7,12 @@ import { errandPlan, errandView, FakeEventSource, fakeSeekerApi } from '../test/
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
 
+// jsdom cannot decode or draw a picture: the shrink step (canvas) is replaced by a pass-through.
+vi.mock('../lib/photo.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/photo.js')>()),
+  shrinkPhoto: async (file: Blob) => file,
+}));
+
 // jsdom cannot draw a Leaflet map; the map is one small component, replaced here by a probe.
 vi.mock('../components/PlanMap.js', () => ({
   PlanMap: (props: { origin: unknown; stops: unknown[] }) => (
@@ -240,6 +246,27 @@ describe('a question', () => {
       },
     });
     const box = () => screen.getByRole('group', { name: 'Ek sawaal' });
+
+    it('offers "Photo jodein" on every item, uploads against this errand and that item, and never needs one', async () => {
+      const { user, api, container } = setup({ getErrand: vi.fn(async () => confirm) });
+      await start(user);
+      await screen.findByText('Ye cheezein chahiye?');
+      const buttons = within(box()).getAllByRole('button', { name: /^Photo jodein: / });
+      expect(buttons).toHaveLength(5);
+      const row = screen.getByRole('button', { name: 'Photo jodein: chini' }).closest('.check-row');
+      const input = row?.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(container.querySelectorAll('input[type="file"]').length).toBe(5);
+      await user.upload(input, new File([new Uint8Array(300)], 'a.jpg', { type: 'image/jpeg' }));
+      await waitFor(() =>
+        expect(api.uploadPhoto).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ role: 'request', errand: { id: 'errand-1', label: 'chini' } }),
+        ),
+      );
+      // The answer itself is unchanged: the photo is already with the server.
+      await user.click(within(box()).getByRole('button', { name: 'Theek hai' }));
+      expect(api.answerErrand).toHaveBeenCalledWith('errand-1', { selected: [0, 1, 2] });
+    });
 
     it('shows a checkbox for each item, the defaults ticked, and "Theek hai"', async () => {
       const { user } = setup({ getErrand: vi.fn(async () => confirm) });
@@ -623,6 +650,18 @@ describe('the result', () => {
         budgetPaise: 30000,
       });
       expect(await screen.findByText('Samjha: 2 cheezein')).toBeTruthy();
+    });
+
+    it("shows the shop's photo on the plan card of an item it confirmed", async () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items = plan.plans.kam_dukaan.items.map((item, n) =>
+        n === 0 ? { ...item, photoId: 'shop-photo-7' } : item,
+      );
+      const { api } = await showPlain(plan);
+      expect(
+        await screen.findAllByRole('button', { name: 'Dukaan ki photo: bada karein' }),
+      ).toHaveLength(1);
+      expect(api.photoSrc).toHaveBeenCalledWith('shop-photo-7');
     });
 
     it('some found, some not: found items first, the others together under "Nahi mila"', async () => {

@@ -1,4 +1,5 @@
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
+import { createPhotoApi, type PhotoApi } from './photoApi.js';
 
 export interface ShopResult {
   shopId: string;
@@ -14,6 +15,8 @@ export interface ShopResult {
   /** `live`: said yes to this request. `learned`: remembered from an earlier yes. */
   source: 'live' | 'learned';
   savingsPaise?: number;
+  /** The shop's photo of the item, if it added one with its yes. */
+  photoId?: string;
 }
 
 export interface PingStats {
@@ -50,6 +53,8 @@ export interface NewRequest {
   targetPricePaise?: number;
   /** The item the customer picked after a question: skips matching the text. */
   itemId?: string;
+  /** A photo of what is wanted, uploaded first with POST /photos (optional). */
+  photoId?: string;
 }
 
 export type ErrandState =
@@ -79,6 +84,8 @@ export interface PlanItem {
   referencePricePaise: number | null;
   /** Written by the server in English: "Confirmed 2 min ago". */
   freshness: string | null;
+  /** The shop's photo of the item with its yes (GET /photos/:id). */
+  photoId?: string | null;
   downgraded: string | null;
   /** True when the item is not what the customer's words would lead them to expect. */
   matchedAs: boolean;
@@ -159,10 +166,8 @@ export interface NewErrand {
 }
 
 /** Everything the customer app asks of the server. */
-export interface SeekerApi extends Pick<
-  ShopApi,
-  'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'
-> {
+export interface SeekerApi
+  extends Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'>, PhotoApi {
   createRequest(input: NewRequest): Promise<SeekerRequest>;
   getRequest(id: string): Promise<SeekerRequest>;
   closeRequest(id: string): Promise<SeekerRequest>;
@@ -184,6 +189,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
   const id = (value: string) => encodeURIComponent(value);
 
   return {
+    ...createPhotoApi(options),
     async requestOtp(phone) {
       await call('POST', '/auth/otp/request', { phone });
     },

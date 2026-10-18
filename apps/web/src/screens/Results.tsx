@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AuthPhoto } from '../components/AuthPhoto.js';
 import { ResultsMap } from '../components/ResultsMap.js';
 import { useT } from '../i18n/index.js';
 import { formatCountdown, formatDistance } from '../lib/format.js';
@@ -131,6 +132,7 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
             <li key={r.shopId} className="result">
               <div className="result-main">
                 <h3>{r.name}</h3>
+                {r.photoId && <AuthPhoto api={api} id={r.photoId} alt={t.photoShop} />}
                 <p className="price">
                   {r.pricePaise === null ? t.noPrice : formatRupees(r.pricePaise)}
                 </p>

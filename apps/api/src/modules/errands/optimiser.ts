@@ -20,6 +20,8 @@ export interface Offer {
   pricePaise: number | null;
   status: OfferStatus;
   freshness: string | null;
+  /** The shop's photo of the item, for a confirmed offer. */
+  photoId?: string | null;
 }
 
 /** One thing the customer wants. `key` tells two entries apart (the same item may appear twice). */
