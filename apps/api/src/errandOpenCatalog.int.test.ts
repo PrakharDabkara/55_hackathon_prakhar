@@ -54,7 +54,7 @@ describe('errand agent with the open catalog', () => {
     provider = createFakeProvider();
     provider.onGenerate(({ purpose }) =>
       purpose === 'classify_item'
-        ? { verdict: 'allowed', category: 'stationery' }
+        ? { verdict: 'allowed', confidence: 'high', category: 'stationery' }
         : { itemId: null, needsClarification: false },
     );
     ai = createAi({

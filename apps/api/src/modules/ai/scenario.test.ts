@@ -138,7 +138,11 @@ describe('the scripted safety classifier', () => {
     });
 
   it('answers a new item by the first rule that matches its name, else nonsense', () => {
-    expect(classify('Bead dazzling kit')).toEqual({ verdict: 'allowed', category: 'stationery' });
+    expect(classify('Bead dazzling kit')).toEqual({
+      verdict: 'allowed',
+      confidence: 'high',
+      category: 'stationery',
+    });
     expect(classify('some pistol')).toEqual({ verdict: 'blocked' });
     expect(classify('xyzzy')).toEqual({ verdict: 'nonsense' });
   });

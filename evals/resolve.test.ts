@@ -24,7 +24,7 @@ const slugs = new Set(seed.items.map((i) => i.slug));
 describe('evals/resolve.dev.jsonl', () => {
   it('has about 80 labelled queries, each one line of JSON', () => {
     expect(cases.length).toBeGreaterThanOrEqual(75);
-    expect(cases.length).toBeLessThanOrEqual(110);
+    expect(cases.length).toBeLessThanOrEqual(125);
   });
 
   it('has dev cases for real products the catalog lacks: a new user item is right for them (ADR-0022)', () => {
@@ -33,6 +33,20 @@ describe('evals/resolve.dev.jsonl', () => {
     for (const c of fresh) expect(c.expected, c.q).toBeNull();
     expect(cases.some((c) => c.q === 'bead dazzling kit')).toBe(true);
     expect(cases.some((c) => c.q === 'chandan itr')).toBe(true);
+  });
+
+  it('has borderline dev cases for the "when unsure, do not create" rule: random strings, keyboard mash, real words that are not products, vehicles and phones', () => {
+    const nonsense = cases.filter((c) => c.kind === 'nonsense').map((c) => c.q);
+    for (const q of [
+      'vkqz plmt',
+      'hjklasdf',
+      'tomorrow morning',
+      'maruti swift',
+      'samsung galaxy s24',
+      'plumber chahiye',
+    ])
+      expect(nonsense, q).toContain(q);
+    expect(nonsense.length).toBeGreaterThanOrEqual(20);
   });
 
   it('keeps the holdouts as they were: no new-item case there', () => {

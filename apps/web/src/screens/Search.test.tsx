@@ -140,7 +140,7 @@ describe('Search', () => {
     await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
     await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
-      "Samajh nahi aaya — thoda aur detail mein likhiye (jaise 'paper clip', 'nail cutter')",
+      'Ye cheez samajh nahi aayi — thoda aur batayein',
     );
     expect((screen.getByLabelText('क्या चाहिए?') as HTMLInputElement).value).toBe('xyzzy');
   });

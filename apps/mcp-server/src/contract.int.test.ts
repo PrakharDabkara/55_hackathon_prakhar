@@ -74,7 +74,7 @@ describe('MCP contract', () => {
     provider.onGenerate(({ purpose, user }) =>
       purpose === 'classify_item'
         ? /bead dazzling/i.test(user)
-          ? { verdict: 'allowed', category: 'stationery' }
+          ? { verdict: 'allowed', confidence: 'high', category: 'stationery' }
           : { verdict: 'nonsense' }
         : {
             itemId: null,

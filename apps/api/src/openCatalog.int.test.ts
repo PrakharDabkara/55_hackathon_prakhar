@@ -59,7 +59,9 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
     ).rows[0]?.id as string;
   });
 
-  const setup = (verdict: unknown = { verdict: 'allowed', category: 'stationery' }) => {
+  const setup = (
+    verdict: unknown = { verdict: 'allowed', confidence: 'high', category: 'stationery' },
+  ) => {
     const provider: FakeProvider = createFakeProvider({ dim: DIM });
     provider.onGenerate(({ purpose }) =>
       purpose === 'classify_item' ? verdict : { itemId: null, needsClarification: false },
@@ -90,7 +92,7 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
     p.calls.filter((c) => c.kind === 'generate' && c.purpose === 'classify_item');
 
   it('a real unknown product becomes an unverified user item with a category, creator and time', async () => {
-    const { ai } = setup({ verdict: 'allowed', category: 'stationery' });
+    const { ai } = setup({ verdict: 'allowed', confidence: 'high', category: 'stationery' });
     const r = await open('bead dazzling kit', ai);
     expect(r.item).toMatchObject({
       nameEn: 'Bead dazzling kit',
@@ -215,8 +217,42 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
     expect(r.refused).toBeUndefined();
   });
 
+  it('when unsure, nothing is created: a low-confidence "allowed" and an "unsure" stay not found', async () => {
+    for (const answer of [
+      { verdict: 'allowed', confidence: 'low', category: 'stationery' },
+      { verdict: 'allowed', category: 'stationery' },
+      { verdict: 'unsure' },
+    ]) {
+      const { ai } = setup(answer);
+      const r = await open('bead dazzling kit', ai);
+      expect(r.item).toBeNull();
+      expect(r.refused).toBeUndefined();
+    }
+    expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
+    expect((await pool.query(`SELECT 1 FROM new_item_attempts`)).rowCount).toBe(0);
+  });
+
+  it('text that fails the code checks never reaches the model: random, mash, vehicles, phones', async () => {
+    const { ai, provider } = setup();
+    for (const q of [
+      'qpzx wvk',
+      'lkjhgfd',
+      'aaaa bbbb',
+      'maruti swift',
+      'iphone 15 pro max',
+      'what is the time',
+      'plumber',
+    ]) {
+      const r = await open(q, ai);
+      expect(r.item, q).toBeNull();
+      expect(r.refused, q).toBeUndefined();
+    }
+    expect(classifierCalls(provider)).toHaveLength(0);
+    expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
+  });
+
   it('a category outside the list is refused like an outage', async () => {
-    const { ai } = setup({ verdict: 'allowed', category: 'weapons' });
+    const { ai } = setup({ verdict: 'allowed', confidence: 'high', category: 'weapons' });
     const r = await open('bead dazzling kit', ai);
     expect(r.item).toBeNull();
     expect(r.refused).toEqual({ reason: 'unavailable' });
@@ -267,7 +303,7 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
   });
 
   it('dedupe respects the product-form guard: "chandan itr" is not "chandan powder"', async () => {
-    const { ai } = setup({ verdict: 'allowed', category: 'pooja' });
+    const { ai } = setup({ verdict: 'allowed', confidence: 'high', category: 'pooja' });
     const r = await open('chandan itr', ai);
     expect(r.item?.nameEn).toBe('Chandan itr');
     expect(r.item?.slug).not.toBe('chandan');

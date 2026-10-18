@@ -50,7 +50,7 @@ describe('open catalog over HTTP', () => {
     provider.calls.length = 0;
     provider.onGenerate(({ purpose }) =>
       purpose === 'classify_item'
-        ? { verdict: 'allowed', category: 'stationery' }
+        ? { verdict: 'allowed', confidence: 'high', category: 'stationery' }
         : { itemId: null, needsClarification: false },
     );
   });

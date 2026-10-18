@@ -216,7 +216,7 @@ describe('errand eval harness (fake model, real database)', () => {
     const { ai, provider } = await run();
     provider.onGenerate(({ purpose }) =>
       purpose === 'classify_item'
-        ? { verdict: 'allowed', category: 'stationery' }
+        ? { verdict: 'allowed', confidence: 'high', category: 'stationery' }
         : { itemId: null, needsClarification: false },
     );
     provider.playChat([
