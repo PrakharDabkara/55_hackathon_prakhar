@@ -57,6 +57,8 @@ export interface AiClient {
   ): Promise<EmbedResult & { callId: string | null }>;
   /** The time limit a call of this purpose gets (resolve is short, errand calls are long). */
   timeoutFor(purpose: Purpose): number;
+  /** The models a call of this purpose tries: the primary, and the fallback if there is one. */
+  modelsFor(purpose: Purpose): { model: string; fallbackModel: string | null };
   /** One tool-using model turn (the errand agent). Gets a longer time limit than a short JSON call. */
   chatWithTools(
     options: ChatWithToolsOptions & { requestId?: string; timeoutMs?: number; retries?: number },
@@ -270,6 +272,12 @@ export function createAiClient({
         limit ?? timeoutFor(options.purpose),
         attempts ?? retries,
       ),
+    modelsFor(purpose) {
+      const own = models[purpose];
+      return own
+        ? { model: own.model, fallbackModel: own.fallbackModel }
+        : { model: provider.model, fallbackModel: provider.fallbackModel };
+    },
     embed: (texts, purpose, requestId) =>
       run(
         purpose,

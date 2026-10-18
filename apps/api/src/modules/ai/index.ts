@@ -65,6 +65,7 @@ interface Options {
   client?: {
     timeoutMs?: number;
     purposeTimeoutMs?: Partial<Record<Purpose, number>>;
+    models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
   };
