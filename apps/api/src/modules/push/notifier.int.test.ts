@@ -174,7 +174,10 @@ describe('push notifications for the events of a search, an errand and an order'
       const orders = to(shopSub).filter((q) => q.payload.title.startsWith('Naya order: '));
       expect(orders).toHaveLength(1);
       expect(orders[0]?.payload.url).toBe('/app/shop');
-      expect(to(seekerSub)).toHaveLength(0);
+      // The customer made the order; the only push they got was for the answer that came before it.
+      expect(to(seekerSub).map((q) => q.payload.title)).toEqual([
+        expect.stringMatching(/^Dukaan ne jawab diya/),
+      ]);
     });
 
     it("sends one push to each of the shop's devices but counts it once against the limit", async () => {
@@ -302,8 +305,10 @@ describe('push notifications for the events of a search, an errand and an order'
     expect(queued.length).toBeGreaterThan(3);
     const all = JSON.stringify(queued.map((q) => q.payload));
     expect(all).not.toMatch(/Sapna|Vijay|Flat|Asha/);
-    expect(all).not.toMatch(/\d{10}/);
-    expect(all).not.toMatch(/\d{2}\.\d{3,}/);
+    // The link holds a random id; the words a person reads must hold no phone or coordinates.
+    const words = JSON.stringify(queued.map((q) => [q.payload.title, q.payload.item]));
+    expect(words).not.toMatch(/\d{7}/);
+    expect(words).not.toMatch(/\d{2}\.\d{3,}/);
     for (const q of queued) {
       expect(Object.keys(q.payload).sort()).toEqual(['item', 'title', 'url']);
       expect(q.payload.url).toMatch(/^\/app\/(shop|request\/[\w-]+|errand\/[\w-]+|order\/[\w-]+)$/);

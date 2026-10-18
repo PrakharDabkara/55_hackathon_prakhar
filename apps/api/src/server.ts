@@ -1,4 +1,5 @@
 import { pino } from 'pino';
+import webPush from 'web-push';
 import { createApp } from './app.js';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
@@ -24,7 +25,16 @@ const workers = startWorkers({
   events: realtime.events,
   ai,
   subscribe: realtime.onPublish,
+  webPush,
 });
+// Once, at startup: push is optional and never stops the API from starting (ADR-0034).
+if (!config.vapid) {
+  logger.warn(
+    'web push is off: set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT (mailto:) to turn it on',
+  );
+} else if (!workers) {
+  logger.warn('web push is off: it needs the workers (WORKERS_ENABLED and REDIS_URL)');
+}
 const app = createApp({
   config,
   logger,

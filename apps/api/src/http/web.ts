@@ -64,9 +64,15 @@ export function webRouter({ distDir, logger }: { distDir: string; logger: Logger
       setHeaders(res, filePath) {
         // Vite names files in assets/ after their content, so they never change under one name.
         const hashed = filePath.includes(`${path.sep}assets${path.sep}`);
+        // The service worker keeps its name across releases: phones must re-check it every time.
+        const worker = path.basename(filePath) === 'sw.js';
         res.setHeader(
           'Cache-Control',
-          hashed ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
+          hashed
+            ? 'public, max-age=31536000, immutable'
+            : worker
+              ? 'no-cache'
+              : 'public, max-age=3600',
         );
       },
     }),

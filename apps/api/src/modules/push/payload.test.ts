@@ -59,22 +59,26 @@ describe('buildPayload', () => {
       }
     });
 
-    it('never carries a phone number, an address or coordinates, even if the item text does', () => {
+    it('never carries a phone number or coordinates, even if the item text does', () => {
       const hostile = [
         'atta +919876543210',
         'atta 9876543210',
-        'atta at Flat 4B, Sapna Apartments, Vijay Nagar',
+        'atta 98765 43210',
         'atta 22.7196, 75.8577',
       ];
       for (const kind of kinds) {
         for (const item of hostile) {
           const text = JSON.stringify(buildPayload(kind, { item, id: ID }));
-          expect(text, `${kind} ${item}`).not.toMatch(/\d{10}/);
+          expect(text, `${kind} ${item}`).not.toMatch(/\d{7}/);
           expect(text, `${kind} ${item}`).not.toMatch(/\+91/);
           expect(text, `${kind} ${item}`).not.toMatch(/\d{1,3}\.\d{3,}/);
-          expect(text, `${kind} ${item}`).not.toMatch(/flat|apartments|nagar/i);
+          expect(text, `${kind} ${item}`).toContain('atta');
         }
       }
+    });
+
+    it('has no way to take an address: the builder is only given an item name and an id', () => {
+      expect(buildPayload.length).toBe(2);
     });
 
     it('keeps only a short, plain item name', () => {

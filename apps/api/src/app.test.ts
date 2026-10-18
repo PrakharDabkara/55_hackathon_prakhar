@@ -44,6 +44,8 @@ const config: Config = {
   errandModel: 'gemini-3.1-flash-lite',
   errandFallbackModel: null,
   photoStorageCapMb: 300,
+  vapid: null,
+  pushMaxPerMinute: 5,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });

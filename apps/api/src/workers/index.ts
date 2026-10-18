@@ -11,10 +11,22 @@ import {
 } from '../modules/errands/index.js';
 import { sweepOrderAddresses, sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
+import {
+  createNotifier,
+  createPushSender,
+  createRateLimiter,
+  findSubscription,
+  markSubscriptionSuccess,
+  removeSubscription,
+  type CounterStore,
+  type WebPushClient,
+} from '../modules/push/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
 import { startErrandWorker, type ErrandWorker } from './errandWorker.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
+import { startPushWorker, type PushWorker } from './pushWorker.js';
+import { connect } from './redis.js';
 import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
 
 const PHOTO_SWEEP_EVERY_MS = 10 * 60_000;
@@ -27,6 +39,8 @@ export interface Workers {
   fanout: PingFanout;
   /** Present when AI is configured; hand its `enqueue` to createApp as errandHooks. */
   errands: ErrandWorker | null;
+  /** Present when VAPID keys are set: sends Web Push after the events that caused it (ADR-0034). */
+  push: PushWorker | null;
   close(): Promise<void>;
   /** Wakes waiting errands when their requests change; null without AI. */
   waker: ErrandWaker | null;
@@ -41,6 +55,7 @@ export function startWorkers({
   sweepEveryMs,
   ai,
   subscribe,
+  webPush,
 }: {
   config: Config;
   db: Database;
@@ -52,6 +67,8 @@ export function startWorkers({
   ai?: AiContext;
   /** Registers a listener for every event this process publishes (realtime.onPublish). */
   subscribe?: (listener: (event: RealtimeEvent) => void) => void;
+  /** The web-push library, or a stand-in in tests. Only used when VAPID keys are set. */
+  webPush?: WebPushClient;
 }): Workers | null {
   if (!config.workersEnabled || !config.redisUrl) return null;
 
@@ -158,15 +175,52 @@ export function startWorkers({
     });
   }
 
+  let push: PushWorker | null = null;
+  let pushCounters: ReturnType<typeof connect> | null = null;
+  if (config.vapid && webPush && subscribe) {
+    const sender = createPushSender({
+      store: {
+        find: (id) => findSubscription(db, id),
+        remove: (id) => removeSubscription(db, id),
+        markSuccess: (id) => markSubscriptionSuccess(db, id),
+      },
+      webPush,
+      vapid: config.vapid,
+      logger,
+    });
+    push = startPushWorker({ redisUrl: config.redisUrl, logger, deliver: sender.deliver });
+    // The limit's counter must fail fast: a slow Redis lets the push through.
+    pushCounters = connect(config.redisUrl, logger, {
+      maxRetriesPerRequest: 1,
+      commandTimeout: 1000,
+    });
+    const counters = pushCounters;
+    const store: CounterStore = {
+      incr: (key) => counters.incr(key),
+      expire: (key, seconds) => counters.expire(key, seconds, 'NX'),
+    };
+    const notifier = createNotifier({
+      db,
+      logger,
+      enqueue: push.enqueue,
+      limiter: createRateLimiter(store, { max: config.pushMaxPerMinute, windowSeconds: 60 }),
+      answerDebounceMs: 3000,
+    });
+    // The events are published after the commit that caused them, so a push never tells of a rollback.
+    subscribe((event) => notifier.handle(event));
+  }
+
   return {
     hooks: requestHooks,
     expiry,
     fanout,
     errands,
     waker,
+    push,
     async close() {
       waker?.close();
-      await Promise.all([expiry.close(), fanout.close(), errands?.close()]);
+      await Promise.all([expiry.close(), fanout.close(), errands?.close(), push?.close()]);
+      pushCounters?.disconnect();
     },
   };
 }
