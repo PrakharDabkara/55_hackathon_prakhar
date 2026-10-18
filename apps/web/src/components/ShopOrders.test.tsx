@@ -116,3 +116,38 @@ describe('nothing to show', () => {
     expect(container.textContent).toBe('');
   });
 });
+
+describe('active orders on top, past orders below (PR E)', () => {
+  const past = (id: string, state: 'DELIVERED' | 'DECLINED') =>
+    shopOrder({ id, state, final: true, contactName: `Past ${id}` });
+
+  it('puts the orders to act on first, then a "Pichhle orders" heading and the finished ones', () => {
+    setup([
+      past('p1', 'DELIVERED'),
+      shopOrder({ id: 'a1', contactName: 'Active one' }),
+      past('p2', 'DECLINED'),
+      accepted({ id: 'a2', contactName: 'Active two' }),
+    ]);
+    expect(screen.getByRole('heading', { name: 'Chal rahe orders' })).toBeTruthy();
+    const past_ = screen.getByRole('heading', { name: 'Pichhle orders' });
+    const names = screen
+      .getAllByRole('article')
+      .map((card) => /Active one|Active two|Past p1|Past p2/.exec(card.textContent ?? '')?.[0]);
+    expect(names).toEqual(['Active one', 'Active two', 'Past p1', 'Past p2']);
+    const lastActive = screen.getAllByRole('article')[1] as HTMLElement;
+    expect(
+      past_.compareDocumentPosition(lastActive) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+  });
+
+  it('shows no "Pichhle orders" heading when nothing has finished', () => {
+    setup([shopOrder()]);
+    expect(screen.queryByRole('heading', { name: 'Pichhle orders' })).toBeNull();
+  });
+
+  it('a past order has no action buttons', () => {
+    setup([past('p1', 'DELIVERED')]);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Pahuncha diya gaya')).toBeTruthy();
+  });
+});

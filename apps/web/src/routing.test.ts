@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { errandIdFromPath, isErrandPath, isShopPath } from './routing.js';
+import {
+  errandIdFromPath,
+  isErrandPath,
+  isShopPath,
+  orderIdFromPath,
+  requestIdFromPath,
+  isOrdersPath,
+} from './routing.js';
 
 describe('isShopPath', () => {
   it('sends /app/shop and anything under it to the shop app', () => {
@@ -33,5 +40,24 @@ describe('isErrandPath', () => {
     for (const p of ['/app/', '/app/errands', '/app/errand/a/b', '/app/errand/a b', '/app/shop']) {
       expect(isErrandPath(p), p).toBe(false);
     }
+  });
+});
+
+describe('the paths of PR E (my orders, one order, one search)', () => {
+  it('/app/orders is the list, /app/order/<id> is one order', () => {
+    expect(isOrdersPath('/app/orders')).toBe(true);
+    expect(isOrdersPath('/app/orders/')).toBe(true);
+    expect(isOrdersPath('/app/order/abc')).toBe(false);
+    expect(orderIdFromPath('/app/order/3f2a-9b')).toBe('3f2a-9b');
+    expect(orderIdFromPath('/app/order/3f2a-9b/')).toBe('3f2a-9b');
+    expect(orderIdFromPath('/app/order')).toBeNull();
+    expect(orderIdFromPath('/app/orders')).toBeNull();
+    expect(orderIdFromPath('/app/shop/order/x')).toBeNull();
+  });
+
+  it('/app/request/<id> is one search', () => {
+    expect(requestIdFromPath('/app/request/7c1')).toBe('7c1');
+    expect(requestIdFromPath('/app/request/')).toBeNull();
+    expect(requestIdFromPath('/app/errand/7c1')).toBeNull();
   });
 });

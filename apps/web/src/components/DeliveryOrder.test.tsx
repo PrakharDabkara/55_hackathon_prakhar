@@ -79,14 +79,14 @@ describe('placing a delivery order (ADR-0031)', () => {
     });
   });
 
-  it('offers the address used last time, and one tap fills the boxes', async () => {
+  it('offers the address the customer chose to keep, and one tap fills the boxes', async () => {
     const savedAddress = vi.fn(async () => ({
       addressText: 'Flat 4B, Sapna Apartments',
       customerName: 'Asha',
     }));
     const { user } = setup({ savedAddress });
     await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
-    await user.click(await screen.findByRole('button', { name: /Pichhla pata: Flat 4B/ }));
+    await user.click(await screen.findByRole('button', { name: /Yaad rakha hua pata: Flat 4B/ }));
     expect((screen.getByLabelText('Ghar ka pata') as HTMLTextAreaElement).value).toBe(
       'Flat 4B, Sapna Apartments',
     );
@@ -98,7 +98,28 @@ describe('placing a delivery order (ADR-0031)', () => {
   it('offers nothing when there is no saved address', async () => {
     const { user } = setup();
     await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
-    expect(screen.queryByRole('button', { name: /Pichhla pata/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Yaad rakha hua pata/ })).toBeNull();
+  });
+
+  it('has an unticked "Is pate ko yaad rakhein"; without the tick nothing is asked to be saved', async () => {
+    const { user, api } = setup();
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    const tick = screen.getByRole('checkbox', { name: 'Is pate ko yaad rakhein' });
+    expect((tick as HTMLInputElement).checked).toBe(false);
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Flat 4B, Sapna Apartments');
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith(
+      expect.not.objectContaining({ saveAddress: expect.anything() }),
+    );
+  });
+
+  it('with the tick the order asks the server to remember the address', async () => {
+    const { user, api } = setup();
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Flat 4B, Sapna Apartments');
+    await user.click(screen.getByRole('checkbox', { name: 'Is pate ko yaad rakhein' }));
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ saveAddress: true }));
   });
 
   it('says so when the shop has closed meanwhile, and keeps what was typed', async () => {
