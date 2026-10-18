@@ -243,6 +243,46 @@ describe('errand agent core (fake model, real database)', () => {
       expect(row.tokens_out).toBe(60);
     });
 
+    it('an item whose shop gave no price is counted as unknown, never as ₹0 (ADR-0031)', async () => {
+      const shop = await insertShopWithStock(pool, {
+        name: 'No Price Corner',
+        km: 0.5,
+        itemId: ids['matchbox'] as string,
+        ageHours: 1,
+      });
+      try {
+        const { id } = await newErrand('rice aur matchbox');
+        provider.playChat([
+          {
+            toolCalls: [
+              call('resolve_item', { text: 'rice' }),
+              call('resolve_item', { text: 'matchbox' }),
+            ],
+          },
+          {
+            toolCalls: [
+              submit([
+                { text: 'rice', itemId: ids['rice'], status: 'likely', shopId: shops['riceNear'] },
+                { text: 'matchbox', itemId: ids['matchbox'], status: 'likely', shopId: shop },
+              ]),
+            ],
+          },
+        ]);
+        await runErrand(deps(), id);
+        const plan = (await errandRow(id)).plan;
+        for (const kind of ['sasta', 'kam_dukaan']) {
+          const v = plan.plans[kind];
+          const unpriced = v.items.find((x: { text: string }) => x.text === 'matchbox');
+          expect(unpriced).toMatchObject({ status: 'likely', pricePaise: null });
+          expect(v.unknownPriceCount).toBe(1);
+          expect(v.totalPricePaise).toBe(6200); // rice only: the unknown price is not in it...
+          expect(v.comparablePricePaise).toBeGreaterThan(v.totalPricePaise); // ...and not ranked as ₹0
+        }
+      } finally {
+        await pool.query(`DELETE FROM shops WHERE id = $1`, [shop]);
+      }
+    });
+
     it('3 items where one has no stock: that one is not_found, the rest are planned in route order', async () => {
       const { id } = await newErrand('chawal, namak aur aata');
       provider.playChat([
