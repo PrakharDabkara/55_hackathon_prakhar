@@ -350,3 +350,50 @@ describe('Results with a shop photo', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 });
+
+describe('Results: exact quantity and delivery (ADR-0031)', () => {
+  const show = (...results: ReturnType<typeof result>[]) =>
+    renderApp(
+      <Results
+        api={fakeSeekerApi()}
+        initial={seekerRequest({
+          state: 'ANSWERED',
+          pingStats: { sent: results.length, yes: results.length, no: 0, pending: 0 },
+          results,
+        })}
+        origin={origin}
+        onDone={vi.fn()}
+        live={live}
+      />,
+    );
+
+  it('says "5 kg hai" for a live answer with a quantity', () => {
+    show(result({ shopId: 'a', quantity: { amount: 5, unit: 'kg' } }));
+    expect(screen.getByText('5 kg hai')).toBeTruthy();
+    expect(screen.queryByText(/Kam hai/)).toBeNull();
+  });
+
+  it('says "Sirf 1 kg hai" and marks it as not enough when it is below what the customer asked', () => {
+    show(result({ shopId: 'a', quantity: { amount: 1, unit: 'kg' }, quantityCheck: 'short' }));
+    expect(screen.getByText('Sirf 1 kg hai')).toBeTruthy();
+    expect(screen.getByText('Kam hai (not enough)')).toBeTruthy();
+  });
+
+  it('shows a remembered quantity as "Pichhli baar: 5 kg", never as what the shop has now', () => {
+    show(result({ shopId: 'a', source: 'learned', quantity: { amount: 5, unit: 'kg' } }));
+    expect(screen.getByText('Pichhli baar: 5 kg')).toBeTruthy();
+    expect(screen.queryByText('5 kg hai')).toBeNull();
+  });
+
+  it('shows a delivery chip: with a fee and a time, free, or with neither', () => {
+    show(
+      result({ shopId: 'a', name: 'A', delivery: { feePaise: 2500, minutes: 30 } }),
+      result({ shopId: 'b', name: 'B', delivery: { feePaise: 0, minutes: null } }),
+      result({ shopId: 'c', name: 'C', delivery: { feePaise: null, minutes: null } }),
+      result({ shopId: 'd', name: 'D' }),
+    );
+    expect(screen.getByText('Ghar bhej denge · ₹25 · 30 min')).toBeTruthy();
+    expect(screen.getByText('Ghar bhej denge · muft')).toBeTruthy();
+    expect(screen.getAllByText('Ghar bhej denge')).toHaveLength(1);
+  });
+});

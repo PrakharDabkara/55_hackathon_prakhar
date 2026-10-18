@@ -149,4 +149,37 @@ describe('Onboarding', () => {
     const tile = screen.getByRole('button', { name: 'Grocery' });
     expect(tile.querySelector('.label-sub')).toBeNull();
   });
+
+  it('lets a shop say it delivers, with an optional fee and time, and sends it with the shop', async () => {
+    const api = fakeApi();
+    const { user } = renderApp(<Onboarding api={api} onDone={vi.fn()} />);
+    await user.type(screen.getByLabelText('Dukaan ka naam'), 'Ghar Kirana');
+    await user.click(screen.getByRole('button', { name: /किराना/ }));
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }));
+    await user.type(screen.getByLabelText('Delivery ka daam (₹)'), '20');
+    await user.click(screen.getByRole('button', { name: 'Dukaan shuru karein' }));
+    await waitFor(() =>
+      expect(api.createShop).toHaveBeenCalledWith({
+        name: 'Ghar Kirana',
+        lat: 22.7196,
+        lng: 75.8577,
+        categories: ['grocery'],
+        delivery: { feePaise: 2000 },
+      }),
+    );
+  });
+
+  it('sends no delivery unless asked: the shop does not have to answer it', async () => {
+    const api = fakeApi();
+    const { user } = renderApp(<Onboarding api={api} onDone={vi.fn()} />);
+    await user.type(screen.getByLabelText('Dukaan ka naam'), 'Plain');
+    await user.click(screen.getByRole('button', { name: /किराना/ }));
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    await user.click(screen.getByRole('button', { name: 'Dukaan shuru karein' }));
+    await waitFor(() => expect(api.createShop).toHaveBeenCalled());
+    expect(api.createShop).toHaveBeenCalledWith(
+      expect.not.objectContaining({ delivery: expect.anything() }),
+    );
+  });
 });
