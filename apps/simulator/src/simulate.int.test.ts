@@ -75,6 +75,9 @@ describe('the simulator against a real API', () => {
     count: 20,
     speed: 2000, // 5-90 s becomes 2.5-45 ms
     seed: 11,
+    // Every asked shop answers: this test is about the wiring, not about chance. (Seed 11 makes 5
+    // shops that sell flour; with random replies all of them staying quiet was a rare failure.)
+    eager: true,
     centre: ORIGIN,
     radiusM: 1500,
     stateFile,
