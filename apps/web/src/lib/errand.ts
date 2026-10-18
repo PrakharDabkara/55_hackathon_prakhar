@@ -14,6 +14,25 @@ export const stopsForMap = (stops: PlanRoute['orderedStops']): MapStop[] =>
   stops.map((s, i) => ({ n: i + 1, shopId: s.shopId, label: s.label, lat: s.lat, lng: s.lng }));
 
 /**
+ * What the plan map draws: the customer, then every stop in route order. A stop whose coordinates
+ * cannot be drawn (not a number, off the globe) is left out and counted, so one bad row can never
+ * blank the map or send it to the wrong place; with nothing left, the start alone.
+ */
+export function mapPoints(
+  origin: { lat: number; lng: number },
+  stops: MapStop[],
+): { points: [number, number][]; shown: MapStop[]; dropped: number } {
+  const ok = (lat: number, lng: number) =>
+    Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  const shown = stops.filter((s) => ok(s.lat, s.lng));
+  const points: [number, number][] = [
+    ...(ok(origin.lat, origin.lng) ? [[origin.lat, origin.lng] as [number, number]] : []),
+    ...shown.map((s): [number, number] => [s.lat, s.lng]),
+  ];
+  return { points, shown, dropped: stops.length - shown.length };
+}
+
+/**
  * A Google Maps link that walks from the customer through every shop in order: the last shop is
  * the destination and the others are waypoints. Null when there is nothing to visit.
  */

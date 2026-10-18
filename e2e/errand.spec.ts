@@ -70,6 +70,19 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   const stops = page.locator('.leaflet-marker-icon.km-stop');
   await expect(stops.first()).toBeVisible({ timeout: 15_000 });
   await expect(stops.first()).toHaveText('1');
+  // Every numbered pin is on the map, inside its frame: the map fits all stops.
+  const frame = await page.locator('.results-map').boundingBox();
+  const pins = await stops.evaluateAll((els) =>
+    els.map((el) => ({ text: el.textContent, box: el.getBoundingClientRect().toJSON() })),
+  );
+  expect(pins.length).toBeGreaterThanOrEqual(1);
+  expect(pins.map((p) => p.text)).toEqual(pins.map((_, i) => String(i + 1)));
+  for (const { box } of pins) {
+    expect(box.left).toBeGreaterThanOrEqual((frame?.x ?? 0) - 1);
+    expect(box.right).toBeLessThanOrEqual((frame?.x ?? 0) + (frame?.width ?? 0) + 1);
+    expect(box.top).toBeGreaterThanOrEqual((frame?.y ?? 0) - 1);
+    expect(box.bottom).toBeLessThanOrEqual((frame?.y ?? 0) + (frame?.height ?? 0) + 1);
+  }
   await expect(page.locator('.leaflet-control-attribution')).toContainText(
     '© OpenStreetMap contributors',
   );

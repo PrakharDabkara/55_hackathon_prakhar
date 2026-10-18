@@ -84,6 +84,27 @@ describe('generateShops', () => {
     expect(new Set(shops.map((s) => s.name)).size).toBeGreaterThan(100); // varied, not one name 500 times
   });
 
+  it('gives every shop a unique name: two shops never share one (live showed twins at different distances)', () => {
+    for (const [count, seed] of [
+      [500, 42],
+      [500, 7],
+      [200, 1],
+    ] as const) {
+      const names = generateShops({ ...input, count, seed }).map((s) => s.name);
+      expect(new Set(names).size, `${count}/${seed}`).toBe(count);
+      for (const name of names) {
+        expect(name.length).toBeLessThanOrEqual(80);
+        expect(name).toMatch(/^[A-Za-z][A-Za-z0-9 &'.-]+$/);
+      }
+    }
+  });
+
+  it('keeps a name as it was when it is already unique, and adds a locality (then a number) only to repeats', () => {
+    const names = generateShops({ ...input, count: 500, seed: 42 }).map((s) => s.name);
+    expect(names.filter((n) => / - /.test(n)).length).toBeGreaterThan(0);
+    expect(names.filter((n) => !/ - /.test(n)).length).toBeGreaterThan(100);
+  });
+
   it('gives each shop a unique valid phone in a reserved block, so no real user is hit', () => {
     const shops = generateShops({ ...input, count: 500 });
     const phones = shops.map((s) => s.phone);

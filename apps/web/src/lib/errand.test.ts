@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directionsForRoute, shownProgress, stopsForMap } from './errand.js';
+import { directionsForRoute, mapPoints, shownProgress, stopsForMap } from './errand.js';
 
 const origin = { lat: 22.7196, lng: 75.8577 };
 const stops = [
@@ -44,5 +44,43 @@ describe('shownProgress', () => {
     expect(shownProgress(['Samjha: 3 cheezein', 'Jawab ka intezaar…'])).toEqual([
       'Samjha: 3 cheezein',
     ]);
+  });
+});
+
+describe('mapPoints: what the plan map must show', () => {
+  const origin = { lat: 22.7196, lng: 75.8577 };
+  const stops = [
+    { n: 1, shopId: 'a', label: 'A', lat: 22.72, lng: 75.86 },
+    { n: 2, shopId: 'b', label: 'B', lat: 22.73, lng: 75.87 },
+  ];
+
+  it('is the customer first, then every stop in route order', () => {
+    expect(mapPoints(origin, stops)).toEqual({
+      points: [
+        [22.7196, 75.8577],
+        [22.72, 75.86],
+        [22.73, 75.87],
+      ],
+      shown: stops,
+      dropped: 0,
+    });
+  });
+
+  it('drops a stop with a coordinate that cannot be drawn, so one bad row cannot blank the map', () => {
+    const bad = [
+      ...stops,
+      { n: 3, shopId: 'c', label: 'C', lat: Number.NaN, lng: 75.8 },
+      { n: 4, shopId: 'd', label: 'D', lat: 95, lng: 75.8 },
+      { n: 5, shopId: 'e', label: 'E', lat: 22.7, lng: 200 },
+    ];
+    const view = mapPoints(origin, bad);
+    expect(view.shown).toEqual(stops);
+    expect(view.points).toHaveLength(3);
+    expect(view.dropped).toBe(3);
+  });
+
+  it('falls back to the start alone when no stop can be drawn, never to an empty list', () => {
+    expect(mapPoints(origin, []).points).toEqual([[22.7196, 75.8577]]);
+    expect(mapPoints({ lat: Number.NaN, lng: 1 }, stops).points).toHaveLength(2);
   });
 });

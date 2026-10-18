@@ -114,4 +114,39 @@ describe('Onboarding', () => {
       (screen.getByRole('button', { name: 'Dukaan shuru karein' }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  it('has a "Demo location (Indore)" button, like the customer side, with the same coordinates', async () => {
+    const api = fakeApi();
+    const onDone = vi.fn();
+    const { user } = renderApp(<Onboarding api={api} onDone={onDone} />);
+    await user.type(screen.getByLabelText('Dukaan ka naam'), 'Demo Kirana');
+    await user.click(screen.getByRole('button', { name: /किराना/ }));
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    expect(screen.getByText(/✓ Demo location \(Indore\)/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Dukaan shuru karein' }));
+    await waitFor(() =>
+      expect(api.createShop).toHaveBeenCalledWith({
+        name: 'Demo Kirana',
+        lat: 22.7196,
+        lng: 75.8577,
+        categories: ['grocery'],
+      }),
+    );
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('shows each category in Devanagari with its Hinglish name under it, like the answer buttons', () => {
+    renderApp(<Onboarding api={fakeApi()} onDone={vi.fn()} />);
+    const tile = screen.getByRole('button', { name: /किराना/ });
+    expect(tile.querySelector('.label-main')?.textContent).toBe('किराना');
+    expect(tile.querySelector('.label-sub')?.textContent).toBe('Kirana');
+    const pooja = screen.getByRole('button', { name: /पूजा/ });
+    expect(pooja.querySelector('.label-sub')?.textContent).toMatch(/^[A-Za-z ]+$/);
+  });
+
+  it('in English the tiles carry the English name only', () => {
+    renderApp(<Onboarding api={fakeApi()} onDone={vi.fn()} />, 'en');
+    const tile = screen.getByRole('button', { name: 'Grocery' });
+    expect(tile.querySelector('.label-sub')).toBeNull();
+  });
 });

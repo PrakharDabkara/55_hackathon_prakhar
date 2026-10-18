@@ -102,7 +102,15 @@ export async function fanOutPings(
   const giveBack = () =>
     Promise.all(claimed.map((shopId) => claims.release(shopId, request.itemId)));
 
-  let sent: { id: string; shopId: string; ownerUserId: string | null; simulated: boolean }[] | null;
+  let sent:
+    | {
+        id: string;
+        shopId: string;
+        ownerUserId: string | null;
+        simulated: boolean;
+        categories: string[];
+      }[]
+    | null;
   try {
     sent = await withTransaction(db, async (tx) => {
       const live = await tx.query<{ ok: boolean }>(
@@ -115,6 +123,7 @@ export async function fanOutPings(
         shop_id: string;
         owner_user_id: string | null;
         is_simulated: boolean;
+        categories: string[];
       }>(
         `WITH ins AS (
            INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
@@ -122,7 +131,7 @@ export async function fanOutPings(
            ON CONFLICT (request_id, shop_id) DO NOTHING
            RETURNING id, shop_id
          )
-         SELECT ins.id, ins.shop_id, s.owner_user_id, s.is_simulated
+         SELECT ins.id, ins.shop_id, s.owner_user_id, s.is_simulated, s.categories
            FROM ins JOIN shops s ON s.id = ins.shop_id`,
         [requestId, claimed, request.itemId],
       );
@@ -131,6 +140,7 @@ export async function fanOutPings(
         shopId: r.shop_id,
         ownerUserId: r.owner_user_id,
         simulated: r.is_simulated,
+        categories: r.categories,
       }));
     });
   } catch (err) {
@@ -168,6 +178,8 @@ export async function fanOutPings(
             shopId: ping.shopId,
             item: { slug: item.slug, nameEn: item.nameEn },
             category: item.category,
+            itemCategories: item.categories,
+            shopCategories: ping.categories,
             refPricePaise,
           },
         },

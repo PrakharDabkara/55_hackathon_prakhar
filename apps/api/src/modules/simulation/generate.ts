@@ -125,6 +125,44 @@ const TEMPLATES: Record<Category, string[]> = {
   bakery_sweets: ['{s} Bakery', '{g} Sweets & Namkeen', 'New {s} Bakers & Sweets'],
 };
 
+/** Where a repeated name is told apart: a real street has two "Book Depot"s in different localities. */
+const LOCALITIES = [
+  'Rajwada',
+  'Palasia',
+  'Vijay Nagar',
+  'Bhawarkuan',
+  'Sapna Sangeeta',
+  'Annapurna Road',
+  'Geeta Bhawan',
+  'Navlakha',
+  'Sarafa',
+  'Chhoti Gwaltoli',
+  'Nanda Nagar',
+  'Saket',
+  'Tilak Nagar',
+  'Bengali Square',
+  'MG Road',
+  'Khajrana',
+];
+
+/** II, III, IV...: a last resort that keeps a name letters-only. */
+function roman(n: number): string {
+  const parts: [number, string][] = [
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ];
+  let out = '';
+  for (const [value, letters] of parts)
+    while (n >= value) {
+      out += letters;
+      n -= value;
+    }
+  return out;
+}
+
 const pick = <T>(list: readonly T[], next: () => number): T =>
   list[Math.floor(next() * list.length)] as T;
 
@@ -154,6 +192,7 @@ export function generateShops({
 }: GenerateInput): SimShopSpec[] {
   const next = rng(seed);
   const phones = new Set<string>();
+  const taken = new Set<string>();
   const shops: SimShopSpec[] = [];
 
   while (shops.length < count) {
@@ -162,9 +201,12 @@ export function generateShops({
     const categories: Category[] = wantsSecond
       ? [first, pickCategory(next, allowed, first)]
       : [first];
-    const name = pick(TEMPLATES[first], next)
+    let name = pick(TEMPLATES[first], next)
       .replace('{s}', pick(SURNAMES, next))
       .replace('{g}', pick(GODS, next));
+    // Names are unique. A repeat gets a locality, and if that repeats too, a number.
+    if (taken.has(name)) name = `${name} - ${pick(LOCALITIES, next)}`;
+    for (let n = 2; taken.has(name); n++) name = `${name.replace(/ [IVX]+$/, '')} ${roman(n)}`;
 
     // sqrt makes the shops uniform over the disc's area instead of bunched at the centre.
     const distance = radiusM * 0.999 * Math.sqrt(next());
@@ -177,6 +219,7 @@ export function generateShops({
     const phone = `+9160${String(Math.floor(next() * 1e8)).padStart(8, '0')}`;
     if (phones.has(phone)) continue;
     phones.add(phone);
+    taken.add(name);
 
     shops.push({
       name,
