@@ -1,6 +1,7 @@
 import type { Category } from '@kahanmilega/shared';
 import type { ShopOrder, ShopOrderVerb } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
+import { createPushApi, type PushApi } from './pushApi.js';
 
 export class ApiError extends Error {
   constructor(
@@ -66,7 +67,7 @@ export interface AnswerBody {
 }
 
 /** Everything the shop app asks of the server. */
-export interface ShopApi extends PhotoApi {
+export interface ShopApi extends PhotoApi, PushApi {
   requestOtp(phone: string): Promise<void>;
   /** Demo mode: the code the server would have sent by SMS, or null if there is none. */
   devInbox(phone: string): Promise<string | null>;
@@ -149,6 +150,7 @@ export function createApi(options: ClientOptions): ShopApi {
 
   return {
     ...createPhotoApi(options),
+    ...createPushApi(options),
     async requestOtp(phone) {
       await call('POST', '/auth/otp/request', { phone });
     },

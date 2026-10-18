@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NotifyToggle } from '../components/NotifyToggle.js';
 import { ShopOrders } from '../components/ShopOrders.js';
 import { useT } from '../i18n/index.js';
 import { ApiError, type AnswerBody, type MyShop, type ShopApi, type ShopPing } from '../lib/api.js';
@@ -136,6 +137,7 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
     <section aria-live="polite">
       {isLive && <span className="live-dot" role="img" aria-label={t.live} title={t.live} />}
       {shop && <ShopBar api={api} shop={shop} onChange={setShop} />}
+      <NotifyToggle api={api} />
       {offline && (
         <p role="status" className="status">
           {t.errOffline}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App, UNAUTHORIZED_EVENT } from './App.js';
 import { LangProvider } from './i18n/index.js';
 import { createApi } from './lib/api.js';
+import { registerServiceWorker } from './lib/push.js';
 import { createSeekerApi } from './lib/seekerApi.js';
 import { localStorageSession, seekerSession } from './lib/session.js';
 import { isShopPath } from './routing.js';
@@ -35,3 +36,6 @@ if (root) {
     </StrictMode>,
   );
 }
+
+// Needed to show a push; registering is not a permission prompt.
+registerServiceWorker();
