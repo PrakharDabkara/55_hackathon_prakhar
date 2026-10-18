@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@kahanmilega/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Queryable } from '../../db/queryable.js';
@@ -12,10 +12,13 @@ const lng = z.number().min(-180).max(180);
 const categories = z
   .array(z.enum(CATEGORIES))
   .min(1)
-  .max(2)
+  .max(3)
   .refine((list) => new Set(list).size === list.length, 'must not repeat a category');
 
-const createBody = z.object({ name, lat, lng, categories });
+/** A shop that picks no category is a kirana (ADR-0028). */
+const DEFAULT_CATEGORIES: Category[] = ['grocery'];
+
+const createBody = z.object({ name, lat, lng, categories: categories.optional() });
 
 const patchBody = z
   .object({
@@ -33,7 +36,10 @@ export function shopsRouter({ db }: { db: Queryable }): Router {
 
   router.post('/shops', ...shopOnly, async (req, res) => {
     const body = parse(createBody, req.body);
-    const shop = await createShop(db, authOf(req).user, body);
+    const shop = await createShop(db, authOf(req).user, {
+      ...body,
+      categories: body.categories ?? DEFAULT_CATEGORIES,
+    });
     if (!shop) throw new ApiError(409, 'shop_exists', 'You already have a shop');
     res.status(201).json(shop);
   });

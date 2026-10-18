@@ -96,3 +96,25 @@
 {"q": "sarson tel", "kind": "form", "expected": "mustard-oil"}
 {"q": "sarson ka tel", "kind": "form", "expected": "mustard-oil"}
 {"q": "haldi powder", "kind": "form", "expected": "turmeric-powder"}
+{"q": "bead dazzling kit", "kind": "newitem", "expected": null}
+{"q": "rangoli stencil", "kind": "newitem", "expected": null}
+{"q": "popsicle sticks", "kind": "newitem", "expected": null}
+{"q": "chart paper chahiye", "kind": "hinglish", "expected": "chart-paper"}
+{"q": "vkqz plmt", "kind": "nonsense", "expected": null}
+{"q": "zzzzzzzz", "kind": "nonsense", "expected": null}
+{"q": "hjklasdf", "kind": "nonsense", "expected": null}
+{"q": "mnbvcx lkjh", "kind": "nonsense", "expected": null}
+{"q": "xqzjw", "kind": "nonsense", "expected": null}
+{"q": "tomorrow morning", "kind": "nonsense", "expected": null}
+{"q": "happiness", "kind": "nonsense", "expected": null}
+{"q": "my friend rahul", "kind": "nonsense", "expected": null}
+{"q": "indore", "kind": "nonsense", "expected": null}
+{"q": "plumber chahiye", "kind": "nonsense", "expected": null}
+{"q": "maruti swift", "kind": "nonsense", "expected": null}
+{"q": "samsung galaxy s24", "kind": "nonsense", "expected": null}
+{"q": "2bhk flat for rent", "kind": "nonsense", "expected": null}
+{"q": "electric car", "kind": "nonsense", "expected": null}
+{"q": "dentist", "kind": "nonsense", "expected": null}
+{"q": "kal subah kaun aayega", "kind": "nonsense", "expected": null}
+{"q": "ice cream scoop holder", "kind": "newitem", "expected": null}
+{"q": "phone cover", "kind": "newitem", "expected": null}

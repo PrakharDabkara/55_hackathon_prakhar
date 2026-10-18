@@ -78,10 +78,11 @@ export function createFakeProvider({
   dim = 768,
   fallbackModel = null,
 }: { dim?: number; fallbackModel?: string | null } = {}): FakeProvider {
-  let generate: Parameters<FakeProvider['onGenerate']>[0] = () => ({
-    itemId: null,
-    needsClarification: false,
-  });
+  // Out of the box the fake knows nothing: no catalog item fits, and a new item name is nonsense.
+  let generate: Parameters<FakeProvider['onGenerate']>[0] = ({ purpose }) =>
+    purpose === 'classify_item'
+      ? { verdict: 'nonsense' }
+      : { itemId: null, needsClarification: false };
   let embed: Parameters<FakeProvider['onEmbed']>[0] = (texts) =>
     texts.map((t) => hashVector(t, dim));
   const calls: FakeCall[] = [];

@@ -25,28 +25,32 @@ afterEach(() => {
 });
 
 describe('Onboarding', () => {
-  it('shows 8 big category tiles with Hindi labels', () => {
+  it('shows 13 big category tiles with Hindi labels, including pooja, medical and dairy', () => {
     renderApp(<Onboarding api={fakeApi()} onDone={vi.fn()} />);
     const tiles = screen.getAllByRole('button', { pressed: false });
-    expect(tiles).toHaveLength(8);
+    expect(tiles).toHaveLength(13);
+    for (const name of [/पूजा/, /मेडिकल/, /डेयरी/, /सब्ज़ी/, /बेकरी/])
+      expect(screen.getByRole('button', { name })).toBeTruthy();
     expect(screen.getByRole('button', { name: /किराना/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /हार्डवेयर/ })).toBeTruthy();
   });
 
-  it('lets the shopkeeper pick one or two categories, never three', async () => {
+  it('lets the shopkeeper pick one to three categories, never four', async () => {
     const { user } = renderApp(<Onboarding api={fakeApi()} onDone={vi.fn()} />);
     const tile = (name: RegExp) => screen.getByRole('button', { name });
 
     await user.click(tile(/किराना/));
     await user.click(tile(/हार्डवेयर/));
     await user.click(tile(/स्टेशनरी/));
+    await user.click(tile(/पूजा/));
     expect(tile(/किराना/).getAttribute('aria-pressed')).toBe('true');
     expect(tile(/हार्डवेयर/).getAttribute('aria-pressed')).toBe('true');
-    expect(tile(/स्टेशनरी/).getAttribute('aria-pressed')).toBe('false');
+    expect(tile(/स्टेशनरी/).getAttribute('aria-pressed')).toBe('true');
+    expect(tile(/पूजा/).getAttribute('aria-pressed')).toBe('false');
 
     await user.click(tile(/किराना/)); // tapping again clears it
-    await user.click(tile(/स्टेशनरी/));
-    expect(tile(/स्टेशनरी/).getAttribute('aria-pressed')).toBe('true');
+    await user.click(tile(/पूजा/));
+    expect(tile(/पूजा/).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('uses the phone location, then creates the shop', async () => {

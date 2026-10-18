@@ -1,5 +1,5 @@
 import type { ChatMessage, ToolCall } from '../ai/index.js';
-import type { FoundItem, RunState } from './executor.js';
+import { refusalKey, type FoundItem, type Refused, type RunState } from './executor.js';
 import type { StepRecord } from './persistence.js';
 
 /**
@@ -80,6 +80,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
   const labels = new Map<string, string>();
   const found = new Map<string, FoundItem>();
   const resolved = new Map<string, string>();
+  const refused = new Map<string, Refused>();
   for (const step of steps) {
     if (step.kind !== 'tool') continue;
     const result = (step.payload as ToolPayload | null)?.result as
@@ -92,6 +93,8 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
         labels.set(item.id, text);
         if (!resolved.has(item.id)) resolved.set(item.id, text);
       }
+      for (const reason of ['blocked', 'unavailable', 'limit'] as const)
+        if (result[reason] === true) refused.set(refusalKey(text), reason);
       const clar = result['clarification'] as { options?: { itemId: string }[] } | undefined;
       for (const o of clar?.options ?? []) if (!labels.has(o.itemId)) labels.set(o.itemId, text);
     } else if (step.toolName === 'find_item_nearby') {
@@ -105,7 +108,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
       });
     }
   }
-  return { labels, found, resolved, questionsAsked };
+  return { labels, found, resolved, questionsAsked, refused };
 }
 
 /** What a failed or expired errand keeps: what the agent had found so far. */

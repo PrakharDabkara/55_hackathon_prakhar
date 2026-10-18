@@ -3,24 +3,41 @@ import type { Pool } from 'pg';
 import { ApiError } from '../http/errors.js';
 import type { AiContext } from '../modules/ai/index.js';
 import { createErrand, runErrand, type ErrandLimits } from '../modules/errands/index.js';
+
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 import { findErrand, listSteps } from '../modules/errands/persistence.js';
 import { buildSystemPrompt } from '../modules/errands/prompt.js';
 import { answerErrand, getErrand } from '../modules/errands/service.js';
-import { answerPing } from '../modules/requests/index.js';
+import { answerPing, selectPingTargets } from '../modules/requests/index.js';
 import { DEMO_LOCATION, type Answer, type ErrandCase } from './cases.js';
 import { scoreRun, type CaseResult, type Observed, type ObservedItem } from './score.js';
 
-/** The shops of the eval world: name, km north and km east of the demo location. */
-export const SYNTHETIC_SHOPS: { name: string; north: number; east: number }[] = [
-  { name: 'Eval Sharma Kirana', north: 0.2, east: 0.1 },
-  { name: 'Eval Gupta Store', north: 0.5, east: -0.3 },
-  { name: 'Eval Mishra General', north: 0.7, east: 0.4 },
-  { name: 'Eval Joshi Mart', north: -0.4, east: 0.2 },
-  { name: 'Eval Verma Stationers', north: 0.9, east: -0.6 },
-  { name: 'Eval Patel Hardware', north: -0.6, east: -0.5 },
-  { name: 'Eval Jain Provision', north: 1.2, east: 0.8 },
-  { name: 'Eval Khan Bazaar', north: -1.0, east: 0.6 },
+/**
+ * The shops of the eval world: name, kinds, km north and km east of the demo location. The first
+ * eight are the world every case has always had; the two "Eval Extra" stationers lie beyond the
+ * sixth nearest and carry no learned stock, so catalog items behave exactly as before. They exist
+ * so a new stationery item has three shops of its own kind to be asked (ADR-0027).
+ */
+export const SYNTHETIC_SHOPS: {
+  name: string;
+  categories: string[];
+  north: number;
+  east: number;
+}[] = [
+  { name: 'Eval Sharma Kirana', categories: ['grocery'], north: 0.2, east: 0.1 },
+  { name: 'Eval Gupta Store', categories: ['general_store'], north: 0.5, east: -0.3 },
+  { name: 'Eval Mishra General', categories: ['general_store', 'grocery'], north: 0.7, east: 0.4 },
+  { name: 'Eval Joshi Mart', categories: ['grocery'], north: -0.4, east: 0.2 },
+  { name: 'Eval Verma Stationers', categories: ['stationery'], north: 0.9, east: -0.6 },
+  { name: 'Eval Patel Hardware', categories: ['hardware'], north: -0.6, east: -0.5 },
+  { name: 'Eval Jain Provision', categories: ['grocery'], north: 1.2, east: 0.8 },
+  { name: 'Eval Khan Bazaar', categories: ['general_store'], north: -1.0, east: 0.6 },
+  { name: 'Eval Extra Rao Stationers', categories: ['stationery'], north: 1.3, east: 0.2 },
+  { name: 'Eval Extra Iyer Book Depot', categories: ['stationery'], north: 1.35, east: -0.2 },
 ];
+/** Fewest shops of an item's kind before the nearest of any kind are asked as well (as in production). */
+const MIN_TARGETS = 3;
 const EVAL_PHONE = '+919800000777';
 /** How many of the nearest shops one request pings (the app's own default is 10). */
 const PINGED_SHOPS = 6;
@@ -88,7 +105,7 @@ export async function seedEvalWorld(pool: Pool): Promise<string> {
       [
         shop.name,
         phone,
-        ['general_store'],
+        shop.categories,
         DEMO_LOCATION.lng + shop.east / 102,
         DEMO_LOCATION.lat + shop.north / 111,
         owner,
@@ -100,7 +117,9 @@ export async function seedEvalWorld(pool: Pool): Promise<string> {
 
 /** A clean slate for one case: no earlier errands or requests, and the case's learned stock. */
 async function resetWorld(pool: Pool, stock: ErrandCase['stock']): Promise<void> {
-  await pool.query('TRUNCATE errands, requests CASCADE');
+  await pool.query('TRUNCATE errands, requests, new_item_attempts CASCADE');
+  // Items a customer added in an earlier case are forgotten: each case starts from the same catalog.
+  await pool.query(`DELETE FROM items WHERE source = 'user'`);
   await pool.query(`DELETE FROM shop_stock`);
   const percent = STOCK_PERCENT[stock];
   if (percent === 0) return;
@@ -108,7 +127,8 @@ async function resetWorld(pool: Pool, stock: ErrandCase['stock']): Promise<void>
     `INSERT INTO shop_stock (shop_id, item_id, source, price_paise, last_confirmed_at, expires_at)
      SELECT s.id, i.id, 'ping_yes', ${PRICE_SQL}, now() - interval '5 hours', now() + interval '7 days'
        FROM shops s CROSS JOIN items i
-      WHERE s.name LIKE 'Eval %' AND (abs(hashtext(s.id::text || i.id::text || 'stock')) % 100) < $1`,
+      WHERE s.name LIKE 'Eval %' AND s.name NOT LIKE 'Eval Extra %'
+        AND (abs(hashtext(s.id::text || i.id::text || 'stock')) % 100) < $1`,
     [percent],
   );
 }
@@ -147,19 +167,45 @@ function createResponder(
         const key = `${link.request_id}:${link.item_id}`;
         if (handled.has(key)) continue;
         handled.add(key);
-        const shops = await pool.query<{
-          id: string;
-          owner: string;
-          carries: boolean;
-          price: number;
-        }>(
-          `SELECT s.id, s.owner_user_id AS owner, (${CARRIES_SQL}) AS carries, ${PRICE_SQL} AS price
-             FROM shops s, items i
-            WHERE i.id = $1 AND s.name LIKE 'Eval %'
-            ORDER BY ST_Distance(s.location, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography)
-            LIMIT ${PINGED_SHOPS}`,
-          [link.item_id, where.lat, where.lng],
-        );
+        type Row = { id: string; owner: string; carries: boolean; price: number };
+        const item = (
+          await pool.query<{ source: string; categories: string[] }>(
+            `SELECT source, categories FROM items WHERE id = $1`,
+            [link.item_id],
+          )
+        ).rows[0];
+        const origin = `ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography`;
+        let shops: { rows: Row[] };
+        if (item?.source === 'user') {
+          // An item a customer added is asked the production way: shops of its kind first, the
+          // nearest of any kind only when fewer than three are near (ADR-0028).
+          const world = await pool.query<Row & { categories: string[]; distance_m: number }>(
+            `SELECT s.id, s.owner_user_id AS owner, (${CARRIES_SQL}) AS carries, ${PRICE_SQL} AS price,
+                    s.categories, ST_Distance(s.location, ${origin}) AS distance_m
+               FROM shops s, items i WHERE i.id = $1 AND s.name LIKE 'Eval %'`,
+            [link.item_id, where.lat, where.lng],
+          );
+          const chosen = selectPingTargets(
+            world.rows.map((r) => ({ ...r, shopId: r.id, distanceM: r.distance_m })),
+            {
+              itemCategories: item.categories,
+              radiusM: 2000,
+              excludeShopIds: new Set(),
+              max: PINGED_SHOPS,
+              minTargets: MIN_TARGETS,
+            },
+          );
+          shops = { rows: chosen };
+        } else {
+          shops = await pool.query<Row>(
+            `SELECT s.id, s.owner_user_id AS owner, (${CARRIES_SQL}) AS carries, ${PRICE_SQL} AS price
+               FROM shops s, items i
+              WHERE i.id = $1 AND s.name LIKE 'Eval %' AND s.name NOT LIKE 'Eval Extra %'
+              ORDER BY ST_Distance(s.location, ${origin})
+              LIMIT ${PINGED_SHOPS}`,
+            [link.item_id, where.lat, where.lng],
+          );
+        }
         for (const [index, shop] of shops.rows.entries()) {
           const ping = await pool.query<{ id: string }>(
             `INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
@@ -348,12 +394,13 @@ async function observe(
        FROM ai_calls WHERE request_id = $1`,
     [o.requestId],
   );
-  const base = {
+  const base0 = {
     durationMs: Date.now() - o.startedAt,
     tokens: usage.rows[0]?.tokens ?? 0,
     calls: usage.rows[0]?.calls ?? 0,
     chatCalls: usage.rows[0]?.chat ?? 0,
   };
+  const base = { ...base0, userItems: 0, misplacedNewItemAsks: 0 };
   if (!o.errandId) {
     return {
       state: o.state,
@@ -381,6 +428,28 @@ async function observe(
   for (const item of plan?.items ?? []) {
     items.push(await judgeItem(pool, errandId, item, o.slugOf));
   }
+  // Items this errand added, and pings of those items sent to a shop of another kind although
+  // three or more shops of the item's kind lie within the search radius (ADR-0028).
+  const userItems =
+    (
+      await pool.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM new_item_attempts WHERE errand_id = $1 AND outcome = 'created'`,
+        [errandId],
+      )
+    ).rows[0]?.n ?? 0;
+  const misplaced = await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n
+       FROM pings p
+       JOIN errand_requests er ON er.request_id = p.request_id AND er.errand_id = $1
+       JOIN items i ON i.id = p.item_id AND i.source = 'user'
+       JOIN shops s ON s.id = p.shop_id
+       JOIN requests r ON r.id = p.request_id
+      WHERE NOT (s.categories && i.categories)
+        AND (SELECT count(*) FROM shops k
+              WHERE k.name LIKE 'Eval %' AND k.categories && i.categories
+                AND ST_DWithin(k.location, r.location, r.radius_m)) >= ${MIN_TARGETS}`,
+    [errandId],
+  );
   // Everything the customer's screen can show, except what they typed themselves.
   const questions = steps
     .filter((s) => s.toolName === 'ask_user')
@@ -400,7 +469,9 @@ async function observe(
     questionsAsked: errand?.questionsAsked ?? 0,
     modelSteps: steps.filter((s) => s.kind === 'model').length,
     visibleText,
-    ...base,
+    ...base0,
+    userItems,
+    misplacedNewItemAsks: misplaced.rows[0]?.n ?? 0,
   };
 }
 
@@ -427,7 +498,12 @@ async function judgeItem(
   item: PlanItemRow,
   slugOf: Map<string, string>,
 ): Promise<ObservedItem> {
-  const itemInDb = item.itemId === null || slugOf.has(item.itemId);
+  // An item the errand added is not in the map made before the run: ask the database.
+  const itemInDb =
+    item.itemId === null ||
+    slugOf.has(item.itemId) ||
+    (isUuid(item.itemId) &&
+      ((await pool.query(`SELECT 1 FROM items WHERE id = $1`, [item.itemId])).rowCount ?? 0) > 0);
   let shopInDb = true;
   if (item.shopId !== null) {
     shopInDb =

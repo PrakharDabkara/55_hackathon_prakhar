@@ -50,6 +50,10 @@ const itemOut = z.object({
   name: z.string(),
   nameHi: z.string(),
   category: z.string(),
+  isNew: z
+    .boolean()
+    .optional()
+    .describe('True for an item a customer added that no shop has confirmed yet'),
 });
 
 const shopOut = z.object({
@@ -67,7 +71,9 @@ export const resolveItemTool = defineTool({
   title: 'Find the catalog item for some text',
   description:
     'Turn what the customer typed (English, Hindi or Hinglish, typos allowed, for example "chini" or "bottle brsh") into one catalog item. ' +
-    'Call this first, before any other tool: they all need the item id it returns. It never contacts shops and creates nothing. ' +
+    'Call this first, before any other tool: they all need the item id it returns. It never contacts shops. ' +
+    'If the text is a real product the catalog does not know yet, it is added as a new item (`item.isNew` is true) and works like any other: shops are asked about it as plain text. Text that is nonsense is never added. ' +
+    'If the answer has `blocked`, the item may not be sent to shops: tell the user you cannot help with it and do not try other words. `unavailable` and `limit` mean it cannot be sent right now. ' +
     'If the answer has `clarification`, the text could mean several different things: ask the user the question, then call resolve_item again with their choice, or use the chosen option itemId directly. ' +
     'If the answer has `unresolved`, nothing in the catalog fits: tell the user and ask for different words. ' +
     'When you have an item, call find_item_nearby next.',
@@ -84,9 +90,16 @@ export const resolveItemTool = defineTool({
       .optional()
       .describe('Set when the user must choose between genuinely different items'),
     unresolved: z.boolean().optional().describe('True when nothing in the catalog fits'),
+    blocked: z.boolean().optional().describe('True when the item may never be sent to shops'),
+    unavailable: z
+      .boolean()
+      .optional()
+      .describe('True when the safety check is down, so the item cannot be sent right now'),
+    limit: z.boolean().optional().describe('True when the limit of new items is reached'),
     message: z.string().optional(),
   }),
-  sideEffects: false,
+  // It can add a new item to the catalog; asking again with the same text adds nothing more.
+  sideEffects: true,
   idempotent: true,
 });
 

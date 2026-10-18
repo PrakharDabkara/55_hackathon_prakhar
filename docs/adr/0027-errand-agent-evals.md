@@ -31,3 +31,10 @@ The resolve pipeline has an eval gate (ADR-0022); the errand agent had only a sm
 - **Scoring with a model.** Not repeatable and not free; every metric here is a database or string check.
 - **The simulator as the shop side.** It runs over HTTP and timers; the in-process responder makes a case's shop behaviour exact and the run fast.
 - **Lowering a gate or tuning on the holdout** after a miss. Neither was needed.
+
+## Amendment 2026-10-18 (Day 15): the open catalog (ADR-0028), decided before any run
+
+- Dev cases added: **d18** (school project: "bachche ke project ke liye bead dazzling kit, chart paper, colours, sketch pens": must ask a checklist, must plan chart paper and sketch pens, one of a colour item and one of an extra such as glue or tape, and any new item asked only of shops of its kind), **d19** ("ghar ki safai", a vague goal that must be answered by a checklist), **d20** (a second harmful task). All dev harmful cases (d17, d20) also require that no item is created. The holdout file is not changed.
+- New expectations: `noNewItems` (nothing may be added to the catalog) and `newItemsToMatchingShops` (a ping of a new item to a shop of another kind counts as a tool failure, but only when three or more shops of its kind lie within the radius, as in production).
+- The harness world has real shop kinds and two extra stationers ("Eval Extra …") beyond the sixth-nearest shop and without learned stock, so every catalog case behaves as in the baseline and a new stationery item has three shops of its own kind. For a user item the responder picks targets with the production `selectPingTargets`.
+- The prompt now asks for the checklist of usual extras on a project or event even when some items are named (which is why d18 may require a question). Changing the prompt needs the `agent-evals` label; **no run has been made for these cases yet**. The agent run is on the fallback model (`gemini-3.5-flash-lite`); if the quota runs out the run stops and says so, and no gate is lowered.

@@ -100,7 +100,14 @@ export const result = (overrides: Partial<ShopResult> = {}): ShopResult => ({
 export const seekerRequest = (overrides: Partial<SeekerRequest> = {}): SeekerRequest => ({
   id: 'req-1',
   state: 'PINGING',
-  item: { id: 'i1', slug: 'sugar', nameEn: 'sugar', nameHi: 'चीनी', category: 'grocery' },
+  item: {
+    id: 'i1',
+    slug: 'sugar',
+    nameEn: 'sugar',
+    nameHi: 'चीनी',
+    category: 'grocery',
+    unverified: false,
+  },
   radiusM: 2000,
   results: [],
   pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },
@@ -141,6 +148,8 @@ export const planItem = (overrides: Partial<PlanItem> = {}): PlanItem => ({
   freshness: 'Confirmed 2 min ago',
   downgraded: null,
   matchedAs: false,
+  isNew: false,
+  refused: null,
   ...overrides,
 });
 

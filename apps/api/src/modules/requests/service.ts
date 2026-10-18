@@ -3,7 +3,13 @@ import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import type { EventPublisher } from '../realtime/index.js';
 import type { AiContext } from '../ai/index.js';
-import { getItem, resolveForCustomer, type CatalogItem, type Quantity } from '../catalog/index.js';
+import {
+  getItem,
+  refusalError,
+  resolveForCustomer,
+  type CatalogItem,
+  type Quantity,
+} from '../catalog/index.js';
 import { findLearnedStock, type LearnedStockResult } from '../shops/index.js';
 import {
   applyEvent,
@@ -50,6 +56,8 @@ export interface CreateRequestInput {
   itemId?: string | undefined;
   /** The HTTP request id, so AI calls can be traced to it. */
   requestId?: string | undefined;
+  /** The errand this request belongs to: a new item counts toward its limit of five. */
+  errandId?: string | undefined;
   idempotencyKey?: string;
 }
 
@@ -177,7 +185,10 @@ export async function createRequest(
     logger: ctx.logger,
     ...(ctx.ai && { ai: ctx.ai }),
     ...(input.requestId && { requestId: input.requestId }),
+    // A real product the catalog does not know becomes a new item and is asked as plain text.
+    openCatalog: { errandId: input.errandId ?? null },
   });
+  if (resolution.refused) throw refusalError(resolution.refused);
   if (!resolution.item) {
     throw new ApiError(422, 'item_unresolved', 'We could not tell which item you mean');
   }

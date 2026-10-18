@@ -483,6 +483,7 @@ async function runTool(
       plan = await buildPlan(deps.db, errand, outcome.submitted, confirmations, new Date(), {
         fewerStopsMaxExtraPaise: deps.limits.fewerStopsMaxExtraPaise,
         resolved: state.resolved,
+        refused: state.refused,
       });
       const confirmed = plan.items.filter((i) => i.status === 'confirmed').length;
       const likely = plan.items.filter((i) => i.status === 'likely').length;

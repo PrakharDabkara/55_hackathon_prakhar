@@ -49,4 +49,21 @@ describe('prompts', () => {
     expect(system).toMatch(/do not call resolve_item or ask_shops/i);
     expect(system).toMatch(/not_found/);
   });
+
+  it('tells the model how new, blocked and limited items work (ADR-0028, ADR-0029)', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/isNew/);
+    expect(system).toMatch(/ask_shops/);
+    expect(system).toMatch(/blocked/);
+    expect(system).toMatch(/do not try (again|other words)/i);
+    // Unusual is not forbidden: only harmful is.
+    expect(system).toMatch(/unusual|unfamiliar|not in the catalog/i);
+  });
+
+  it('asks for the checklist of usual extras for a project or event even when some items are named', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/school project/i);
+    expect(system).toMatch(/extras/i);
+    expect(system).toMatch(/named/i);
+  });
 });

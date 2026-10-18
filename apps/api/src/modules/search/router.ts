@@ -24,6 +24,8 @@ const query = z
     path: ['q'],
   });
 
+const resolveBody = z.object({ q: z.string().trim().min(1).max(200) });
+
 interface SearchDeps {
   db: Queryable;
   trigramThreshold: number;
@@ -55,7 +57,31 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
       },
       item: resolution.item,
       matchedBy: resolution.matchedBy,
+      ...(resolution.refused && { refused: resolution.refused }),
       results,
+    });
+  });
+
+  // resolve_item: like a search, but a real product the catalog does not know becomes a new item
+  // (ADR-0028). A POST because it can create data; the same text gives the same item.
+  router.post('/items/resolve', createRequireAuth(db), async (req, res) => {
+    const { q } = parse(resolveBody, req.body);
+    const resolution = await resolveForCustomer(db, q, {
+      userId: authOf(req).user.id,
+      threshold: trigramThreshold,
+      requestId: String(req.id),
+      openCatalog: {},
+      ...(ai && { ai }),
+      ...(logger && { logger }),
+    });
+    res.json({
+      query: {
+        normalised: resolution.normalised,
+        ...(resolution.quantity && { quantity: resolution.quantity }),
+      },
+      item: resolution.item,
+      matchedBy: resolution.matchedBy,
+      ...(resolution.refused && { refused: resolution.refused }),
     });
   });
 

@@ -21,6 +21,37 @@ describe('Search', () => {
     expect(box.placeholder).toBe('aata, chini, bottle brush…');
   });
 
+  describe('what the customer is told when a new item cannot be asked', () => {
+    async function failWith(error: ApiError) {
+      const api = fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(error) });
+      const { user } = renderApp(<Search api={api} onFound={vi.fn()} />);
+      await user.type(screen.getByLabelText('क्या चाहिए?'), 'something');
+      await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+      await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    }
+
+    it('a blocked item: "Ye cheez hum dukaanon ko nahi bhej sakte"', async () => {
+      await failWith(new ApiError(422, 'item_blocked', 'x'));
+      expect(await screen.findByRole('alert')).toHaveProperty(
+        'textContent',
+        'Ye cheez hum dukaanon ko nahi bhej sakte',
+      );
+    });
+
+    it('the safety check being down: "Abhi ye cheez dukaanon ko nahi bhej sakte"', async () => {
+      await failWith(new ApiError(503, 'item_unavailable', 'x'));
+      expect(await screen.findByRole('alert')).toHaveProperty(
+        'textContent',
+        'Abhi ye cheez dukaanon ko nahi bhej sakte',
+      );
+    });
+
+    it('over the daily limit: a plain message, not a generic error', async () => {
+      await failWith(new ApiError(429, 'new_item_limit', 'x', { scope: 'day' }));
+      expect((await screen.findByRole('alert')).textContent).toMatch(/nayi cheez.*limit/i);
+    });
+  });
+
   it('has a clearly labelled Demo location (Indore) button that sets 22.7196, 75.8577', async () => {
     const api = fakeSeekerApi();
     const onFound = vi.fn();
@@ -109,7 +140,7 @@ describe('Search', () => {
     await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
     await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
     expect((await screen.findByRole('alert')).textContent).toBe(
-      "Samajh nahi aaya — thoda aur detail mein likhiye (jaise 'paper clip', 'nail cutter')",
+      'Ye cheez samajh nahi aayi — thoda aur batayein',
     );
     expect((screen.getByLabelText('क्या चाहिए?') as HTMLInputElement).value).toBe('xyzzy');
   });

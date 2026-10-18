@@ -2,7 +2,10 @@ import { pino } from 'pino';
 import { describe, expect, it, vi } from 'vitest';
 import { createAi, createFakeProvider, ProviderError } from './index.js';
 
-function setup(fallbackModel?: string, client: { timeoutMs?: number } = {}) {
+function setup(
+  fallbackModel?: string,
+  client: Parameters<typeof createAi>[0]['client'] & object = {},
+) {
   const query = vi.fn(async () => ({ rows: [{ id: 'x' }] }));
   const provider = createFakeProvider(fallbackModel ? { fallbackModel } : {});
   const ai = createAi({
@@ -23,11 +26,12 @@ describe('ai.ping (the demo-day health check)', () => {
     provider.onGenerate(() => ({ ok: true }));
     provider.onChat(() => ({ toolCalls: [{ name: 'pong', args: {} }] }));
     const results = await ai.ping();
-    expect(results.map((r) => [r.call, r.model])).toEqual([
-      ['generateJson', 'fake-model'],
-      ['chatWithTools', 'fake-model'],
-      ['generateJson', 'fb-model'],
-      ['chatWithTools', 'fb-model'],
+    // Each line says which purpose it is for: resolve (query understanding) and the errand agent.
+    expect(results.map((r) => [r.purpose, r.call, r.model])).toEqual([
+      ['resolve_query', 'generateJson', 'fake-model'],
+      ['resolve_query', 'generateJson', 'fb-model'],
+      ['errand', 'chatWithTools', 'fake-model'],
+      ['errand', 'chatWithTools', 'fb-model'],
     ]);
     for (const r of results)
       expect(r).toMatchObject({
@@ -45,6 +49,34 @@ describe('ai.ping (the demo-day health check)', () => {
     expect((await ai.ping()).map((r) => r.model)).toEqual(['fake-model', 'fake-model']);
   });
 
+  it('tests the errand models (GEMINI_ERRAND_MODEL and its fallback) on the errand lines, the resolve models on the resolve lines', async () => {
+    const { ai, provider } = setup('fb-model', {
+      models: { errand: { model: 'errand-model', fallbackModel: 'errand-fb' } },
+    });
+    provider.onGenerate(() => ({ ok: true }));
+    provider.onChat(() => ({ toolCalls: [{ name: 'pong', args: {} }] }));
+    const results = await ai.ping();
+    expect(results.map((r) => [r.purpose, r.role, r.model])).toEqual([
+      ['resolve_query', 'primary', 'fake-model'],
+      ['resolve_query', 'fallback', 'fb-model'],
+      ['errand', 'primary', 'errand-model'],
+      ['errand', 'fallback', 'errand-fb'],
+    ]);
+    const named = provider.calls.flatMap((c) => (c.kind === 'chat' && c.model ? [c.model] : []));
+    expect(named).toEqual(['errand-model', 'errand-fb']);
+  });
+
+  it('an errand model with no fallback is tested alone', async () => {
+    const { ai, provider } = setup('fb-model', {
+      models: { errand: { model: 'errand-model', fallbackModel: null } },
+    });
+    provider.onGenerate(() => ({ ok: true }));
+    provider.onChat(() => ({ text: 'ok' }));
+    expect((await ai.ping()).filter((r) => r.purpose === 'errand').map((r) => r.model)).toEqual([
+      'errand-model',
+    ]);
+  });
+
   it('reports each failure by kind and status instead of throwing', async () => {
     const { ai, provider } = setup();
     provider.onGenerate(() => {
@@ -56,6 +88,7 @@ describe('ai.ping (the demo-day health check)', () => {
     const [g, c] = await ai.ping();
     expect(g).toMatchObject({ call: 'generateJson', ok: false, kind: 'http', status: 503 });
     expect(c).toMatchObject({ call: 'chatWithTools', ok: false, kind: 'http', status: 429 });
+    expect(c).toMatchObject({ purpose: 'errand' });
   });
 
   it('reports a call that takes too long as a timeout', async () => {

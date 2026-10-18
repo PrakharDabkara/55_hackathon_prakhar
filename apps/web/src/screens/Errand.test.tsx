@@ -560,6 +560,44 @@ describe('the result', () => {
       expect(screen.getByRole('button', { name: 'Dukaanon se phir poochein' })).toBeTruthy();
     });
 
+    it('a blocked item is named and explained, and "Dukaanon se phir poochein" is gone when it cannot help', async () => {
+      const plan = sameBoth();
+      for (const k of ['kam_dukaan', 'sasta'] as const) {
+        plan.plans[k].items = plan.plans[k].items.map((i) => ({
+          ...lost(i),
+          refused: 'blocked' as const,
+        }));
+        plan.plans[k].route = null;
+      }
+      await showPlain(plan);
+      expect(
+        screen.getAllByText('Ye cheez hum dukaanon ko nahi bhej sakte').length,
+      ).toBeGreaterThan(0);
+      expect(screen.queryByRole('button', { name: 'Dukaanon se phir poochein' })).toBeNull();
+    });
+
+    it('keeps "Dukaanon se phir poochein" when some missing item could still be found', async () => {
+      const plan = sameBoth();
+      for (const k of ['kam_dukaan', 'sasta'] as const) {
+        plan.plans[k].items = plan.plans[k].items.map((i, n) => ({
+          ...lost(i),
+          refused: n === 0 ? ('blocked' as const) : null,
+        }));
+        plan.plans[k].route = null;
+      }
+      await showPlain(plan);
+      expect(screen.getByRole('button', { name: 'Dukaanon se phir poochein' })).toBeTruthy();
+    });
+
+    it('a new item that is being asked about carries the "Nayi cheez" tag', async () => {
+      const plan = errandPlan();
+      plan.plans.kam_dukaan.items = plan.plans.kam_dukaan.items.map((i, n) =>
+        n === 0 ? { ...i, isNew: true } : i,
+      );
+      await showPlain(plan);
+      expect(screen.getAllByText('Nayi cheez').length).toBe(1);
+    });
+
     it('"Dukaanon se phir poochein" starts a new errand with the same task, place and budget', async () => {
       const plan = sameBoth();
       for (const k of ['kam_dukaan', 'sasta'] as const) {

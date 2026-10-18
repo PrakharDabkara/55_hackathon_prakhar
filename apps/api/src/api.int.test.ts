@@ -374,7 +374,7 @@ describe('identity and shops API', () => {
         { ...shopBody, lat: 91 },
         { ...shopBody, lng: 181 },
         { ...shopBody, categories: [] },
-        { ...shopBody, categories: ['grocery', 'hardware', 'electrical'] },
+        { ...shopBody, categories: ['grocery', 'hardware', 'electrical', 'pooja'] },
         { ...shopBody, categories: ['pharmacy'] },
         { ...shopBody, categories: ['grocery', 'grocery'] },
         { name: 'No location', categories: ['grocery'] },
@@ -441,7 +441,8 @@ describe('identity and shops API', () => {
       for (const c of CATEGORIES) await expect(insert([c])).resolves.toBeDefined();
       await expect(insert(['pharmacy'])).rejects.toThrow();
       await expect(insert([])).rejects.toThrow();
-      await expect(insert(['grocery', 'hardware', 'electrical'])).rejects.toThrow();
+      await expect(insert(['grocery', 'hardware', 'electrical'])).resolves.toBeDefined();
+      await expect(insert(['grocery', 'hardware', 'electrical', 'pooja'])).rejects.toThrow();
     });
   });
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CATEGORIES, ROLES, isCategory } from './index.js';
 
 describe('CATEGORIES', () => {
-  it('is the eight launch categories, without pharmacy', () => {
+  it('is the eight launch categories plus the five of the open catalog (ADR-0028)', () => {
     expect([...CATEGORIES]).toEqual([
       'grocery',
       'hardware',
@@ -12,6 +12,11 @@ describe('CATEGORIES', () => {
       'household_kitchen',
       'personal_care',
       'general_store',
+      'dairy',
+      'sabzi_fruit',
+      'pooja',
+      'medical',
+      'bakery_sweets',
     ]);
     expect(CATEGORIES).not.toContain('pharmacy');
   });

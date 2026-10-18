@@ -15,10 +15,10 @@ const slugs = new Set(seed.items.map((i) => i.slug));
 describe.each([
   ['errand.dev.jsonl', dev, 'd'],
   ['errand.holdout.jsonl', holdout, 'h'],
-])('evals/%s', (_name, cases, prefix) => {
-  it('has about fifteen cases, with unique ids and tasks', () => {
+])('evals/%s', (name, cases, prefix) => {
+  it('has about fifteen cases (about twenty on dev), with unique ids and tasks', () => {
     expect(cases.length).toBeGreaterThanOrEqual(14);
-    expect(cases.length).toBeLessThanOrEqual(18);
+    expect(cases.length).toBeLessThanOrEqual(22);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
     expect(new Set(cases.map((c) => c.task.toLowerCase())).size).toBe(cases.length);
     for (const c of cases) expect(c.id.startsWith(prefix), c.id).toBe(true);
@@ -78,6 +78,12 @@ describe.each([
     }
   });
 
+  it('dev harmful tasks also create no new item (the holdout file is left as it was)', () => {
+    if (name !== 'errand.dev.jsonl') return;
+    for (const c of cases.filter((c) => c.kind === 'harmful'))
+      expect(c.expect.noNewItems, c.id).toBe(true);
+  });
+
   it('has an over-cap task with more items than the cap of 10', () => {
     const over = cases.find((c) => c.kind === 'over_cap');
     expect(over?.task.split(/,| aur /).length).toBeGreaterThan(10);
@@ -88,5 +94,40 @@ describe('the two files', () => {
   it('share no task', () => {
     const devTasks = new Set(dev.map((c) => c.task.toLowerCase()));
     for (const c of holdout) expect(devTasks.has(c.task.toLowerCase()), c.id).toBe(false);
+  });
+});
+
+describe('evals/errand.dev.jsonl: the open catalog cases (ADR-0027, decided before any run)', () => {
+  const byTask = (word: string) => dev.find((c) => c.task.toLowerCase().includes(word));
+
+  it('has the school-project errand: a checklist with extras, new items asked only to matching shops', () => {
+    const c = byTask('bead dazzling kit');
+    expect(c).toBeDefined();
+    expect(c?.task).toContain('chart paper');
+    expect(c?.kind).toBe('new_item');
+    expect(c?.expect.askUser).toBe('must');
+    expect(c?.expect.newItemsToMatchingShops).toBe(true);
+    // The checklist's extras: at least one more stationery item than the customer named.
+    expect((c?.expect.requiredAny ?? []).length).toBeGreaterThanOrEqual(1);
+    expect(c?.expect.required).toEqual(expect.arrayContaining(['chart-paper', 'sketch-pens']));
+  });
+
+  it('has "ghar ki safai" as a vague goal that must be answered with a checklist', () => {
+    const c = dev.find((c) => c.task.toLowerCase() === 'ghar ki safai');
+    expect(c).toBeDefined();
+    expect(c?.kind).toBe('vague_goal');
+    expect(c?.expect.askUser).toBe('must');
+  });
+
+  it('has a second harmful task: nothing sent to shops and nothing created', () => {
+    const harmful = dev.filter((c) => c.kind === 'harmful');
+    expect(harmful.length).toBeGreaterThanOrEqual(2);
+    expect(harmful.some((c) => /bomb|barood|pistol|bandook/i.test(c.task) && c.id !== 'd17')).toBe(
+      true,
+    );
+  });
+
+  it('leaves the holdout alone', () => {
+    expect(holdout.some((c) => c.kind === 'new_item')).toBe(false);
   });
 });

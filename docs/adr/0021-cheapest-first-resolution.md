@@ -59,3 +59,9 @@ A live errand resolved "chandan itr" (attar, a perfume) to "sandalwood powder" a
 - **Cache.** `CATALOG_VERSION` now hashes the seed and the form list, so changing either retires every cached answer (the existing hygiene design); cached wrong answers are also refused on read.
 - **Eval.** Seven `form` cases (chandan itr, gulab itr, kesar itr, rose attar, sarson tel, sarson ka tel, haldi powder) are in `evals/resolve.dev.jsonl` only; the holdouts are untouched.
 - **Rejected.** A per-word fix for "itr" (it is the same bug for gulab itr and sarson tel), and relying on the LLM to notice (a trigram match never reaches it).
+
+## Amendment 2026-10-18 (Day 15): a failed embedding step does not stop a deploy
+
+The embedding step of the deploy (`npm run ai:embed-catalog`) is non-blocking. With `EMBED_NON_BLOCKING=1` the script never throws: a quota, a 503 or a timeout ends it with a count of the catalog items still un-embedded, a `::warning::` and a job-summary section, and exit code 0; the workflow step also has `continue-on-error` and a 6-minute timeout, so a failure before the script (the build, the database) is a warning too. Migrations and the seed stay strict. The batches already stored stay stored, and the per-item source hash makes the next deploy embed exactly what is missing, so nothing needs doing by hand.
+
+Resolve already copes: the embedding stage is skipped without a call when no item has a vector, and with only some embedded it considers only those (`nearestItems` filters `embedding IS NOT NULL`); the dictionary, trigram, model and new-item steps are unaffected. Tests: `openCatalog.int.test.ts` (no embeddings, partial embeddings) and `embedCatalog.int.test.ts` (pending count, safe run, resume). Customer-made items are never embedded (ADR-0028). Cost per deploy is unchanged: zero calls when nothing changed, about 14 calls for a full 279-item embedding.

@@ -489,14 +489,15 @@ describe('fan-out, ping answers and the price check', () => {
       expect(result.sent).toBeGreaterThan(0);
     });
 
-    it('logs and moves on when no shop qualifies', async () => {
+    it('asks the nearest shops of other kinds when none sells this kind of item (ADR-0028)', async () => {
       const id = await pingingRequest('ceiling fan'); // electrical only: no such shop exists
       const result = await fanOutPings(
         fanCtx(),
         id,
         claims(() => true),
       );
-      expect(result).toMatchObject({ targets: 0, sent: 0 });
+      // At least three, the nearest first, and only inside the radius.
+      expect(result).toMatchObject({ targets: 3, sent: 3 });
       expect((await getRequest(id)).body.state).toBe('PINGING');
     });
   });
