@@ -20,6 +20,7 @@ describe('the web app served under /app/', () => {
     writeFileSync(path.join(dist, 'index.html'), INDEX);
     writeFileSync(path.join(dist, 'assets', 'index-abc123.js'), 'console.log("shop");');
     writeFileSync(path.join(dist, 'manifest.json'), '{"name":"KahanMilega"}');
+    writeFileSync(path.join(dist, 'sw.js'), 'self.addEventListener("push", () => {});');
     writeFileSync(path.join(root, 'secret.txt'), 'top secret');
 
     const db = { query: vi.fn(async () => ({ rows: [{ ok: 1 }] })) };
@@ -144,6 +145,15 @@ describe('the web app served under /app/', () => {
       const page = await request(emptyApp).get('/app/shop');
       expect(page.status).toBe(404);
       expect((await request(emptyApp).get('/health')).status).toBe(200);
+    });
+  });
+
+  describe('the service worker', () => {
+    it('is served as JavaScript that browsers re-check every time, so a fix reaches phones at once', async () => {
+      const res = await request(app).get('/app/sw.js');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/javascript/);
+      expect(res.headers['cache-control']).toBe('no-cache');
     });
   });
 });
