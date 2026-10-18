@@ -193,20 +193,33 @@ describe('open catalog over HTTP', () => {
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
   });
 
-  it('GET /search?create=true opens the catalog (what resolve_item uses) and says the item is new', async () => {
+  it('GET /search ignores a create flag: a GET never creates data', async () => {
     const res = await request(app)
       .get('/search')
       .set(auth(seeker))
       .query({ q: 'foam glitter sheet', lat: ORIGIN.lat, lng: ORIGIN.lng, create: 'true' });
     expect(res.status).toBe(200);
+    expect(res.body.item).toBeNull();
+    expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
+  });
+
+  it('POST /items/resolve opens the catalog (what resolve_item uses) and says the item is new', async () => {
+    const post = (q: string, user: { token: string } | null = seeker) => {
+      const r = request(app).post('/items/resolve');
+      return (user ? r.set(auth(user)) : r).send({ q });
+    };
+    const res = await post('foam glitter sheet');
+    expect(res.status).toBe(200);
     expect(res.body.item).toMatchObject({ nameEn: 'Foam glitter sheet', unverified: true });
-    const blocked = await request(app)
-      .get('/search')
-      .set(auth(seeker))
-      .query({ q: 'pistol', lat: ORIGIN.lat, lng: ORIGIN.lng, create: 'true' });
+    expect(res.body.matchedBy).toBe('new_item');
+    const again = await post('foam glitter sheet');
+    expect(again.body.item.id).toBe(res.body.item.id);
+    const blocked = await post('pistol');
     expect(blocked.status).toBe(200);
     expect(blocked.body.item).toBeNull();
     expect(blocked.body.refused).toEqual({ reason: 'blocked' });
+    expect((await post('x', null)).status).toBe(401);
+    expect((await post('')).status).toBe(400);
   });
 
   it('a shop saying yes verifies the item and teaches stock, so the next person gets Likely', async () => {
