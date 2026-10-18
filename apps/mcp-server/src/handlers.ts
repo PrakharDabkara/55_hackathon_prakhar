@@ -66,7 +66,8 @@ const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unkno
     const res = await api.call({
       method: 'GET',
       path: '/search',
-      query: { q: text, lat: 0, lng: 0, radius_m: 1 },
+      // create: a real product the catalog does not know yet becomes a new, unverified item.
+      query: { q: text, lat: 0, lng: 0, radius_m: 1, create: 'true' },
     });
     if (res.status === 422 && res.body?.error?.code === 'item_ambiguous') {
       const e = res.body.error;
@@ -83,6 +84,24 @@ const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unkno
     }
     expectOk(res, { missing: 'Not found.' });
     const item = res.body.item as Input | null;
+    const refused = res.body.refused as { reason?: string } | undefined;
+    if (!item && refused?.reason === 'blocked')
+      return {
+        blocked: true,
+        message:
+          'This item cannot be sent to shops. Do not try other words for it; tell the user you cannot help with it.',
+      };
+    if (!item && refused?.reason === 'unavailable')
+      return {
+        unavailable: true,
+        message: 'This item cannot be sent to shops right now. Try again later.',
+      };
+    if (!item && refused?.reason === 'limit')
+      return {
+        limit: true,
+        message:
+          'The limit of new items is reached for now, so this one cannot be sent to shops. Try again tomorrow.',
+      };
     if (!item) {
       return {
         unresolved: true,
@@ -95,6 +114,8 @@ const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unkno
         name: item['nameEn'],
         nameHi: item['nameHi'],
         category: item['category'],
+        // No shop has confirmed it yet: it was added by a customer.
+        ...(item['unverified'] === true && { isNew: true }),
       },
     };
   },
