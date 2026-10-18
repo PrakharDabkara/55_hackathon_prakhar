@@ -18,6 +18,8 @@ const query = z
     lng: z.coerce.number().min(-180).max(180),
     radius_m: z.coerce.number().int().min(1).max(MAX_RADIUS_M).default(DEFAULT_RADIUS_M),
     itemId: z.uuid().optional(),
+    /** resolve_item: turn a real unknown product into a new item (ADR-0028). Same text, same item. */
+    create: z.enum(['true', 'false']).optional(),
   })
   .refine((v) => v.q !== undefined || v.itemId !== undefined, {
     message: 'q: give the text to look for, or an itemId',
@@ -35,12 +37,13 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
   const router = Router();
 
   router.get('/search', createRequireAuth(db), async (req, res) => {
-    const { q, lat, lng, radius_m, itemId } = parse(query, req.query);
+    const { q, lat, lng, radius_m, itemId, create } = parse(query, req.query);
     const resolution = await resolveForCustomer(db, q ?? '', {
       userId: authOf(req).user.id,
       threshold: trigramThreshold,
       itemId,
       requestId: String(req.id),
+      ...(create === 'true' && { openCatalog: {} }),
       ...(ai && { ai }),
       ...(logger && { logger }),
     });
@@ -55,6 +58,7 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
       },
       item: resolution.item,
       matchedBy: resolution.matchedBy,
+      ...(resolution.refused && { refused: resolution.refused }),
       results,
     });
   });

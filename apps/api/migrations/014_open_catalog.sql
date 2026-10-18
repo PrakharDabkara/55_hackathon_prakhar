@@ -37,6 +37,24 @@ ALTER TABLE shops ADD CONSTRAINT shops_categories_valid CHECK (
     'personal_care', 'general_store', 'dairy', 'sabzi_fruit', 'pooja', 'medical', 'bakery_sweets'
   ]::text[]
 ) NOT VALID;
+-- Validate it only if every row passes, so a stray old row on a deployed database cannot fail this
+-- migration (then it stays NOT VALID), as migration 013 did.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM shops
+     WHERE NOT (
+       cardinality(categories) BETWEEN 1 AND 3
+       AND categories <@ ARRAY[
+         'grocery', 'hardware', 'electrical', 'stationery', 'mobile_accessories',
+         'household_kitchen', 'personal_care', 'general_store', 'dairy', 'sabzi_fruit', 'pooja',
+         'medical', 'bakery_sweets'
+       ]::text[]
+     )
+  ) THEN
+    ALTER TABLE shops VALIDATE CONSTRAINT shops_categories_valid;
+  END IF;
+END $$;
 
 ALTER TABLE search_queries DROP CONSTRAINT search_queries_matched_by_check;
 ALTER TABLE search_queries ADD CONSTRAINT search_queries_matched_by_check

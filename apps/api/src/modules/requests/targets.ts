@@ -25,18 +25,21 @@ interface Options {
  */
 export function selectPingTargets<T extends Candidate>(candidates: T[], opts: Options): T[] {
   const byDistance = (a: T, b: T) => a.distanceM - b.distanceM;
-  const eligible = candidates.filter(
-    (c) => c.distanceM <= opts.radiusM && !opts.excludeShopIds.has(c.shopId),
+  const inRadius = candidates.filter((c) => c.distanceM <= opts.radiusM);
+  const ofKind = inRadius.filter((c) =>
+    c.categories.some((category) => opts.itemCategories.includes(category)),
   );
-  const matching = eligible
-    .filter((c) => c.categories.some((category) => opts.itemCategories.includes(category)))
+  const matching = ofKind
+    .filter((c) => !opts.excludeShopIds.has(c.shopId))
     .sort(byDistance)
     .slice(0, opts.max);
-  const wanted = Math.min(opts.minTargets ?? 0, opts.max);
-  if (matching.length >= wanted) return matching;
-  const others = eligible
-    .filter((c) => !matching.includes(c))
+  // "Too few" counts every nearby shop of the kind, also those already known to have the item:
+  // a street with plenty of such shops needs no help from the other kinds.
+  const missing = Math.min(opts.minTargets ?? 0, opts.max) - ofKind.length;
+  if (missing <= 0) return matching;
+  const others = inRadius
+    .filter((c) => !ofKind.includes(c) && !opts.excludeShopIds.has(c.shopId))
     .sort(byDistance)
-    .slice(0, wanted - matching.length);
+    .slice(0, missing);
   return [...matching, ...others];
 }

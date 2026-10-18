@@ -15,5 +15,6 @@ export type {
 } from './resolve.js';
 export { CATALOG_VERSION, loadSeedCatalog, seedCatalog } from './seed.js';
 export { cleanItemName } from './itemName.js';
+export { refusalError } from './openCatalog.js';
 export type { Refusal } from './openCatalog.js';
 export { cacheAdminRouter } from './cacheAdminRouter.js';

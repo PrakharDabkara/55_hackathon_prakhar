@@ -98,19 +98,24 @@ describe('asking the customer which item they mean (422 item_ambiguous) and the 
     });
 
     it('still answers 422 item_unresolved when nothing fits, as before', async () => {
-      provider.onGenerate(() => ({ itemId: null, needsClarification: false }));
+      provider.onGenerate(({ purpose }) =>
+        purpose === 'classify_item'
+          ? { verdict: 'nonsense' }
+          : { itemId: null, needsClarification: false },
+      );
       const res = await ask({ q: 'zzq qwerty' });
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('item_unresolved');
     });
 
-    it('keeps working when the AI is down: an unresolved item, never a 500', async () => {
+    it('keeps working when the AI is down: a clear 503 that nothing was sent, never a 500', async () => {
       provider.onGenerate(() => {
         throw Object.assign(new Error('down'), { status: 503 });
       });
       const res = await ask({ q: 'zzq down' });
-      expect(res.status).toBe(422);
-      expect(res.body.error.code).toBe('item_unresolved');
+      // The catalog has no answer and the safety classifier is down: fail closed (ADR-0029).
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe('item_unavailable');
       const ok = await ask({ q: 'chini' }); // the dictionary still answers
       expect(ok.status).toBe(201);
     });

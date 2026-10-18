@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import { ApiError } from '../../http/errors.js';
 import type { Queryable } from '../../db/queryable.js';
 import { AiUnavailableError, looksLikeInstruction, type AiContext } from '../ai/index.js';
 import {
@@ -149,3 +150,22 @@ const unavailable = (): UserItemOutcome => ({
   kind: 'refused',
   refusal: { reason: 'unavailable' },
 });
+
+/** The API error for a refusal: what the customer is told, in the words the screens use (ADR-0029). */
+export function refusalError(refusal: Refusal): ApiError {
+  switch (refusal.reason) {
+    case 'blocked':
+      return new ApiError(422, 'item_blocked', 'Ye cheez hum dukaanon ko nahi bhej sakte');
+    case 'unavailable':
+      return new ApiError(503, 'item_unavailable', 'Abhi ye cheez dukaanon ko nahi bhej sakte');
+    case 'limit':
+      return new ApiError(
+        429,
+        'new_item_limit',
+        refusal.scope === 'errand'
+          ? 'Ek kaam mein 5 se zyada nayi cheezein nahi pooch sakte'
+          : 'Aaj ke liye nayi cheezon ki limit poori ho gayi, kal phir koshish karein',
+        { scope: refusal.scope },
+      );
+  }
+}

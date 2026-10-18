@@ -47,6 +47,7 @@ describe('open catalog over HTTP', () => {
     await pool.query('TRUNCATE requests, pings, new_item_attempts, query_cache CASCADE');
     await pool.query(`DELETE FROM shops`);
     await pool.query(`DELETE FROM items WHERE source = 'user'`);
+    provider.calls.length = 0;
     provider.onGenerate(({ purpose }) =>
       purpose === 'classify_item'
         ? { verdict: 'allowed', category: 'stationery' }
