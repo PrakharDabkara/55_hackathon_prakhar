@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NotifyToggle } from '../components/NotifyToggle.js';
+import { ShopDemand } from '../components/ShopDemand.js';
 import { ShopOrders } from '../components/ShopOrders.js';
 import { useT } from '../i18n/index.js';
 import { ApiError, type AnswerBody, type MyShop, type ShopApi, type ShopPing } from '../lib/api.js';
@@ -167,6 +168,7 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
       ) : (
         <p className="empty">{t.emptyHome}</p>
       )}
+      <ShopDemand api={api} />
     </section>
   );
 }

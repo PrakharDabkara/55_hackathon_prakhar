@@ -50,6 +50,17 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
     return () => clearInterval(timer);
   }, []);
 
+  /**
+   * "Raasta" for a pickup shop is noted so the home screen can later ask "Le liya?" (ADR-0035).
+   * Never for a shop the customer is having it delivered from, and never in the way of the route.
+   */
+  function notePickup(shopId: string) {
+    if (!request.item || orderForShop(orders, shopId)) return;
+    api
+      .recordPickup({ shopId, itemId: request.item.id, requestId: request.id })
+      .catch(() => undefined);
+  }
+
   // Orders for this request. They are an extra: if they cannot be fetched the results still show.
   const loadOrders = useCallback(() => {
     api
@@ -160,6 +171,11 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                 )}
                 <p className="meta">{t.away(formatDistance(r.distanceM))}</p>
                 <p className="meta">{r.freshness}</p>
+                {r.source === 'learned' && r.customerVerified && (
+                  <p className="meta">
+                    <span className="status-badge ok">{t.verifiedByCustomer}</span>
+                  </p>
+                )}
                 <OfferLines
                   quantity={r.quantity}
                   check={r.quantityCheck}
@@ -197,6 +213,7 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                 href={directionsUrl(r.lat, r.lng)}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => notePickup(r.shopId)}
               >
                 {t.route}
               </a>

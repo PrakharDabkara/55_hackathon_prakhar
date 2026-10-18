@@ -23,7 +23,14 @@ export interface LearnedStockResult {
   delivery: DeliveryOffer | null;
   lastConfirmedAt: Date;
   freshness: string;
+  /** A customer who went there found it (ADR-0035). Forgotten when the shop answers again itself. */
+  customerVerified?: boolean;
+  /** Customers have repeatedly come away empty-handed: ranked below the others, never shown as such. */
+  doubtful?: boolean;
 }
+
+/** After this many "Wahan nahi tha" a shop's learned answer for an item is ranked last (ADR-0035). */
+export const DOUBTFUL_AFTER_REPORTS = 2;
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -54,16 +61,17 @@ export function freshnessLabel(confirmedAt: Date, now: Date): string {
   return `Had it ${days} days ago`;
 }
 
-/** 0 = today, 1 = the last 3 days, 2 = older. */
-const freshnessBucket = (confirmedAt: Date, now: Date): number => {
-  const days = daysSince(confirmedAt, now);
+/** 0 = today, 1 = the last 3 days, 2 = older, 3 = doubtful whatever its age. */
+const freshnessBucket = (result: LearnedStockResult, now: Date): number => {
+  if (result.doubtful) return 3;
+  const days = daysSince(result.lastConfirmedAt, now);
   return days < 1 ? 0 : days < 3 ? 1 : 2;
 };
 
-/** Fresher bucket first, then nearest. Returns a new array. */
+/** Fresher bucket first, doubtful answers last, then nearest. Returns a new array. */
 export function rankResults(results: LearnedStockResult[], now: Date): LearnedStockResult[] {
   return results
-    .map((r) => ({ r, bucket: freshnessBucket(r.lastConfirmedAt, now) }))
+    .map((r) => ({ r, bucket: freshnessBucket(r, now) }))
     .sort((a, b) => a.bucket - b.bucket || a.r.distanceM - b.r.distanceM)
     .map(({ r }) => r);
 }

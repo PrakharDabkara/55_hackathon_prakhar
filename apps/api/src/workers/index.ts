@@ -11,6 +11,7 @@ import {
 } from '../modules/errands/index.js';
 import { sweepOrderAddresses, sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
+import { sweepPickups } from '../modules/pickups/index.js';
 import {
   createNotifier,
   createPushSender,
@@ -19,6 +20,7 @@ import {
   markSubscriptionSuccess,
   removeSubscription,
   type CounterStore,
+  type Notifier,
   type WebPushClient,
 } from '../modules/push/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
@@ -31,6 +33,7 @@ import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
 
 const PHOTO_SWEEP_EVERY_MS = 10 * 60_000;
 const ADDRESS_SWEEP_EVERY_MS = 60 * 60_000;
+const PICKUP_SWEEP_EVERY_MS = 60 * 60_000;
 
 export interface Workers {
   /** Hand to createApp so new requests schedule expiry and queue their ping fan-out. */
@@ -82,6 +85,9 @@ export function startWorkers({
   const limits = limitsFromConfig(config);
   let lastPhotoSweep = 0;
   let lastAddressSweep = 0;
+  let lastPickupSweep = 0;
+  // Made below with the push worker; without push there are no reminders.
+  let notifier: Notifier | null = null;
   // The errand worker is made after the expiry sweeper, which needs to sweep errands too.
   let errands: ErrandWorker | null = null;
   const requestHooks: RequestHooks = {};
@@ -106,6 +112,15 @@ export function startWorkers({
         if (Date.now() - lastAddressSweep < ADDRESS_SWEEP_EVERY_MS) return 0;
         lastAddressSweep = Date.now();
         return sweepOrderAddresses({ db, logger });
+      },
+      // "Le liya?" (ADR-0035): customers a pickup is an hour old for get one push, if the home
+      // screen has not asked yet. A no-op without push.
+      async () => (notifier ? notifier.remindPickups() : 0),
+      // Visits are forgotten 30 days after the tap.
+      async () => {
+        if (Date.now() - lastPickupSweep < PICKUP_SWEEP_EVERY_MS) return 0;
+        lastPickupSweep = Date.now();
+        return sweepPickups({ db, logger });
       },
       async () =>
         errands
@@ -199,7 +214,7 @@ export function startWorkers({
       incr: (key) => counters.incr(key),
       expire: (key, seconds) => counters.expire(key, seconds, 'NX'),
     };
-    const notifier = createNotifier({
+    notifier = createNotifier({
       db,
       logger,
       enqueue: push.enqueue,
@@ -207,7 +222,8 @@ export function startWorkers({
       answerDebounceMs: 3000,
     });
     // The events are published after the commit that caused them, so a push never tells of a rollback.
-    subscribe((event) => notifier.handle(event));
+    const live = notifier;
+    subscribe((event) => live.handle(event));
   }
 
   return {

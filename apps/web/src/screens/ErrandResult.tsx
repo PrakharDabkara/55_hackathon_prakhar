@@ -9,6 +9,7 @@ import { formatDistance } from '../lib/format.js';
 import { formatRupees } from '../lib/money.js';
 import { orderForShop, type SeekerOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
+import type { PickupApi } from '../lib/pickupApi.js';
 import type { ErrandPlan, PlanItem, PlanKind, SeekerApi } from '../lib/seekerApi.js';
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
   /** Delivery orders from this plan's shops (ADR-0031). Without `orderApi` there is no ordering. */
   orderApi?: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
   errandId?: string;
+  /** "Raasta kholo" notes the pickup shops so the home screen can ask "Le liya?" (ADR-0035). */
+  pickupApi?: Pick<PickupApi, 'recordPickup'>;
   orders?: SeekerOrder[];
   onOrderChange?: () => void;
 }
@@ -40,6 +43,7 @@ export function ErrandResult({
   onMode,
   orderApi,
   errandId,
+  pickupApi,
   orders = [],
   onOrderChange,
 }: Props) {
@@ -52,6 +56,21 @@ export function ErrandResult({
   const link = directionsForRoute(origin, variant.route?.orderedStops ?? []);
   const found = variant.items.filter((item) => item.status !== 'not_found');
   const missing = variant.items.filter((item) => item.status === 'not_found');
+
+  /** Each pickup shop and item of this plan, once. Delivery shops and items nobody found are not. */
+  function notePickups() {
+    if (!pickupApi || !errandId) return;
+    const seen = new Set<string>();
+    for (const item of found) {
+      if (!item.shopId || !item.itemId || item.mode === 'delivery') continue;
+      const key = `${item.shopId}:${item.itemId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pickupApi
+        .recordPickup({ shopId: item.shopId, itemId: item.itemId, errandId })
+        .catch(() => undefined);
+    }
+  }
 
   const { extraPaise, stopsSaved, reason } = plan.recommendation;
   const extra = extraPaise > 0 ? formatRupees(extraPaise) : null;
@@ -215,7 +234,13 @@ export function ErrandResult({
             youAreHere={t.youAreHere}
           />
           {link && (
-            <a className="btn btn-yes" href={link} target="_blank" rel="noopener noreferrer">
+            <a
+              className="btn btn-yes"
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={notePickups}
+            >
               {t.errandRoute}
             </a>
           )}

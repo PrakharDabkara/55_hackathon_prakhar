@@ -46,6 +46,8 @@ export interface RequestResult {
   quantityCheck?: 'enough' | 'short' | 'unknown';
   /** "Ghar bhej denge": what the shop offered, with its yes or last time. */
   delivery?: DeliveryOffer;
+  /** A customer went there and found it ("Grahak ne confirm kiya"). Learned answers only. */
+  customerVerified?: true;
 }
 
 export function liveLabel(answeredAt: Date, now: Date): string {
@@ -77,15 +79,21 @@ export function buildResults({
   askedQuantity = null,
 }: Input): RequestResult[] {
   const rows = new Map<string, RequestResult>();
+  // Answers customers repeatedly found wrong go last; the reason is never part of the result.
+  const doubtful = new Set<string>();
 
-  for (const { quantity, delivery, ...l } of learned)
+  for (const { quantity, delivery, customerVerified, doubtful: unsure, ...l } of learned) {
+    if (unsure) doubtful.add(l.shopId);
     rows.set(l.shopId, {
       ...l,
       source: 'learned',
       ...(quantity && { quantity }),
       ...(delivery && { delivery }),
+      ...(customerVerified && { customerVerified: true as const }),
     });
+  }
   for (const a of live) {
+    doubtful.delete(a.shopId);
     rows.set(a.shopId, {
       shopId: a.shopId,
       name: a.name,
@@ -116,7 +124,11 @@ export function buildResults({
   const byDistance = (a: RequestResult, b: RequestResult) => a.distanceM - b.distanceM;
   // Unknown prices sort after known ones.
   const price = (r: RequestResult) => r.pricePaise ?? Number.POSITIVE_INFINITY;
+  const order =
+    key === 'price'
+      ? (a: RequestResult, b: RequestResult) => price(a) - price(b) || byDistance(a, b)
+      : byDistance;
   return results.sort(
-    key === 'price' ? (a, b) => price(a) - price(b) || byDistance(a, b) : byDistance,
+    (a, b) => Number(doubtful.has(a.shopId)) - Number(doubtful.has(b.shopId)) || order(a, b),
   );
 }

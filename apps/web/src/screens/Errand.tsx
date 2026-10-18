@@ -367,6 +367,7 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
             onMode={(shopId, mode) => void act(() => api.setDeliveryMode(id, shopId, mode))}
             orderApi={api}
             errandId={id}
+            pickupApi={api}
             orders={orders}
             onOrderChange={() => {
               loadOrders();

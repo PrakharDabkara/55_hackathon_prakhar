@@ -11,7 +11,8 @@ export type PushKind =
   | 'order_accepted'
   | 'order_declined'
   | 'order_out'
-  | 'order_delivered';
+  | 'order_delivered'
+  | 'pickup_ask';
 
 export interface PushPayload {
   title: string;
@@ -43,11 +44,14 @@ const TITLES: Record<PushKind, (item: string) => string> = {
   order_declined: (item) => `Dukaan ne order mana kiya: ${item}`,
   order_out: (item) => `Order raaste mein hai: ${item}`,
   order_delivered: (item) => `Order pahunch gaya: ${item}`,
+  pickup_ask: (item) => `Kya aapko ${item} mila?`,
 };
 
 /** The link for each kind; the id is the request, errand or order it is about. */
 function linkFor(kind: PushKind, id: string | undefined): string {
   if (kind === 'new_ping' || kind === 'new_order') return '/app/shop';
+  // The question itself is on the customer's home screen ("Le liya?", ADR-0035).
+  if (kind === 'pickup_ask') return '/app/';
   if (!id || !PLAIN_ID.test(id)) throw new Error(`push kind ${kind} needs a plain id for its link`);
   if (kind === 'shop_answered') return `/app/request/${id}`;
   if (kind === 'plan_ready') return `/app/errand/${id}`;

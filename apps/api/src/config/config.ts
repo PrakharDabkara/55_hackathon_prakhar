@@ -113,6 +113,8 @@ const schema = z
     VAPID_SUBJECT: blankIsUnset,
     // Most pushes one person gets in a minute; the rest are dropped, so a busy shop is not spammed.
     PUSH_MAX_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(5),
+    // "Le liya?" (ADR-0035): how long after a tap on "Raasta" the home screen starts asking.
+    PICKUP_ASK_AFTER_MINUTES: z.coerce.number().int().min(0).max(240).default(15),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -218,6 +220,8 @@ export interface Config {
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
   /** Pushes per person per minute. */
   pushMaxPerMinute: number;
+  /** Minutes after a tap on "Raasta" before the home screen asks "Le liya?" (ADR-0035). */
+  pickupAskAfterMinutes: number;
   gitSha: string;
 }
 
@@ -286,6 +290,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandFewerStopsMaxExtraPaise: e.ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE,
     vapid: vapidFrom(e),
     pushMaxPerMinute: e.PUSH_MAX_PER_MINUTE,
+    pickupAskAfterMinutes: e.PICKUP_ASK_AFTER_MINUTES,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

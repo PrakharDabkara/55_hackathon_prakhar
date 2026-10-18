@@ -2,6 +2,7 @@ import type { QuantityUnit } from '@kahanmilega/shared';
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
 import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
+import { createPickupApi, type PickupApi } from './pickupApi.js';
 import { createPushApi, type PushApi } from './pushApi.js';
 
 export interface ShopResult {
@@ -26,6 +27,8 @@ export interface ShopResult {
   quantityCheck?: 'enough' | 'short' | 'unknown';
   /** "Ghar bhej denge": a fee (0 is free, null not told) and a time. */
   delivery?: { feePaise: number | null; minutes: number | null };
+  /** A customer went there and found it. Learned answers only (ADR-0035). */
+  customerVerified?: true;
 }
 
 export interface PingStats {
@@ -196,6 +199,7 @@ export interface SeekerApi
   extends
     Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'>,
     PhotoApi,
+    PickupApi,
     PushApi {
   createRequest(input: NewRequest): Promise<SeekerRequest>;
   getRequest(id: string): Promise<SeekerRequest>;
@@ -247,6 +251,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
   return {
     ...createPhotoApi(options),
     ...createPushApi(options),
+    ...createPickupApi(options),
     async requestOtp(phone) {
       await call('POST', '/auth/otp/request', { phone });
     },

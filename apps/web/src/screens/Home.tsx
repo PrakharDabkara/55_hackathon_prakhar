@@ -1,5 +1,6 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { NotifyToggle } from '../components/NotifyToggle.js';
+import { PickupAsk } from '../components/PickupAsk.js';
 import { useT } from '../i18n/index.js';
 import { isActiveOrder } from '../lib/orders.js';
 import type { RecentItem, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
@@ -51,6 +52,7 @@ export function Home({ api, onFound, navigate }: Props) {
 
   return (
     <>
+      <PickupAsk api={api} />
       <Search api={api} onFound={onFound} />
       <a className="btn btn-no errand-entry" {...appLink(navigate, '/app/errand')}>
         {t.errandEntry}
