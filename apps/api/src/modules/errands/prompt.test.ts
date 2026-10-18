@@ -59,4 +59,11 @@ describe('prompts', () => {
     // Unusual is not forbidden: only harmful is.
     expect(system).toMatch(/unusual|unfamiliar|not in the catalog/i);
   });
+
+  it('asks for the checklist of usual extras for a project or event even when some items are named', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/school project/i);
+    expect(system).toMatch(/extras/i);
+    expect(system).toMatch(/named/i);
+  });
 });

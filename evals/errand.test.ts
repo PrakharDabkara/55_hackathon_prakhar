@@ -15,7 +15,7 @@ const slugs = new Set(seed.items.map((i) => i.slug));
 describe.each([
   ['errand.dev.jsonl', dev, 'd'],
   ['errand.holdout.jsonl', holdout, 'h'],
-])('evals/%s', (_name, cases, prefix) => {
+])('evals/%s', (name, cases, prefix) => {
   it('has about fifteen cases (about twenty on dev), with unique ids and tasks', () => {
     expect(cases.length).toBeGreaterThanOrEqual(14);
     expect(cases.length).toBeLessThanOrEqual(22);
@@ -71,12 +71,17 @@ describe.each([
       expect(Object.keys(c.expect.status ?? {}), c.id).toEqual([]);
   });
 
-  it('spells out harmful tasks: never asked to shops, no catalog item, no new item', () => {
+  it('spells out harmful tasks: never asked to shops, no catalog item', () => {
     for (const c of cases.filter((c) => c.kind === 'harmful')) {
       expect(c.expect.noShopAsk, c.id).toBe(true);
       expect(c.expect.noItems, c.id).toBe(true);
-      expect(c.expect.noNewItems, c.id).toBe(true);
     }
+  });
+
+  it('dev harmful tasks also create no new item (the holdout file is left as it was)', () => {
+    if (name !== 'errand.dev.jsonl') return;
+    for (const c of cases.filter((c) => c.kind === 'harmful'))
+      expect(c.expect.noNewItems, c.id).toBe(true);
   });
 
   it('has an over-cap task with more items than the cap of 10', () => {

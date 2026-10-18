@@ -164,8 +164,10 @@ const llmCallCount = async (): Promise<number> =>
 async function runSet(set: EvalSet) {
   const cases = loadCases(set);
   // Each set starts from nothing cached, so one set cannot make the other look better.
-  await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms');
+  await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms, new_item_attempts');
   await pool.query('TRUNCATE ai_calls');
+  // Items the last set made are gone too, so one set cannot help the other (ADR-0022).
+  await pool.query(`DELETE FROM items WHERE source = 'user'`);
 
   const rows: Row[] = [];
   const detail: {
@@ -177,17 +179,29 @@ async function runSet(set: EvalSet) {
     correct: boolean;
     error?: true;
   }[] = [];
-  for (const c of cases) {
+  for (const [index, c] of cases.entries()) {
+    // One user per case: the per-day limit of new items (ADR-0029) must not shape the score.
+    const userId = (
+      await pool.query<{ id: string }>(
+        `INSERT INTO users (phone, role) VALUES ($1, 'seeker')
+         ON CONFLICT (phone) DO UPDATE SET role = users.role RETURNING id`,
+        [`+9190${String(index).padStart(8, '0')}`],
+      )
+    ).rows[0]?.id as string;
     const before = await aiCallCount();
     const llmBefore = await llmCallCount();
     const failedBefore = await failedCallCount();
     // A model call that fails (429, 5xx, timeout) is tried again, twice, after a pause. A query
     // that still fails is an error, not a wrong answer: it is reported apart and not scored.
-    let r = await resolveItem(pool, c.q, {
+    const options = {
       threshold: config.trigramThreshold,
       ai,
       requestId: `eval-${set}`,
-    });
+      userId,
+      // The production path: a real product the catalog lacks becomes a new item (ADR-0028).
+      openCatalog: {},
+    };
+    let r = await resolveItem(pool, c.q, options);
     let errored = false;
     for (let attempt = 1; (await failedCallCount()) > failedBefore; attempt++) {
       if (attempt > MODEL_RETRIES) {
@@ -195,18 +209,15 @@ async function runSet(set: EvalSet) {
         break;
       }
       await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
-      r = await resolveItem(pool, c.q, {
-        threshold: config.trigramThreshold,
-        ai,
-        requestId: `eval-${set}`,
-      });
+      r = await resolveItem(pool, c.q, options);
     }
     const after = await aiCallCount();
     const slug = r.item
       ? ((await pool.query(`SELECT slug FROM items WHERE id = $1`, [r.item.id])).rows[0]
           .slug as string)
       : null;
-    const correct = scoreCase(c, { slug, ambiguous: Boolean(r.ambiguous) });
+    const created = Boolean(r.item?.unverified);
+    const correct = scoreCase(c, { slug, ambiguous: Boolean(r.ambiguous), created });
     rows.push({
       kind: c.kind,
       gotItem: slug !== null,
@@ -219,7 +230,7 @@ async function runSet(set: EvalSet) {
       q: c.q,
       kind: c.kind,
       expected: c.expected,
-      got: r.ambiguous ? 'ambiguous' : slug,
+      got: r.ambiguous ? 'ambiguous' : created ? `new item: ${r.item?.nameEn}` : slug,
       step: r.matchedBy,
       correct,
       ...(errored && { error: true }),

@@ -171,6 +171,7 @@ describe('summarise', () => {
       default: 0,
       embedding: 1,
       llm: 1,
+      new_item: 0,
       unresolved: 1,
     });
     expect(s.llmFallbackRate).toBe(0.25);

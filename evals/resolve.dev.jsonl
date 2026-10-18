@@ -96,3 +96,7 @@
 {"q": "sarson tel", "kind": "form", "expected": "mustard-oil"}
 {"q": "sarson ka tel", "kind": "form", "expected": "mustard-oil"}
 {"q": "haldi powder", "kind": "form", "expected": "turmeric-powder"}
+{"q": "bead dazzling kit", "kind": "newitem", "expected": null}
+{"q": "rangoli stencil", "kind": "newitem", "expected": null}
+{"q": "popsicle sticks", "kind": "newitem", "expected": null}
+{"q": "chart paper chahiye", "kind": "hinglish", "expected": "chart-paper"}
