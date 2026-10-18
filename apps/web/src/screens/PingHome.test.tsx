@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import { FakeEventSource, fakeApi, ping, shop, shopOrder } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
+import * as pushLib from '../lib/push.js';
 import { PingHome } from './PingHome.js';
 
 beforeEach(() => {
@@ -393,5 +394,22 @@ describe('a question that the customer no longer needs', () => {
       await vi.advanceTimersByTimeAsync(4000);
     });
     expect(await screen.findByText('चावल')).toBeTruthy();
+  });
+});
+
+describe('PingHome: notifications', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('has the notification button, and does not ask for permission on load', async () => {
+    const enable = vi.fn(async () => 'on' as const);
+    vi.spyOn(pushLib, 'createPushClient').mockReturnValue({
+      status: vi.fn(async () => 'off' as const),
+      enable,
+      disable: vi.fn(),
+      resync: vi.fn(),
+    });
+    renderApp(<PingHome api={fakeApi()} />);
+    expect(await screen.findByRole('button', { name: 'Notification chalu karein' })).toBeTruthy();
+    expect(enable).not.toHaveBeenCalled();
   });
 });

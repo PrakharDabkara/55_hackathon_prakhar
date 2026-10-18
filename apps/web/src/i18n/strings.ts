@@ -207,6 +207,12 @@ export interface Strings {
   orderErrClosed: string;
   orderErrGeneric: string;
   orderYourAddress: (address: string) => string;
+  // Notifications (ADR-0034)
+  notifyOn: string;
+  notifyOff: string;
+  notifyIosHint: string;
+  notifyBlocked: string;
+  notifyFailed: string;
   // Finding an order again (ADR-0033, PR E)
   myOrdersEntry: string;
   myOrdersEmpty: string;
@@ -476,6 +482,11 @@ export const hi: Strings = {
   orderErrClosed: 'Ye dukaan abhi band hai.',
   orderErrGeneric: 'Order nahi bhej paaye. Dobara try karein.',
   orderYourAddress: (address) => `Pata: ${address}`,
+  notifyOn: 'Notification chalu karein',
+  notifyOff: 'Notification band karein',
+  notifyIosHint: "Pehle 'Add to Home Screen' karein",
+  notifyBlocked: 'Notification band hain. Browser ki settings mein allow karein.',
+  notifyFailed: 'Notification chalu nahi ho paaye. Dobara try karein.',
   myOrdersEntry: 'Mere orders',
   myOrdersEmpty: 'Abhi koi order nahi.',
   myOrdersError: 'Orders nahi dikh paaye. Dobara try karein.',
@@ -773,6 +784,11 @@ export const en: Strings = {
   orderErrClosed: 'That shop is closed right now.',
   orderErrGeneric: 'Could not send the order. Please try again.',
   orderYourAddress: (address) => `Address: ${address}`,
+  notifyOn: 'Turn on notifications',
+  notifyOff: 'Turn off notifications',
+  notifyIosHint: "First tap 'Add to Home Screen'",
+  notifyBlocked: 'Notifications are blocked. Allow them in your browser settings.',
+  notifyFailed: 'Could not turn on notifications. Please try again.',
   myOrdersEntry: 'My orders',
   myOrdersEmpty: 'No orders yet.',
   myOrdersError: 'Could not load your orders. Please try again.',

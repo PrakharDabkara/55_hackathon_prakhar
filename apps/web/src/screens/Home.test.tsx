@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeSeekerApi, seekerOrder } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
+import * as pushLib from '../lib/push.js';
 import { Home } from './Home.js';
 
 vi.mock('../components/ResultsMap.js', () => ({ ResultsMap: () => <div /> }));
@@ -83,5 +84,22 @@ describe('the home screen: Mere orders and Haal ke kaam', () => {
     setup();
     await screen.findByRole('link', { name: /Mere orders/ });
     expect(screen.queryByRole('heading', { name: 'Haal ke kaam' })).toBeNull();
+  });
+});
+
+describe('the home screen: notifications', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('has the notification button, and does not ask for permission on load', async () => {
+    const enable = vi.fn(async () => 'on' as const);
+    vi.spyOn(pushLib, 'createPushClient').mockReturnValue({
+      status: vi.fn(async () => 'off' as const),
+      enable,
+      disable: vi.fn(),
+      resync: vi.fn(),
+    });
+    setup();
+    expect(await screen.findByRole('button', { name: 'Notification chalu karein' })).toBeTruthy();
+    expect(enable).not.toHaveBeenCalled();
   });
 });

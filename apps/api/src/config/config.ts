@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { normalisePhone } from '../modules/identity/index.js';
 
+/** An empty value, as .env.example ships it, means not set. */
+const blankIsUnset = z
+  .string()
+  .optional()
+  .transform((v) => (v === undefined || v.trim() === '' ? undefined : v.trim()));
+
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
 const schema = z
@@ -100,6 +106,13 @@ const schema = z
     ERRAND_EXPIRY_MS: z.coerce.number().int().min(1000).max(7_200_000).default(900_000),
     ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE: z.coerce.number().int().min(0).max(1_000_000).default(3000),
     ERRAND_RESUME_DEBOUNCE_MS: z.coerce.number().int().min(0).max(30_000).default(1000),
+    // Web Push (ADR-0034). All three set turns push on; anything less leaves it off. The private key
+    // is a secret: set it on the host, never in the repo. `npm run push:keys` makes a pair.
+    VAPID_PUBLIC_KEY: blankIsUnset,
+    VAPID_PRIVATE_KEY: blankIsUnset,
+    VAPID_SUBJECT: blankIsUnset,
+    // Most pushes one person gets in a minute; the rest are dropped, so a busy shop is not spammed.
+    PUSH_MAX_PER_MINUTE: z.coerce.number().int().min(1).max(1000).default(5),
     GIT_SHA: z.string().optional(),
     RENDER_GIT_COMMIT: z.string().optional(),
   })
@@ -201,7 +214,23 @@ export interface Config {
   errandResumeDebounceMs: number;
   /** ADR-0025: kam_dukaan is recommended if it costs at most this many paise more than sasta. */
   errandFewerStopsMaxExtraPaise: number;
+  /** Web Push keys; null leaves push off (nothing else changes). ADR-0034. */
+  vapid: { publicKey: string; privateKey: string; subject: string } | null;
+  /** Pushes per person per minute. */
+  pushMaxPerMinute: number;
   gitSha: string;
+}
+
+/** All three set and the subject a mailto: or https: address, else push stays off (never a crash). */
+function vapidFrom(e: {
+  VAPID_PUBLIC_KEY?: string | undefined;
+  VAPID_PRIVATE_KEY?: string | undefined;
+  VAPID_SUBJECT?: string | undefined;
+}): Config['vapid'] {
+  const { VAPID_PUBLIC_KEY: publicKey, VAPID_PRIVATE_KEY: privateKey, VAPID_SUBJECT: subject } = e;
+  if (!publicKey || !privateKey || !subject) return null;
+  if (!/^(mailto:|https:\/\/)\S+$/.test(subject)) return null;
+  return { publicKey, privateKey, subject };
 }
 
 /** The Docker build bakes in GIT_SHA=unknown when no build arg is passed; treat it and blanks as unset. */
@@ -255,6 +284,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandExpiryMs: e.ERRAND_EXPIRY_MS,
     errandResumeDebounceMs: e.ERRAND_RESUME_DEBOUNCE_MS,
     errandFewerStopsMaxExtraPaise: e.ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE,
+    vapid: vapidFrom(e),
+    pushMaxPerMinute: e.PUSH_MAX_PER_MINUTE,
     gitSha: known(e.GIT_SHA) ?? known(e.RENDER_GIT_COMMIT) ?? 'unknown',
   };
 }

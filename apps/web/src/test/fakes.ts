@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
 import type { SeekerOrder, ShopOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
+import type { PushApi } from '../lib/pushApi.js';
 import type {
   ErrandPlan,
   ErrandView,
@@ -41,6 +42,14 @@ export const fakePhotos = (overrides: Partial<PhotoApi> = {}): PhotoApi => ({
   ...overrides,
 });
 
+/** The push half of both apps: server push is switched off unless a test turns it on. */
+export const fakePush = (overrides: Partial<PushApi> = {}): PushApi => ({
+  pushConfig: vi.fn(async () => ({ enabled: false as const })),
+  pushSubscribe: vi.fn(async () => undefined),
+  pushUnsubscribe: vi.fn(async () => undefined),
+  ...overrides,
+});
+
 /** A ShopApi where every call is a spy that succeeds; override what a test cares about. */
 export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
   return {
@@ -63,6 +72,7 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     ),
     eventTicket: vi.fn(async () => 'ticket-1'),
     ...fakePhotos(),
+    ...fakePush(),
     ...overrides,
   };
 }
@@ -164,6 +174,7 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     forgetAddress: vi.fn(async () => undefined),
     recentWork: vi.fn(async () => []),
     ...fakePhotos(),
+    ...fakePush(),
     ...overrides,
   };
 }

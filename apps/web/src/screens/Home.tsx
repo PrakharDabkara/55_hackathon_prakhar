@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
+import { NotifyToggle } from '../components/NotifyToggle.js';
 import { useT } from '../i18n/index.js';
 import { isActiveOrder } from '../lib/orders.js';
 import type { RecentItem, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
@@ -62,6 +63,7 @@ export function Home({ api, onFound, navigate }: Props) {
           </span>
         )}
       </a>
+      <NotifyToggle api={api} />
       {recent.length > 0 && (
         <section className="recent" aria-labelledby="recent-title">
           <h2 id="recent-title" className="section-title">

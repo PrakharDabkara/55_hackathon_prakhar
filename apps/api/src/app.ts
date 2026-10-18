@@ -9,6 +9,7 @@ import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
 import { routingRouter } from './modules/routing/index.js';
 import { photosRouter } from './modules/photos/index.js';
+import { pushRouter } from './modules/push/index.js';
 import { errandsAdminRouter, errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
@@ -82,6 +83,7 @@ export function createApp({
     app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
     app.use(errandsAdminRouter({ db, adminPhones: config.adminPhones }));
   }
+  app.use(pushRouter({ db, vapidPublicKey: config.vapid?.publicKey ?? null }));
   app.use(photosRouter({ db, logger, capMb: config.photoStorageCapMb }));
   app.use(shopsRouter({ db }));
   app.use(routingRouter({ db }));
