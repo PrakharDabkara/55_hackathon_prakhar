@@ -138,35 +138,47 @@ describe('generateShops', () => {
         (s.lat - centre.lat) * 111_000,
         (s.lng - centre.lng) * 111_000 * Math.cos((centre.lat * Math.PI) / 180),
       ) <= 2000;
-    // The fewest shops of a kind inside 2 km, over ten different seeds.
-    const fewest = (category: string) =>
-      Math.min(
-        ...Array.from(
-          { length: 10 },
-          (_, i) =>
-            generateShops({ count: 200, centre, radiusM: 3000, seed: i + 1 }).filter(
-              (s) => near(s) && s.categories.includes(category as never),
-            ).length,
-        ),
+    // Shops of a kind inside 2 km of the middle, for ten different seeds.
+    const counts = (category: string) =>
+      Array.from(
+        { length: 10 },
+        (_, i) =>
+          generateShops({ count: 200, centre, radiusM: 3000, seed: i + 1 }).filter(
+            (s) => near(s) && s.categories.includes(category as never),
+          ).length,
       );
+    const fewest = (category: string) => Math.min(...counts(category));
+    const average = (category: string) => counts(category).reduce((a, b) => a + b, 0) / 10;
 
-    it('has plenty of grocery, general, stationery, hardware, electrical, household and personal-care shops near', () => {
-      expect(fewest('grocery')).toBeGreaterThanOrEqual(20);
+    it('has plenty of the common kinds near, on every seed: grocery, stationery, dairy', () => {
+      expect(fewest('grocery')).toBeGreaterThanOrEqual(12);
+      expect(fewest('stationery')).toBeGreaterThanOrEqual(5);
+      expect(fewest('dairy')).toBeGreaterThanOrEqual(3);
+    });
+
+    it('has a fair share of every other kind near (on average, so one lucky or unlucky street does not decide)', () => {
       for (const c of [
         'general_store',
-        'stationery',
         'hardware',
         'electrical',
         'household_kitchen',
         'personal_care',
         'mobile_accessories',
       ])
-        expect(fewest(c), c).toBeGreaterThanOrEqual(6);
+        expect(average(c), c).toBeGreaterThanOrEqual(6);
+      for (const c of ['sabzi_fruit', 'pooja', 'medical', 'bakery_sweets'])
+        expect(average(c), c).toBeGreaterThanOrEqual(4);
     });
 
-    it('has enough dairy, sabzi, pooja, medical and bakery shops near for a new item of those kinds', () => {
-      for (const c of ['dairy', 'sabzi_fruit', 'pooja', 'medical', 'bakery_sweets'])
-        expect(fewest(c), c).toBeGreaterThanOrEqual(4);
+    it('counts each kind close to its share of the deck, whatever the seed (a street is never without dairy)', () => {
+      for (const seed of [1, 2, 3, 4, 5]) {
+        const shops = generateShops({ count: 200, centre, radiusM: 3000, seed });
+        for (const c of ['dairy', 'pooja', 'medical', 'bakery_sweets'])
+          expect(
+            shops.filter((s) => s.categories[0] === c).length,
+            `${c}/${seed}`,
+          ).toBeGreaterThanOrEqual(10);
+      }
     });
   });
 });

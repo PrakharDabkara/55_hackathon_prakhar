@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (simulator determinism)
+
+- The simulator test "a request is answered by simulated shops" no longer depends on chance: fixed seed, every shop answers, at least three shops that sell the item are asserted, and a second test checks that a shop outside the item's category says no and one inside says yes. It failed about 2 % of the time once shops answered by category.
+- The simulator's shop mix is now dealt from a deck that matches the weights, so 200 shops always have their share of every kind (dairy, pooja, medical and bakery included); chance only decides where each stands. Mix: grocery 24, general 13, stationery 14, hardware 10, household 10, dairy 10, electrical 9, personal care 9, pooja 9, mobile accessories 8, medical 8, bakery 8, sabzi 7 (of 159).
+
 ### Fixed (Day 15 live findings)
 
 - Shop onboarding has a "Demo location (Indore)" button with the same coordinates as the customer side.
