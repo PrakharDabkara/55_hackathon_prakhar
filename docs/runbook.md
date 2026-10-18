@@ -256,3 +256,9 @@ Nothing here is needed to build or run the app. Approve one (`npm install-script
 - **Setting:** `PHOTO_STORAGE_CAP_MB` (Render env, default 300). Uploads above it get 503 `photo_storage_full`; the app keeps working without photos. **Migration 015 runs on deploy** and only adds a table; nothing to set by hand.
 - **How much is stored:** `SELECT count(*), pg_size_pretty(sum(size)) FROM photos`; every upload logs `photo_stored` with `totalBytes`, the sweeper logs `photos_swept`. To free space now: `DELETE FROM photos WHERE created_at < now() - interval '1 day'` (cards simply show no photo).
 - **A photo that should not be there:** `DELETE FROM photos WHERE id = ...`. No photo is ever sent to Gemini or anywhere outside Postgres.
+
+## Quantity, delivery and the open switch (Day 16)
+
+- **Migration 016 runs on deploy** and only adds columns; nothing to set by hand.
+- **A shop stuck closed:** `UPDATE shops SET closed_until = NULL WHERE id = ...`. Closing lasts until the end of the day in India by itself.
+- **What a shop offered:** `SELECT qty_amount, qty_unit, delivers, delivery_fee_paise, delivery_minutes FROM pings WHERE id = ...` (and the same columns on `shop_stock`). Orders and addresses come with the next PR.

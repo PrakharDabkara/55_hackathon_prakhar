@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 16, PR C: quantity and delivery offer)
+
+- Exact quantity on a yes (kg, g, L, ml, piece, packet), stored on pings and learned stock (migration 016); "5 kg hai", "Sirf 1 kg hai" with "Kam hai (not enough)", "Pichhli baar: 5 kg" for learned stock (3 days, never subtracted). ADR-0031.
+- Delivery offer on a yes ("Ghar bhej denge", optional fee and time), standing defaults at onboarding and under "Delivery ki settings", a chip on result and plan cards. No orders yet.
+- Pickup or delivery per shop on the plan (`POST /errands/:id/modes`): one fee per shop, delivery counts route distance as 0, totals recomputed in code. ADR-0025 amended.
+- "Dukaan khuli hai / aaj band hai": a closed shop gets no pings and is left out of learned stock until the end of the day or until opened.
+- The simulator's yes answers sometimes carry a quantity and a delivery offer.
+
+### Fixed (Day 16)
+
+- An offer with no price was treated as ₹0 and its item silently left out of the total. It is now counted ("+ N cheez ka daam pata nahi"), ranked at a fair estimate (median of other quotes, else the typical price), and a missing price is never a saving in the recommendation.
+
 ### Added (guard against pushing to main)
 
 - A tracked `.githooks/pre-push` refuses any push to `main` or `master` with a message on how to open a PR instead; `npm install` enables it (`prepare` sets `core.hooksPath`). CLAUDE.md now says never push to main and to check `git branch --show-current` before committing.

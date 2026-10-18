@@ -49,14 +49,16 @@ test('a shop answers with a quantity and a delivery offer, closes for the day, a
 
   // The yes starts from the standing offer; the shop adds a price, an amount and its own fee.
   await shop.getByRole('button', { name: /Haan hai/ }).click({ timeout: 30_000 });
-  const toggle = shop.getByRole('switch', { name: 'Ghar bhej denge' });
+  // The question card (the settings above it have a fee field too).
+  const card = shop.locator('article.card');
+  const toggle = card.getByRole('switch', { name: 'Ghar bhej denge' });
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await expect(shop.getByLabel('Delivery ka daam (₹)')).toHaveValue('20');
-  await shop.getByLabel('Aapka daam (₹)').fill('40');
-  await shop.getByLabel('Kitna hai? (maatra)').fill('5');
-  await shop.getByRole('button', { name: 'kg', exact: true }).click();
-  await shop.getByLabel('Delivery ka daam (₹)').fill('30');
-  await shop.getByLabel('Kitne minute mein?').fill('45');
+  await expect(card.getByLabel('Delivery ka daam (₹)')).toHaveValue('20');
+  await card.getByLabel('Aapka daam (₹)').fill('40');
+  await card.getByLabel('Kitna hai? (maatra)').fill('5');
+  await card.getByRole('button', { name: 'kg', exact: true }).click();
+  await card.getByLabel('Delivery ka daam (₹)').fill('30');
+  await card.getByLabel('Kitne minute mein?').fill('45');
   await noSidewaysScroll(shop);
   await shop.screenshot({ path: 'e2e/artifacts/offer-shop-yes.png', fullPage: true });
   await shop.getByRole('button', { name: 'Bhejo' }).click();
@@ -70,10 +72,6 @@ test('a shop answers with a quantity and a delivery offer, closes for the day, a
   // "Dukaan aaj band hai": a closed shop is not asked.
   await shop.getByRole('switch', { name: 'Dukaan khuli hai' }).click();
   await expect(shop.getByRole('switch', { name: 'Dukaan aaj band hai' })).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Wapas' })
-    .click()
-    .catch(() => undefined);
   await page.goto('/app/');
   await page.getByRole('button', { name: 'Meri location' }).click();
   await page.getByLabel('क्या चाहिए?').fill('namak');

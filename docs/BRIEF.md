@@ -83,6 +83,8 @@ Built on Days 12 and 13 (ADR-0024). Step 6 is a stretch.
 
 6. Stretch: "Want me to order this?" Only on the user's yes, the shop gets a delivery request (cash on delivery) and can accept or decline; on decline the plan falls back to pickup.
 
+**Quantity and delivery (Day 16, ADR-0031).** A shop's yes can carry an exact quantity ("5 kg") and a delivery offer ("Ghar bhej denge", optional fee and time, with a standing default so a repeat is one tap). Customers see "5 kg hai", "Sirf 1 kg hai" when it is below what they asked, and "Pichhli baar: 5 kg" for remembered stock (3 days, never a promise, never subtracted). On the plan the customer chooses pickup or delivery per shop; one fee per shop, and a shop on delivery leaves the route. A missing price is never ₹0: the total says "+ N cheez ka daam pata nahi". Shops can close for the day ("Dukaan aaj band hai"): no pings and no learned stock while closed. Orders (the address, accept or decline) come in the next PR.
+
 **Photos (Day 15, ADR-0030).** Optional on both sides, never required: the customer can attach one photo to a search or to any checklist item, a shop can attach one when it says yes. The shop sees the customer's photo on the request card and the customer sees the shop's on the result or plan card, tap to enlarge. The browser shrinks to 1024 px and about 100 KB; the server re-encodes and strips all metadata, stores the picture in Postgres (10 a day per user, a size cap of 300 MB, deleted 7 days after the request expires) and shows it only to the people in the loop. Photos are never sent to a model.
 
 **Zero-training rule.** A shopkeeper installs the app and is using it at once, with no explanation, demo or class. Every shop screen must pass that test:
