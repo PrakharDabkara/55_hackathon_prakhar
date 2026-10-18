@@ -83,18 +83,27 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
         run: npm run seed:catalog
-      # Embeds catalog items whose text changed (a second run costs nothing). Skipped, with a
+      # Embeds catalog items whose text changed (a second run costs nothing). It never blocks the
+      # deploy (ADR-0021): a quota, 503 or timeout is reported in the job summary with the number
+      # of items still un-embedded, and the next deploy embeds exactly those. Skipped, with a
       # warning, until the GEMINI_API_KEY secret exists.
       - name: Embed catalog on Neon
+        continue-on-error: true
+        timeout-minutes: 6
         env:
           DATABASE_URL: ${{ secrets.NEON_DIRECT_URL }}
           LLM_PROVIDER: gemini
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          EMBED_NON_BLOCKING: '1'
         run: |
           if [ -z "$GEMINI_API_KEY" ]; then
             echo "::warning::GEMINI_API_KEY is not set in the production environment; skipping catalog embeddings"
-          else
-            npm run ai:embed-catalog
+          elif ! npm run ai:embed-catalog; then
+            # The script reports its own failures with exit code 0 (EMBED_NON_BLOCKING). This is
+            # for a failure before it could: the build, or the database out of reach.
+            echo "::warning::catalog embedding did not run; the deploy continues and the next deploy embeds what is missing"
+            echo "### ⚠️ Catalog embeddings did not run" >> "$GITHUB_STEP_SUMMARY"
+            echo "The deploy went on. Items without an embedding are picked up by the next deploy." >> "$GITHUB_STEP_SUMMARY"
           fi
       # Deploy exactly the commit that passed CI.
       - name: Trigger Render deploy

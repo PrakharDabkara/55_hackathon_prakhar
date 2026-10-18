@@ -3,7 +3,13 @@ export type { NormalisedQuery, Quantity, Unit } from './normalise.js';
 export { formConflict } from './productForm.js';
 export { isTypoOf } from './editDistance.js';
 export { termsOfItems } from './itemTerms.js';
-export { embedCatalog } from './embedCatalog.js';
+export {
+  countPendingEmbeddings,
+  embedCatalog,
+  embedCatalogSafely,
+  formatEmbedSummary,
+} from './embedCatalog.js';
+export type { SafeEmbedResult } from './embedCatalog.js';
 export { resolveForCustomer } from './resolveForCustomer.js';
 export { getItem, getRefPricePaise, resolveItem } from './resolve.js';
 export type {

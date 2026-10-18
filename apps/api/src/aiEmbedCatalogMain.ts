@@ -2,7 +2,8 @@ import { pino } from 'pino';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
 import { aiFromConfig } from './modules/ai/index.js';
-import { embedCatalog } from './modules/catalog/index.js';
+import { appendFileSync } from 'node:fs';
+import { embedCatalog, embedCatalogSafely, formatEmbedSummary } from './modules/catalog/index.js';
 
 // Run by `npm run ai:embed-catalog`, locally and in the deploy job after seeding. Embeds the
 // catalog items whose text changed; a second run costs nothing.
