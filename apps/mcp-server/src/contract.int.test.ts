@@ -71,12 +71,18 @@ describe('MCP contract', () => {
         (r) => [r.slug, r.id],
       ),
     );
-    provider.onGenerate(() => ({
-      itemId: null,
-      needsClarification: true,
-      question: 'Kaunsi clip?',
-      optionIds: [ids['paper-clips'], ids['clothes-clips']],
-    }));
+    provider.onGenerate(({ purpose, user }) =>
+      purpose === 'classify_item'
+        ? /bead dazzling/i.test(user)
+          ? { verdict: 'allowed', category: 'stationery' }
+          : { verdict: 'nonsense' }
+        : {
+            itemId: null,
+            needsClarification: true,
+            question: 'Kaunsi clip?',
+            optionIds: [ids['paper-clips'], ids['clothes-clips']],
+          },
+    );
     const ai = createAi({
       provider,
       db: pool,
@@ -164,6 +170,23 @@ describe('MCP contract', () => {
 
     const nonsense = await call('resolve_item', { text: 'zxcvb' });
     expect(nonsense.structuredContent).toMatchObject({ unresolved: true });
+  });
+
+  it('resolve_item: a real product the catalog lacks becomes a new item; a dangerous one is blocked', async () => {
+    const made = await call('resolve_item', { text: 'bead dazzling kit' });
+    expect(made.isError).toBeFalsy();
+    expect(made.structuredContent?.['item']).toMatchObject({
+      name: 'Bead dazzling kit',
+      category: 'stationery',
+      isNew: true,
+    });
+    const again = await call('resolve_item', { text: 'bead dazzling kit' });
+    expect(again.structuredContent?.['item'].id).toBe(made.structuredContent?.['item'].id);
+
+    const blocked = await call('resolve_item', { text: 'country made pistol' });
+    expect(blocked.isError).toBeFalsy();
+    expect(blocked.structuredContent).toMatchObject({ blocked: true });
+    expect(blocked.structuredContent?.['item']).toBeUndefined();
   });
 
   it('find_item_nearby: reads learned stock without pinging anyone', async () => {

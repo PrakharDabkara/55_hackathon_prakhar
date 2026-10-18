@@ -66,6 +66,8 @@ describe('GET /admin/ai/ping', () => {
     expect(res.body.provider).toBe('fake');
     expect(res.body.results).toHaveLength(4);
     expect(res.body.results[0]).toEqual({
+      purpose: 'resolve_query',
+      role: 'primary',
       call: 'generateJson',
       model: 'fake-model',
       ok: true,
@@ -75,8 +77,8 @@ describe('GET /admin/ai/ping', () => {
     });
     expect(res.body.results.map((r: { model: string }) => r.model)).toEqual([
       'fake-model',
-      'fake-model',
       'fb-model',
+      'fake-model',
       'fb-model',
     ]);
     expect(res.body.ok).toBe(true);
@@ -91,7 +93,12 @@ describe('GET /admin/ai/ping', () => {
     const res = await ping(admin.token);
     expect(res.body.ok).toBe(false);
     expect(res.body.results[0]).toMatchObject({ ok: false, kind: 'http', status: 503 });
-    expect(res.body.results[1]).toMatchObject({ ok: false, kind: 'timeout', status: null });
+    expect(res.body.results[2]).toMatchObject({
+      purpose: 'errand',
+      ok: false,
+      kind: 'timeout',
+      status: null,
+    });
     expect((await pool.query('SELECT count(*)::int AS n FROM ai_calls')).rows[0].n).toBe(0);
   });
 

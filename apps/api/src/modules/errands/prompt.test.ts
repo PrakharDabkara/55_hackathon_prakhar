@@ -60,4 +60,3 @@ describe('prompts', () => {
     expect(system).toMatch(/unusual|unfamiliar|not in the catalog/i);
   });
 });
-

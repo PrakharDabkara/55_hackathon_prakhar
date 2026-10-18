@@ -7,10 +7,10 @@ exports[`MCP contract > lists the six tools with their schemas and annotations (
       "destructiveHint": false,
       "idempotentHint": true,
       "openWorldHint": true,
-      "readOnlyHint": true,
+      "readOnlyHint": false,
       "title": "Find the catalog item for some text",
     },
-    "description": "Turn what the customer typed (English, Hindi or Hinglish, typos allowed, for example "chini" or "bottle brsh") into one catalog item. Call this first, before any other tool: they all need the item id it returns. It never contacts shops and creates nothing. If the answer has \`clarification\`, the text could mean several different things: ask the user the question, then call resolve_item again with their choice, or use the chosen option itemId directly. If the answer has \`unresolved\`, nothing in the catalog fits: tell the user and ask for different words. When you have an item, call find_item_nearby next.",
+    "description": "Turn what the customer typed (English, Hindi or Hinglish, typos allowed, for example "chini" or "bottle brsh") into one catalog item. Call this first, before any other tool: they all need the item id it returns. It never contacts shops. If the text is a real product the catalog does not know yet, it is added as a new item (\`item.isNew\` is true) and works like any other: shops are asked about it as plain text. Text that is nonsense is never added. If the answer has \`blocked\`, the item may not be sent to shops: tell the user you cannot help with it and do not try other words. \`unavailable\` and \`limit\` mean it cannot be sent right now. If the answer has \`clarification\`, the text could mean several different things: ask the user the question, then call resolve_item again with their choice, or use the chosen option itemId directly. If the answer has \`unresolved\`, nothing in the catalog fits: tell the user and ask for different words. When you have an item, call find_item_nearby next.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
@@ -31,6 +31,10 @@ exports[`MCP contract > lists the six tools with their schemas and annotations (
       "$schema": "http://json-schema.org/draft-07/schema#",
       "additionalProperties": false,
       "properties": {
+        "blocked": {
+          "description": "True when the item may never be sent to shops",
+          "type": "boolean",
+        },
         "clarification": {
           "additionalProperties": false,
           "description": "Set when the user must choose between genuinely different items",
@@ -79,6 +83,10 @@ exports[`MCP contract > lists the six tools with their schemas and annotations (
               "description": "Pass this as itemId to the other tools",
               "type": "string",
             },
+            "isNew": {
+              "description": "True for an item a customer added that no shop has confirmed yet",
+              "type": "boolean",
+            },
             "name": {
               "type": "string",
             },
@@ -94,8 +102,16 @@ exports[`MCP contract > lists the six tools with their schemas and annotations (
           ],
           "type": "object",
         },
+        "limit": {
+          "description": "True when the limit of new items is reached",
+          "type": "boolean",
+        },
         "message": {
           "type": "string",
+        },
+        "unavailable": {
+          "description": "True when the safety check is down, so the item cannot be sent right now",
+          "type": "boolean",
         },
         "unresolved": {
           "description": "True when nothing in the catalog fits",
