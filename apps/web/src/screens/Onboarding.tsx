@@ -1,5 +1,6 @@
 import { CATEGORIES, type Category } from '@kahanmilega/shared';
 import { useState, type FormEvent } from 'react';
+import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import type { MyShop, ShopApi } from '../lib/api.js';
 
@@ -9,6 +10,9 @@ interface Props {
 }
 
 const MAX_CATEGORIES = 3;
+
+/** Indore, Rajwada: the same demo place as the customer app, where the simulated shops are. */
+const DEMO = { lat: 22.7196, lng: 75.8577 };
 
 /** A coordinate that is a number inside the allowed range, else null. */
 function coordinate(text: string, limit: number): number | null {
@@ -28,6 +32,7 @@ export function Onboarding({ api, onDone }: Props) {
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
   const [located, setLocated] = useState(false);
+  const [demo, setDemo] = useState(false);
   const [locationFailed, setLocationFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +53,16 @@ export function Onboarding({ api, onDone }: Props) {
     });
   }
 
+  function useDemo() {
+    setLat(String(DEMO.lat));
+    setLng(String(DEMO.lng));
+    setLocated(true);
+    setDemo(true);
+    setLocationFailed(false);
+  }
+
   function useMyLocation() {
+    setDemo(false);
     setLocationFailed(false);
     if (!navigator.geolocation) {
       setLocationFailed(true);
@@ -107,16 +121,21 @@ export function Onboarding({ api, onDone }: Props) {
               aria-disabled={!chosen && categories.length >= MAX_CATEGORIES}
               onClick={() => toggle(category)}
             >
-              {t.categories[category]}
+              <Words label={t.categoryLabels[category]} />
             </button>
           );
         })}
       </fieldset>
 
-      <button type="button" className="btn btn-quiet" onClick={useMyLocation}>
-        {t.useMyLocation}
-      </button>
-      {located && <p className="status">{t.locationOk}</p>}
+      <div className="actions">
+        <button type="button" className="btn btn-quiet" onClick={useMyLocation}>
+          {t.useMyLocation}
+        </button>
+        <button type="button" className="btn btn-quiet" onClick={useDemo}>
+          {t.demoLocation}
+        </button>
+      </div>
+      {located && <p className="status">{demo ? `✓ ${t.demoLocation}` : t.locationOk}</p>}
       {locationFailed && (
         <p className="alert" role="alert">
           {t.locationFailed}

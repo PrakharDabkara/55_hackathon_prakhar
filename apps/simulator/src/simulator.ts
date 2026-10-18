@@ -46,6 +46,12 @@ interface Shop {
   profile: ShopProfile;
 }
 
+/** An array of strings, or undefined. */
+const strings = (value: unknown): string[] | undefined =>
+  Array.isArray(value) && value.every((v) => typeof v === 'string')
+    ? (value as string[])
+    : undefined;
+
 const short = (id: string) => id.slice(0, 8);
 const clock = () => new Date().toTimeString().slice(0, 8);
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
@@ -154,15 +160,21 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
       shopId?: unknown;
       refPricePaise?: unknown;
       category?: unknown;
+      itemCategories?: unknown;
+      shopCategories?: unknown;
     } | null;
     if (typeof d?.pingId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
     if (!shop) return; // a simulated shop from some other run
+    const itemCategories = strings(d.itemCategories);
+    const shopCategories = strings(d.shopCategories);
     const decision = decide(
       shop.profile,
       {
         refPricePaise: typeof d.refPricePaise === 'number' ? d.refPricePaise : null,
         category: typeof d.category === 'string' ? d.category : null,
+        ...(itemCategories && { itemCategories }),
+        ...(shopCategories && { shopCategories }),
       },
       createRng(hashSeed(seed, d.shopId, d.pingId)),
       speed,

@@ -180,6 +180,8 @@ export interface Strings {
   errPhoto: string;
 
   categories: Record<Category, string>;
+  /** Each category as a tile: Devanagari with its Hinglish name under it (English: the English name). */
+  categoryLabels: Record<Category, Label>;
   bands: Record<Band, string>;
 }
 
@@ -374,6 +376,21 @@ export const hi: Strings = {
     pooja: 'पूजा का सामान',
     medical: 'मेडिकल',
     bakery_sweets: 'बेकरी और मिठाई',
+  },
+  categoryLabels: {
+    grocery: { main: 'किराना', sub: 'Kirana' },
+    hardware: { main: 'हार्डवेयर', sub: 'Hardware' },
+    electrical: { main: 'बिजली का सामान', sub: 'Bijli ka saaman' },
+    stationery: { main: 'स्टेशनरी', sub: 'Stationery' },
+    mobile_accessories: { main: 'मोबाइल एक्सेसरीज़', sub: 'Mobile accessories' },
+    household_kitchen: { main: 'घर और रसोई', sub: 'Ghar aur rasoi' },
+    personal_care: { main: 'पर्सनल केयर', sub: 'Personal care' },
+    general_store: { main: 'जनरल स्टोर', sub: 'General store' },
+    dairy: { main: 'डेयरी', sub: 'Dairy' },
+    sabzi_fruit: { main: 'सब्ज़ी और फल', sub: 'Sabzi aur phal' },
+    pooja: { main: 'पूजा का सामान', sub: 'Pooja ka saaman' },
+    medical: { main: 'मेडिकल', sub: 'Medical' },
+    bakery_sweets: { main: 'बेकरी और मिठाई', sub: 'Bakery aur mithai' },
   },
   bands: {
     'under 1 km': '1 km se kam',
@@ -573,6 +590,21 @@ export const en: Strings = {
     pooja: 'Pooja items',
     medical: 'Medical',
     bakery_sweets: 'Bakery & sweets',
+  },
+  categoryLabels: {
+    grocery: { main: 'Grocery' },
+    hardware: { main: 'Hardware' },
+    electrical: { main: 'Electrical' },
+    stationery: { main: 'Stationery' },
+    mobile_accessories: { main: 'Mobile accessories' },
+    household_kitchen: { main: 'Household & kitchen' },
+    personal_care: { main: 'Personal care' },
+    general_store: { main: 'General store' },
+    dairy: { main: 'Dairy' },
+    sabzi_fruit: { main: 'Fruits & vegetables' },
+    pooja: { main: 'Pooja items' },
+    medical: { main: 'Medical' },
+    bakery_sweets: { main: 'Bakery & sweets' },
   },
   bands: {
     'under 1 km': 'under 1 km',

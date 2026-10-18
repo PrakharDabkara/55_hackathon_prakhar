@@ -13,6 +13,9 @@ export interface PingInfo {
   refPricePaise: number | null;
   /** The item's category, so a made-up item can be priced like its kind. */
   category?: string | null;
+  /** Every kind of shop that carries the item, and the kinds this shop is. Both known: a shop only has what its kind carries. */
+  itemCategories?: string[];
+  shopCategories?: string[];
 }
 
 export interface AnswerBody {
@@ -73,13 +76,19 @@ function roundPrice(paise: number, ref: number): number {
  */
 export function decide(
   profile: ShopProfile,
-  ping: Pick<PingInfo, 'refPricePaise' | 'category'>,
+  ping: Pick<PingInfo, 'refPricePaise' | 'category' | 'itemCategories' | 'shopCategories'>,
   rng: () => number,
   speed: number,
 ): Decision {
   if (rng() >= profile.replyProbability) return { kind: 'skip' };
   const delayMs = (MIN_DELAY_MS + rng() * (MAX_DELAY_MS - MIN_DELAY_MS)) / speed;
   if (profile.alwaysNo) return { kind: 'answer', delayMs, body: { answer: 'no' } };
+  // A hardware store has no haldi: an item outside the shop's own kinds is a no, even for a catalog
+  // item (the fan-out may ask a shop of another kind when too few of the right kind are near).
+  const mine = ping.shopCategories;
+  const wanted = ping.itemCategories;
+  if (mine && wanted && !wanted.some((c) => mine.includes(c)))
+    return { kind: 'answer', delayMs, body: { answer: 'no' } };
 
   if (ping.refPricePaise === null) {
     // An item the catalog does not know: yes or no at random, priced like its category.

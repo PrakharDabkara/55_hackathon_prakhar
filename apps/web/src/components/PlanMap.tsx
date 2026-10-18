@@ -1,6 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
+import { mapPoints } from '../lib/errand.js';
 import type { MapStop } from '../lib/errand.js';
 import { pinSvg } from '../lib/pins.js';
 
@@ -64,24 +65,41 @@ export function PlanMap({ origin, stops, label, youAreHere }: Props) {
     // One map per mounted screen; the start does not move.
   }, []);
 
+  // Draws the route, then fits the view to every point. Fitting needs the frame's real size, so it
+  // runs again whenever the frame changes size (the plan appearing, a rotation, a late layout).
   useEffect(() => {
     const group = layer.current;
     const current = map.current;
-    if (!group || !current) return;
+    const frame = container.current;
+    if (!group || !current || !frame) return;
     group.clearLayers();
-    const here: L.LatLngTuple = [origin.lat, origin.lng];
-    const path: L.LatLngTuple[] = [here, ...stops.map((s): L.LatLngTuple => [s.lat, s.lng])];
-    if (stops.length > 0)
-      L.polyline(path, { color: '#0a6b35', weight: 4, opacity: 0.85 }).addTo(group);
-    L.marker(here, { icon: startIcon, title: youAreHere, keyboard: false }).addTo(group);
-    for (const stop of stops)
+    const { points, shown } = mapPoints(origin, stops);
+    if (shown.length > 0)
+      L.polyline(points, { color: '#0a6b35', weight: 4, opacity: 0.85 }).addTo(group);
+    L.marker([origin.lat, origin.lng], {
+      icon: startIcon,
+      title: youAreHere,
+      keyboard: false,
+    }).addTo(group);
+    for (const stop of shown)
       L.marker([stop.lat, stop.lng], {
         icon: stopIcon(stop.n),
         title: `${stop.n}. ${stop.label}`,
         keyboard: false,
       }).addTo(group);
-    current.invalidateSize();
-    current.fitBounds(L.latLngBounds(path), { padding: [32, 32], maxZoom: 16 });
+    const fit = () => {
+      current.invalidateSize();
+      if (points.length > 0)
+        current.fitBounds(L.latLngBounds(points), {
+          padding: [32, 32],
+          maxZoom: 16,
+          animate: false,
+        });
+    };
+    fit();
+    const watcher = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(fit);
+    watcher?.observe(frame);
+    return () => watcher?.disconnect();
   }, [stops, origin, youAreHere]);
 
   return <div ref={container} className="results-map" role="region" aria-label={label} />;

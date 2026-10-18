@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (Day 15 live findings)
+
+- Shop onboarding has a "Demo location (Indore)" button with the same coordinates as the customer side.
+- Shop category tiles show Devanagari with the Hinglish name under it ("किराना / Kirana"), like the answer buttons; English shows the English name.
+- Simulator: shop names are unique (a repeat gets a locality, then a roman numeral), and a simulated shop answers yes only to items of its own categories, catalog items included (the ping event now carries the item's and the shop's categories).
+- The plan map draws only stops it can place, refits to every stop whenever its frame changes size, and an e2e check proves every numbered pin is inside the frame.
+
 ### Added (Day 15, PR A: open catalog)
 
 - A real product the catalog does not know becomes a new unverified item (ADR-0028): name hygiene, dedupe by exact or trigram match, a category chosen by the model from a fixed list, creator and time stored, no embedding. Works for `POST /requests`, the errand agent and MCP `resolve_item` (`POST /items/resolve`; `GET /search` never creates). The first shop yes verifies it.
