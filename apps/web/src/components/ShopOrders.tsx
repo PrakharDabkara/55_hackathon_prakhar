@@ -69,7 +69,7 @@ export function ShopOrders({ api, orders, onChange }: Props) {
         </p>
       )}
       {orders.map((order) => (
-        <article key={order.id} className="card order-card" aria-label={t.shopOrderTitle}>
+        <article key={order.id} className="order-card" aria-label={t.shopOrderTitle}>
           <ul className="order-lines">
             {order.lines.map((line, i) => (
               <li key={`${line.name}-${i}`}>

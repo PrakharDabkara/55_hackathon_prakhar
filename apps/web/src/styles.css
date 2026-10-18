@@ -188,7 +188,8 @@ a.btn {
 }
 
 /* The ping card */
-.card {
+.card,
+.order-card {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -946,4 +947,12 @@ details[open] > summary {
   text-align: center;
   border: 3px solid var(--green);
   border-radius: var(--radius);
+}
+.order-card {
+  display: grid;
+  gap: 0.5rem;
+}
+.order-card p,
+.order-box p {
+  margin: 0;
 }
