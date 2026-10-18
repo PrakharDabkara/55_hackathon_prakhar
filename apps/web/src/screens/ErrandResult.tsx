@@ -1,13 +1,17 @@
 import { useMemo, useState } from 'react';
+import { AuthPhoto } from '../components/AuthPhoto.js';
 import { PlanMap } from '../components/PlanMap.js';
 import { useT } from '../i18n/index.js';
 import { directionsForRoute, plansIdentical, stopsForMap } from '../lib/errand.js';
 import { formatDistance } from '../lib/format.js';
 import { formatRupees } from '../lib/money.js';
+import type { PhotoApi } from '../lib/photoApi.js';
 import type { ErrandPlan, PlanItem, PlanKind } from '../lib/seekerApi.js';
 
 interface Props {
   plan: ErrandPlan;
+  /** Shows the shops' photos on the cards. Without it, no photos. */
+  photos?: PhotoApi;
   origin: { lat: number; lng: number };
   busy?: boolean;
   /** Nothing was found: a new errand with the same task and place. */
@@ -17,7 +21,7 @@ interface Props {
 const TABS: PlanKind[] = ['kam_dukaan', 'sasta'];
 
 /** Two plans in two tabs, the recommended one open: items, totals, and the route on a map. */
-export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) {
+export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }: Props) {
   const { t } = useT();
   const [kind, setKind] = useState<PlanKind>(plan.recommended);
   // Two plans that are the same thing are shown once: no tabs, nothing "recommended".
@@ -36,7 +40,7 @@ export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) 
   else why = t.reasonSasta(extra ?? formatRupees(0), stopsSaved);
 
   const rows = (items: PlanItem[]) =>
-    items.map((item, i) => <PlanRow key={`${item.text}-${i}`} item={item} />);
+    items.map((item, i) => <PlanRow key={`${item.text}-${i}`} item={item} photos={photos} />);
 
   return (
     <section className="stack" aria-label={t.errandStates.PLAN_READY}>
@@ -158,7 +162,7 @@ export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) 
   );
 }
 
-function PlanRow({ item }: { item: PlanItem }) {
+function PlanRow({ item, photos }: { item: PlanItem; photos: PhotoApi | undefined }) {
   const { t } = useT();
   const name = item.itemName ?? item.text;
   const label = name.toLowerCase() !== item.text.toLowerCase() && (
@@ -192,6 +196,7 @@ function PlanRow({ item }: { item: PlanItem }) {
         {item.quantity > 1 && <span className="qty"> × {item.quantity}</span>}
       </p>
       {item.freshness && <p className="meta">{item.freshness}</p>}
+      {photos && item.photoId && <AuthPhoto api={photos} id={item.photoId} alt={t.photoShop} />}
       {item.matchedAs && item.itemName && (
         <p className="note">
           {t.errandMatched(item.text, item.itemName, item.status === 'confirmed')}

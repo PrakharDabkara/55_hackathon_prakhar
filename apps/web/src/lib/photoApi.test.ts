@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from './api.js';
 import { createPhotoApi } from './photoApi.js';
@@ -70,7 +71,7 @@ describe('uploadPhoto', () => {
       role: 'request',
       errand: { id: 'e 1', label: 'chart paper' },
     });
-    expect(FakeXhr.last.url).toBe('/photos?role=request&errandId=e%201&label=chart+paper');
+    expect(FakeXhr.last.url).toBe('/photos?role=request&errandId=e+1&label=chart+paper');
     FakeXhr.last.finish(201, { id: 'p2' });
     await pending;
   });

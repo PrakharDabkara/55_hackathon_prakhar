@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { PhotoPicker } from '../components/PhotoPicker.js';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { isFinalState, shownProgress } from '../lib/errand.js';
 import { formatCountdown } from '../lib/format.js';
+import type { PhotoApi } from '../lib/photoApi.js';
 import type { LiveOptions } from '../lib/live.js';
 import { rupeesToPaise } from '../lib/money.js';
 import type {
@@ -333,6 +335,8 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
         <QuestionBox
           key={`${view.question.question}|${view.question.options?.join('|') ?? ''}`}
           question={view.question}
+          photos={api}
+          errandId={id}
           busy={busy}
           onAnswer={(answer) => void act(() => api.answerErrand(id, answer))}
         />
@@ -342,6 +346,7 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
         <>
           <ErrandResult
             plan={view.plan}
+            photos={api}
             origin={origin}
             busy={busy}
             onAskAgain={() => void again()}
@@ -405,10 +410,14 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
 
 function QuestionBox({
   question,
+  photos,
+  errandId,
   busy,
   onAnswer,
 }: {
   question: ErrandQuestion;
+  photos: PhotoApi;
+  errandId: string;
   busy: boolean;
   onAnswer: (answer: ErrandAnswer) => void;
 }) {
@@ -434,22 +443,31 @@ function QuestionBox({
       >
         <p className="choice-question">{question.question}</p>
         {question.options?.map((option, i) => (
-          <label key={option} className="check-option">
-            <input
-              type="checkbox"
-              checked={ticked.has(i)}
-              disabled={busy}
-              onChange={(e) =>
-                setTicked((current) => {
-                  const next = new Set(current);
-                  if (e.target.checked) next.add(i);
-                  else next.delete(i);
-                  return next;
-                })
-              }
+          <div key={option} className="check-row">
+            <label className="check-option">
+              <input
+                type="checkbox"
+                checked={ticked.has(i)}
+                disabled={busy}
+                onChange={(e) =>
+                  setTicked((current) => {
+                    const next = new Set(current);
+                    if (e.target.checked) next.add(i);
+                    else next.delete(i);
+                    return next;
+                  })
+                }
+              />
+              <span>{option}</span>
+            </label>
+            <PhotoPicker
+              api={photos}
+              role="request"
+              label={option}
+              errand={{ id: errandId, label: option }}
+              onChange={() => undefined}
             />
-            <span>{option}</span>
-          </label>
+          </div>
         ))}
         <label className="field">
           <span>{t.errandMore}</span>

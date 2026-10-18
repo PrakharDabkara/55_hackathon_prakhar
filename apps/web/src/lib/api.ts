@@ -1,4 +1,5 @@
 import type { Category } from '@kahanmilega/shared';
+import { createPhotoApi, type PhotoApi } from './photoApi.js';
 
 export class ApiError extends Error {
   constructor(
@@ -18,6 +19,8 @@ export interface ShopPing {
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
   distanceBand: string;
+  /** The customer's photo of what they want, if they added one. */
+  photoId?: string;
   sentAt: string;
   expiresAt: string;
 }
@@ -41,10 +44,12 @@ export interface AnswerBody {
   answer: 'yes' | 'no';
   pricePaise?: number;
   quantityHint?: 'few' | 'plenty';
+  /** The shop's own photo of the item, only with a yes. */
+  photoId?: string;
 }
 
 /** Everything the shop app asks of the server. */
-export interface ShopApi {
+export interface ShopApi extends PhotoApi {
   requestOtp(phone: string): Promise<void>;
   /** Demo mode: the code the server would have sent by SMS, or null if there is none. */
   devInbox(phone: string): Promise<string | null>;
@@ -118,6 +123,7 @@ export function createApi(options: ClientOptions): ShopApi {
   const call = createCaller(options);
 
   return {
+    ...createPhotoApi(options),
     async requestOtp(phone) {
       await call('POST', '/auth/otp/request', { phone });
     },

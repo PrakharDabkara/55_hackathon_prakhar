@@ -7,6 +7,12 @@ import { errandPlan, errandView, FakeEventSource, fakeSeekerApi } from '../test/
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
 
+// jsdom cannot decode or draw a picture: the shrink step (canvas) is replaced by a pass-through.
+vi.mock('../lib/photo.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/photo.js')>()),
+  shrinkPhoto: async (file: Blob) => file,
+}));
+
 // jsdom cannot draw a Leaflet map; the map is one small component, replaced here by a probe.
 vi.mock('../components/PlanMap.js', () => ({
   PlanMap: (props: { origin: unknown; stops: unknown[] }) => (

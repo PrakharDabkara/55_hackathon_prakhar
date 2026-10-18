@@ -47,7 +47,7 @@ describe('PhotoPicker ("Photo jodein"): optional, never in the way', () => {
     let finish: (v: { id: string }) => void = () => undefined;
     api.uploadPhoto = vi.fn(
       (_b, opts) =>
-        new Promise((resolve) => {
+        new Promise<{ id: string }>((resolve) => {
           report = opts.onProgress ?? (() => undefined);
           finish = resolve;
         }),

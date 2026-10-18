@@ -6,6 +6,12 @@ import { fakeSeekerApi, seekerRequest } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Search } from './Search.js';
 
+// jsdom cannot decode or draw a picture: the shrink step (canvas) is replaced by a pass-through.
+vi.mock('../lib/photo.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/photo.js')>()),
+  shrinkPhoto: async (file: Blob) => file,
+}));
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });

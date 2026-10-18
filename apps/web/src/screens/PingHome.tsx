@@ -98,6 +98,7 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
       ) : current ? (
         <PingCard
           key={current.id}
+          photos={api}
           ping={current}
           busy={busy}
           onAnswer={(body) => void answer(body)}

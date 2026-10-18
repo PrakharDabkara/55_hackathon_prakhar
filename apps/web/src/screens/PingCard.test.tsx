@@ -5,6 +5,12 @@ import { fakePhotos, ping } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { PingCard } from './PingCard.js';
 
+// jsdom cannot decode or draw a picture: the shrink step (canvas) is replaced by a pass-through.
+vi.mock('../lib/photo.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/photo.js')>()),
+  shrinkPhoto: async (file: Blob) => file,
+}));
+
 describe('PingCard', () => {
   it('shows the item in Hindi (large) with English below, and the distance band', () => {
     renderApp(<PingCard ping={ping()} onAnswer={vi.fn()} />);
@@ -203,7 +209,7 @@ describe('PingCard photos (optional, both ways)', () => {
     );
     expect(container.querySelector('input[type="file"]')).toBeNull();
     await user.click(screen.getByRole('button', { name: /Haan hai/ }));
-    await user.click(screen.getByRole('button', { name: 'Chhodo' }));
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
     expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes' });
     await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
   });
