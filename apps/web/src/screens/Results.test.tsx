@@ -286,6 +286,48 @@ describe('Results', () => {
   });
 });
 
+describe('Results for a new item (ADR-0028)', () => {
+  const fresh = seekerRequest({
+    state: 'PINGING',
+    item: {
+      id: 'u1',
+      slug: 'u-123',
+      nameEn: 'Bead dazzling kit',
+      nameHi: 'Bead dazzling kit',
+      category: 'stationery',
+      unverified: true,
+    },
+    pingStats: { sent: 3, yes: 0, no: 0, pending: 3 },
+  });
+
+  it('says "Nayi cheez: dukaanon se pooch rahe hain" while nobody has confirmed it', () => {
+    renderApp(
+      <Results
+        api={fakeSeekerApi()}
+        initial={fresh}
+        origin={origin}
+        onDone={vi.fn()}
+        live={live}
+      />,
+    );
+    expect(screen.getByText('Nayi cheez: dukaanon se pooch rahe hain')).toBeTruthy();
+  });
+
+  it('says nothing special for a catalog item or once a shop has said yes', () => {
+    const verified = { ...fresh, item: { ...(fresh.item as object), unverified: false } };
+    renderApp(
+      <Results
+        api={fakeSeekerApi()}
+        initial={verified as typeof fresh}
+        origin={origin}
+        onDone={vi.fn()}
+        live={live}
+      />,
+    );
+    expect(screen.queryByText('Nayi cheez: dukaanon se pooch rahe hain')).toBeNull();
+  });
+});
+
 describe('Results with a shop photo', () => {
   it("shows the shop's photo on its card, tap to enlarge, and none for a shop without one", async () => {
     const api = fakeSeekerApi();

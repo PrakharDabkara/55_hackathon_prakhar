@@ -62,12 +62,9 @@ const shopRow = (r: Input) => ({
 
 const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unknown>> = {
   async resolve_item({ text }, api) {
-    // /search resolves text to an item; the location is required by the API but unused here.
-    const res = await api.call({
-      method: 'GET',
-      path: '/search',
-      query: { q: text, lat: 0, lng: 0, radius_m: 1 },
-    });
+    // POST /items/resolve: a real product the catalog does not know yet becomes a new, unverified
+    // item, so it is a POST (a GET never creates data).
+    const res = await api.call({ method: 'POST', path: '/items/resolve', body: { q: text } });
     if (res.status === 422 && res.body?.error?.code === 'item_ambiguous') {
       const e = res.body.error;
       return {
@@ -83,6 +80,24 @@ const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unkno
     }
     expectOk(res, { missing: 'Not found.' });
     const item = res.body.item as Input | null;
+    const refused = res.body.refused as { reason?: string } | undefined;
+    if (!item && refused?.reason === 'blocked')
+      return {
+        blocked: true,
+        message:
+          'This item cannot be sent to shops. Do not try other words for it; tell the user you cannot help with it.',
+      };
+    if (!item && refused?.reason === 'unavailable')
+      return {
+        unavailable: true,
+        message: 'This item cannot be sent to shops right now. Try again later.',
+      };
+    if (!item && refused?.reason === 'limit')
+      return {
+        limit: true,
+        message:
+          'The limit of new items is reached for now, so this one cannot be sent to shops. Try again tomorrow.',
+      };
     if (!item) {
       return {
         unresolved: true,
@@ -95,6 +110,8 @@ const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unkno
         name: item['nameEn'],
         nameHi: item['nameHi'],
         category: item['category'],
+        // No shop has confirmed it yet: it was added by a customer.
+        ...(item['unverified'] === true && { isNew: true }),
       },
     };
   },

@@ -24,9 +24,11 @@ const status = z.enum(['confirmed', 'likely', 'not_found']);
  *   `forbidden` slugs (wrong matches) must not be, `noItems` means no plan item may be a catalog item;
  * - `found` slugs must be confirmed or likely, `status` fixes the status of a slug;
  * - `askUser` says whether the agent must, must not, or may ask the customer;
- * - `noShopAsk`: no shop may be asked about this task.
- * Items outside the catalog are never asserted "not found": the catalog opens on Oct 19, so the
- * cases hold only what stays true either way.
+ * - `noShopAsk`: no shop may be asked about this task;
+ * - `noNewItems`: no item may be added to the catalog for it (a harmful task);
+ * - `newItemsToMatchingShops`: items the errand adds are asked only of shops of their kind.
+ * Items outside the catalog are never asserted "not found": since the catalog opened (ADR-0028) a
+ * real product becomes an item, so the cases hold only what stays true either way.
  */
 export const errandCaseSchema = z.object({
   id: z.string().min(2),
@@ -49,6 +51,8 @@ export const errandCaseSchema = z.object({
     noItems: z.boolean().optional(),
     askUser: z.enum(['must', 'never', 'any']),
     noShopAsk: z.boolean().optional(),
+    noNewItems: z.boolean().optional(),
+    newItemsToMatchingShops: z.boolean().optional(),
   }),
 });
 export type ErrandCase = z.infer<typeof errandCaseSchema>;

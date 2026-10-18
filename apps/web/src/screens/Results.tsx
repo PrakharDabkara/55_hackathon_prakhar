@@ -93,6 +93,12 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
         {isLive && <span className="live-dot" role="img" aria-label={t.live} title={t.live} />}
       </header>
 
+      {request.item?.unverified && (
+        <p className="status-badge warn" role="status">
+          {t.newItemNote}
+        </p>
+      )}
+
       <ResultsMap origin={origin} pins={pins} label={t.mapLabel} youAreHere={t.youAreHere} />
 
       <p className="status-line">

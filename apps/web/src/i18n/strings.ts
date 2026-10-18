@@ -69,6 +69,12 @@ export interface Strings {
   search: string;
   searching: string;
   errUnresolved: string;
+  errItemBlocked: string;
+  errItemUnavailable: string;
+  errNewItemLimit: (scope: string) => string;
+  newItemNote: string;
+  newItemTag: string;
+  errandBlocked: string;
   errNotSeeker: string;
   needLocation: string;
   sortCheap: string;
@@ -198,7 +204,7 @@ export const hi: Strings = {
   otherNumber: 'Dusra number',
 
   shopNameLabel: 'Dukaan ka naam',
-  categoriesTitle: 'Aap kya bechte hain? (1 ya 2 chunein)',
+  categoriesTitle: 'Aap kya bechte hain? (1 se 3 chunein)',
   useMyLocation: 'Meri location use karein',
   locationOk: 'Location mil gayi ✓',
   locationFailed: 'Location nahi mili. Neeche haath se likhein.',
@@ -232,8 +238,16 @@ export const hi: Strings = {
   demoLocation: 'Demo location (Indore)',
   search: 'Dhoondho',
   searching: 'Dhoondh rahe hain…',
-  errUnresolved:
-    "Samajh nahi aaya — thoda aur detail mein likhiye (jaise 'paper clip', 'nail cutter')",
+  errUnresolved: 'Ye cheez samajh nahi aayi — thoda aur batayein',
+  errItemBlocked: 'Ye cheez hum dukaanon ko nahi bhej sakte',
+  errItemUnavailable: 'Abhi ye cheez dukaanon ko nahi bhej sakte',
+  errNewItemLimit: (scope) =>
+    scope === 'errand'
+      ? 'Ek kaam mein 5 se zyada nayi cheezein nahi pooch sakte'
+      : 'Aaj ke liye nayi cheezon ki limit poori ho gayi, kal phir koshish karein',
+  newItemNote: 'Nayi cheez: dukaanon se pooch rahe hain',
+  newItemTag: 'Nayi cheez',
+  errandBlocked: 'Ye cheez hum dukaanon ko nahi bhej sakte',
   errNotSeeker: 'Yeh dukaan ka number hai. Customer ke liye dusra number use karein.',
   needLocation: 'Pehle apni location chunein.',
   sortCheap: 'Sasta',
@@ -355,6 +369,11 @@ export const hi: Strings = {
     household_kitchen: 'घर और रसोई',
     personal_care: 'पर्सनल केयर',
     general_store: 'जनरल स्टोर',
+    dairy: 'डेयरी',
+    sabzi_fruit: 'सब्ज़ी और फल',
+    pooja: 'पूजा का सामान',
+    medical: 'मेडिकल',
+    bakery_sweets: 'बेकरी और मिठाई',
   },
   bands: {
     'under 1 km': '1 km se kam',
@@ -383,7 +402,7 @@ export const en: Strings = {
   otherNumber: 'Another number',
 
   shopNameLabel: 'Shop name',
-  categoriesTitle: 'What do you sell? (pick 1 or 2)',
+  categoriesTitle: 'What do you sell? (pick 1 to 3)',
   useMyLocation: 'Use my location',
   locationOk: 'Got your location ✓',
   locationFailed: 'Could not get your location. Type it below.',
@@ -417,8 +436,16 @@ export const en: Strings = {
   demoLocation: 'Demo location (Indore)',
   search: 'Search',
   searching: 'Searching…',
-  errUnresolved:
-    "We couldn't tell which item you mean. Add a little more detail (like 'paper clip', 'nail cutter').",
+  errUnresolved: "We couldn't understand that item. Please tell us a little more.",
+  errItemBlocked: "We can't send this item to shops",
+  errItemUnavailable: "We can't send this item to shops right now",
+  errNewItemLimit: (scope) =>
+    scope === 'errand'
+      ? "You can't ask about more than 5 new items in one errand"
+      : "You've reached today's limit of new items; try again tomorrow",
+  newItemNote: 'New item: asking the shops',
+  newItemTag: 'New item',
+  errandBlocked: "We can't send this item to shops",
   errNotSeeker: 'This number belongs to a shop. Use another number as a customer.',
   needLocation: 'Choose your location first.',
   sortCheap: 'Cheapest',
@@ -541,6 +568,11 @@ export const en: Strings = {
     household_kitchen: 'Household & kitchen',
     personal_care: 'Personal care',
     general_store: 'General store',
+    dairy: 'Dairy',
+    sabzi_fruit: 'Fruits & vegetables',
+    pooja: 'Pooja items',
+    medical: 'Medical',
+    bakery_sweets: 'Bakery & sweets',
   },
   bands: {
     'under 1 km': 'under 1 km',

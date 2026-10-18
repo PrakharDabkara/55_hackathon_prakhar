@@ -109,6 +109,11 @@ export function Search({ api, onFound }: Props) {
       const asked = e instanceof ApiError && e.code === 'item_ambiguous' ? choiceFrom(e) : null;
       if (asked) setChoice(asked);
       else if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
+      else if (e instanceof ApiError && e.code === 'item_blocked') setError(t.errItemBlocked);
+      else if (e instanceof ApiError && e.code === 'item_unavailable')
+        setError(t.errItemUnavailable);
+      else if (e instanceof ApiError && e.code === 'new_item_limit')
+        setError(t.errNewItemLimit(String(e.details['scope'] ?? 'day')));
       else if (e instanceof ApiError && e.status === 403) setError(t.errNotSeeker);
       else setError(t.errGeneric);
       setBusy(false);

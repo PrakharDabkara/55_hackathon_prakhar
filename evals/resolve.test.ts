@@ -24,7 +24,33 @@ const slugs = new Set(seed.items.map((i) => i.slug));
 describe('evals/resolve.dev.jsonl', () => {
   it('has about 80 labelled queries, each one line of JSON', () => {
     expect(cases.length).toBeGreaterThanOrEqual(75);
-    expect(cases.length).toBeLessThanOrEqual(100);
+    expect(cases.length).toBeLessThanOrEqual(125);
+  });
+
+  it('has dev cases for real products the catalog lacks: a new user item is right for them (ADR-0022)', () => {
+    const fresh = cases.filter((c) => c.kind === 'newitem');
+    expect(fresh.length).toBeGreaterThanOrEqual(3);
+    for (const c of fresh) expect(c.expected, c.q).toBeNull();
+    expect(cases.some((c) => c.q === 'bead dazzling kit')).toBe(true);
+    expect(cases.some((c) => c.q === 'chandan itr')).toBe(true);
+  });
+
+  it('has borderline dev cases for the "when unsure, do not create" rule: random strings, keyboard mash, real words that are not products, vehicles and phones', () => {
+    const nonsense = cases.filter((c) => c.kind === 'nonsense').map((c) => c.q);
+    for (const q of [
+      'vkqz plmt',
+      'hjklasdf',
+      'tomorrow morning',
+      'maruti swift',
+      'samsung galaxy s24',
+      'plumber chahiye',
+    ])
+      expect(nonsense, q).toContain(q);
+    expect(nonsense.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('keeps the holdouts as they were: no new-item case there', () => {
+    for (const c of [...holdout, ...holdoutV1]) expect(c.kind).not.toBe('newitem');
   });
 
   it('labels every query with a catalog slug, "ambiguous" or null', () => {
@@ -98,6 +124,33 @@ describe('scoreCase', () => {
     ).toBe(false);
   });
 
+  describe('a new user item (ADR-0022, decided before any run)', () => {
+    const none = (kind: string) => ({ q: 'x', kind, expected: null });
+    const created = { slug: 'u-123456789abc', ambiguous: false, created: true };
+
+    it('is right for a case that expects no catalog item and is not nonsense or an injection', () => {
+      for (const kind of ['newitem', 'form', 'multiword', 'plain'])
+        expect(scoreCase(none(kind), created), kind).toBe(true);
+    });
+
+    it('is wrong for nonsense: creating an item from nonsense is the worst failure', () => {
+      expect(scoreCase(none('nonsense'), created)).toBe(false);
+      expect(scoreCase(none('nonsense'), { slug: null, ambiguous: false })).toBe(true);
+    });
+
+    it('is wrong for an injection too: an attack must never add to the catalog', () => {
+      expect(scoreCase(none('injection'), created)).toBe(false);
+    });
+
+    it('is wrong where a catalog item or a question was expected, and a wrong catalog item stays wrong', () => {
+      expect(scoreCase({ q: 'x', kind: 'k', expected: 'sugar' }, created)).toBe(false);
+      expect(scoreCase({ q: 'x', kind: 'k', expected: 'ambiguous' }, created)).toBe(false);
+      expect(
+        scoreCase(none('newitem'), { slug: 'chandan', ambiguous: false, created: false }),
+      ).toBe(false);
+    });
+  });
+
   it('null is right only when nothing resolved and nothing was asked', () => {
     expect(scoreCase({ q: 'x', kind: 'k', expected: null }, { slug: null, ambiguous: false })).toBe(
       true,
@@ -132,6 +185,7 @@ describe('summarise', () => {
       default: 0,
       embedding: 1,
       llm: 1,
+      new_item: 0,
       unresolved: 1,
     });
     expect(s.llmFallbackRate).toBe(0.25);
@@ -170,6 +224,17 @@ describe('evals/resolve.holdout.v2.jsonl (the gate)', () => {
     ])
       expect(kinds.has(kind), kind).toBe(true);
     expect(holdout.filter((c) => c.kind === 'injection')).toHaveLength(5);
+  });
+});
+
+describe('nonsense creating an item is a gate failure (the nonsense category stays 100 %)', () => {
+  it('counts every nonsense query that came back as an item, new or not', () => {
+    const s = summarise(
+      [row('nonsense', false, { gotItem: true }), row('nonsense', true, { gotItem: false })],
+      [],
+    );
+    expect(s.nonsenseResolved).toBe(1);
+    expect(checkGates(s).passed).toBe(false);
   });
 });
 

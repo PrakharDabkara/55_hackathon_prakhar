@@ -32,4 +32,8 @@ export async function recordStockYes(
       stockExpiry(stock.confirmedAt, stock.quantityHint),
     ],
   );
+  // A customer-made item (ADR-0028) is verified by the first shop that says yes.
+  await db.query(`UPDATE items SET unverified = false WHERE id = $1 AND unverified`, [
+    stock.itemId,
+  ]);
 }

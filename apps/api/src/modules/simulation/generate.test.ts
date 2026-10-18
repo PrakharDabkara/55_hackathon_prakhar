@@ -47,7 +47,7 @@ describe('generateShops', () => {
     }
   });
 
-  it('mixes all 8 categories, with groceries the most common (as on a real street)', () => {
+  it('mixes all 13 categories, with groceries the most common (as on a real street)', () => {
     const shops = generateShops({ ...input, count: 500 });
     const primary = new Map<string, number>();
     for (const s of shops)
@@ -55,6 +55,17 @@ describe('generateShops', () => {
     expect([...primary.keys()].sort()).toEqual([...CATEGORIES].sort());
     const top = [...primary.entries()].sort((a, b) => b[1] - a[1])[0];
     expect(top?.[0]).toBe('grocery');
+  });
+
+  it('has enough stationery, hardware and pooja shops for the school-project demo', () => {
+    const shops = generateShops({ ...input, count: 200 });
+    const first = (c: string) => shops.filter((s) => s.categories[0] === c);
+    expect(first('stationery').length).toBeGreaterThanOrEqual(12);
+    expect(first('hardware').length).toBeGreaterThanOrEqual(12);
+    expect(first('pooja').length).toBeGreaterThanOrEqual(4);
+    expect(first('stationery').some((s) => /Stationer|Book|Stationery/i.test(s.name))).toBe(true);
+    expect(first('pooja').some((s) => /Pooja|Puja|Bhandar|Samagri/i.test(s.name))).toBe(true);
+    expect(first('dairy').some((s) => /Dairy|Doodh|Milk/i.test(s.name))).toBe(true);
   });
 
   it('gives Indian-style shop names that fit the first category', () => {

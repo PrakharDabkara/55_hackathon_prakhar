@@ -29,7 +29,15 @@ export interface PingStats {
 export interface SeekerRequest {
   id: string;
   state: 'OPEN' | 'PINGING' | 'ANSWERED' | 'EXPIRED' | 'CLOSED';
-  item: { id: string; slug: string; nameEn: string; nameHi: string; category: string } | null;
+  item: {
+    id: string;
+    slug: string;
+    nameEn: string;
+    nameHi: string;
+    category: string;
+    /** A customer-made item that no shop has confirmed yet (ADR-0028). */
+    unverified: boolean;
+  } | null;
   radiusM: number;
   targetPricePaise?: number;
   results: ShopResult[];
@@ -81,6 +89,10 @@ export interface PlanItem {
   downgraded: string | null;
   /** True when the item is not what the customer's words would lead them to expect. */
   matchedAs: boolean;
+  /** A customer-made item no shop has confirmed yet. */
+  isNew: boolean;
+  /** Why the item was never sent to shops, if it was not (ADR-0029). */
+  refused: 'blocked' | 'unavailable' | 'limit' | null;
 }
 
 export interface PlanRoute {

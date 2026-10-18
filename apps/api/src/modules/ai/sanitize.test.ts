@@ -210,3 +210,12 @@ describe('validateAnswer', () => {
     expect(out.kind === 'ambiguous' && out.question.length).toBeLessThanOrEqual(200);
   });
 });
+
+describe('the resolve prompt does not match on a loose relation (dev miss: a bead kit is not glitter)', () => {
+  it('says a related, similar-looking or same-use item is not the item, and that a kit or set the list lacks is none', () => {
+    const { system } = buildResolvePrompt('bead dazzling kit', []);
+    expect(system).toMatch(/merely related|only related|similar/i);
+    expect(system).toMatch(/kit|set/i);
+    expect(system).toMatch(/"itemId": null/);
+  });
+});

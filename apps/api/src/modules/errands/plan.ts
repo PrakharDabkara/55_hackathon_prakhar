@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db/queryable.js';
 import { formConflict, termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
+import { refusalKey, type Refused } from './executor.js';
 import { isExpectedMatch } from './matchedAs.js';
 import {
   optimise,
@@ -50,6 +51,10 @@ export interface PlanItem {
   downgraded: Downgrade | null;
   /** True when the item is not what the customer's words would lead them to expect ("diya" → candle). */
   matchedAs: boolean;
+  /** A customer-made item no shop has confirmed yet (ADR-0028). */
+  isNew: boolean;
+  /** Why the item was never sent to shops, if it was not (ADR-0029). */
+  refused: Refused | null;
 }
 
 export interface PlanRoute {
@@ -113,6 +118,7 @@ interface ItemRecord {
   name: string;
   nameHi: string;
   refPricePaise: number | null;
+  unverified: boolean;
 }
 
 /**
@@ -133,6 +139,8 @@ export async function buildPlan(
     fewerStopsMaxExtraPaise?: number;
     /** itemId → the customer's word, for every item resolve_item placed in this errand. */
     resolved?: Iterable<[string, string]>;
+    /** The customer's words (see refusalKey) that were never sent to shops, and why. */
+    refused?: Iterable<[string, Refused]>;
   } = {},
 ): Promise<Plan> {
   // Every item the agent resolved is planned, whatever it then claimed (or forgot) in submit_plan.
@@ -142,6 +150,13 @@ export async function buildPlan(
     if (claims.length >= MAX_PLAN_ITEMS) break;
     if (!claims.some((c) => c.itemId === itemId))
       claims.push({ text: text.slice(0, 100), itemId, status: 'not_found' });
+  }
+  // An item that was refused is listed even if the model left it out: the customer should see it.
+  const refused = new Map(options.refused ?? []);
+  const claimed = new Set(claims.map((c) => refusalKey(c.text)));
+  for (const key of refused.keys()) {
+    if (claims.length >= MAX_PLAN_ITEMS) break;
+    if (!claimed.has(key)) claims.push({ text: key.slice(0, 100), status: 'not_found' });
   }
   const itemIds = [
     ...new Set(claims.map((i) => i.itemId).filter((id): id is string => isUuid(id))),
@@ -156,11 +171,18 @@ export async function buildPlan(
       name_en: string;
       name_hi: string;
       ref_price_paise: number | null;
-    }>(`SELECT id, name_en, name_hi, ref_price_paise FROM items WHERE id = ANY($1::uuid[])`, [
-      itemIds,
-    ]);
+      unverified: boolean;
+    }>(
+      `SELECT id, name_en, name_hi, ref_price_paise, unverified FROM items WHERE id = ANY($1::uuid[])`,
+      [itemIds],
+    );
     for (const r of rows)
-      items.set(r.id, { name: r.name_en, nameHi: r.name_hi, refPricePaise: r.ref_price_paise });
+      items.set(r.id, {
+        name: r.name_en,
+        nameHi: r.name_hi,
+        refPricePaise: r.ref_price_paise,
+        unverified: r.unverified,
+      });
   }
   // An item whose own name is another product form than the customer's words (itr, not powder)
   // is not the item they asked for, whatever id the model gave: it counts as unknown.
@@ -249,6 +271,8 @@ export async function buildPlan(
         freshness: null,
         downgraded: null,
         matchedAs: false,
+        isNew: known?.unverified ?? false,
+        refused: refused.get(refusalKey(claim.text)) ?? null,
       };
       const offer = bought.get(String(index));
       if (offer) {

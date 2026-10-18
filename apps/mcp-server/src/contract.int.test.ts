@@ -71,12 +71,18 @@ describe('MCP contract', () => {
         (r) => [r.slug, r.id],
       ),
     );
-    provider.onGenerate(() => ({
-      itemId: null,
-      needsClarification: true,
-      question: 'Kaunsi clip?',
-      optionIds: [ids['paper-clips'], ids['clothes-clips']],
-    }));
+    provider.onGenerate(({ purpose, user }) =>
+      purpose === 'classify_item'
+        ? /bead dazzling/i.test(user)
+          ? { verdict: 'allowed', confidence: 'high', category: 'stationery' }
+          : { verdict: 'nonsense' }
+        : {
+            itemId: null,
+            needsClarification: true,
+            question: 'Kaunsi clip?',
+            optionIds: [ids['paper-clips'], ids['clothes-clips']],
+          },
+    );
     const ai = createAi({
       provider,
       db: pool,
@@ -134,8 +140,10 @@ describe('MCP contract', () => {
     const by = (n: string) => listed.find((t) => t.name === n)?.annotations;
     expect(by('ask_shops')).toMatchObject({ readOnlyHint: false, idempotentHint: false });
     expect(by('close_request')).toMatchObject({ readOnlyHint: false, idempotentHint: true });
-    for (const n of ['resolve_item', 'find_item_nearby', 'get_request_status', 'plan_route'])
+    for (const n of ['find_item_nearby', 'get_request_status', 'plan_route'])
       expect(by(n), n).toMatchObject({ readOnlyHint: true });
+    // resolve_item can add an unverified item to the catalog, but asking twice adds nothing more.
+    expect(by('resolve_item')).toMatchObject({ readOnlyHint: false, idempotentHint: true });
   });
 
   it('describes the errand workflow in the server instructions', () => {
@@ -162,6 +170,23 @@ describe('MCP contract', () => {
 
     const nonsense = await call('resolve_item', { text: 'zxcvb' });
     expect(nonsense.structuredContent).toMatchObject({ unresolved: true });
+  });
+
+  it('resolve_item: a real product the catalog lacks becomes a new item; a dangerous one is blocked', async () => {
+    const made = await call('resolve_item', { text: 'bead dazzling kit' });
+    expect(made.isError).toBeFalsy();
+    expect(made.structuredContent?.['item']).toMatchObject({
+      name: 'Bead dazzling kit',
+      category: 'stationery',
+      isNew: true,
+    });
+    const again = await call('resolve_item', { text: 'bead dazzling kit' });
+    expect(again.structuredContent?.['item'].id).toBe(made.structuredContent?.['item'].id);
+
+    const blocked = await call('resolve_item', { text: 'country made pistol' });
+    expect(blocked.isError).toBeFalsy();
+    expect(blocked.structuredContent).toMatchObject({ blocked: true });
+    expect(blocked.structuredContent?.['item']).toBeUndefined();
   });
 
   it('find_item_nearby: reads learned stock without pinging anyone', async () => {

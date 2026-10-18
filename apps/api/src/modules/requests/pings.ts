@@ -24,6 +24,9 @@ import { selectPingTargets } from './targets.js';
 /** A late answer (after the request ended) still teaches inventory for this long. ADR-0016. */
 const LATE_ANSWER_HOURS = 24;
 
+/** Fewest shops worth asking: below this many matching shops, the nearest of any category join. */
+const MIN_TARGETS = 3;
+
 /** How many candidates to consider per ping we want to send. */
 const BACKFILL_FACTOR = 3;
 
@@ -75,6 +78,9 @@ export async function fanOutPings(
       itemCategories: item.categories,
       radiusM: request.radiusM,
       excludeShopIds: new Set(known.map((k) => k.shopId)),
+      // Too few shops of the item's kind (a new item, a small street): the nearest of any kind
+      // fill up to this many, so a request is never left with nobody to ask (ADR-0028).
+      minTargets: MIN_TARGETS,
       // Look past the cap: shops the dedupe refuses are replaced by the next-nearest, up to 3x.
       max: deps.config.maxPings * BACKFILL_FACTOR,
     },
@@ -161,6 +167,7 @@ export async function fanOutPings(
             pingId: ping.id,
             shopId: ping.shopId,
             item: { slug: item.slug, nameEn: item.nameEn },
+            category: item.category,
             refPricePaise,
           },
         },

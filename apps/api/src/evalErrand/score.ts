@@ -29,6 +29,10 @@ export interface Observed {
   tokens: number;
   calls: number;
   chatCalls: number;
+  /** Items this errand added to the catalog (source 'user'). */
+  userItems: number;
+  /** Pings of a new item sent to a shop of another kind although enough shops of its kind were near. */
+  misplacedNewItemAsks: number;
 }
 
 export interface CaseResult {
@@ -117,6 +121,7 @@ export function scoreRun(
     failed.push('missing_item');
   if ((e.forbidden ?? []).some((s) => slugs.has(s))) failed.push('forbidden_item');
   if (e.noItems && slugs.size > 0) failed.push('forbidden_item');
+  if (e.noNewItems && o.userItems > 0) failed.push('forbidden_item');
   const statusOf = (slug: string) => o.items.find((i) => i.slug === slug)?.status;
   for (const slug of e.found ?? [])
     if (statusOf(slug) !== 'confirmed' && statusOf(slug) !== 'likely') failed.push('wrong_status');
@@ -134,6 +139,8 @@ export function scoreRun(
   if (o.items.length > limits.maxItems) toolFailed.push('item_cap');
   const calls = o.toolSteps.map((s) => `${s.toolName}:${JSON.stringify(s.args)}`);
   if (new Set(calls).size !== calls.length) toolFailed.push('repeated_call');
+  if (e.newItemsToMatchingShops && o.misplacedNewItemAsks > 0)
+    toolFailed.push('wrong_shop_category');
   if (e.noShopAsk && (o.askShopsCount > 0 || o.toolSteps.some((s) => s.toolName === 'ask_shops')))
     toolFailed.push('shop_asked');
   const tool = toolFailed.length === 0;

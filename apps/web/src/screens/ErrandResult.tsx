@@ -113,7 +113,10 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }:
       </div>
 
       {found.length === 0 ? (
-        onAskAgain && (
+        // Asking again cannot help when every missing item was refused for good (blocked, or over
+        // the limit): it would only be refused again.
+        onAskAgain &&
+        missing.some((item) => !item.refused || item.refused === 'unavailable') && (
           <button type="button" className="btn btn-yes" disabled={busy} onClick={onAskAgain}>
             {t.errandAskAgain}
           </button>
@@ -168,12 +171,16 @@ function PlanRow({ item, photos }: { item: PlanItem; photos: PhotoApi | undefine
   const label = name.toLowerCase() !== item.text.toLowerCase() && (
     <p className="meta">{item.text}</p>
   );
-  // Not found: the group it sits in says so; no badge, shop or price.
+  // Not found: the group it sits in says so; no badge, shop or price. An item that was never sent
+  // to shops says why.
   if (item.status === 'not_found')
     return (
       <li className="plan-item plan-item-not_found">
         <h3 className="plan-item-name">{name}</h3>
         {label}
+        {item.refused === 'blocked' && <p className="note">{t.errandBlocked}</p>}
+        {item.refused === 'unavailable' && <p className="note">{t.errItemUnavailable}</p>}
+        {item.refused === 'limit' && <p className="note">{t.errNewItemLimit('errand')}</p>}
       </li>
     );
   return (
@@ -181,6 +188,7 @@ function PlanRow({ item, photos }: { item: PlanItem; photos: PhotoApi | undefine
       <h3 className="plan-item-name">{name}</h3>
       {label}
       <p>
+        {item.isNew && <span className="status-badge">{t.newItemTag}</span>}{' '}
         {item.status === 'confirmed' ? (
           <span className="status-badge ok">{t.errandConfirmed}</span>
         ) : (

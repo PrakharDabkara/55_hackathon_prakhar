@@ -9,14 +9,27 @@ export interface Case {
 export interface Outcome {
   slug: string | null;
   ambiguous: boolean;
+  /** The answer is a customer-made item (source 'user'), new or reused (ADR-0028). */
+  created?: boolean;
 }
 
-export type Step = 'cache' | 'synonym' | 'trigram' | 'default' | 'embedding' | 'llm';
+export type Step = 'cache' | 'synonym' | 'trigram' | 'default' | 'embedding' | 'llm' | 'new_item';
 
-/** Right means: the same item; a question when a question was expected; nothing when nothing fits. */
+/** Kinds where an item must never be made: nonsense and attacks. Everything else may become one. */
+const NEVER_CREATE = new Set(['nonsense', 'injection']);
+
+/**
+ * Right means: the same item; a question when a question was expected; nothing when nothing fits.
+ * For a case that expects no catalog item (ADR-0022), a new user item is also right, unless the
+ * case is nonsense or an injection: creating an item from those is wrong, and a wrong catalog item
+ * is wrong for every case.
+ */
 export function scoreCase(c: Case, got: Outcome): boolean {
   if (c.expected === 'ambiguous') return got.ambiguous;
-  if (c.expected === null) return got.slug === null && !got.ambiguous;
+  if (c.expected === null) {
+    if (got.created) return !NEVER_CREATE.has(c.kind);
+    return got.slug === null && !got.ambiguous;
+  }
   return got.slug === c.expected;
 }
 
@@ -72,6 +85,7 @@ export function summarise(rows: Row[], llmCalls: LlmCall[]) {
     default: 0,
     embedding: 0,
     llm: 0,
+    new_item: 0,
     unresolved: 0,
   };
   for (const r of rows) byStep[r.step ?? 'unresolved']++;
@@ -141,11 +155,11 @@ export function renderMarkdown(reports: { set: string; summary: Summary }[]): st
         `| ${set} | ${s.total} | ${pct(s.accuracy)} | ${cat(s, 'plain')} | ${cat(s, 'variant')} | ${cat(s, 'ambiguous')} | ${cat(s, 'nonsense')} | ${cat(s, 'injection')} | ${pct(s.llmFallbackRate)} | ${s.llm.totalTokens} | ${s.llm.p95LatencyMs} | ${s.errors} |`,
     ),
     '',
-    '| set | cache | synonym | trigram | default | embedding | llm | unresolved |',
-    '|---|---|---|---|---|---|---|---|',
+    '| set | cache | synonym | trigram | default | embedding | llm | new item | unresolved |',
+    '|---|---|---|---|---|---|---|---|---|',
     ...reports.map(
       ({ set, summary: s }) =>
-        `| ${set} | ${s.byStep.cache} | ${s.byStep.synonym} | ${s.byStep.trigram} | ${s.byStep.default} | ${s.byStep.embedding} | ${s.byStep.llm} | ${s.byStep.unresolved} |`,
+        `| ${set} | ${s.byStep.cache} | ${s.byStep.synonym} | ${s.byStep.trigram} | ${s.byStep.default} | ${s.byStep.embedding} | ${s.byStep.llm} | ${s.byStep.new_item} | ${s.byStep.unresolved} |`,
     ),
   ];
   // The gate is the current holdout (v2). The retired v1 is reported for history, never gated.

@@ -50,7 +50,9 @@ A search answers from remembered stock first and pings shops only for what is mi
 
 1. The user types or speaks a need ("bottle cleaning brush", "gehun ka aata 5 kilo"). The query is understood into an item and a shop category.
 2. Shops within 2 km that said yes to this item before are listed at once, with how old that answer is.
-3. If fewer than 3 shops are listed, up to 10 of the nearest shops in that category are pinged. A shop gets at most one ping per item per 30 minutes.
+3. If fewer than 3 shops are listed, up to 10 of the nearest shops in that category are pinged (if fewer than 3 shops of that kind are near, the nearest of any kind are added). A shop gets at most one ping per item per 30 minutes.
+
+**Open catalog (Day 15, ADR-0028, ADR-0029).** The catalog is memory, not a gate. A real product it does not know ("bead dazzling kit") becomes a new unverified item, asked of the right kind of shops as plain text; the first yes verifies it and later searches get "Likely". Nonsense is never created. Before any shop sees a new item it passes a deny list (weapons, explosives, illegal drugs, counterfeits; Latin and Devanagari) and a model check; if the check is down the item is not sent. At most 5 new items per errand and 10 per user per day. Shop and item categories: grocery (kirana), hardware, electrical, stationery, mobile accessories, household and kitchen, personal care (cosmetics), general store, dairy, sabzi and fruit, pooja, medical, bakery and sweets.
 4. Shops reply yes or no, optionally with a quoted price, in the app or over WhatsApp (simulated in the hackathon build).
 5. Each yes appears live on the user's map with distance, quoted price, freshness and a busy flag, so the user can skip a crowded shop.
 6. The request expires after 15 minutes; shops that did not reply are recorded.
@@ -60,7 +62,7 @@ Price check: the user can add the price they've seen elsewhere; shops are asked 
 
 **Shopkeeper**
 
-1. Onboards in under a minute: phone number (simulated OTP), shop name, map pin, one or two categories. No catalogue.
+1. Onboards in under a minute: phone number (simulated OTP), shop name, map pin, one to three categories (none means kirana). No catalogue.
 2. Gets a ping ("Do you have a bottle-cleaning brush?") and taps Yes or No, optionally with a price.
 3. On a yes, the item joins the shop's inventory automatically, with one optional follow-up: "Roughly how many: a few or plenty?"
 4. Now and then: "Anything else you want customers to find?" The AI turns a free-text answer into items.
@@ -144,7 +146,7 @@ Every AI step tries the cheapest path first and calls the LLM only when cheaper 
 
 | Component | Input → output | Cheapest path first | How it is checked |
 | --- | --- | --- | --- |
-| Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold | Labeled Hinglish query set; category accuracy gate in CI |
+| Query understanding | "gehun ka aata 5 kilo" → item: wheat flour, qty 5 kg, category: grocery | Cache → synonym dictionary → embedding match → LLM only below a similarity threshold; nothing fits → safety check, then a new item if it is a real product | Labeled Hinglish query set; category accuracy gate in CI |
 | Reply parsing | "haan hai, 450 ka" → yes, ₹450 | Buttons (no AI) → pattern rules → LLM fallback | Labeled reply set; accuracy gate in CI |
 | Demand digest | Week of request counts → a 3-line summary for the shop | One batched call per shop per week | Every number in the summary must match the counts exactly |
 | Errand agent | Task → shopping plan | Gemini function calling behind the provider port (ADR-0020, ADR-0024); our own loop, no agent framework; the shared tools of the MCP server (ADR-0023) run in process (including `ask_shops` and `get_request_status`), plus `ask_user` and a terminal `submit_plan` the server checks; guardrails (starting defaults, config): max 10 items, 8 model calls, 20,000 tokens per errand, 5 errands an hour per user, task 500 characters 6 items asked about per errand, 2 questions, 5 minutes of waiting in total, 15 minutes overall | Eval set of 20 errands (Day 14) |

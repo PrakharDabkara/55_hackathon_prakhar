@@ -47,13 +47,21 @@ export interface RunState {
   resolved: Map<string, string>;
   /** Questions put to the customer so far in this errand, across runs. */
   questionsAsked: number;
+  /** The customer's word (see `refusalKey`) → why it was never sent to shops (ADR-0029). */
+  refused: Map<string, Refused>;
 }
+
+export type Refused = 'blocked' | 'unavailable' | 'limit';
+
+/** The same word typed with other case or spacing is the same refused item. */
+export const refusalKey = (text: string): string => text.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export const newRunState = (): RunState => ({
   labels: new Map(),
   found: new Map(),
   resolved: new Map(),
   questionsAsked: 0,
+  refused: new Map(),
 });
 
 export interface ToolEnv {
@@ -136,7 +144,10 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       ...(env.requestId && { requestId: env.requestId }),
       ...(env.ai && { ai: env.ai }),
       logger: env.logger,
+      // A real product the catalog does not know becomes a new item (ADR-0028).
+      openCatalog: { errandId: env.errandId },
     });
+    if (resolution.refused) return refusedOutcome(env, text, resolution.refused);
     if (!resolution.item) {
       return {
         result: {
@@ -157,9 +168,11 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
           nameHi: item.nameHi,
           category: item.category,
           categories: item.categories,
+          // No shop has confirmed it yet: the plan tags it and the timeline says it is being asked.
+          ...(item.unverified && { isNew: true }),
         },
       },
-      summary: { status: 'resolved', itemName: item.nameEn },
+      summary: { status: item.unverified ? 'new' : 'resolved', itemName: item.nameEn },
     };
   } catch (error) {
     if (error instanceof ApiError && error.code === 'item_ambiguous') {
@@ -184,6 +197,28 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     }
     throw error;
   }
+}
+
+/** The text may not go to shops: tell the model plainly, and remember it for the plan. */
+function refusedOutcome(
+  env: ToolEnv,
+  text: string,
+  refusal: NonNullable<Awaited<ReturnType<typeof resolveForCustomer>>['refused']>,
+): ToolOutcome {
+  const reason: Refused = refusal.reason;
+  env.state.refused.set(refusalKey(text), reason);
+  const message: Record<Refused, string> = {
+    blocked:
+      'This item cannot be sent to shops. Do not try again with other words. Mark it not_found and say in the notes that you cannot help with it.',
+    unavailable:
+      'This item cannot be sent to shops right now (the safety check is not available). Mark it not_found.',
+    limit:
+      'No more new items can be added in this errand. Mark it not_found and plan the rest from the items you already have.',
+  };
+  return {
+    result: { [reason === 'limit' ? 'limit' : reason]: true, message: message[reason] },
+    summary: { status: reason },
+  };
 }
 
 async function findItemNearby(env: ToolEnv, args: unknown): Promise<ToolOutcome> {

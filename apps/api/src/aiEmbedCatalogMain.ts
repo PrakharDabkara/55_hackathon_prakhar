@@ -2,7 +2,8 @@ import { pino } from 'pino';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
 import { aiFromConfig } from './modules/ai/index.js';
-import { embedCatalog } from './modules/catalog/index.js';
+import { appendFileSync } from 'node:fs';
+import { embedCatalog, embedCatalogSafely, formatEmbedSummary } from './modules/catalog/index.js';
 
 // Run by `npm run ai:embed-catalog`, locally and in the deploy job after seeding. Embeds the
 // catalog items whose text changed; a second run costs nothing.
@@ -23,14 +24,23 @@ const ai = aiFromConfig({
   client: { retries: 3, backoffMs: 20_000 },
 });
 try {
-  const { embedded, skipped } = await embedCatalog(pool, ai, {
-    logger,
-    batchSize: 20,
-    pauseMs: 15_000,
-  });
-  console.log(
-    `embedded ${embedded} items, ${skipped} already up to date (model ${ai.client.embedModel})`,
-  );
+  const options = { logger, batchSize: 20, pauseMs: 15_000 };
+  if (process.env['EMBED_NON_BLOCKING'] === '1') {
+    // The deploy: a failure is reported in the job summary and the exit code stays 0 (ADR-0021).
+    const result = await embedCatalogSafely(pool, ai, options);
+    console.log(formatEmbedSummary(result));
+    if (!result.ok)
+      console.log(
+        `::warning::${result.pending} catalog items are still un-embedded (${result.reason}); the deploy continues`,
+      );
+    const summaryFile = process.env['GITHUB_STEP_SUMMARY'];
+    if (summaryFile) appendFileSync(summaryFile, formatEmbedSummary(result));
+  } else {
+    const { embedded, skipped } = await embedCatalog(pool, ai, options);
+    console.log(
+      `embedded ${embedded} items, ${skipped} already up to date (model ${ai.client.embedModel})`,
+    );
+  }
 } finally {
   ai.close();
   await pool.end();
