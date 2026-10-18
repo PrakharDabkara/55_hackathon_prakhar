@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (guard against pushing to main)
+
+- A tracked `.githooks/pre-push` refuses any push to `main` or `master` with a message on how to open a PR instead; `npm install` enables it (`prepare` sets `core.hooksPath`). CLAUDE.md now says never push to main and to check `git branch --show-current` before committing.
+
 ### Fixed (simulator determinism)
 
 - The simulator test "a request is answered by simulated shops" no longer depends on chance: fixed seed, every shop answers, at least three shops that sell the item are asserted, and a second test checks that a shop outside the item's category says no and one inside says yes. It failed about 2 % of the time once shops answered by category.
