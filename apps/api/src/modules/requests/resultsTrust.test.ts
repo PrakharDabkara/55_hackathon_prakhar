@@ -29,12 +29,12 @@ describe('rankResults with customer reports', () => {
   it('puts a shop with repeated wrong answers after the others, even a fresher, nearer one', () => {
     const ranked = rankResults(
       [
-        learned('doubtful', 100, { doubtful: true }),
+        learned('shaky', 100, { doubtful: true }),
         learned('fine', 900, { lastConfirmedAt: hoursAgo(80) }),
       ],
       now,
     );
-    expect(ranked.map((r) => r.shopId)).toEqual(['fine', 'doubtful']);
+    expect(ranked.map((r) => r.shopId)).toEqual(['fine', 'shaky']);
   });
 
   it('keeps freshness and distance order among shops that are not doubtful', () => {
@@ -62,12 +62,12 @@ describe('buildResults with customer reports', () => {
 
   it('puts a doubtful learned row last whatever the sort, and never says it is doubtful', () => {
     const rows = [
-      learned('doubtful', 100, { doubtful: true, pricePaise: 1000 }),
+      learned('shaky', 100, { doubtful: true, pricePaise: 1000 }),
       learned('fine', 900),
     ];
     for (const sort of ['distance', 'price'] as const) {
       const out = build(rows, sort);
-      expect(out.map((r) => r.shopId)).toEqual(['fine', 'doubtful']);
+      expect(out.map((r) => r.shopId)).toEqual(['fine', 'shaky']);
       expect(JSON.stringify(out)).not.toMatch(/doubt/i);
     }
   });
@@ -76,8 +76,8 @@ describe('buildResults with customer reports', () => {
     const out = buildResults({
       live: [
         {
-          shopId: 'doubtful',
-          name: 'doubtful',
+          shopId: 'shaky',
+          name: 'shaky',
           distanceM: 100,
           lat: 22.7,
           lng: 75.8,
@@ -86,12 +86,12 @@ describe('buildResults with customer reports', () => {
           answeredAt: now,
         },
       ],
-      learned: [learned('doubtful', 100, { doubtful: true }), learned('fine', 900)],
+      learned: [learned('shaky', 100, { doubtful: true }), learned('fine', 900)],
       targetPricePaise: null,
       sort: 'distance',
       now,
     });
-    expect(out.map((r) => r.shopId)).toEqual(['doubtful', 'fine']);
+    expect(out.map((r) => r.shopId)).toEqual(['shaky', 'fine']);
     expect(out[0]).toMatchObject({ source: 'live' });
     expect(out[0]).not.toHaveProperty('customerVerified');
   });

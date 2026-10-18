@@ -232,8 +232,30 @@ describe('"Aaj ki maang" on the shop screen', () => {
       const res = await demand();
       const text = JSON.stringify(res.body);
       for (const who of customers) expect(text).not.toContain(who.userId);
-      expect(text).not.toMatch(/9892\d{6}/);
-      expect(text).not.toMatch(/lat|lng|location|phone|user/i);
+      for (let n = 0; n < 6; n++) expect(text).not.toContain(String(9_892_000_000 + n));
+      const keys = new Set<string>();
+      const walk = (value: unknown) => {
+        if (Array.isArray(value)) value.forEach(walk);
+        else if (value && typeof value === 'object')
+          for (const [key, inner] of Object.entries(value)) {
+            keys.add(key);
+            walk(inner);
+          }
+      };
+      walk(res.body);
+      expect([...keys].sort()).toEqual([
+        'answered',
+        'asked',
+        'count',
+        'customers',
+        'item',
+        'nameEn',
+        'nameHi',
+        'nearby',
+        'received',
+        'today',
+        'yes',
+      ]);
       // Every leaf is a number, or an item's names.
       for (const row of [...res.body.asked, ...res.body.nearby])
         expect(Object.keys(row).sort()).toEqual(

@@ -4,7 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
-import { createNotifier, saveSubscription, type EnqueuePush } from './modules/push/index.js';
+import { createNotifier, type EnqueuePush } from './modules/push/index.js';
 import { createRateLimiter, type CounterStore } from './modules/push/index.js';
 import { createRealtime } from './modules/realtime/index.js';
 import { sweepPickups } from './modules/pickups/index.js';
@@ -47,8 +47,11 @@ describe('"Le liya?": pickups, the question, and what the answers do to learned 
       .set(auth(owner))
       .send({ name: 'Le Liya Kirana', lat: north(0.3), lng: ORIGIN.lng, categories: ['grocery'] });
     shopId = made.body.id as string;
-    itemId = (await pool.query<{ id: string }>(`SELECT id FROM items WHERE slug = 'chini'`)).rows[0]
-      ?.id as string;
+    itemId = (
+      await pool.query<{ id: string }>(
+        `SELECT item_id AS id FROM item_synonyms WHERE term = 'chini'`,
+      )
+    ).rows[0]?.id as string;
   }, 300_000);
   afterAll(async () => {
     await testDb?.stop();
@@ -266,7 +269,7 @@ describe('"Le liya?": pickups, the question, and what the answers do to learned 
 
     it('only counts the shop for the item reported, not its other items', async () => {
       const dal = (
-        await pool.query<{ id: string }>(`SELECT id FROM items WHERE slug <> 'chini' LIMIT 1`)
+        await pool.query<{ id: string }>(`SELECT id FROM items WHERE id <> $1 LIMIT 1`, [itemId])
       ).rows[0]?.id as string;
       await recordStockYes(pool, {
         shopId,
@@ -346,7 +349,7 @@ describe('"Le liya?": pickups, the question, and what the answers do to learned 
         (await request(app).get('/shops/me/demand').set(auth(owner))).body,
       ]);
       expect(seen).not.toContain(seeker.userId);
-      expect(seen).not.toMatch(/9894\d{6}/);
+      for (let n = 0; n < 2; n++) expect(seen).not.toContain(String(9_894_000_000 + n));
       expect(seen).not.toMatch(/not_there|wrong_reports|pickup/i);
     });
 
@@ -437,12 +440,15 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
       'TRUNCATE requests, pings, shop_stock, pickup_visits, push_subscriptions CASCADE',
     );
     queued = [];
-    await saveSubscription(pool, seeker.userId, {
-      endpoint: 'https://fcm.googleapis.com/fcm/send/seeker',
-      p256dh: 'k',
-      auth: 'a',
-    });
+    await subscribed();
   });
+
+  const subscribed = () =>
+    pool.query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+       VALUES ($1, 'https://fcm.googleapis.com/fcm/send/seeker', 'k', 'a')`,
+      [seeker.userId],
+    );
 
   /** A pickup the customer tapped `minutes` ago. */
   async function visit(item: string, minutes: number, over: Record<string, string | null> = {}) {

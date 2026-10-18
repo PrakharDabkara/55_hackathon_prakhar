@@ -18,7 +18,7 @@ async function customerAsks(browser: Browser, corner: Corner, what: string) {
   await page.getByRole('button', { name: 'Meri location' }).click();
   await page.getByLabel('क्या चाहिए?').fill(what);
   await page.getByRole('button', { name: 'Dhoondho' }).click();
-  await page.waitForURL(/\/app\/request\//, { timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Ho gaya' })).toBeVisible({ timeout: 30_000 });
   return context;
 }
 

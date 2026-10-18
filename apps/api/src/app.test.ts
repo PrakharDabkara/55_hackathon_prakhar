@@ -46,6 +46,7 @@ const config: Config = {
   photoStorageCapMb: 300,
   vapid: null,
   pushMaxPerMinute: 5,
+  pickupAskAfterMinutes: 15,
   gitSha: 'abc1234',
 };
 const logger = pino({ level: 'silent' });
