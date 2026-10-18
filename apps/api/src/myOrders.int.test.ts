@@ -58,6 +58,8 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
   });
 
   async function answeredRequest(q = 'chini') {
+    // What the shop learned from an earlier yes would answer this request without asking it.
+    await pool.query('DELETE FROM shop_stock');
     const made = await request(app)
       .post('/requests')
       .set(auth(seeker))
@@ -148,13 +150,12 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
       expect(errands.body[0]).toMatchObject({ task: 'chai ka saaman' });
     });
 
-    it('a search can be opened again: its view carries where it was asked from', async () => {
+    it('a search can be opened again, and its view still never carries the customer’s own point', async () => {
       const id = await answeredRequest();
       const res = await request(app).get(`/requests/${id}`).set(auth(seeker));
-      expect(res.body.origin).toEqual({
-        lat: expect.closeTo(ORIGIN.lat, 4),
-        lng: expect.closeTo(ORIGIN.lng, 4),
-      });
+      expect(res.status).toBe(200);
+      expect(res.body).not.toHaveProperty('origin');
+      expect(JSON.stringify(res.body)).not.toContain(String(ORIGIN.lat).slice(0, 7));
     });
   });
 

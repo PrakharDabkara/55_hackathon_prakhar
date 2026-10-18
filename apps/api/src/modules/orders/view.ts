@@ -17,7 +17,8 @@ export interface SeekerOrderView {
   feePaise: number | null;
   feeMinutes: number | null;
   /** The customer's own words. Cash on delivery: no money moves in the app. */
-  addressText: string;
+  /** Empty once the order ended 30 days ago (ADR-0033). */
+  addressText: string | null;
   customerName: string | null;
   payment: 'cash_on_delivery';
   /** The shop did not take it (declined or no answer in time): the customer picks it up instead. */
@@ -85,9 +86,9 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
     expiresAt: o.expiresAt.toISOString(),
     createdAt: o.createdAt.toISOString(),
     updatedAt: o.updatedAt.toISOString(),
-    ...(ADDRESS_SHOWN_TO_SHOP.includes(o.state) && {
-      addressText: o.addressText,
-      mapUrl: mapUrl(o.lat, o.lng),
-    }),
+    ...(ADDRESS_SHOWN_TO_SHOP.includes(o.state) &&
+      o.addressText !== null &&
+      o.lat !== null &&
+      o.lng !== null && { addressText: o.addressText, mapUrl: mapUrl(o.lat, o.lng) }),
   };
 }

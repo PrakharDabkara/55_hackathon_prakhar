@@ -10,6 +10,9 @@ import {
   getErrand,
   type ErrandsContext,
 } from './service.js';
+import { listRecentErrands } from './persistence.js';
+
+const RECENT_LIMIT = 10;
 
 export function errandsRouter(deps: ErrandsContext): Router {
   const router = Router();
@@ -30,6 +33,11 @@ export function errandsRouter(deps: ErrandsContext): Router {
       { ...body, requestId: String(req.id) },
     );
     res.status(201).json(created);
+  });
+
+  // The customer's last errands, for "Haal ke kaam".
+  router.get('/errands', requireAuth, requireRole('seeker'), async (req, res) => {
+    res.json(await listRecentErrands(deps.db, authOf(req).user.id, RECENT_LIMIT));
   });
 
   router.get('/errands/:id', requireAuth, async (req, res) => {

@@ -4,7 +4,9 @@ import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import {
   cancelOrder,
+  forgetAddress,
   getSeekerOrder,
+  listMyOrders,
   listSeekerOrders,
   listShopOrders,
   placeOrder,
@@ -22,15 +24,17 @@ const placeBody = z
     errandId: z.uuid().optional(),
     addressText: z.string().trim().min(5).max(300),
     customerName: z.string().trim().max(60).optional(),
+    saveAddress: z.boolean().optional(),
   })
   .refine((b) => (b.requestId === undefined) !== (b.errandId === undefined), {
     message: 'give a requestId or an errandId, not both',
   });
 
+// Neither: all of the customer's orders (Mere orders). One of them: the orders of that screen.
 const sourceQuery = z
   .object({ requestId: z.uuid().optional(), errandId: z.uuid().optional() })
-  .refine((q) => (q.requestId === undefined) !== (q.errandId === undefined), {
-    message: 'give a requestId or an errandId',
+  .refine((q) => q.requestId === undefined || q.errandId === undefined, {
+    message: 'give a requestId or an errandId, not both',
   });
 
 /**
@@ -56,6 +60,10 @@ export function ordersRouter(deps: OrdersContext): Router {
 
   router.get('/orders', ...seekerOnly, async (req, res) => {
     const q = parse(sourceQuery, req.query);
+    if (q.requestId === undefined && q.errandId === undefined) {
+      res.json(await listMyOrders(ctxFor(req), authOf(req).user.id));
+      return;
+    }
     const source = q.requestId ? { requestId: q.requestId } : { errandId: q.errandId as string };
     res.json(await listSeekerOrders(ctxFor(req), authOf(req).user.id, source));
   });
@@ -63,6 +71,11 @@ export function ordersRouter(deps: OrdersContext): Router {
   // Before /orders/:id, so "saved-address" is not read as an id.
   router.get('/orders/saved-address', ...seekerOnly, async (req, res) => {
     res.json(await savedAddress(ctxFor(req), authOf(req).user.id));
+  });
+
+  router.delete('/orders/saved-address', ...seekerOnly, async (req, res) => {
+    await forgetAddress(ctxFor(req), authOf(req).user.id);
+    res.status(204).end();
   });
 
   const orderId = (req: { params: Record<string, unknown> }) => {

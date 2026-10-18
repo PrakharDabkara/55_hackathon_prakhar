@@ -131,6 +131,27 @@ export async function findErrand(db: Queryable, id: string): Promise<ErrandRecor
   return rows[0] ? toRecord(rows[0]) : null;
 }
 
+export interface RecentErrand {
+  id: string;
+  state: string;
+  task: string;
+  createdAt: Date;
+}
+
+/** The customer's latest errands, newest first (for "Haal ke kaam"). */
+export async function listRecentErrands(
+  db: Queryable,
+  userId: string,
+  limit: number,
+): Promise<RecentErrand[]> {
+  const { rows } = await db.query<{ id: string; state: string; task: string; created_at: Date }>(
+    `SELECT id, state, task, created_at FROM errands
+      WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [userId, limit],
+  );
+  return rows.map((r) => ({ id: r.id, state: r.state, task: r.task, createdAt: r.created_at }));
+}
+
 export async function insertErrand(
   db: Database,
   input: {

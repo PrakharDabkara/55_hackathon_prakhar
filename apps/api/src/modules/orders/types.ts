@@ -23,10 +23,11 @@ export interface OrderRecord {
   unknownPriceCount: number;
   feePaise: number | null;
   feeMinutes: number | null;
-  addressText: string;
+  /** Empty 30 days after the order ended (ADR-0033). */
+  addressText: string | null;
   customerFirstName: string | null;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;

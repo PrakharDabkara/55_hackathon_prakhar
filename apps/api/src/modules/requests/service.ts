@@ -327,3 +327,35 @@ export async function expireRequest(
 }
 
 export { findOverdueRequestIds, findUnpingedRequestIds };
+
+export interface RecentRequest {
+  id: string;
+  state: RequestState;
+  /** The customer's own words. */
+  query: string;
+  createdAt: Date;
+}
+
+/** The customer's latest searches, newest first (for "Haal ke kaam"). */
+export async function listRecentRequests(
+  db: Database,
+  userId: string,
+  limit: number,
+): Promise<RecentRequest[]> {
+  const { rows } = await db.query<{
+    id: string;
+    state: RequestState;
+    raw_query: string;
+    created_at: Date;
+  }>(
+    `SELECT id, state, raw_query, created_at FROM requests
+      WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [userId, limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    state: r.state,
+    query: r.raw_query,
+    createdAt: r.created_at,
+  }));
+}

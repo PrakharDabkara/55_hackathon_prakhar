@@ -70,7 +70,9 @@ describe('delivery orders', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE requests, pings, shop_stock, delivery_orders, errands CASCADE');
+    await pool.query(
+      'TRUNCATE requests, pings, shop_stock, delivery_orders, errands, saved_addresses CASCADE',
+    );
     await pool.query(`UPDATE shops SET closed_until = NULL, is_simulated = false`);
     logs.length = 0;
     events.length = 0;
@@ -295,7 +297,12 @@ describe('delivery orders', () => {
       expect(list.body.map((o: { id: string }) => o.id)).toEqual([id]);
       const nobody = await request(app).get('/orders').query({ requestId }).set(auth(other));
       expect(nobody.body).toEqual([]);
-      expect((await request(app).get('/orders').set(auth(seeker))).status).toBe(400);
+      // Both at once is a mistake; none at all is "Mere orders" (ADR-0033).
+      const both = await request(app)
+        .get('/orders')
+        .query({ requestId, errandId: requestId })
+        .set(auth(seeker));
+      expect(both.status).toBe(400);
     });
 
     it('can cancel while it is REQUESTED or ACCEPTED, not once it is out', async () => {
@@ -318,10 +325,15 @@ describe('delivery orders', () => {
       expect(await stateOf(third)).toBe('OUT_FOR_DELIVERY');
     });
 
-    it('is offered the address they used last time, and nobody else’s', async () => {
+    it('is offered a saved address only if they ticked it, and nobody else’s', async () => {
       const empty = await request(app).get('/orders/saved-address').set(auth(seeker));
       expect(empty.body).toEqual({ addressText: null, customerName: null });
       await place(await answeredRequest(), { customerName: 'Asha' });
+      const untouched = await request(app).get('/orders/saved-address').set(auth(seeker));
+      expect(untouched.body).toEqual({ addressText: null, customerName: null });
+      await pool.query(`UPDATE delivery_orders SET state = 'CANCELLED'`);
+      await pool.query('DELETE FROM shop_stock'); // asked again, not answered from memory
+      await place(await answeredRequest(), { customerName: 'Asha', saveAddress: true });
       const saved = await request(app).get('/orders/saved-address').set(auth(seeker));
       expect(saved.body).toEqual({ addressText: ADDRESS, customerName: 'Asha' });
       const theirs = await request(app).get('/orders/saved-address').set(auth(other));
