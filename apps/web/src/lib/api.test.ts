@@ -106,3 +106,23 @@ describe('createApi', () => {
     await expect(api.listPings()).rejects.toMatchObject({ status: 502, code: 'unknown' });
   });
 });
+
+describe('createApi: delivery orders (ADR-0031)', () => {
+  it('lists the shop’s orders', async () => {
+    const { api, fetchImpl } = setup(() => json(200, []));
+    expect(await api.listOrders()).toEqual([]);
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe('/shops/me/orders');
+  });
+
+  it.each([
+    ['accept', '/orders/o%201/accept'],
+    ['decline', '/orders/o%201/decline'],
+    ['out', '/orders/o%201/out'],
+    ['delivered', '/orders/o%201/delivered'],
+  ] as const)('moves an order with %s', async (verb, url) => {
+    const { api, fetchImpl } = setup(() => json(200, { id: 'o 1' }));
+    await api.orderAction('o 1', verb);
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe(url);
+    expect((fetchImpl.mock.calls[0]?.[1] as RequestInit).method).toBe('POST');
+  });
+});

@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
+import type { SeekerOrder, ShopOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
 import type {
   ErrandPlan,
@@ -51,6 +52,8 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     listPings: vi.fn(async () => []),
     answerPing: vi.fn(async () => undefined),
     setShopOpen: vi.fn(async (open: boolean) => shop({ open })),
+    listOrders: vi.fn(async () => []),
+    orderAction: vi.fn(async () => shopOrder()),
     updateDelivery: vi.fn(async (delivery) =>
       shop({
         deliversDefault: delivery !== null,
@@ -152,6 +155,10 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     answerErrand: vi.fn(async () => errandView()),
     cancelErrand: vi.fn(async () => errandView({ state: 'CANCELLED' })),
     setDeliveryMode: vi.fn(async () => errandView()),
+    placeOrder: vi.fn(async () => seekerOrder()),
+    listOrders: vi.fn(async () => []),
+    cancelOrder: vi.fn(async () => seekerOrder({ state: 'CANCELLED' })),
+    savedAddress: vi.fn(async () => ({ addressText: null, customerName: null })),
     ...fakePhotos(),
     ...overrides,
   };
@@ -245,5 +252,44 @@ export const errandView = (overrides: Partial<ErrandView> = {}): ErrandView => (
   expiresAt: '2026-10-16T10:15:00.000Z',
   createdAt: '2026-10-16T10:00:00.000Z',
   updatedAt: '2026-10-16T10:00:05.000Z',
+  ...overrides,
+});
+
+/** A delivery order as the customer sees it (ADR-0031). */
+export const seekerOrder = (overrides: Partial<SeekerOrder> = {}): SeekerOrder => ({
+  id: 'order-1',
+  state: 'REQUESTED',
+  shopId: 's1',
+  shopName: 'Mishra Kirana',
+  requestId: 'req-1',
+  errandId: null,
+  lines: [{ name: 'sugar', count: 2, pricePaise: 4500 }],
+  itemsTotalPaise: 9000,
+  unknownPriceCount: 0,
+  feePaise: 3000,
+  feeMinutes: 45,
+  addressText: 'Flat 4B, Sapna Apartments, Vijay Nagar',
+  customerName: null,
+  payment: 'cash_on_delivery',
+  pickupFallback: false,
+  expiresAt: '2026-10-16T10:10:00.000Z',
+  createdAt: '2026-10-16T10:00:00.000Z',
+  updatedAt: '2026-10-16T10:00:00.000Z',
+  ...overrides,
+});
+
+/** A delivery order as its shop sees it: no address until it has accepted. */
+export const shopOrder = (overrides: Partial<ShopOrder> = {}): ShopOrder => ({
+  id: 'order-1',
+  state: 'REQUESTED',
+  lines: [{ name: 'sugar', count: 2, pricePaise: 4500 }],
+  itemsTotalPaise: 9000,
+  unknownPriceCount: 0,
+  feePaise: 3000,
+  contactName: 'Grahak',
+  final: false,
+  expiresAt: '2026-10-16T10:10:00.000Z',
+  createdAt: '2026-10-16T10:00:00.000Z',
+  updatedAt: '2026-10-16T10:00:00.000Z',
   ...overrides,
 });

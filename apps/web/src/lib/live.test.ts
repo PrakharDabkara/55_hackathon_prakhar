@@ -120,3 +120,18 @@ describe('LIVE_EVENTS (Day 14b)', () => {
     expect(LIVE_EVENTS).toContain('errand.updated');
   });
 });
+
+describe('LIVE_EVENTS (Day 16)', () => {
+  it('includes the order events, so the customer and the shop see an order move', async () => {
+    const { LIVE_EVENTS } = await import('./live.js');
+    expect(LIVE_EVENTS).toContain('order.created');
+    expect(LIVE_EVENTS).toContain('order.updated');
+  });
+
+  it('hands the payload to the caller as a second argument (a ping.closed says why), still only a hint', async () => {
+    const { onEvent } = setup();
+    await vi.advanceTimersByTimeAsync(0);
+    FakeEventSource.last().emit('ping.closed', { pingId: 'p1', reason: 'enough_answers' });
+    expect(onEvent).toHaveBeenCalledWith('ping.closed', { pingId: 'p1', reason: 'enough_answers' });
+  });
+});

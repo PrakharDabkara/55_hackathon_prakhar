@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeEventSource, fakeSeekerApi, result, seekerRequest } from '../test/fakes.js';
+import {
+  FakeEventSource,
+  fakeSeekerApi,
+  result,
+  seekerOrder,
+  seekerRequest,
+} from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Results } from './Results.js';
 
@@ -395,5 +401,97 @@ describe('Results: exact quantity and delivery (ADR-0031)', () => {
     expect(screen.getByText('Ghar bhej denge · ₹25 · 30 min')).toBeTruthy();
     expect(screen.getByText('Ghar bhej denge · muft')).toBeTruthy();
     expect(screen.getAllByText('Ghar bhej denge')).toHaveLength(1);
+  });
+});
+
+describe('Results: ordering a delivery (ADR-0031)', () => {
+  const delivering = (over: Partial<ReturnType<typeof result>> = {}) =>
+    result({
+      shopId: 'a',
+      name: 'Sharma Kirana',
+      delivery: { feePaise: 3000, minutes: 45 },
+      ...over,
+    });
+  const show = (
+    results: ReturnType<typeof result>[],
+    overrides: Parameters<typeof fakeSeekerApi>[0] = {},
+  ) => {
+    const api = fakeSeekerApi(overrides);
+    const utils = renderApp(
+      <Results
+        api={api}
+        initial={seekerRequest({
+          id: 'req-1',
+          state: 'ANSWERED',
+          pingStats: { sent: results.length, yes: results.length, no: 0, pending: 0 },
+          results,
+        })}
+        origin={origin}
+        onDone={vi.fn()}
+        live={live}
+      />,
+    );
+    return { api, ...utils };
+  };
+  const card = (name: string) =>
+    screen.getAllByRole('listitem').find((r) => within(r).queryByText(name)) as HTMLElement;
+
+  it('has "Ghar mangwao" only on a shop that offered delivery', async () => {
+    show([delivering(), result({ shopId: 'b', name: 'Gupta Stores' })]);
+    expect(
+      within(card('Sharma Kirana')).getByRole('button', { name: 'Ghar mangwao' }),
+    ).toBeTruthy();
+    expect(within(card('Gupta Stores')).queryByRole('button', { name: 'Ghar mangwao' })).toBeNull();
+  });
+
+  it('"Ghar mangwao" → "Order bhejo" → the address step → the order is placed for this request', async () => {
+    const { user, api } = show([delivering()]);
+    await user.click(screen.getByRole('button', { name: 'Ghar mangwao' }));
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Flat 4B, Sapna Apartments');
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith({
+      shopId: 'a',
+      requestId: 'req-1',
+      addressText: 'Flat 4B, Sapna Apartments',
+    });
+    // The list is asked for again, so the card shows what the server now has.
+    await waitFor(() => expect(api.listOrders).toHaveBeenCalledTimes(2));
+  });
+
+  it('loads this request’s orders and shows their status on the shop’s card', async () => {
+    const listOrders = vi.fn(async () => [seekerOrder({ state: 'ACCEPTED', shopId: 'a' })]);
+    show([delivering()], { listOrders });
+    expect(await screen.findByText('Dukaan ne order le liya')).toBeTruthy();
+    expect(listOrders).toHaveBeenCalledWith({ requestId: 'req-1' });
+    expect(screen.queryByRole('button', { name: 'Ghar mangwao' })).toBeNull();
+  });
+
+  it('follows the order live: an order.updated event refetches and the card changes', async () => {
+    const listOrders = vi
+      .fn()
+      .mockResolvedValueOnce([seekerOrder({ state: 'REQUESTED', shopId: 'a' })])
+      .mockResolvedValue([seekerOrder({ state: 'OUT_FOR_DELIVERY', shopId: 'a' })]);
+    show([delivering()], { listOrders });
+    expect(await screen.findByText(/jawab ka intezaar/)).toBeTruthy();
+    act(() => FakeEventSource.last().emit('order.updated', { orderId: 'order-1' }));
+    expect(await screen.findByText('Nikal gaye — raste mein hai')).toBeTruthy();
+  });
+
+  it('a declined order says it is pickup now', async () => {
+    const listOrders = vi.fn(async () => [
+      seekerOrder({ state: 'DECLINED', pickupFallback: true, shopId: 'a' }),
+    ]);
+    show([delivering()], { listOrders });
+    expect(await screen.findByText(/Dukaan ne mana kiya/)).toBeTruthy();
+  });
+
+  it('an order list that cannot be fetched changes nothing about the results', async () => {
+    const listOrders = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    show([delivering()], { listOrders });
+    expect(screen.getByText('Sharma Kirana')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ghar mangwao' })).toBeTruthy();
   });
 });
