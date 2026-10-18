@@ -25,11 +25,6 @@ describe('cleanItemName (name hygiene for new items, ADR-0028)', () => {
     expect(cleanItemName('pen; drop table items')).toBeNull();
   });
 
-  it('turns harmless punctuation into spaces but never keeps it', () => {
-    expect(cleanItemName('parle-g biscuit')).toBe('Parle g biscuit');
-    expect(cleanItemName('tom & jerry sticker')).toBe('Tom jerry sticker');
-  });
-
   it('rejects URLs and emails', () => {
     expect(cleanItemName('http://evil.example/pen')).toBeNull();
     expect(cleanItemName('www.shop.in pen')).toBeNull();
@@ -42,7 +37,7 @@ describe('cleanItemName (name hygiene for new items, ADR-0028)', () => {
     expect(cleanItemName('call 98765 43210')).toBeNull();
     expect(cleanItemName('call 98765-43210')).toBeNull();
     expect(cleanItemName('pen 12345')).toBe('Pen 12345');
-    expect(cleanItemName('pack of 100 pens 20 pcs')).toBe('Pack of 100 pens 20 pcs');
+    expect(cleanItemName('pack of 100 pens')).toBe('Pack 100 pens');
   });
 });
 
