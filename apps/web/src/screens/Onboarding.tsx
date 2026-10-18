@@ -8,7 +8,7 @@ interface Props {
   onDone: (shop: MyShop) => void;
 }
 
-const MAX_CATEGORIES = 2;
+const MAX_CATEGORIES = 3;
 
 /** A coordinate that is a number inside the allowed range, else null. */
 function coordinate(text: string, limit: number): number | null {
@@ -18,7 +18,7 @@ function coordinate(text: string, limit: number): number | null {
 }
 
 /**
- * Shown once, when the account has no shop yet: a name, one or two kinds of goods, a place.
+ * Shown once, when the account has no shop yet: a name, one to three kinds of goods, a place.
  * The map pin arrives with Leaflet on Day 8; until then the phone's location or two typed numbers.
  */
 export function Onboarding({ api, onDone }: Props) {
