@@ -13,11 +13,15 @@ import {
   findOpenOrder,
   findOrder,
   findOverdueOrderIds,
+  clearOldAddresses,
+  forgetSavedAddress,
+  getSavedAddress,
   insertOrder,
-  lastAddress,
   listOrdersForShop,
   listOrdersForSource,
+  listOrdersForUser,
   moveOrder,
+  saveAddress,
 } from './persistence.js';
 import { ORDER_EXPIRY_MINUTES, type OrderEvent } from './stateMachine.js';
 import type { OrderLine, OrderRecord } from './types.js';
@@ -37,6 +41,8 @@ export interface PlaceOrderInput {
   errandId?: string | undefined;
   addressText: string;
   customerName?: string | undefined;
+  /** The customer ticked "Is pate ko yaad rakhein": keep this address on their profile. */
+  saveAddress?: boolean | undefined;
 }
 
 /** "Asha   Verma" → "Asha". Only letters, marks, dots and hyphens survive; nothing else is kept. */
@@ -134,6 +140,9 @@ export async function placeOrder(
     throw new ApiError(409, 'order_exists', 'An order is already open for this shop');
   }
   const order = (await findOrder(db, id)) as OrderRecord;
+  // Only on the customer's own tick; no tick, nothing is kept beyond the order.
+  if (input.saveAddress === true)
+    await saveAddress(db, userId, input.addressText, firstNameOf(input.customerName));
   // A plan card: the shop is now a delivery stop on the plan, until it says no.
   if (input.errandId)
     await chooseDeliveryMode(ctx, userId, input.errandId, input.shopId, 'delivery');
@@ -214,6 +223,8 @@ export async function sweepOrders(
   return expired;
 }
 
+const MY_ORDERS_LIMIT = 50;
+
 const owned = async (ctx: OrdersContext, userId: string, id: string): Promise<OrderRecord> => {
   const order = await findOrder(ctx.db, id);
   if (!order || order.userId !== userId) throw new ApiError(404, 'not_found', 'No such order');
@@ -233,17 +244,36 @@ export async function listSeekerOrders(
   return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(seekerOrderView);
 }
 
+/** Every order of the customer, open ones first. */
+export async function listMyOrders(ctx: OrdersContext, userId: string) {
+  const orders = await listOrdersForUser(ctx.db, userId, MY_ORDERS_LIMIT);
+  return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(seekerOrderView);
+}
+
 export async function cancelOrder(ctx: OrdersContext, userId: string, id: string) {
   await owned(ctx, userId, id);
   return seekerOrderView(await apply(ctx, id, 'CANCEL'));
 }
 
 export async function savedAddress(ctx: OrdersContext, userId: string) {
-  return (await lastAddress(ctx.db, userId)) ?? { addressText: null, customerName: null };
+  return (await getSavedAddress(ctx.db, userId)) ?? { addressText: null, customerName: null };
+}
+
+export async function forgetAddress(ctx: OrdersContext, userId: string): Promise<void> {
+  await forgetSavedAddress(ctx.db, userId);
+}
+
+/** Clears the address and pin of orders that ended 30 days ago. Returns how many. */
+export async function sweepOrderAddresses(
+  ctx: Pick<OrdersContext, 'db' | 'logger'>,
+): Promise<number> {
+  const cleared = await clearOldAddresses(ctx.db);
+  if (cleared > 0) ctx.logger.info({ cleared }, 'delivery order addresses cleared');
+  return cleared;
 }
 
 export async function listShopOrders(ctx: OrdersContext, ownerUserId: string) {
-  const orders = await listOrdersForShop(ctx.db, ownerUserId);
+  const orders = await listOrdersForShop(ctx.db, ownerUserId, MY_ORDERS_LIMIT);
   return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(shopOrderView);
 }
 

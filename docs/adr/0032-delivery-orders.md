@@ -12,7 +12,7 @@ PR C let a shop say "Ghar bhej denge" and the customer choose delivery on the pl
 2. **States.** `REQUESTED → ACCEPTED | DECLINED | EXPIRED → OUT_FOR_DELIVERY → DELIVERED`; `CANCELLED` by the customer while REQUESTED or ACCEPTED. A pure table (`orders/stateMachine.ts`), enforced by `UPDATE … WHERE state = from`: of two taps at once one wins, the other is a 409. Repeating the tap that led to the current state is a harmless 200.
 3. **Ten minutes.** A REQUESTED order expires after 10 minutes: on the next read by either side, and by the 60 s sweeper (which also publishes). Postgres holds the deadline.
 4. **Fallback.** Declined, expired or cancelled puts the plan's shop back on pickup and sends `errand.updated`; the customer's screen says so ("Aap khud jaakar le lein"). On a result card there is no plan to change, only the message.
-5. **Address.** Typed text on the order, plus the request's (or errand's) own location copied as the pin; no dragging. The customer may give a first name (first word kept); the shop sees it or "Grahak". **No phone anywhere.** "Saved address" is simply the customer's latest order.
+5. **Address.** Typed text on the order, plus the request's (or errand's) own location copied as the pin; no dragging. The customer may give a first name (first word kept); the shop sees it or "Grahak". **No phone anywhere.** "Saved address" is simply the customer's latest order. _Amended by ADR-0033: it is kept only if the customer ticks "Is pate ko yaad rakhein"._
 6. **Who sees what.** The shop gets address and map link only in ACCEPTED, OUT_FOR_DELIVERY and DELIVERED (not for declined, expired or cancelled). Views are built field by field in `orders/view.ts`, so a new column never reaches a shop by accident. The address is in no other table, no log line, no realtime event and no model input; tests check each.
 7. **Hints.** `order.created` (to the shop's owner; to the admin stream for a simulated shop, with the shop id) and `order.updated` (to both). Ids and a state only.
 8. **A withdrawn question says why.** `ping.closed` carries `reason`: `answered` (the shop's own answer), `enough_answers` (another shop's yes ended the request) or `request_ended`. The shop screen shows "Grahak ko jawab mil gaya — shukriya" for 3.5 s when the card in front of it was withdrawn for the second reason, instead of dropping it silently.
@@ -21,7 +21,7 @@ PR C let a shop say "Ghar bhej denge" and the customer choose delivery on the pl
 ## Consequences
 
 - The agent's prompt and tools are unchanged; no order or address detail reaches a model (a test reads the errands module for it). No eval label is needed.
-- An address stays on its order for good. A retention sweep (for example 30 days after delivery) is a later decision.
+- ~~An address stays on its order for good.~~ ADR-0033: a sweep clears it 30 days after the order ends.
 
 ## Alternatives rejected
 

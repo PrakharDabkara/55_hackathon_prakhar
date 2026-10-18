@@ -6,10 +6,12 @@ export {
   findOverdueRequestIds,
   findUnpingedRequestIds,
   getRequestStatus,
+  listRecentRequests,
 } from './service.js';
 export type {
   CreateRequestInput,
   PingStats,
+  RecentRequest,
   RequestHooks,
   RequestView,
   RequestsContext,

@@ -9,7 +9,7 @@ import {
   sweepErrands,
   type ErrandWaker,
 } from '../modules/errands/index.js';
-import { sweepOrders } from '../modules/orders/index.js';
+import { sweepOrderAddresses, sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
@@ -18,6 +18,7 @@ import { startPingFanout, type PingFanout } from './pingFanout.js';
 import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
 
 const PHOTO_SWEEP_EVERY_MS = 10 * 60_000;
+const ADDRESS_SWEEP_EVERY_MS = 60 * 60_000;
 
 export interface Workers {
   /** Hand to createApp so new requests schedule expiry and queue their ping fan-out. */
@@ -63,6 +64,7 @@ export function startWorkers({
   });
   const limits = limitsFromConfig(config);
   let lastPhotoSweep = 0;
+  let lastAddressSweep = 0;
   // The errand worker is made after the expiry sweeper, which needs to sweep errands too.
   let errands: ErrandWorker | null = null;
   const requestHooks: RequestHooks = {};
@@ -82,6 +84,12 @@ export function startWorkers({
       },
       // A shop that did not answer an order in 10 minutes: expire it and tell the customer.
       () => sweepOrders({ db, logger, events }),
+      // Address and pin go 30 days after an order ended (ADR-0033); once an hour is plenty.
+      async () => {
+        if (Date.now() - lastAddressSweep < ADDRESS_SWEEP_EVERY_MS) return 0;
+        lastAddressSweep = Date.now();
+        return sweepOrderAddresses({ db, logger });
+      },
       async () =>
         errands
           ? sweepErrands({

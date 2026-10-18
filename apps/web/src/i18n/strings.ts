@@ -207,6 +207,24 @@ export interface Strings {
   orderErrClosed: string;
   orderErrGeneric: string;
   orderYourAddress: (address: string) => string;
+  // Finding an order again (ADR-0033, PR E)
+  myOrdersEntry: string;
+  myOrdersEmpty: string;
+  myOrdersError: string;
+  ordersActive: (count: number) => string;
+  orderTotal: (amount: string) => string;
+  orderTotalUnknown: string;
+  orderDoneFull: string;
+  orderSeeSource: string;
+  orderNotFound: string;
+  orderAddressGone: string;
+  orderRemember: string;
+  savedAddressTitle: string;
+  savedAddressForget: string;
+  recentTitle: string;
+  homeBack: string;
+  shopOrdersActiveTitle: string;
+  shopOrdersPastTitle: string;
   shopOrderTitle: string;
   shopOrderAccept: string;
   shopOrderDecline: string;
@@ -445,7 +463,7 @@ export const hi: Strings = {
   orderAddressLabel: 'Ghar ka pata',
   orderNameLabel: 'Aapka naam (zaroori nahi)',
   orderPinNote: 'Dukaan ko aapki location ka map pin milega, jab wo order accept kar le.',
-  orderSaved: (address) => `Pichhla pata: ${address}`,
+  orderSaved: (address) => `Yaad rakha hua pata: ${address}`,
   orderConfirm: 'Pakka karo',
   orderCancel: 'Order cancel karo',
   orderWaiting: 'Dukaan ke jawab ka intezaar… (10 minute tak)',
@@ -458,6 +476,23 @@ export const hi: Strings = {
   orderErrClosed: 'Ye dukaan abhi band hai.',
   orderErrGeneric: 'Order nahi bhej paaye. Dobara try karein.',
   orderYourAddress: (address) => `Pata: ${address}`,
+  myOrdersEntry: 'Mere orders',
+  myOrdersEmpty: 'Abhi koi order nahi.',
+  myOrdersError: 'Orders nahi dikh paaye. Dobara try karein.',
+  ordersActive: (count) => `${count} order chal rahe hain`,
+  orderTotal: (amount) => `Kul (delivery mila kar): ${amount}`,
+  orderTotalUnknown: 'Daam dukaan se poochein',
+  orderDoneFull: 'Pahuncha diya — order poora hua',
+  orderSeeSource: 'Dukaan dekhein',
+  orderNotFound: 'Ye order nahi mila.',
+  orderAddressGone: 'Pata 30 din baad hata diya jaata hai.',
+  orderRemember: 'Is pate ko yaad rakhein',
+  savedAddressTitle: 'Yaad rakha hua pata',
+  savedAddressForget: 'Pata hatayein',
+  recentTitle: 'Haal ke kaam',
+  homeBack: 'Wapas',
+  shopOrdersActiveTitle: 'Chal rahe orders',
+  shopOrdersPastTitle: 'Pichhle orders',
   shopOrderTitle: 'Ghar bhejne ka order',
   shopOrderAccept: 'Accept',
   shopOrderDecline: 'Decline',
@@ -725,7 +760,7 @@ export const en: Strings = {
   orderAddressLabel: 'Home address',
   orderNameLabel: 'Your name (optional)',
   orderPinNote: 'The shop gets a map pin of your location once it accepts the order.',
-  orderSaved: (address) => `Last address: ${address}`,
+  orderSaved: (address) => `Remembered address: ${address}`,
   orderConfirm: 'Confirm',
   orderCancel: 'Cancel order',
   orderWaiting: 'Waiting for the shop to answer… (up to 10 minutes)',
@@ -738,6 +773,23 @@ export const en: Strings = {
   orderErrClosed: 'That shop is closed right now.',
   orderErrGeneric: 'Could not send the order. Please try again.',
   orderYourAddress: (address) => `Address: ${address}`,
+  myOrdersEntry: 'My orders',
+  myOrdersEmpty: 'No orders yet.',
+  myOrdersError: 'Could not load your orders. Please try again.',
+  ordersActive: (count) => `${count} active ${count === 1 ? 'order' : 'orders'}`,
+  orderTotal: (amount) => `Total with delivery: ${amount}`,
+  orderTotalUnknown: 'Ask the shop for the price',
+  orderDoneFull: 'Delivered — order complete',
+  orderSeeSource: 'See the shops',
+  orderNotFound: 'That order was not found.',
+  orderAddressGone: 'The address is removed after 30 days.',
+  orderRemember: 'Remember this address',
+  savedAddressTitle: 'Remembered address',
+  savedAddressForget: 'Delete address',
+  recentTitle: 'Recent',
+  homeBack: 'Back',
+  shopOrdersActiveTitle: 'Active orders',
+  shopOrdersPastTitle: 'Past orders',
   shopOrderTitle: 'Home delivery order',
   shopOrderAccept: 'Accept',
   shopOrderDecline: 'Decline',

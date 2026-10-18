@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 16, PR E: finding an order again)
+
+- "Mere orders" on the home screen (a badge for orders still moving) and `/app/orders`: every order with shop, items, total including the fee and state, open ones first. `/app/order/<id>` shows one order live, works after a reload, says the final state plainly (delivered, declined or expired with the pickup message, cancelled) and can cancel while requested or accepted. `GET /orders` without a query, ADR-0033.
+- "Haal ke kaam": the last 10 searches and errands, each opening its page; a search now has one at `/app/request/<id>` (`GET /requests`, `GET /errands`). The browser's back button follows the app's addresses.
+- The shop's Orders section: open orders on top ("Chal rahe orders"), finished ones below ("Pichhle orders"), no longer cut off after two hours.
+- "Is pate ko yaad rakhein" (unticked) on the address step; the address is kept on the customer's profile only with the tick, and "Pata hatayein" on Mere orders deletes it (`saved_addresses`, `DELETE /orders/saved-address`, migration 018).
+- An hourly sweep clears the address and pin of an order 30 days after it ended; the order stays.
+
+### Changed (Day 16, PR E)
+
+- "Saved address" is no longer the customer's latest order; without the tick nothing is kept beyond the order. ADR-0032 amended.
+
 ### Added (Day 16, PR D: delivery orders)
 
 - "Ghar mangwao" → "Order bhejo" → address step on result and plan cards of a shop that delivers: typed address, optional first name, the request's own location as the pin, the customer's last address offered, a fixed "Cash on delivery" line. The status follows live. `delivery_orders` (migration 017), `POST /orders`, `GET /orders`, `GET /orders/saved-address`, `POST /orders/:id/cancel`. ADR-0032.

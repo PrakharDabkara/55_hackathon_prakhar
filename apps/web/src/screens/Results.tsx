@@ -16,7 +16,8 @@ interface Props {
   api: SeekerApi;
   /** The request as the search returned it, so the first paint needs no extra fetch. */
   initial: SeekerRequest;
-  origin: { lat: number; lng: number };
+  /** Null when the search is opened again from a link: the server does not keep it for us. */
+  origin: { lat: number; lng: number } | null;
   onDone: () => void;
   /** Fallback poll. Events do the real work; this only covers a stream that is down. */
   pollMs?: number;

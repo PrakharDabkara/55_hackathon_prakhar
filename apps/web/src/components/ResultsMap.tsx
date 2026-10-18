@@ -12,14 +12,19 @@ export interface Pin {
 }
 
 interface Props {
-  /** Where the customer is. */
-  origin: { lat: number; lng: number };
+  /**
+   * Where the customer is. Null when a search is opened again later: the server never sends the
+   * customer's own point back, so the map is drawn around the shops and has no "you are here".
+   */
+  origin: { lat: number; lng: number } | null;
   pins: Pin[];
   /** Accessible name for the map region. */
   label: string;
   youAreHere: string;
 }
 
+/** Indore, Rajwada: only used before any shop is known and no origin is given. */
+const FALLBACK_CENTRE: [number, number] = [22.7196, 75.8577];
 const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
@@ -47,7 +52,7 @@ export function ResultsMap({ origin, pins, label, youAreHere }: Props) {
   useEffect(() => {
     if (!container.current) return;
     const created = L.map(container.current, { zoomControl: true }).setView(
-      [origin.lat, origin.lng],
+      origin ? [origin.lat, origin.lng] : FALLBACK_CENTRE,
       15,
     );
     created.attributionControl.setPrefix(false);
@@ -72,11 +77,12 @@ export function ResultsMap({ origin, pins, label, youAreHere }: Props) {
     const current = map.current;
     if (!group || !current) return;
     group.clearLayers();
-    L.marker([origin.lat, origin.lng], {
-      icon: icon('user'),
-      title: youAreHere,
-      keyboard: false,
-    }).addTo(group);
+    if (origin)
+      L.marker([origin.lat, origin.lng], {
+        icon: icon('user'),
+        title: youAreHere,
+        keyboard: false,
+      }).addTo(group);
     for (const pin of pins) {
       L.marker([pin.lat, pin.lng], {
         icon: icon(pin.kind),
@@ -88,11 +94,13 @@ export function ResultsMap({ origin, pins, label, youAreHere }: Props) {
     // answered shop is in view. An unchanged refresh never undoes a pan.
     const key = pinsKey(pins);
     if (key !== fittedFor.current) {
-      fittedFor.current = key;
-      current.invalidateSize();
-      const bounds = L.latLngBounds([[origin.lat, origin.lng]]);
-      for (const pin of pins) bounds.extend([pin.lat, pin.lng]);
-      current.fitBounds(bounds, { padding: [32, 32], maxZoom: 16 });
+      const points: [number, number][] = pins.map((pin) => [pin.lat, pin.lng]);
+      if (origin) points.unshift([origin.lat, origin.lng]);
+      if (points.length > 0) {
+        fittedFor.current = key;
+        current.invalidateSize();
+        current.fitBounds(L.latLngBounds(points), { padding: [32, 32], maxZoom: 16 });
+      }
     }
   }, [pins, origin, youAreHere]);
 

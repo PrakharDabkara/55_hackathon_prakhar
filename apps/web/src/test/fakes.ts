@@ -157,8 +157,12 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     setDeliveryMode: vi.fn(async () => errandView()),
     placeOrder: vi.fn(async () => seekerOrder()),
     listOrders: vi.fn(async () => []),
+    myOrders: vi.fn(async () => []),
+    getOrder: vi.fn(async () => seekerOrder()),
     cancelOrder: vi.fn(async () => seekerOrder({ state: 'CANCELLED' })),
     savedAddress: vi.fn(async () => ({ addressText: null, customerName: null })),
+    forgetAddress: vi.fn(async () => undefined),
+    recentWork: vi.fn(async () => []),
     ...fakePhotos(),
     ...overrides,
   };

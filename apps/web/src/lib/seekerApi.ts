@@ -207,9 +207,27 @@ export interface SeekerApi
   /** The customer's orders for one request or errand, newest first. */
   listOrders(source: OrderSource): Promise<SeekerOrder[]>;
   cancelOrder(id: string): Promise<SeekerOrder>;
-  /** What the customer typed last time, so the next order is one tap. */
+  /** Every order of the customer (Mere orders). */
+  myOrders(): Promise<SeekerOrder[]>;
+  getOrder(id: string): Promise<SeekerOrder>;
+  /** The address the customer chose to keep ("Is pate ko yaad rakhein"), if any. */
   savedAddress(): Promise<{ addressText: string | null; customerName: string | null }>;
+  forgetAddress(): Promise<void>;
+  /** The last 10 searches and errands, newest first ("Haal ke kaam"). */
+  recentWork(): Promise<RecentItem[]>;
 }
+
+/** One line of "Haal ke kaam": a single search or a whole errand. */
+export interface RecentItem {
+  kind: 'search' | 'errand';
+  id: string;
+  /** The customer's own words. */
+  label: string;
+  state: string;
+  createdAt: string;
+}
+
+const RECENT_COUNT = 10;
 
 /** A key that is new for each search, so a double tap cannot start two requests. */
 function idempotencyKey(): string {
@@ -268,6 +286,42 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
           : `/orders?errandId=${id(source.errandId)}`,
       ),
     cancelOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`),
+    myOrders: () => call<SeekerOrder[]>('GET', '/orders'),
+    getOrder: (orderId) => call<SeekerOrder>('GET', `/orders/${id(orderId)}`),
+    forgetAddress: async () => {
+      await call('DELETE', '/orders/saved-address');
+    },
+    async recentWork() {
+      // Two lists; if one fails the other still shows.
+      const [searches, errands] = await Promise.all([
+        call<{ id: string; state: string; query: string; createdAt: string }[]>(
+          'GET',
+          '/requests',
+        ).catch(() => []),
+        call<{ id: string; state: string; task: string; createdAt: string }[]>(
+          'GET',
+          '/errands',
+        ).catch(() => []),
+      ]);
+      return [
+        ...searches.map((s): RecentItem => ({
+          kind: 'search',
+          id: s.id,
+          label: s.query,
+          state: s.state,
+          createdAt: s.createdAt,
+        })),
+        ...errands.map((e): RecentItem => ({
+          kind: 'errand',
+          id: e.id,
+          label: e.task,
+          state: e.state,
+          createdAt: e.createdAt,
+        })),
+      ]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, RECENT_COUNT);
+    },
     savedAddress: () =>
       call<{ addressText: string | null; customerName: string | null }>(
         'GET',

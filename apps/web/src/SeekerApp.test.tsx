@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SeekerApp, SEEKER_UNAUTHORIZED_EVENT } from './SeekerApp.js';
 import type { Session } from './lib/session.js';
-import { errandView, fakeSeekerApi, result, seekerRequest } from './test/fakes.js';
+import { errandView, fakeSeekerApi, result, seekerOrder, seekerRequest } from './test/fakes.js';
 import { renderApp } from './test/render.js';
 
 vi.mock('./components/PlanMap.js', () => ({
@@ -118,5 +118,57 @@ describe('SeekerApp: the errand entry (Day 14b)', () => {
     expect(getErrand).toHaveBeenCalledWith('errand-7');
     expect(screen.queryByLabelText('Kya kaam hai?')).toBeNull();
     window.history.pushState({}, '', '/app/');
+  });
+});
+
+describe('SeekerApp: addresses of its own (PR E)', () => {
+  const at = (path: string) => window.history.pushState({}, '', path);
+  afterEach(() => at('/app/'));
+
+  it('opens /app/order/<id> straight on that order, as after a reload', async () => {
+    at('/app/order/o-42');
+    const api = fakeSeekerApi({ getOrder: vi.fn(async () => seekerOrder({ id: 'o-42' })) });
+    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    expect(await screen.findByText('Mishra Kirana')).toBeTruthy();
+    expect(api.getOrder).toHaveBeenCalledWith('o-42');
+    expect(window.location.pathname).toBe('/app/order/o-42');
+  });
+
+  it('opens /app/orders on the list', async () => {
+    at('/app/orders');
+    const api = fakeSeekerApi({ myOrders: vi.fn(async () => [seekerOrder({ id: 'o-1' })]) });
+    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    expect(await screen.findByRole('link', { name: /Mishra Kirana/ })).toBeTruthy();
+  });
+
+  it('opens /app/request/<id> on the results of that search, without the customer’s own point', async () => {
+    at('/app/request/req-9');
+    const api = fakeSeekerApi({
+      getRequest: vi.fn(async () =>
+        seekerRequest({
+          id: 'req-9',
+          state: 'CLOSED',
+          results: [result({ name: 'Sharma Kirana' })],
+        }),
+      ),
+    });
+    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    expect(await screen.findByText('Sharma Kirana')).toBeTruthy();
+    expect(api.getRequest).toHaveBeenCalledWith('req-9');
+  });
+
+  it('goes home → Mere orders → one order → back, keeping the address bar in step', async () => {
+    at('/app/');
+    const api = fakeSeekerApi({
+      myOrders: vi.fn(async () => [seekerOrder({ id: 'o-1', state: 'ACCEPTED' })]),
+      getOrder: vi.fn(async () => seekerOrder({ id: 'o-1', state: 'ACCEPTED' })),
+    });
+    const { user } = renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    await user.click(await screen.findByRole('link', { name: /Mere orders/ }));
+    expect(window.location.pathname).toBe('/app/orders');
+    await user.click(await screen.findByRole('link', { name: /Mishra Kirana/ }));
+    expect(window.location.pathname).toBe('/app/order/o-1');
+    await user.click(await screen.findByRole('button', { name: 'Wapas' }));
+    expect(window.location.pathname).toBe('/app/orders');
   });
 });

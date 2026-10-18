@@ -116,3 +116,40 @@ describe('nothing to show', () => {
     expect(container.textContent).toBe('');
   });
 });
+
+describe('active orders on top, past orders below (PR E)', () => {
+  const named = (name: string) => [{ name, count: 1, pricePaise: 1000 }];
+  const past = (id: string, state: 'DELIVERED' | 'DECLINED') =>
+    shopOrder({ id, state, final: true, lines: named(`past-${id}`) });
+
+  it('puts the orders to act on first, then a "Pichhle orders" heading and the finished ones', () => {
+    setup([
+      past('p1', 'DELIVERED'),
+      shopOrder({ id: 'a1', lines: named('active-a1') }),
+      past('p2', 'DECLINED'),
+      accepted({ id: 'a2', lines: named('active-a2') }),
+    ]);
+    expect(screen.getByRole('heading', { name: 'Chal rahe orders' })).toBeTruthy();
+    const heading = screen.getByRole('heading', { name: 'Pichhle orders' });
+    const cards = screen.getAllByRole('article');
+    const names = cards.map((card) => /(?:active|past)-[a-z]\d/.exec(card.textContent ?? '')?.[0]);
+    expect(names).toEqual(['active-a1', 'active-a2', 'past-p1', 'past-p2']);
+    expect(
+      heading.compareDocumentPosition(cards[1] as HTMLElement) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+    expect(
+      heading.compareDocumentPosition(cards[2] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('shows no "Pichhle orders" heading when nothing has finished', () => {
+    setup([shopOrder()]);
+    expect(screen.queryByRole('heading', { name: 'Pichhle orders' })).toBeNull();
+  });
+
+  it('a past order has no action buttons', () => {
+    setup([past('p1', 'DELIVERED')]);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Pahuncha diya gaya')).toBeTruthy();
+  });
+});

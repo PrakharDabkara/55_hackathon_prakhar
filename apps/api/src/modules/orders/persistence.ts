@@ -16,10 +16,10 @@ interface Row {
   unknown_price_count: number;
   fee_paise: number | null;
   fee_minutes: number | null;
-  address_text: string;
+  address_text: string | null;
   customer_first_name: string | null;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   expires_at: Date;
   created_at: Date;
   updated_at: Date;
@@ -137,33 +137,86 @@ export async function listOrdersForSource(
   return rows.map(toRecord);
 }
 
-/** The shop's orders: open ones, and finished ones from the last two hours. Newest first. */
-export async function listOrdersForShop(
+const ACTIVE = `('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')`;
+const FINAL = `('DECLINED', 'EXPIRED', 'DELIVERED', 'CANCELLED')`;
+
+/** All the customer's orders: the open ones first, then the finished, each newest first. */
+export async function listOrdersForUser(
   db: Queryable,
-  ownerUserId: string,
+  userId: string,
+  limit: number,
 ): Promise<OrderRecord[]> {
   const { rows } = await db.query<Row>(
-    `${SELECT} WHERE s.owner_user_id = $1
-        AND (o.state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')
-             OR o.updated_at > now() - interval '2 hours')
-      ORDER BY o.created_at DESC LIMIT 50`,
-    [ownerUserId],
+    `${SELECT} WHERE o.user_id = $1
+      ORDER BY (o.state IN ${ACTIVE}) DESC, o.created_at DESC LIMIT $2`,
+    [userId, limit],
   );
   return rows.map(toRecord);
 }
 
-/** What the customer typed last time, so the next order is one tap. Theirs only. */
-export async function lastAddress(
+/** The shop's orders: open ones first, then finished ones, each newest first. */
+export async function listOrdersForShop(
   db: Queryable,
-  userId: string,
-): Promise<{ addressText: string; customerName: string | null } | null> {
+  ownerUserId: string,
+  limit: number,
+): Promise<OrderRecord[]> {
+  const { rows } = await db.query<Row>(
+    `${SELECT} WHERE s.owner_user_id = $1
+      ORDER BY (o.state IN ${ACTIVE}) DESC, o.created_at DESC LIMIT $2`,
+    [ownerUserId, limit],
+  );
+  return rows.map(toRecord);
+}
+
+export interface SavedAddress {
+  addressText: string;
+  customerName: string | null;
+}
+
+/** What the customer chose to keep ("Is pate ko yaad rakhein"). Theirs only. */
+export async function getSavedAddress(db: Queryable, userId: string): Promise<SavedAddress | null> {
   const { rows } = await db.query<{ address_text: string; customer_first_name: string | null }>(
-    `SELECT address_text, customer_first_name FROM delivery_orders
-      WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+    `SELECT address_text, customer_first_name FROM saved_addresses WHERE user_id = $1`,
     [userId],
   );
   const row = rows[0];
   return row ? { addressText: row.address_text, customerName: row.customer_first_name } : null;
+}
+
+export async function saveAddress(
+  db: Queryable,
+  userId: string,
+  addressText: string,
+  firstName: string | null,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO saved_addresses (user_id, address_text, customer_first_name)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id) DO UPDATE
+       SET address_text = EXCLUDED.address_text,
+           customer_first_name = EXCLUDED.customer_first_name,
+           updated_at = now()`,
+    [userId, addressText, firstName],
+  );
+}
+
+export async function forgetSavedAddress(db: Queryable, userId: string): Promise<void> {
+  await db.query(`DELETE FROM saved_addresses WHERE user_id = $1`, [userId]);
+}
+
+/** How long a finished order keeps its address and pin (ADR-0033). */
+export const ADDRESS_RETENTION_DAYS = 30;
+
+/** Clears address and pin of orders that ended more than the retention ago. Returns how many. */
+export async function clearOldAddresses(db: Queryable): Promise<number> {
+  const { rowCount } = await db.query(
+    `UPDATE delivery_orders
+        SET address_text = NULL, lat = NULL, lng = NULL, address_cleared_at = now()
+      WHERE address_text IS NOT NULL AND state IN ${FINAL}
+        AND updated_at < now() - make_interval(days => $1::int)`,
+    [ADDRESS_RETENTION_DAYS],
+  );
+  return rowCount ?? 0;
 }
 
 export type MoveResult =

@@ -4,7 +4,15 @@ import { z } from 'zod';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import { answerPing, listShopPings } from './pings.js';
-import { closeRequest, createRequest, getRequestStatus, type RequestsContext } from './service.js';
+import {
+  closeRequest,
+  createRequest,
+  getRequestStatus,
+  listRecentRequests,
+  type RequestsContext,
+} from './service.js';
+
+const RECENT_LIMIT = 10;
 
 const createBody = z
   .object({
@@ -67,6 +75,11 @@ export function requestsRouter(deps: RequestsContext): Router {
       ...(key && { idempotencyKey: key }),
     });
     res.status(created ? 201 : 200).json(request);
+  });
+
+  // The customer's last searches, for "Haal ke kaam".
+  router.get('/requests', requireAuth, requireRole('seeker'), async (req, res) => {
+    res.json(await listRecentRequests(deps.db, authOf(req).user.id, RECENT_LIMIT));
   });
 
   router.get('/requests/:id', requireAuth, async (req, res) => {

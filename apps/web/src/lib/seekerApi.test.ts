@@ -197,4 +197,58 @@ describe('createSeekerApi: delivery orders (ADR-0031)', () => {
     await api.savedAddress();
     expect(last()[0]).toBe('/orders/saved-address');
   });
+  it('lists all of my orders, reads one, and forgets the saved address', async () => {
+    const { api, last } = setup(() => json(200, []));
+    await api.myOrders();
+    expect(last()[0]).toBe('/orders');
+    expect(last()[1].method).toBe('GET');
+    await api.getOrder('o 1');
+    expect(last()[0]).toBe('/orders/o%201');
+    const forget = setup(() => new Response(null, { status: 204 }));
+    await forget.api.forgetAddress();
+    expect(forget.last()[0]).toBe('/orders/saved-address');
+    expect(forget.last()[1].method).toBe('DELETE');
+  });
+
+  it('sends the "remember this address" tick only when it was given', async () => {
+    const { api, last } = setup(() => json(201, {}));
+    await api.placeOrder({
+      shopId: 's1',
+      requestId: 'r1',
+      addressText: 'Flat 4B',
+      saveAddress: true,
+    });
+    expect(JSON.parse(last()[1].body as string)).toMatchObject({ saveAddress: true });
+  });
+
+  it('merges searches and errands into one list, newest first, at most 10', async () => {
+    const searches = Array.from({ length: 8 }, (_, i) => ({
+      id: `r${i}`,
+      state: 'CLOSED',
+      query: `chini ${i}`,
+      createdAt: `2026-10-16T10:${String(10 + i).padStart(2, '0')}:00.000Z`,
+    }));
+    const errands = Array.from({ length: 4 }, (_, i) => ({
+      id: `e${i}`,
+      state: 'PLAN_READY',
+      task: `chai ${i}`,
+      createdAt: `2026-10-16T11:${String(10 + i).padStart(2, '0')}:00.000Z`,
+    }));
+    const { api } = setup((url) => json(200, url === '/requests' ? searches : errands));
+    const recent = await api.recentWork();
+    expect(recent).toHaveLength(10);
+    expect(recent[0]).toMatchObject({ kind: 'errand', id: 'e3', label: 'chai 3' });
+    expect(recent[4]).toMatchObject({ kind: 'search', id: 'r7', label: 'chini 7' });
+  });
+
+  it('still shows the searches when the errands cannot be fetched', async () => {
+    const { api } = setup((url) =>
+      url === '/requests'
+        ? json(200, [
+            { id: 'r1', state: 'CLOSED', query: 'atta', createdAt: '2026-10-16T10:00:00.000Z' },
+          ])
+        : json(500, { error: { code: 'x', message: 'boom' } }),
+    );
+    expect(await api.recentWork()).toHaveLength(1);
+  });
 });
