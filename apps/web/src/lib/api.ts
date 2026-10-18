@@ -1,4 +1,5 @@
 import type { Category } from '@kahanmilega/shared';
+import type { ShopOrder, ShopOrderVerb } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 
 export class ApiError extends Error {
@@ -75,6 +76,10 @@ export interface ShopApi extends PhotoApi {
   createShop(input: NewShop): Promise<MyShop>;
   listPings(): Promise<ShopPing[]>;
   answerPing(id: string, body: AnswerBody): Promise<void>;
+  /** The shop's delivery orders: open ones, and finished ones from the last two hours. */
+  listOrders(): Promise<ShopOrder[]>;
+  /** Accepts or declines an order, sets it out, or marks it delivered. */
+  orderAction(id: string, verb: ShopOrderVerb): Promise<ShopOrder>;
   /** Opens or closes the shop for the day ("Dukaan aaj band hai"). */
   setShopOpen(open: boolean): Promise<MyShop>;
   /** The standing delivery offer, or null to stop offering it. */
@@ -180,6 +185,8 @@ export function createApi(options: ClientOptions): ShopApi {
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
+    listOrders: () => call<ShopOrder[]>('GET', '/shops/me/orders'),
+    orderAction: (id, verb) => call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/${verb}`),
     setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),
     updateDelivery: (delivery) => call<MyShop>('PATCH', '/shops/me', { delivery }),
     async answerPing(id, body) {

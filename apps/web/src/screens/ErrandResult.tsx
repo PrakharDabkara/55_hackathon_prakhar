@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
+import { DeliveryOrder } from '../components/DeliveryOrder.js';
 import { OfferLines } from '../components/OfferLines.js';
 import { PlanMap } from '../components/PlanMap.js';
 import { useT } from '../i18n/index.js';
 import { directionsForRoute, plansIdentical, stopsForMap } from '../lib/errand.js';
 import { formatDistance } from '../lib/format.js';
 import { formatRupees } from '../lib/money.js';
+import { orderForShop, type SeekerOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
-import type { ErrandPlan, PlanItem, PlanKind } from '../lib/seekerApi.js';
+import type { ErrandPlan, PlanItem, PlanKind, SeekerApi } from '../lib/seekerApi.js';
 
 interface Props {
   plan: ErrandPlan;
@@ -19,12 +21,28 @@ interface Props {
   onMode?: (shopId: string, mode: 'pickup' | 'delivery') => void;
   /** Nothing was found: a new errand with the same task and place. */
   onAskAgain?: () => void;
+  /** Delivery orders from this plan's shops (ADR-0031). Without `orderApi` there is no ordering. */
+  orderApi?: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
+  errandId?: string;
+  orders?: SeekerOrder[];
+  onOrderChange?: () => void;
 }
 
 const TABS: PlanKind[] = ['kam_dukaan', 'sasta'];
 
 /** Two plans in two tabs, the recommended one open: items, totals, and the route on a map. */
-export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain, onMode }: Props) {
+export function ErrandResult({
+  plan,
+  photos,
+  origin,
+  busy = false,
+  onAskAgain,
+  onMode,
+  orderApi,
+  errandId,
+  orders = [],
+  onOrderChange,
+}: Props) {
   const { t } = useT();
   const [kind, setKind] = useState<PlanKind>(plan.recommended);
   // Two plans that are the same thing are shown once: no tabs, nothing "recommended".
@@ -55,6 +73,12 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain, o
           photos={photos}
           busy={busy}
           {...(first && onMode && { onMode })}
+          {...(first &&
+            orderApi &&
+            errandId &&
+            onOrderChange && {
+              ordering: { api: orderApi, errandId, orders, onChange: onOrderChange },
+            })}
         />
       );
     });
@@ -206,11 +230,19 @@ function PlanRow({
   photos,
   busy,
   onMode,
+  ordering,
 }: {
   item: PlanItem;
   photos: PhotoApi | undefined;
   busy: boolean;
   onMode?: (shopId: string, mode: 'pickup' | 'delivery') => void;
+  /** The order panel, on the first item of a shop that delivers. */
+  ordering?: {
+    api: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
+    errandId: string;
+    orders: SeekerOrder[];
+    onChange: () => void;
+  };
 }) {
   const { t } = useT();
   const name = item.itemName ?? item.text;
@@ -272,6 +304,17 @@ function PlanRow({
           ))}
         </div>
       )}
+      {ordering && item.shopId && item.delivery && (
+        // The customer chose delivery from this shop, or already has an order with it (which may
+        // have been declined, and so put the shop back on pickup: the message must stay).
+        <PlanOrder
+          ordering={ordering}
+          shopId={item.shopId}
+          shopName={item.shopName ?? ''}
+          delivery={item.delivery}
+          chosen={item.mode === 'delivery'}
+        />
+      )}
       {photos && item.photoId && <AuthPhoto api={photos} id={item.photoId} alt={t.photoShop} />}
       {item.matchedAs && item.itemName && (
         <p className="note">
@@ -279,5 +322,32 @@ function PlanRow({
         </p>
       )}
     </li>
+  );
+}
+
+function PlanOrder({
+  ordering,
+  shopId,
+  shopName,
+  delivery,
+  chosen,
+}: {
+  ordering: NonNullable<Parameters<typeof PlanRow>[0]['ordering']>;
+  shopId: string;
+  shopName: string;
+  delivery: { feePaise: number | null; minutes: number | null };
+  chosen: boolean;
+}) {
+  const order = orderForShop(ordering.orders, shopId);
+  if (!chosen && !order) return null;
+  return (
+    <DeliveryOrder
+      api={ordering.api}
+      shop={{ id: shopId, name: shopName }}
+      source={{ errandId: ordering.errandId }}
+      offer={delivery}
+      order={order}
+      onChange={ordering.onChange}
+    />
   );
 }

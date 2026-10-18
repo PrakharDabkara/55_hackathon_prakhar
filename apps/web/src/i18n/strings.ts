@@ -185,6 +185,45 @@ export interface Strings {
   shopOpen: string;
   shopClosed: string;
   errSetOpen: string;
+
+  // Delivery orders (ADR-0031, PR D)
+  orderFeeLine: (fee: string | null, free: boolean, minutes: number | null) => string;
+  orderCod: string;
+  orderSend: string;
+  orderBack: string;
+  orderAddressLabel: string;
+  orderNameLabel: string;
+  orderPinNote: string;
+  orderSaved: (address: string) => string;
+  orderConfirm: string;
+  orderCancel: string;
+  orderWaiting: string;
+  orderAccepted: string;
+  orderOut: string;
+  orderDelivered: string;
+  orderDeclined: string;
+  orderExpired: string;
+  orderCancelled: string;
+  orderErrClosed: string;
+  orderErrGeneric: string;
+  orderYourAddress: (address: string) => string;
+  shopOrderTitle: string;
+  shopOrderAccept: string;
+  shopOrderDecline: string;
+  shopOrderOut: string;
+  shopOrderDelivered: string;
+  shopOrderMap: string;
+  shopOrderContact: string;
+  shopOrderItems: string;
+  shopOrderFee: string;
+  shopOrderCod: string;
+  shopOrderWaiting: (minutes: number) => string;
+  shopOrderDone: string;
+  shopOrderDeclined: string;
+  shopOrderExpired: string;
+  shopOrderCancelled: string;
+  shopOrderOutNow: string;
+  pingGone: string;
   // Photos (optional, both sides)
   photoAdd: string;
   photoAddFor: (what: string) => string;
@@ -396,6 +435,46 @@ export const hi: Strings = {
   shopOpen: 'Dukaan khuli hai',
   shopClosed: 'Dukaan aaj band hai',
   errSetOpen: 'Ye nahi ho paya. Dobara try karein.',
+  orderFeeLine: (fee, free, minutes) =>
+    ['Delivery', free ? 'muft' : fee, minutes !== null ? `${minutes} min` : null]
+      .filter(Boolean)
+      .join(' · '),
+  orderCod: 'Cash on delivery: paise ghar par cash mein dena. App mein koi payment nahi.',
+  orderSend: 'Order bhejo',
+  orderBack: 'Rehne do',
+  orderAddressLabel: 'Ghar ka pata',
+  orderNameLabel: 'Aapka naam (zaroori nahi)',
+  orderPinNote: 'Dukaan ko aapki location ka map pin milega, jab wo order accept kar le.',
+  orderSaved: (address) => `Pichhla pata: ${address}`,
+  orderConfirm: 'Pakka karo',
+  orderCancel: 'Order cancel karo',
+  orderWaiting: 'Dukaan ke jawab ka intezaar… (10 minute tak)',
+  orderAccepted: 'Dukaan ne order le liya',
+  orderOut: 'Nikal gaye — raste mein hai',
+  orderDelivered: 'Pahunch gaya. Paise cash mein dein.',
+  orderDeclined: 'Dukaan ne mana kiya. Aap khud jaakar le lein.',
+  orderExpired: 'Dukaan ne jawab nahi diya. Aap khud jaakar le lein.',
+  orderCancelled: 'Order cancel ho gaya.',
+  orderErrClosed: 'Ye dukaan abhi band hai.',
+  orderErrGeneric: 'Order nahi bhej paaye. Dobara try karein.',
+  orderYourAddress: (address) => `Pata: ${address}`,
+  shopOrderTitle: 'Ghar bhejne ka order',
+  shopOrderAccept: 'Accept',
+  shopOrderDecline: 'Decline',
+  shopOrderOut: 'Nikal gaye',
+  shopOrderDelivered: 'Pahuncha diya',
+  shopOrderMap: 'Map par dekho',
+  shopOrderContact: 'Sampark',
+  shopOrderItems: 'Saaman',
+  shopOrderFee: 'Delivery',
+  shopOrderCod: 'Cash on delivery: grahak ghar par cash dega.',
+  shopOrderWaiting: (minutes) => `Jawab dene ke liye ${minutes} min`,
+  shopOrderDone: 'Pahuncha diya gaya',
+  shopOrderDeclined: 'Aapne mana kiya',
+  shopOrderExpired: 'Samay nikal gaya',
+  shopOrderCancelled: 'Grahak ne order cancel kiya',
+  shopOrderOutNow: 'Raste mein hai',
+  pingGone: 'Grahak ko jawab mil gaya — shukriya',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',
@@ -636,6 +715,46 @@ export const en: Strings = {
   shopOpen: 'Shop is open',
   shopClosed: 'Shop is closed today',
   errSetOpen: 'That did not work. Please try again.',
+  orderFeeLine: (fee, free, minutes) =>
+    ['Delivery', free ? 'free' : fee, minutes !== null ? `${minutes} min` : null]
+      .filter(Boolean)
+      .join(' · '),
+  orderCod: 'Cash on delivery: pay in cash at your door. Nothing is paid in the app.',
+  orderSend: 'Send order',
+  orderBack: 'Never mind',
+  orderAddressLabel: 'Home address',
+  orderNameLabel: 'Your name (optional)',
+  orderPinNote: 'The shop gets a map pin of your location once it accepts the order.',
+  orderSaved: (address) => `Last address: ${address}`,
+  orderConfirm: 'Confirm',
+  orderCancel: 'Cancel order',
+  orderWaiting: 'Waiting for the shop to answer… (up to 10 minutes)',
+  orderAccepted: 'The shop accepted your order',
+  orderOut: 'On its way',
+  orderDelivered: 'Delivered. Pay in cash.',
+  orderDeclined: 'The shop said no. Please pick it up yourself.',
+  orderExpired: 'The shop did not answer. Please pick it up yourself.',
+  orderCancelled: 'Order cancelled.',
+  orderErrClosed: 'That shop is closed right now.',
+  orderErrGeneric: 'Could not send the order. Please try again.',
+  orderYourAddress: (address) => `Address: ${address}`,
+  shopOrderTitle: 'Home delivery order',
+  shopOrderAccept: 'Accept',
+  shopOrderDecline: 'Decline',
+  shopOrderOut: 'On my way',
+  shopOrderDelivered: 'Delivered',
+  shopOrderMap: 'See on map',
+  shopOrderContact: 'Contact',
+  shopOrderItems: 'Items',
+  shopOrderFee: 'Delivery',
+  shopOrderCod: 'Cash on delivery: the customer pays in cash at the door.',
+  shopOrderWaiting: (minutes) => `${minutes} min left to answer`,
+  shopOrderDone: 'Delivered',
+  shopOrderDeclined: 'You declined',
+  shopOrderExpired: 'Time ran out',
+  shopOrderCancelled: 'The customer cancelled the order',
+  shopOrderOutNow: 'On its way',
+  pingGone: 'The customer already got an answer — thank you',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',

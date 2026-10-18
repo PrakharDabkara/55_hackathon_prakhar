@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
+import { DeliveryOrder } from '../components/DeliveryOrder.js';
 import { OfferLines } from '../components/OfferLines.js';
 import { ResultsMap } from '../components/ResultsMap.js';
 import { useT } from '../i18n/index.js';
 import { formatCountdown, formatDistance } from '../lib/format.js';
 import type { LiveOptions } from '../lib/live.js';
 import { formatRupees } from '../lib/money.js';
+import { orderForShop, type SeekerOrder } from '../lib/orders.js';
 import { directionsUrl, pinsFor, sortResults, type SortKey } from '../lib/results.js';
 import type { SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
@@ -30,6 +32,9 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
   );
   const [now, setNow] = useState(() => Date.now());
   const [closing, setClosing] = useState(false);
+  const [orders, setOrders] = useState<SeekerOrder[]>([]);
+  /** Shops whose "Ghar mangwao" the customer has opened. */
+  const [ordering, setOrdering] = useState<ReadonlySet<string>>(new Set());
   const alive = useRef(true);
 
   useEffect(() => {
@@ -44,6 +49,17 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
     return () => clearInterval(timer);
   }, []);
 
+  // Orders for this request. They are an extra: if they cannot be fetched the results still show.
+  const loadOrders = useCallback(() => {
+    api
+      .listOrders({ requestId: initial.id })
+      .then((next) => {
+        if (alive.current) setOrders(next);
+      })
+      .catch(() => undefined);
+  }, [api, initial.id]);
+  useEffect(() => loadOrders(), [loadOrders]);
+
   // Each server event is only a hint: fetch the request again and draw what it says.
   const refresh = useCallback(() => {
     api
@@ -52,7 +68,8 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
         if (alive.current) setRequest(next);
       })
       .catch(() => undefined);
-  }, [api, initial.id]);
+    loadOrders();
+  }, [api, initial.id, loadOrders]);
   const getTicket = useCallback(() => api.eventTicket(), [api]);
   const isLive = useLive({ getTicket, refresh, pollMs, live });
 
@@ -150,6 +167,28 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                 />
                 {r.quantityHint && (
                   <p className="meta">{r.quantityHint === 'few' ? t.few : t.plenty}</p>
+                )}
+                {r.delivery && (
+                  <div className="result-order">
+                    {orderForShop(orders, r.shopId) || ordering.has(r.shopId) ? (
+                      <DeliveryOrder
+                        api={api}
+                        shop={{ id: r.shopId, name: r.name }}
+                        source={{ requestId: request.id }}
+                        offer={r.delivery}
+                        order={orderForShop(orders, r.shopId)}
+                        onChange={loadOrders}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-quiet"
+                        onClick={() => setOrdering((open) => new Set(open).add(r.shopId))}
+                      >
+                        {t.modeDelivery}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <a

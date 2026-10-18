@@ -1,5 +1,6 @@
 import type { QuantityUnit } from '@kahanmilega/shared';
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
+import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 
 export interface ShopResult {
@@ -201,6 +202,13 @@ export interface SeekerApi
   cancelErrand(id: string): Promise<ErrandView>;
   /** Pickup or delivery for one shop of the finished plan. */
   setDeliveryMode(id: string, shopId: string, mode: 'pickup' | 'delivery'): Promise<ErrandView>;
+  /** Asks a shop to bring what it said yes to (cash on delivery). The address is typed text. */
+  placeOrder(input: NewOrder): Promise<SeekerOrder>;
+  /** The customer's orders for one request or errand, newest first. */
+  listOrders(source: OrderSource): Promise<SeekerOrder[]>;
+  cancelOrder(id: string): Promise<SeekerOrder>;
+  /** What the customer typed last time, so the next order is one tap. */
+  savedAddress(): Promise<{ addressText: string | null; customerName: string | null }>;
 }
 
 /** A key that is new for each search, so a double tap cannot start two requests. */
@@ -251,5 +259,19 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     cancelErrand: (errandId) => call<ErrandView>('POST', `/errands/${id(errandId)}/cancel`),
     setDeliveryMode: (errandId, shopId, mode) =>
       call<ErrandView>('POST', `/errands/${id(errandId)}/modes`, { shopId, mode }),
+    placeOrder: (input) => call<SeekerOrder>('POST', '/orders', input),
+    listOrders: (source) =>
+      call<SeekerOrder[]>(
+        'GET',
+        'requestId' in source
+          ? `/orders?requestId=${id(source.requestId)}`
+          : `/orders?errandId=${id(source.errandId)}`,
+      ),
+    cancelOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`),
+    savedAddress: () =>
+      call<{ addressText: string | null; customerName: string | null }>(
+        'GET',
+        '/orders/saved-address',
+      ),
   };
 }

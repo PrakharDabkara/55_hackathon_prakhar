@@ -6,18 +6,23 @@ export interface EventSourceLike {
   close(): void;
 }
 
-/** Event names the server sends. They are hints: the payload is never used, the screen refetches. */
+/**
+ * Event names the server sends. They are hints: a screen always refetches. The payload (ids, a
+ * state, and for ping.closed a reason) is only read to say a kind word, never trusted for data.
+ */
 export const LIVE_EVENTS = [
   'ping.created',
   'ping.closed',
   'request.updated',
   'errand.updated',
+  'order.created',
+  'order.updated',
 ] as const;
 
 export interface LiveOptions {
   /** A new one-time ticket. Called again on every reconnect, because a ticket works once. */
   getTicket: () => Promise<string>;
-  onEvent: (type: string) => void;
+  onEvent: (type: string, data?: Record<string, unknown>) => void;
   onStatus: (live: boolean) => void;
   createSource?: (url: string) => EventSourceLike;
   retryMs?: number;
@@ -80,8 +85,17 @@ export function connectLive({
       retryLater();
     };
     for (const type of LIVE_EVENTS) {
-      mine.addEventListener(type, () => {
-        if (!closed && source === mine) onEvent(type);
+      mine.addEventListener(type, (event) => {
+        if (closed || source !== mine) return;
+        let data: Record<string, unknown> | undefined;
+        try {
+          const parsed: unknown = JSON.parse(event.data);
+          if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed))
+            data = parsed as Record<string, unknown>;
+        } catch {
+          // A hint that cannot be read is still a hint.
+        }
+        onEvent(type, data);
       });
     }
   }

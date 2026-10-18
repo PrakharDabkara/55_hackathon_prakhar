@@ -472,8 +472,15 @@ describe('Results: ordering a delivery (ADR-0031)', () => {
       .fn()
       .mockResolvedValueOnce([seekerOrder({ state: 'REQUESTED', shopId: 'a' })])
       .mockResolvedValue([seekerOrder({ state: 'OUT_FOR_DELIVERY', shopId: 'a' })]);
-    show([delivering()], { listOrders });
+    const same = seekerRequest({
+      id: 'req-1',
+      state: 'ANSWERED',
+      pingStats: { sent: 1, yes: 1, no: 0, pending: 0 },
+      results: [delivering()],
+    });
+    show([delivering()], { listOrders, getRequest: vi.fn(async () => same) });
     expect(await screen.findByText(/jawab ka intezaar/)).toBeTruthy();
+    await waitFor(() => expect(FakeEventSource.instances.length).toBeGreaterThan(0));
     act(() => FakeEventSource.last().emit('order.updated', { orderId: 'order-1' }));
     expect(await screen.findByText('Nikal gaye — raste mein hai')).toBeTruthy();
   });
