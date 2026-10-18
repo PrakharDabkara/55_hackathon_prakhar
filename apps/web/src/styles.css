@@ -956,3 +956,69 @@ details[open] > summary {
 .order-box p {
   margin: 0;
 }
+
+/* Finding an order again (ADR-0033, PR E) */
+.screen-title {
+  margin: 0;
+  font-size: 1.4rem;
+  overflow-wrap: anywhere;
+}
+.section-title {
+  margin: 1rem 0 0.25rem;
+  font-size: 1.1rem;
+}
+.plain-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order-row,
+.row-link {
+  display: grid;
+  gap: 0.25rem;
+  min-height: var(--tap);
+  padding: 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.row-link {
+  align-content: center;
+}
+.order-row .meta,
+.order-row .order-state {
+  margin: 0;
+}
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  margin-left: 0.5rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--green);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.saved-address {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.saved-address p {
+  margin: 0;
+}
+/* .order-box input is full width for text boxes; a tick box keeps its own size. */
+.order-box .check-option input {
+  width: 24px;
+  min-height: 0;
+  height: 24px;
+  padding: 0;
+}

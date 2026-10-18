@@ -3,11 +3,20 @@ import { LangToggle } from './components/LangToggle.js';
 import { useT } from './i18n/index.js';
 import type { Session } from './lib/session.js';
 import type { SeekerApi, SeekerRequest } from './lib/seekerApi.js';
-import { errandIdFromPath, isErrandPath } from './routing.js';
+import {
+  errandIdFromPath,
+  isErrandPath,
+  isOrdersPath,
+  orderIdFromPath,
+  requestIdFromPath,
+} from './routing.js';
 import { Errand } from './screens/Errand.js';
+import { Home } from './screens/Home.js';
 import { Login } from './screens/Login.js';
+import { MyOrders } from './screens/MyOrders.js';
+import { OrderPage } from './screens/OrderPage.js';
+import { RequestPage } from './screens/RequestPage.js';
 import { Results } from './screens/Results.js';
-import { Search } from './screens/Search.js';
 
 /** The API client fires this when the server says the login is no longer valid. */
 export const SEEKER_UNAUTHORIZED_EVENT = 'km-seeker-unauthorized';
@@ -21,31 +30,48 @@ type Screen =
   | { name: 'login' }
   | { name: 'search' }
   | { name: 'errand'; id: string | null }
+  | { name: 'orders' }
+  | { name: 'order'; id: string }
+  | { name: 'request'; id: string }
   | { name: 'results'; request: SeekerRequest; origin: { lat: number; lng: number } };
 
-/** Where a signed-in customer lands: the errand screen at its own address, else the search. */
-const landing = (): Screen =>
-  isErrandPath(location.pathname)
-    ? { name: 'errand', id: errandIdFromPath(location.pathname) }
-    : { name: 'search' };
+/** The screen an address of the customer app stands for; anything else is the search. */
+const screenFor = (pathname: string): Screen => {
+  if (isErrandPath(pathname)) return { name: 'errand', id: errandIdFromPath(pathname) };
+  if (isOrdersPath(pathname)) return { name: 'orders' };
+  const orderId = orderIdFromPath(pathname);
+  if (orderId) return { name: 'order', id: orderId };
+  const requestId = requestIdFromPath(pathname);
+  if (requestId) return { name: 'request', id: requestId };
+  return { name: 'search' };
+};
 
-/** Login → search → results. "Ho gaya" returns to search. */
+/** Login → search (with Mere orders and Haal ke kaam) → results. "Ho gaya" returns to search. */
 export function SeekerApp({ api, session }: Props) {
   const { t } = useT();
   const [screen, setScreen] = useState<Screen>(() =>
-    session.getToken() ? landing() : { name: 'login' },
+    session.getToken() ? screenFor(location.pathname) : { name: 'login' },
   );
 
-  /** The errand screen has an address of its own (/app/errand), so it can be bookmarked. */
-  const go = useCallback((next: 'search' | 'errand') => {
-    window.history.pushState({}, '', next === 'errand' ? '/app/errand' : '/app/');
-    setScreen(next === 'errand' ? { name: 'errand', id: null } : { name: 'search' });
+  /** Every screen but the results has an address of its own, so it can be bookmarked and reloaded. */
+  const navigate = useCallback((path: string) => {
+    window.history.pushState({}, '', path);
+    setScreen(screenFor(path));
   }, []);
 
   /** The errand on screen is in the address, so a reload shows the same one (not the empty form). */
   const errandOpened = useCallback((id: string | null) => {
     window.history.replaceState({}, '', id ? `/app/errand/${id}` : '/app/errand');
   }, []);
+
+  // The browser's back button walks the addresses above.
+  useEffect(() => {
+    const onPop = () => {
+      if (session.getToken()) setScreen(screenFor(location.pathname));
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [session]);
 
   const logout = useCallback(() => {
     session.clear();
@@ -69,34 +95,47 @@ export function SeekerApp({ api, session }: Props) {
             api={api}
             onLoggedIn={(token) => {
               session.setToken(token);
-              setScreen(landing());
+              setScreen(screenFor(location.pathname));
             }}
           />
         )}
         {screen.name === 'search' && (
-          <>
-            <Search
-              api={api}
-              onFound={(request, origin) => setScreen({ name: 'results', request, origin })}
-            />
-            <a
-              className="btn btn-no errand-entry"
-              href="/app/errand"
-              onClick={(event) => {
-                event.preventDefault();
-                go('errand');
-              }}
-            >
-              {t.errandEntry}
-            </a>
-          </>
+          <Home
+            api={api}
+            navigate={navigate}
+            onFound={(request, origin) => setScreen({ name: 'results', request, origin })}
+          />
         )}
         {screen.name === 'errand' && (
           <Errand
             api={api}
             errandId={screen.id}
             onOpened={errandOpened}
-            onBack={() => go('search')}
+            onBack={() => navigate('/app/')}
+          />
+        )}
+        {screen.name === 'orders' && (
+          <MyOrders
+            api={api}
+            onOpen={(id) => navigate(`/app/order/${id}`)}
+            onBack={() => navigate('/app/')}
+          />
+        )}
+        {screen.name === 'order' && (
+          <OrderPage
+            key={screen.id}
+            api={api}
+            orderId={screen.id}
+            navigate={navigate}
+            onBack={() => navigate('/app/orders')}
+          />
+        )}
+        {screen.name === 'request' && (
+          <RequestPage
+            key={screen.id}
+            api={api}
+            requestId={screen.id}
+            onDone={() => navigate('/app/')}
           />
         )}
         {screen.name === 'results' && (
@@ -105,10 +144,10 @@ export function SeekerApp({ api, session }: Props) {
             api={api}
             initial={screen.request}
             origin={screen.origin}
-            onDone={() => setScreen({ name: 'search' })}
+            onDone={() => navigate('/app/')}
           />
         )}
-        {screen.name !== 'results' && screen.name !== 'errand' && (
+        {(screen.name === 'login' || screen.name === 'search') && (
           <div className="screen-links">
             <a className="btn btn-quiet" href="/app/shop">
               {t.forShopkeepers}

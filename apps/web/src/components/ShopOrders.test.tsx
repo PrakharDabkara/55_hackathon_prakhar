@@ -118,25 +118,27 @@ describe('nothing to show', () => {
 });
 
 describe('active orders on top, past orders below (PR E)', () => {
+  const named = (name: string) => [{ name, count: 1, pricePaise: 1000 }];
   const past = (id: string, state: 'DELIVERED' | 'DECLINED') =>
-    shopOrder({ id, state, final: true, contactName: `Past ${id}` });
+    shopOrder({ id, state, final: true, lines: named(`past-${id}`) });
 
   it('puts the orders to act on first, then a "Pichhle orders" heading and the finished ones', () => {
     setup([
       past('p1', 'DELIVERED'),
-      shopOrder({ id: 'a1', contactName: 'Active one' }),
+      shopOrder({ id: 'a1', lines: named('active-a1') }),
       past('p2', 'DECLINED'),
-      accepted({ id: 'a2', contactName: 'Active two' }),
+      accepted({ id: 'a2', lines: named('active-a2') }),
     ]);
     expect(screen.getByRole('heading', { name: 'Chal rahe orders' })).toBeTruthy();
-    const past_ = screen.getByRole('heading', { name: 'Pichhle orders' });
-    const names = screen
-      .getAllByRole('article')
-      .map((card) => /Active one|Active two|Past p1|Past p2/.exec(card.textContent ?? '')?.[0]);
-    expect(names).toEqual(['Active one', 'Active two', 'Past p1', 'Past p2']);
-    const lastActive = screen.getAllByRole('article')[1] as HTMLElement;
+    const heading = screen.getByRole('heading', { name: 'Pichhle orders' });
+    const cards = screen.getAllByRole('article');
+    const names = cards.map((card) => /(?:active|past)-[a-z]\d/.exec(card.textContent ?? '')?.[0]);
+    expect(names).toEqual(['active-a1', 'active-a2', 'past-p1', 'past-p2']);
     expect(
-      past_.compareDocumentPosition(lastActive) & Node.DOCUMENT_POSITION_PRECEDING,
+      heading.compareDocumentPosition(cards[1] as HTMLElement) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
+    expect(
+      heading.compareDocumentPosition(cards[2] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 

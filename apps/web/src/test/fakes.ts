@@ -132,7 +132,6 @@ export const seekerRequest = (overrides: Partial<SeekerRequest> = {}): SeekerReq
     category: 'grocery',
     unverified: false,
   },
-  origin: { lat: 22.7196, lng: 75.8577 },
   radiusM: 2000,
   results: [],
   pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },

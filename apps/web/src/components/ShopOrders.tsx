@@ -61,6 +61,88 @@ export function ShopOrders({ api, orders, onChange }: Props) {
     CANCELLED: t.shopOrderCancelled,
   } as const;
 
+  // Orders to act on come first; finished ones follow under their own heading.
+  const active = orders.filter((o) => !o.final);
+  const past = orders.filter((o) => o.final);
+
+  const card = (order: ShopOrder) => (
+    <article key={order.id} className="order-card" aria-label={t.shopOrderTitle}>
+      <ul className="order-lines">
+        {order.lines.map((line, i) => (
+          <li key={`${line.name}-${i}`}>
+            {line.count} × {line.name}
+          </li>
+        ))}
+      </ul>
+      {order.itemsTotalPaise !== null && (
+        <p className="meta">
+          {t.shopOrderItems}: {formatRupees(order.itemsTotalPaise)}
+        </p>
+      )}
+      {order.feePaise !== null && order.feePaise > 0 && (
+        <p className="meta">
+          {t.shopOrderFee}: {formatRupees(order.feePaise)}
+        </p>
+      )}
+      <p className="meta">{t.shopOrderCod}</p>
+      {order.final ? (
+        <p className={`order-state order-${order.state}`}>
+          {done[order.state as keyof typeof done]}
+        </p>
+      ) : (
+        <p className="meta">
+          {t.shopOrderContact}: <strong>{order.contactName}</strong>
+        </p>
+      )}
+      {order.addressText && <p className="order-address">{order.addressText}</p>}
+      {order.mapUrl && (
+        <a className="btn btn-quiet" href={order.mapUrl} target="_blank" rel="noopener noreferrer">
+          {t.shopOrderMap}
+        </a>
+      )}
+      {order.state === 'REQUESTED' && (
+        <div className="order-actions">
+          <button
+            type="button"
+            className="btn btn-yes"
+            disabled={busy !== null}
+            onClick={() => void act(order, 'accept')}
+          >
+            {t.shopOrderAccept}
+          </button>
+          <button
+            type="button"
+            className="btn btn-no"
+            disabled={busy !== null}
+            onClick={() => void act(order, 'decline')}
+          >
+            {t.shopOrderDecline}
+          </button>
+        </div>
+      )}
+      {order.state === 'ACCEPTED' && (
+        <button
+          type="button"
+          className="btn btn-yes"
+          disabled={busy !== null}
+          onClick={() => void act(order, 'out')}
+        >
+          {t.shopOrderOut}
+        </button>
+      )}
+      {order.state === 'OUT_FOR_DELIVERY' && (
+        <button
+          type="button"
+          className="btn btn-yes"
+          disabled={busy !== null}
+          onClick={() => void act(order, 'delivered')}
+        >
+          {t.shopOrderDelivered}
+        </button>
+      )}
+    </article>
+  );
+
   return (
     <section className="stack" aria-label={t.shopOrderTitle}>
       {failed && (
@@ -68,88 +150,12 @@ export function ShopOrders({ api, orders, onChange }: Props) {
           {t.errSend}
         </p>
       )}
-      {orders.map((order) => (
-        <article key={order.id} className="order-card" aria-label={t.shopOrderTitle}>
-          <ul className="order-lines">
-            {order.lines.map((line, i) => (
-              <li key={`${line.name}-${i}`}>
-                {line.count} × {line.name}
-              </li>
-            ))}
-          </ul>
-          {order.itemsTotalPaise !== null && (
-            <p className="meta">
-              {t.shopOrderItems}: {formatRupees(order.itemsTotalPaise)}
-            </p>
-          )}
-          {order.feePaise !== null && order.feePaise > 0 && (
-            <p className="meta">
-              {t.shopOrderFee}: {formatRupees(order.feePaise)}
-            </p>
-          )}
-          <p className="meta">{t.shopOrderCod}</p>
-          {order.final ? (
-            <p className={`order-state order-${order.state}`}>
-              {done[order.state as keyof typeof done]}
-            </p>
-          ) : (
-            <p className="meta">
-              {t.shopOrderContact}: <strong>{order.contactName}</strong>
-            </p>
-          )}
-          {order.addressText && <p className="order-address">{order.addressText}</p>}
-          {order.mapUrl && (
-            <a
-              className="btn btn-quiet"
-              href={order.mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t.shopOrderMap}
-            </a>
-          )}
-          {order.state === 'REQUESTED' && (
-            <div className="order-actions">
-              <button
-                type="button"
-                className="btn btn-yes"
-                disabled={busy !== null}
-                onClick={() => void act(order, 'accept')}
-              >
-                {t.shopOrderAccept}
-              </button>
-              <button
-                type="button"
-                className="btn btn-no"
-                disabled={busy !== null}
-                onClick={() => void act(order, 'decline')}
-              >
-                {t.shopOrderDecline}
-              </button>
-            </div>
-          )}
-          {order.state === 'ACCEPTED' && (
-            <button
-              type="button"
-              className="btn btn-yes"
-              disabled={busy !== null}
-              onClick={() => void act(order, 'out')}
-            >
-              {t.shopOrderOut}
-            </button>
-          )}
-          {order.state === 'OUT_FOR_DELIVERY' && (
-            <button
-              type="button"
-              className="btn btn-yes"
-              disabled={busy !== null}
-              onClick={() => void act(order, 'delivered')}
-            >
-              {t.shopOrderDelivered}
-            </button>
-          )}
-        </article>
-      ))}
+      {past.length > 0 && active.length > 0 && (
+        <h2 className="section-title">{t.shopOrdersActiveTitle}</h2>
+      )}
+      {active.map(card)}
+      {past.length > 0 && <h2 className="section-title">{t.shopOrdersPastTitle}</h2>}
+      {past.map(card)}
     </section>
   );
 }

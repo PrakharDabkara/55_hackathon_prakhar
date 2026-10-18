@@ -29,6 +29,8 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
   const [step, setStep] = useState<'summary' | 'address'>('summary');
   const [address, setAddress] = useState('');
   const [name, setName] = useState('');
+  /** Unticked unless the customer ticks it: no tick, nothing is kept after the order (ADR-0033). */
+  const [remember, setRemember] = useState(false);
   const [saved, setSaved] = useState<{ addressText: string; customerName: string | null } | null>(
     null,
   );
@@ -80,6 +82,7 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
         ...source,
         addressText: address.trim(),
         ...(name.trim() !== '' && { customerName: name.trim() }),
+        ...(remember && { saveAddress: true }),
       });
       setPlaced(true);
       onChange();
@@ -124,7 +127,9 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
     return (
       <div className="order-box" role="status">
         <p className={`order-state order-${order.state}`}>{message}</p>
-        {going && <p className="meta">{t.orderYourAddress(order.addressText)}</p>}
+        {going && order.addressText && (
+          <p className="meta">{t.orderYourAddress(order.addressText)}</p>
+        )}
         {going && <p className="meta">{t.orderCod}</p>}
         {open && (
           <button
@@ -185,6 +190,14 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
+          </label>
+          <label className="check-option">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+            />
+            <span>{t.orderRemember}</span>
           </label>
           <p className="meta">{t.orderPinNote}</p>
           <p className="meta">{t.orderCod}</p>

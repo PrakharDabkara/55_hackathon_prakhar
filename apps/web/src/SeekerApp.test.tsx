@@ -141,7 +141,7 @@ describe('SeekerApp: addresses of its own (PR E)', () => {
     expect(await screen.findByRole('link', { name: /Mishra Kirana/ })).toBeTruthy();
   });
 
-  it('opens /app/request/<id> on the results of that search, from its stored origin', async () => {
+  it('opens /app/request/<id> on the results of that search, without the customer’s own point', async () => {
     at('/app/request/req-9');
     const api = fakeSeekerApi({
       getRequest: vi.fn(async () =>
