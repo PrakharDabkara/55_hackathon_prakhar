@@ -17,11 +17,11 @@ const item = (shopId: string, over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const stop = (shopId: string, km: number) => ({
+const stop = (shopId: string, km: number, eastKm = 0) => ({
   shopId,
   label: `Shop ${shopId}`,
   lat: north(km),
-  lng: START.lng,
+  lng: START.lng + eastKm / 102,
 });
 
 /** A plan over shops A (0.4 km), B (1 km, delivers for ₹30) and C (2 km, delivers, fee not told). */
@@ -34,12 +34,13 @@ const variant = (): ModeVariant => ({
     item('C', { delivery: { feePaise: null, minutes: null } }),
   ],
   route: {
-    orderedStops: [stop('A', 0.4), stop('B', 1), stop('C', 2)],
-    legsM: [400, 600, 1000],
-    totalM: 2000,
+    // B lies a kilometre to the east, so the walk through it is a real detour.
+    orderedStops: [stop('A', 0.4), stop('B', 0.6, 1), stop('C', 2)],
+    legsM: [400, 1020, 1500],
+    totalM: 2920,
   },
   totalPricePaise: 20000,
-  totalDistanceM: 2000,
+  totalDistanceM: 2920,
   shopCount: 3,
   savingsPaise: 0,
   unknownPriceCount: 0,
@@ -70,7 +71,7 @@ describe('applyModes: pickup or delivery for each shop (ADR-0031)', () => {
     expect(v.route?.orderedStops.map((s) => s.shopId)).toEqual(['A', 'C']);
     expect(v.shopCount).toBe(2);
     expect(v.deliveryShopCount).toBe(1);
-    expect(v.totalDistanceM).toBeLessThan(2000);
+    expect(v.totalDistanceM).toBeLessThan(2920);
     expect(v.totalDistanceM).toBe(v.route?.totalM);
   });
 
@@ -79,7 +80,17 @@ describe('applyModes: pickup or delivery for each shop (ADR-0031)', () => {
     // A does not deliver: it stays on the route.
     expect(v.route?.orderedStops.map((s) => s.shopId)).toEqual(['A']);
     const onlyDelivering = applyModes(
-      { ...variant(), items: variant().items.filter((i) => i.shopId !== 'A') },
+      {
+        ...variant(),
+        items: variant().items.filter((i) => i.shopId !== 'A'),
+        route: {
+          orderedStops: (variant().route as NonNullable<ModeVariant['route']>).orderedStops.filter(
+            (s) => s.shopId !== 'A',
+          ),
+          legsM: [1000, 1000],
+          totalM: 2000,
+        },
+      },
       START,
       { B: 'delivery', C: 'delivery' },
     );

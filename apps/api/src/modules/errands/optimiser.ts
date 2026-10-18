@@ -1,3 +1,4 @@
+import type { ExactQuantity } from '@kahanmilega/shared';
 import { planRoute, type Point, type RoutePlan } from '../routing/index.js';
 
 /**
@@ -25,7 +26,7 @@ export interface Offer {
   /** What the shop said about delivery with its yes (ADR-0031): null when it did not offer it. */
   delivery?: { feePaise: number | null; minutes: number | null } | null;
   /** The exact quantity the shop said it has, if it said one. */
-  offeredQuantity?: { amount: number; unit: string } | null;
+  offeredQuantity?: ExactQuantity | null;
 }
 
 /** One thing the customer wants. `key` tells two entries apart (the same item may appear twice). */

@@ -9,6 +9,7 @@ import {
   type QuantityHint,
 } from '../shops/index.js';
 import type { EventPublisher } from '../realtime/index.js';
+import type { ExactQuantity } from '@kahanmilega/shared';
 import { attachAnswerPhoto } from '../photos/index.js';
 import { distanceBand } from './distanceBand.js';
 import { announceTransition } from './events.js';
@@ -259,6 +260,10 @@ export interface AnswerInput {
   quantityHint?: QuantityHint | undefined;
   /** The shop's own unused photo, only with a yes. */
   photoId?: string | undefined;
+  /** An exact quantity, only with a yes (ADR-0031). */
+  quantity?: ExactQuantity | undefined;
+  /** "Ghar bhej denge", only with a yes: a fee and a time, either may be left out. */
+  delivery?: { feePaise?: number | undefined; minutes?: number | undefined } | undefined;
 }
 
 interface PingRow {
@@ -301,8 +306,12 @@ export async function answerPing(
   input: AnswerInput,
 ): Promise<PingAnswer | null> {
   if (!UUID.test(pingId)) return null;
-  if (input.photoId && input.answer !== 'yes')
-    throw new ApiError(400, 'invalid_request', 'A photo can only come with a yes');
+  if ((input.photoId || input.quantity || input.delivery) && input.answer !== 'yes')
+    throw new ApiError(
+      400,
+      'invalid_request',
+      'A photo, a quantity or a delivery offer can only come with a yes',
+    );
 
   const outcome = await withTransaction(deps.db, async (tx) => {
     const found = await tx.query<PingRow>(`${PING} WHERE p.id = $1`, [pingId]);
@@ -323,7 +332,9 @@ export async function answerPing(
     const updated = await tx.query<PingRow>(
       `UPDATE pings
           SET state = $2, price_paise = $3, quantity_hint = $4, answered_at = now(),
-              late = (state = 'NO_REPLY')
+              late = (state = 'NO_REPLY'),
+              qty_amount = $6, qty_unit = $7, delivers = $8,
+              delivery_fee_paise = $9, delivery_minutes = $10
         WHERE id = $1 AND state IN ('SENT', 'NO_REPLY')
           AND (state = 'SENT' OR sent_at > now() - make_interval(hours => $5::int))
         RETURNING id, request_id, shop_id, item_id, state, price_paise, quantity_hint, late,
@@ -334,6 +345,11 @@ export async function answerPing(
         yes ? (input.pricePaise ?? null) : null,
         yes ? (input.quantityHint ?? null) : null,
         LATE_ANSWER_HOURS,
+        yes ? (input.quantity?.amount ?? null) : null,
+        yes ? (input.quantity?.unit ?? null) : null,
+        yes && Boolean(input.delivery),
+        yes ? (input.delivery?.feePaise ?? null) : null,
+        yes ? (input.delivery?.minutes ?? null) : null,
       ],
     );
 
@@ -353,6 +369,10 @@ export async function answerPing(
         itemId: row.item_id,
         pricePaise: row.price_paise,
         quantityHint: row.quantity_hint,
+        quantity: input.quantity ?? null,
+        delivery: input.delivery
+          ? { feePaise: input.delivery.feePaise ?? null, minutes: input.delivery.minutes ?? null }
+          : null,
         confirmedAt: new Date(),
       });
       if (input.photoId) await attachAnswerPhoto(tx, ownerUserId, input.photoId, pingId);

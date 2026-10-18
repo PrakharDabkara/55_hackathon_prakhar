@@ -1,3 +1,4 @@
+import type { ExactQuantity } from '@kahanmilega/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import type { EventPublisher } from '../realtime/index.js';
@@ -29,6 +30,8 @@ export interface ErrandRecord {
   answer: ErrandAnswer | null;
   questionsAsked: number;
   resumeReason: ResumeReason | null;
+  /** The customer's pickup or delivery choice per shop (ADR-0031); a shop not listed is pickup. */
+  deliveryModes: Record<string, 'pickup' | 'delivery'>;
 }
 
 /** What the agent asked the customer. */
@@ -69,12 +72,13 @@ interface Row {
   answer: ErrandAnswer | null;
   questions_asked: number;
   resume_reason: ResumeReason | null;
+  delivery_modes: Record<string, 'pickup' | 'delivery'>;
 }
 
 const SELECT = `SELECT id, user_id, task, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng,
        budget_paise, state, version, step_count, tokens_in, tokens_out, plan, failure_reason,
        request_id, created_at, updated_at, expires_at, waited_ms, wait_started_at, wait_deadline,
-       answer_deadline, question, answer, questions_asked, resume_reason
+       answer_deadline, question, answer, questions_asked, resume_reason, delivery_modes
   FROM errands`;
 
 const toRecord = (r: Row): ErrandRecord => ({
@@ -103,6 +107,7 @@ const toRecord = (r: Row): ErrandRecord => ({
   answer: r.answer,
   questionsAsked: r.questions_asked,
   resumeReason: r.resume_reason,
+  deliveryModes: r.delivery_modes,
 });
 
 /** Tells the owner something changed (ADR-0018): an id and a state, never the lines themselves. */
@@ -508,6 +513,8 @@ export interface Confirmation {
   answeredAt: Date;
   /** The shop's photo of the item with its yes. */
   photoId: string | null;
+  quantity: ExactQuantity | null;
+  delivery: { feePaise: number | null; minutes: number | null } | null;
 }
 
 /** Shops that said yes to one of this errand's own requests: the only source of "confirmed". */
@@ -526,12 +533,19 @@ export async function listConfirmations(
     price_paise: number | null;
     answered_at: Date;
     photo_id: string | null;
+    qty_amount: number | null;
+    qty_unit: ExactQuantity['unit'] | null;
+    delivers: boolean;
+    delivery_fee_paise: number | null;
+    delivery_minutes: number | null;
   }>(
     `SELECT p.shop_id, p.item_id, s.name, ST_Y(s.location::geometry) AS lat,
             ST_X(s.location::geometry) AS lng,
             ST_Distance(s.location, ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography) AS distance_m,
             p.price_paise, p.answered_at,
-            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id
+            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id,
+            p.qty_amount::float8 AS qty_amount, p.qty_unit, p.delivers,
+            p.delivery_fee_paise, p.delivery_minutes
        FROM errand_requests er
        JOIN pings p ON p.request_id = er.request_id AND p.item_id = er.item_id
        JOIN shops s ON s.id = p.shop_id
@@ -549,6 +563,11 @@ export async function listConfirmations(
     pricePaise: r.price_paise,
     answeredAt: r.answered_at,
     photoId: r.photo_id,
+    quantity:
+      r.qty_amount !== null && r.qty_unit !== null
+        ? { amount: r.qty_amount, unit: r.qty_unit }
+        : null,
+    delivery: r.delivers ? { feePaise: r.delivery_fee_paise, minutes: r.delivery_minutes } : null,
   }));
 }
 
@@ -617,4 +636,19 @@ export async function findStuckErrandIds(
       `state = 'PLANNING' AND (lease_until <= now() OR (lease_until IS NULL AND updated_at < now() - interval '90 seconds'))`,
     ),
   };
+}
+
+/** Remembers the customer's choice for one shop: delivery is stored, pickup (the default) removes it. */
+export async function setDeliveryMode(
+  db: Queryable,
+  errandId: string,
+  shopId: string,
+  mode: 'pickup' | 'delivery',
+): Promise<void> {
+  await db.query(
+    mode === 'delivery'
+      ? `UPDATE errands SET delivery_modes = delivery_modes || jsonb_build_object($2::text, 'delivery') WHERE id = $1`
+      : `UPDATE errands SET delivery_modes = delivery_modes - $2::text WHERE id = $1`,
+    [errandId, shopId],
+  );
 }

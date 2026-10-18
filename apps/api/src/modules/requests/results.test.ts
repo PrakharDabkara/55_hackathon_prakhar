@@ -33,6 +33,8 @@ const learned = (
   lng: 75.87,
   pricePaise,
   quantityHint: null,
+  quantity: null,
+  delivery: null,
   lastConfirmedAt: minutesAgo(60 * 30),
   freshness: 'Had it yesterday',
 });

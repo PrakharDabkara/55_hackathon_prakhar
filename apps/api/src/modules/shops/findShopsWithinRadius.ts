@@ -22,6 +22,8 @@ export async function findShopsWithinRadius(
             ST_Distance(s.location, origin.point) AS distance_m
        FROM shops s, origin
       WHERE ST_DWithin(s.location, origin.point, $3)
+        -- a shop closed for the day gets no pings
+        AND (s.closed_until IS NULL OR s.closed_until <= now())
       ORDER BY distance_m`,
     [lng, lat, meters],
   );

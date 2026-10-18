@@ -1,3 +1,5 @@
+import type { ExactQuantity } from '@kahanmilega/shared';
+import { unitFromQuery } from '@kahanmilega/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
@@ -113,11 +115,18 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     quantity_hint: LiveAnswer['quantityHint'];
     answered_at: Date;
     photo_id: string | null;
+    qty_amount: number | null;
+    qty_unit: ExactQuantity['unit'] | null;
+    delivers: boolean;
+    delivery_fee_paise: number | null;
+    delivery_minutes: number | null;
   }>(
     `SELECT s.id AS shop_id, s.name, ST_Distance(s.location, r.location) AS distance_m,
             ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
             p.price_paise, p.quantity_hint, p.answered_at,
-            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id
+            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id,
+            p.qty_amount::float8 AS qty_amount, p.qty_unit, p.delivers,
+            p.delivery_fee_paise, p.delivery_minutes
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
@@ -134,6 +143,11 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     quantityHint: x.quantity_hint,
     answeredAt: x.answered_at,
     photoId: x.photo_id,
+    quantity:
+      x.qty_amount !== null && x.qty_unit !== null
+        ? { amount: x.qty_amount, unit: x.qty_unit }
+        : null,
+    delivery: x.delivers ? { feePaise: x.delivery_fee_paise, minutes: x.delivery_minutes } : null,
   }));
 }
 
@@ -161,6 +175,9 @@ async function toView(
       targetPricePaise: r.targetPricePaise,
       sort: opts.sort,
       now: new Date(),
+      askedQuantity: r.quantity
+        ? { amount: r.quantity.quantity, unit: unitFromQuery(r.quantity.unit) }
+        : null,
     }),
     pingStats: stats,
     expiresAt: r.expiresAt,

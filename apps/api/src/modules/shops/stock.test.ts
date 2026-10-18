@@ -14,6 +14,12 @@ describe('stockExpiry', () => {
     expect(stockExpiry(confirmed, 'plenty')).toEqual(new Date('2026-10-23T10:00:00Z'));
   });
 
+  it('is 3 days when the shop gave an exact quantity, with or without a hint (it goes stale fast)', () => {
+    expect(stockExpiry(confirmed, null, true)).toEqual(new Date('2026-10-19T10:00:00Z'));
+    expect(stockExpiry(confirmed, 'plenty', true)).toEqual(new Date('2026-10-19T10:00:00Z'));
+    expect(stockExpiry(confirmed, null, false)).toEqual(new Date('2026-10-23T10:00:00Z'));
+  });
+
   it('is 3 days when the shop said "a few"', () => {
     expect(stockExpiry(confirmed, 'few')).toEqual(new Date('2026-10-19T10:00:00Z'));
   });
@@ -45,6 +51,8 @@ describe('rankResults', () => {
     distanceM,
     pricePaise: null,
     quantityHint: null,
+    quantity: null,
+    delivery: null,
     lastConfirmedAt: ago(confirmedAgo),
     freshness: '',
   });

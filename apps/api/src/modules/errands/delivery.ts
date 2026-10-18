@@ -1,5 +1,6 @@
 import { planRoute } from '../routing/index.js';
-import type { PlanItem, PlanVariant } from './plan.js';
+import { recommend } from './optimiser.js';
+import { DEFAULT_FEWER_STOPS_MAX_EXTRA_PAISE, type PlanVariant } from './plan.js';
 
 /** What a customer may choose for each shop. */
 export type DeliveryMode = 'pickup' | 'delivery';
@@ -15,8 +16,11 @@ export type ModeVariant = Pick<
   PlanVariant,
   'kind' | 'route' | 'totalPricePaise' | 'totalDistanceM' | 'shopCount' | 'savingsPaise'
 > & {
-  items: (Pick<PlanItem, 'shopId' | 'shopName' | 'status' | 'delivery'> &
-    Record<string, unknown>)[];
+  items: {
+    shopId: string | null;
+    delivery?: { feePaise: number | null; minutes: number | null } | null | undefined;
+    [more: string]: unknown;
+  }[];
   unknownPriceCount?: number;
   comparablePricePaise?: number;
 };
@@ -109,5 +113,84 @@ export function applyModes<V extends ModeVariant>(
     grandTotalPaise: variant.totalPricePaise + deliveryFeePaise,
     // Ranked with a typical fee where a shop did not say.
     comparablePricePaise: base + deliveryFeePaise + unknownFeeCount * TYPICAL_DELIVERY_FEE_PAISE,
+  };
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/** The shops that offered delivery in this plan, from any of its plans. */
+export function deliveringShops(plan: unknown): Set<string> {
+  const out = new Set<string>();
+  if (!isRecord(plan) || !isRecord(plan['plans'])) return out;
+  for (const variant of Object.values(plan['plans'])) {
+    if (!isRecord(variant) || !Array.isArray(variant['items'])) continue;
+    for (const item of variant['items'] as Record<string, unknown>[])
+      if (item['delivery'] && typeof item['shopId'] === 'string') out.add(item['shopId']);
+  }
+  return out;
+}
+
+/** Every shop that is in this plan, from any of its plans. */
+export function shopsInPlan(plan: unknown): Set<string> {
+  const out = new Set<string>();
+  if (!isRecord(plan) || !isRecord(plan['plans'])) return out;
+  for (const variant of Object.values(plan['plans'])) {
+    if (!isRecord(variant) || !Array.isArray(variant['items'])) continue;
+    for (const item of variant['items'] as Record<string, unknown>[])
+      if (typeof item['shopId'] === 'string') out.add(item['shopId']);
+  }
+  return out;
+}
+
+/**
+ * The stored plan as the customer sees it: both plans with the pickup or delivery choice applied
+ * (ADR-0031), the recommendation worked out again over what the customer will actually pay and
+ * walk, and the choices themselves. A plan from before delivery existed passes through with
+ * everything on pickup. Anything that is not a plan is returned as it is.
+ */
+export function planWithModes(
+  plan: unknown,
+  origin: { lat: number; lng: number },
+  modes: Record<string, DeliveryMode>,
+  maxExtraPaise: number = DEFAULT_FEWER_STOPS_MAX_EXTRA_PAISE,
+): unknown {
+  if (!isRecord(plan) || !isRecord(plan['plans'])) return plan;
+  const stored = plan['plans'] as Record<string, ModeVariant>;
+  if (!stored['sasta'] || !stored['kam_dukaan']) return plan;
+  const sasta = applyModes(stored['sasta'], origin, modes);
+  const kam = applyModes(stored['kam_dukaan'], origin, modes);
+  const chosen = sasta.deliveryShopCount + kam.deliveryShopCount > 0;
+  const stops = (v: typeof sasta) => v.route?.orderedStops.map((s) => s.shopId) ?? [];
+  const choice = chosen
+    ? recommend(
+        {
+          shopIds: stops(sasta),
+          totalPricePaise: sasta.grandTotalPaise,
+          comparablePricePaise: sasta.comparablePricePaise,
+        },
+        {
+          shopIds: stops(kam),
+          totalPricePaise: kam.grandTotalPaise,
+          comparablePricePaise: kam.comparablePricePaise,
+        },
+        { maxExtraPaise },
+      )
+    : null;
+  const recommended = (choice?.recommended ?? plan['recommended']) as 'sasta' | 'kam_dukaan';
+  const shown = recommended === 'sasta' ? sasta : kam;
+  const recommendation = choice
+    ? { extraPaise: choice.extraPaise, stopsSaved: choice.stopsSaved, reason: choice.reason }
+    : plan['recommendation'];
+  return {
+    ...plan,
+    items: shown.items,
+    route: shown.route,
+    totalPricePaise: shown.totalPricePaise,
+    savingsPaise: shown.savingsPaise,
+    plans: { sasta, kam_dukaan: kam },
+    recommended,
+    recommendation,
+    modes,
   };
 }

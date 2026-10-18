@@ -1,4 +1,12 @@
+import type { ExactQuantity } from '@kahanmilega/shared';
+
 export type QuantityHint = 'few' | 'plenty';
+
+/** What a shop said about delivery with its yes: a fee and a time, either may be left out. */
+export interface DeliveryOffer {
+  feePaise: number | null;
+  minutes: number | null;
+}
 
 export interface LearnedStockResult {
   shopId: string;
@@ -9,6 +17,10 @@ export interface LearnedStockResult {
   lng: number;
   pricePaise: number | null;
   quantityHint: QuantityHint | null;
+  /** The exact quantity the shop last said it had: remembered, never subtracted. */
+  quantity: ExactQuantity | null;
+  /** The delivery the shop last offered, if it did. */
+  delivery: DeliveryOffer | null;
   lastConfirmedAt: Date;
   freshness: string;
 }
@@ -19,8 +31,15 @@ const DAY_MS = 24 * 3_600_000;
 const STOCK_TTL_DAYS = 7;
 const FEW_TTL_DAYS = 3;
 
-export function stockExpiry(confirmedAt: Date, quantityHint: QuantityHint | null): Date {
-  const days = quantityHint === 'few' ? FEW_TTL_DAYS : STOCK_TTL_DAYS;
+/**
+ * An exact quantity is a snapshot that goes stale fast, so it fades like "a few": 3 days (ADR-0031).
+ */
+export function stockExpiry(
+  confirmedAt: Date,
+  quantityHint: QuantityHint | null,
+  exactQuantity = false,
+): Date {
+  const days = quantityHint === 'few' || exactQuantity ? FEW_TTL_DAYS : STOCK_TTL_DAYS;
   return new Date(confirmedAt.getTime() + days * DAY_MS);
 }
 

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { QUANTITY_UNITS } from '@kahanmilega/shared';
 import { z } from 'zod';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
@@ -29,6 +30,19 @@ const answerBody = z.object({
   quantityHint: z.enum(['few', 'plenty']).optional(),
   /** An optional photo of the item, only with a yes. */
   photoId: z.uuid().optional(),
+  /** An exact quantity next to the price, only with a yes (ADR-0031). */
+  quantity: z
+    .object({ amount: z.number().positive().max(100_000), unit: z.enum(QUANTITY_UNITS) })
+    .strict()
+    .optional(),
+  /** "Ghar bhej denge": present means the shop delivers; a fee and a time are optional. */
+  delivery: z
+    .object({
+      feePaise: z.number().int().min(0).max(1_000_000).optional(),
+      minutes: z.number().int().min(1).max(1440).optional(),
+    })
+    .strict()
+    .optional(),
 });
 
 const idempotencyKey = z.string().trim().min(1).max(128);

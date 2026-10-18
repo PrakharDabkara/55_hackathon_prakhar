@@ -8,6 +8,7 @@ import type { RequestsContext } from '../requests/index.js';
 import { closeLinkedRequests } from './bridge.js';
 import { partialPlan, rebuildRunState } from './conversation.js';
 import {
+  setDeliveryMode,
   findErrand,
   findStuckErrandIds,
   insertErrand,
@@ -19,6 +20,7 @@ import {
   type ErrandQuestion,
   type ErrandRecord,
 } from './persistence.js';
+import { deliveringShops, planWithModes, shopsInPlan } from './delivery.js';
 import { buildProgress, lateAnswerLines } from './progress.js';
 import { isFinal, type ErrandState } from './stateMachine.js';
 import { sanitiseTask } from './prompt.js';
@@ -208,7 +210,7 @@ export const viewOf = (
   lng: e.lng,
   progress,
   lateAnswers,
-  plan: planForView(e.plan),
+  plan: planForView(planWithModes(e.plan, { lat: e.lat, lng: e.lng }, e.deliveryModes)),
   failureReason: e.failureReason,
   usage: { steps: e.stepCount, tokensIn: e.tokensIn, tokensOut: e.tokensOut },
   question: e.state === 'NEEDS_INPUT' ? e.question : null,
@@ -281,6 +283,30 @@ export async function cancelErrand(ctx: Quiet, userId: string, id: string): Prom
     ctx.logger.info({ errandId: id }, 'errand cancelled');
     await closeLinkedRequests(ctx, userId, id);
   }
+  return viewWithProgress(ctx, (await findErrand(ctx.db, id)) ?? errand);
+}
+
+/**
+ * The owner chooses pickup or delivery for one shop of a finished plan (ADR-0031). The plans are
+ * worked out again from the stored plan on every read, so nothing else is written. Only a shop in
+ * the plan, and only delivery from a shop that offered it.
+ */
+export async function chooseDeliveryMode(
+  ctx: Quiet,
+  userId: string,
+  id: string,
+  shopId: string,
+  mode: 'pickup' | 'delivery',
+): Promise<ErrandView | null> {
+  const errand = await findErrand(ctx.db, id);
+  if (!errand || errand.userId !== userId) return null;
+  if (!errand.plan || errand.state !== 'PLAN_READY')
+    throw new ApiError(409, 'no_plan', 'There is no finished plan to choose from yet');
+  if (!shopsInPlan(errand.plan).has(shopId))
+    throw new ApiError(400, 'not_in_plan', 'That shop is not in this plan');
+  if (mode === 'delivery' && !deliveringShops(errand.plan).has(shopId))
+    throw new ApiError(400, 'no_delivery', 'That shop did not offer delivery');
+  await setDeliveryMode(ctx.db, id, shopId, mode);
   return viewWithProgress(ctx, (await findErrand(ctx.db, id)) ?? errand);
 }
 

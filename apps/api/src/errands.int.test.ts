@@ -275,7 +275,7 @@ describe('errand agent core (fake model, real database)', () => {
           const unpriced = v.items.find((x: { text: string }) => x.text === 'matchbox');
           expect(unpriced).toMatchObject({ status: 'likely', pricePaise: null });
           expect(v.unknownPriceCount).toBe(1);
-          expect(v.totalPricePaise).toBe(6200); // rice only: the unknown price is not in it...
+          expect(v.totalPricePaise).toBe(5900); // rice only (its cheapest shop): the unknown price is not in it...
           expect(v.comparablePricePaise).toBeGreaterThan(v.totalPricePaise); // ...and not ranked as ₹0
         }
       } finally {
