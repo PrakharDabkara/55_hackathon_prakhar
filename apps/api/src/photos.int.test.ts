@@ -28,13 +28,15 @@ const claimsAll: PingClaims = { claim: async () => true, release: async () => un
 const jpeg = (width = 640, height = 480) =>
   sharp({ create: { width, height, channels: 3, background: { r: 30, g: 120, b: 200 } } })
     .jpeg()
-    .withExif({
-      IFD0: { Make: 'PhoneCo' },
-      IFD3: {
-        GPSLatitudeRef: 'N',
-        GPSLatitude: '22/1 43/1 11/1',
-        GPSLongitudeRef: 'E',
-        GPSLongitude: '75/1 51/1 28/1',
+    .withMetadata({
+      exif: {
+        IFD0: { Make: 'PhoneCo' },
+        IFD3: {
+          GPSLatitudeRef: 'N',
+          GPSLatitude: '22/1 43/1 11/1',
+          GPSLongitudeRef: 'E',
+          GPSLongitude: '75/1 51/1 28/1',
+        },
       },
     })
     .toBuffer();
@@ -75,7 +77,7 @@ describe('photos', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE photos, requests, pings CASCADE');
+    await pool.query('TRUNCATE photos, requests, pings, shop_stock CASCADE');
     lines.length = 0;
   });
 

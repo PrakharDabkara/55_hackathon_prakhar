@@ -9,13 +9,16 @@ const solid = (width: number, height: number) =>
 const withGps = async (width: number, height: number, orientation = 1) =>
   solid(width, height)
     .jpeg()
-    .withExif({
-      IFD0: { Make: 'PhoneCo', Model: 'Secret 9', Orientation: String(orientation) },
-      IFD3: {
-        GPSLatitudeRef: 'N',
-        GPSLatitude: '22/1 43/1 11/1',
-        GPSLongitudeRef: 'E',
-        GPSLongitude: '75/1 51/1 28/1',
+    .withMetadata({
+      orientation,
+      exif: {
+        IFD0: { Make: 'PhoneCo', Model: 'Secret 9' },
+        IFD3: {
+          GPSLatitudeRef: 'N',
+          GPSLatitude: '22/1 43/1 11/1',
+          GPSLongitudeRef: 'E',
+          GPSLongitude: '75/1 51/1 28/1',
+        },
       },
     })
     .toBuffer();
@@ -25,6 +28,12 @@ describe('processPhoto: the server re-encodes, never trusts the client', () => {
     const meta = await sharp(await withGps(800, 600)).metadata();
     expect(meta.exif).toBeDefined();
     expect(meta.exif?.toString('latin1')).toContain('PhoneCo');
+    // The GPS block is binary, so prove it is there by size: more than the make and model alone.
+    const plain = await solid(800, 600)
+      .jpeg()
+      .withMetadata({ exif: { IFD0: { Make: 'PhoneCo', Model: 'Secret 9' } } })
+      .toBuffer();
+    expect(meta.exif?.length).toBeGreaterThan((await sharp(plain).metadata()).exif?.length ?? 0);
   });
 
   it('a GPS-tagged JPEG comes out with no metadata at all', async () => {
@@ -94,7 +103,7 @@ describe('processPhoto: the server re-encodes, never trusts the client', () => {
 
   it('refuses an image that claims an enormous size (a decompression bomb)', async () => {
     const huge = await sharp({
-      create: { width: 12000, height: 12000, channels: 3, background: '#fff' },
+      create: { width: 9000, height: 9000, channels: 3, background: '#fff' },
     })
       .png({ compressionLevel: 9 })
       .toBuffer();

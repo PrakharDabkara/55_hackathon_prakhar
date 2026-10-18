@@ -13,6 +13,8 @@ const createBody = z
     radiusM: z.number().int().min(1).max(5000).optional(),
     targetPricePaise: z.number().int().min(1).max(10_000_000).optional(),
     itemId: z.uuid().optional(),
+    /** An optional photo of what is wanted: one the customer uploaded and has not used (ADR-0030). */
+    photoId: z.uuid().optional(),
   })
   .refine((v) => v.q !== undefined || v.itemId !== undefined, {
     message: 'q: give the text to look for, or an itemId',
@@ -25,6 +27,8 @@ const answerBody = z.object({
   answer: z.enum(['yes', 'no']),
   pricePaise: z.number().int().min(0).max(10_000_000).optional(),
   quantityHint: z.enum(['few', 'plenty']).optional(),
+  /** An optional photo of the item, only with a yes. */
+  photoId: z.uuid().optional(),
 });
 
 const idempotencyKey = z.string().trim().min(1).max(128);

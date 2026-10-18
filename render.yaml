@@ -50,6 +50,9 @@ services:
       # One errand model call carries tool schemas and may take far longer than a resolve call (8 s).
       - key: ERRAND_AI_TIMEOUT_MS
         value: '30000'
+      # Photos live in Postgres (ADR-0030): refuse uploads above this many MB in total.
+      - key: PHOTO_STORAGE_CAP_MB
+        value: '300'
       - key: GEMINI_EMBED_MODEL
         value: gemini-embedding-001
       - key: EMBED_THRESHOLD

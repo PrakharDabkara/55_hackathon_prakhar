@@ -9,6 +9,7 @@ import {
   type QuantityHint,
 } from '../shops/index.js';
 import type { EventPublisher } from '../realtime/index.js';
+import { attachAnswerPhoto } from '../photos/index.js';
 import { distanceBand } from './distanceBand.js';
 import { announceTransition } from './events.js';
 import {
@@ -176,6 +177,8 @@ export interface ShopPing {
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
   distanceBand: string;
+  /** The customer's photo of what they want, if they added one. Fetch it from GET /photos/:id. */
+  photoId?: string;
   sentAt: Date;
   expiresAt: Date;
 }
@@ -190,6 +193,7 @@ interface ShopPingRow {
   distance_m: number;
   sent_at: Date;
   expires_at: Date;
+  photo_id: string | null;
 }
 
 /**
@@ -199,7 +203,8 @@ interface ShopPingRow {
 export async function listShopPings(db: Queryable, ownerUserId: string): Promise<ShopPing[]> {
   const { rows } = await db.query<ShopPingRow>(
     `SELECT p.id, i.slug, i.name_en, i.name_hi, r.quantity, r.target_price_paise,
-            ST_Distance(s.location, r.location) AS distance_m, p.sent_at, r.expires_at
+            ST_Distance(s.location, r.location) AS distance_m, p.sent_at, r.expires_at,
+            (SELECT ph.id FROM photos ph WHERE ph.request_id = r.id) AS photo_id
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
@@ -214,6 +219,7 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
     ...(r.quantity && { quantity: r.quantity }),
     ...(r.target_price_paise !== null && { targetPricePaise: r.target_price_paise }),
     distanceBand: distanceBand(r.distance_m),
+    ...(r.photo_id && { photoId: r.photo_id }),
     sentAt: r.sent_at,
     expiresAt: r.expires_at,
   }));
@@ -232,6 +238,8 @@ export interface AnswerInput {
   answer: 'yes' | 'no';
   pricePaise?: number | undefined;
   quantityHint?: QuantityHint | undefined;
+  /** The shop's own unused photo, only with a yes. */
+  photoId?: string | undefined;
 }
 
 interface PingRow {
@@ -274,6 +282,8 @@ export async function answerPing(
   input: AnswerInput,
 ): Promise<PingAnswer | null> {
   if (!UUID.test(pingId)) return null;
+  if (input.photoId && input.answer !== 'yes')
+    throw new ApiError(400, 'invalid_request', 'A photo can only come with a yes');
 
   const outcome = await withTransaction(deps.db, async (tx) => {
     const found = await tx.query<PingRow>(`${PING} WHERE p.id = $1`, [pingId]);
@@ -326,6 +336,7 @@ export async function answerPing(
         quantityHint: row.quantity_hint,
         confirmedAt: new Date(),
       });
+      if (input.photoId) await attachAnswerPhoto(tx, ownerUserId, input.photoId, pingId);
       if (!row.late) moves.push(await applyEventIn(tx, row.request_id, 'SHOP_SAID_YES'));
     }
     return { answer: toAnswer(row), moves, fresh: true };

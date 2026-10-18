@@ -47,6 +47,7 @@ const config: Config = {
   geminiFallbackModel: null,
   errandModel: 'gemini-3.1-flash-lite',
   errandFallbackModel: null,
+  photoStorageCapMb: 300,
   gitSha: 'test',
 };
 

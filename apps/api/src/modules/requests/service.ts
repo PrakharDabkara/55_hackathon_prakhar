@@ -4,6 +4,7 @@ import { ApiError } from '../../http/errors.js';
 import type { EventPublisher } from '../realtime/index.js';
 import type { AiContext } from '../ai/index.js';
 import { getItem, resolveForCustomer, type CatalogItem, type Quantity } from '../catalog/index.js';
+import { attachRequestPhoto } from '../photos/index.js';
 import { findLearnedStock, type LearnedStockResult } from '../shops/index.js';
 import {
   applyEvent,
@@ -48,6 +49,8 @@ export interface CreateRequestInput {
   targetPricePaise?: number | undefined;
   /** The item the customer picked after a question; skips resolution. */
   itemId?: string | undefined;
+  /** An unused photo of the customer's to attach (ADR-0030). */
+  photoId?: string | undefined;
   /** The HTTP request id, so AI calls can be traced to it. */
   requestId?: string | undefined;
   idempotencyKey?: string;
@@ -101,10 +104,12 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     price_paise: number | null;
     quantity_hint: LiveAnswer['quantityHint'];
     answered_at: Date;
+    photo_id: string | null;
   }>(
     `SELECT s.id AS shop_id, s.name, ST_Distance(s.location, r.location) AS distance_m,
             ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
-            p.price_paise, p.quantity_hint, p.answered_at
+            p.price_paise, p.quantity_hint, p.answered_at,
+            (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
@@ -120,6 +125,7 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     pricePaise: x.price_paise,
     quantityHint: x.quantity_hint,
     answeredAt: x.answered_at,
+    photoId: x.photo_id,
   }));
 }
 
@@ -212,6 +218,8 @@ export async function createRequest(
     );
     const row = inserted.rows[0];
     if (!row) return null; // a parallel request with the same key won
+    // An error here (a photo that is not yours, or already used) rolls the whole request back.
+    if (input.photoId) await attachRequestPhoto(tx, userId, input.photoId, row.id);
     const applied = await applyEventIn(tx, row.id, event);
     return { id: row.id, applied };
   });

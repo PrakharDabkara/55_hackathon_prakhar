@@ -12,6 +12,8 @@ export interface LiveAnswer {
   pricePaise: number | null;
   quantityHint: QuantityHint | null;
   answeredAt: Date;
+  /** The shop's photo of the item with its yes, if it added one. */
+  photoId?: string | null;
 }
 
 export interface RequestResult {
@@ -28,6 +30,8 @@ export interface RequestResult {
   source: 'live' | 'learned';
   /** Target minus price, only when the price is below the target. */
   savingsPaise?: number;
+  /** The shop's photo of the item (live answers only). */
+  photoId?: string;
 }
 
 export function liveLabel(answeredAt: Date, now: Date): string {
@@ -70,6 +74,7 @@ export function buildResults({
       lastConfirmedAt: a.answeredAt,
       freshness: liveLabel(a.answeredAt, now),
       source: 'live',
+      ...(a.photoId && { photoId: a.photoId }),
     });
   }
 

@@ -4,6 +4,7 @@ import type { Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import type { AiContext, ToolCall } from '../ai/index.js';
 import { getItem, resolveForCustomer } from '../catalog/index.js';
+import { linkErrandPhoto } from '../photos/index.js';
 import { planRoute } from '../routing/index.js';
 import { findLearnedStock } from '../shops/index.js';
 import { createRequest, type RequestsContext } from '../requests/index.js';
@@ -258,6 +259,8 @@ async function askShops(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       idempotencyKey: `errand-${env.errandId}-${itemId}`,
     });
     await linkRequest(env.db, env.errandId, request.id, itemId);
+    // A photo the customer gave this checklist item goes with its request (ADR-0030). Never to a model.
+    await linkErrandPhoto(env.db, env.errandId, label, request.id);
     return {
       result: {
         requestId: request.id,

@@ -74,6 +74,8 @@ const schema = z
       .string()
       .optional()
       .transform((m) => (m === '' ? undefined : m)),
+    // Most photos Postgres may hold, in MB: Neon's free plan has 0.5 GB for everything (ADR-0030).
+    PHOTO_STORAGE_CAP_MB: z.coerce.number().positive().default(300),
     GEMINI_EMBED_MODEL: z.string().min(1).default('gemini-embedding-001'),
     // The size of items.embedding (migration 008). Changing it needs a new migration.
     EMBED_DIM: z.coerce.number().int().min(8).max(3072).default(768),
@@ -170,6 +172,8 @@ export interface Config {
   /** Its fallback: GEMINI_ERRAND_FALLBACK_MODEL, else GEMINI_FALLBACK_MODEL, else none. */
   errandFallbackModel: string | null;
   geminiEmbedModel: string;
+  /** The most photo bytes Postgres may hold (MB): uploads over it are refused. */
+  photoStorageCapMb: number;
   embedDim: number;
   embedThreshold: number;
   embedMargin: number;
@@ -233,6 +237,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandModel: e.GEMINI_ERRAND_MODEL ?? e.GEMINI_MODEL,
     errandFallbackModel: e.GEMINI_ERRAND_FALLBACK_MODEL ?? e.GEMINI_FALLBACK_MODEL ?? null,
     geminiEmbedModel: e.GEMINI_EMBED_MODEL,
+    photoStorageCapMb: e.PHOTO_STORAGE_CAP_MB,
     embedDim: e.EMBED_DIM,
     embedThreshold: e.EMBED_THRESHOLD,
     embedMargin: e.EMBED_MARGIN,
