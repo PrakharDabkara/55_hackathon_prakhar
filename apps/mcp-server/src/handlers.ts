@@ -62,13 +62,9 @@ const shopRow = (r: Input) => ({
 
 const handlers: Record<ToolName, (input: Input, api: ApiClient) => Promise<unknown>> = {
   async resolve_item({ text }, api) {
-    // /search resolves text to an item; the location is required by the API but unused here.
-    const res = await api.call({
-      method: 'GET',
-      path: '/search',
-      // create: a real product the catalog does not know yet becomes a new, unverified item.
-      query: { q: text, lat: 0, lng: 0, radius_m: 1, create: 'true' },
-    });
+    // POST /items/resolve: a real product the catalog does not know yet becomes a new, unverified
+    // item, so it is a POST (a GET never creates data).
+    const res = await api.call({ method: 'POST', path: '/items/resolve', body: { q: text } });
     if (res.status === 422 && res.body?.error?.code === 'item_ambiguous') {
       const e = res.body.error;
       return {

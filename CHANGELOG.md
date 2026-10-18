@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (Day 15, PR A: open catalog)
 
-- A real product the catalog does not know becomes a new unverified item (ADR-0028): name hygiene, dedupe by exact or trigram match, a category chosen by the model from a fixed list, creator and time stored, no embedding. Works for `POST /requests`, the errand agent and MCP `resolve_item` (`GET /search?create=true`). The first shop yes verifies it.
+- A real product the catalog does not know becomes a new unverified item (ADR-0028): name hygiene, dedupe by exact or trigram match, a category chosen by the model from a fixed list, creator and time stored, no embedding. Works for `POST /requests`, the errand agent and MCP `resolve_item` (`POST /items/resolve`; `GET /search` never creates). The first shop yes verifies it.
 - Shop and item categories: dairy, sabzi_fruit, pooja, medical, bakery_sweets (migration 014); a shop carries one to three, none means grocery. Pings go to shops of the item's kind and, if fewer than 3 are near, the nearest of any kind.
 - Safety block (ADR-0029): deny list (Latin and Devanagari) in `modules/safety`, a model classifier validated in code, fail closed (`503 item_unavailable`), `422 item_blocked`, 5 new items per errand and 10 per user per day (`429 new_item_limit`). Only the fact and the rule are logged.
 - Screens: "Nayi cheez: dukaanon se pooch rahe hain", the blocked and unavailable messages, a "Nayi cheez" tag, 13 category tiles; "Dukaanon se phir poochein" is hidden when every missing item was refused for good.

@@ -18,13 +18,13 @@ const query = z
     lng: z.coerce.number().min(-180).max(180),
     radius_m: z.coerce.number().int().min(1).max(MAX_RADIUS_M).default(DEFAULT_RADIUS_M),
     itemId: z.uuid().optional(),
-    /** resolve_item: turn a real unknown product into a new item (ADR-0028). Same text, same item. */
-    create: z.enum(['true', 'false']).optional(),
   })
   .refine((v) => v.q !== undefined || v.itemId !== undefined, {
     message: 'q: give the text to look for, or an itemId',
     path: ['q'],
   });
+
+const resolveBody = z.object({ q: z.string().trim().min(1).max(200) });
 
 interface SearchDeps {
   db: Queryable;
@@ -37,13 +37,12 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
   const router = Router();
 
   router.get('/search', createRequireAuth(db), async (req, res) => {
-    const { q, lat, lng, radius_m, itemId, create } = parse(query, req.query);
+    const { q, lat, lng, radius_m, itemId } = parse(query, req.query);
     const resolution = await resolveForCustomer(db, q ?? '', {
       userId: authOf(req).user.id,
       threshold: trigramThreshold,
       itemId,
       requestId: String(req.id),
-      ...(create === 'true' && { openCatalog: {} }),
       ...(ai && { ai }),
       ...(logger && { logger }),
     });
@@ -60,6 +59,29 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
       matchedBy: resolution.matchedBy,
       ...(resolution.refused && { refused: resolution.refused }),
       results,
+    });
+  });
+
+  // resolve_item: like a search, but a real product the catalog does not know becomes a new item
+  // (ADR-0028). A POST because it can create data; the same text gives the same item.
+  router.post('/items/resolve', createRequireAuth(db), async (req, res) => {
+    const { q } = parse(resolveBody, req.body);
+    const resolution = await resolveForCustomer(db, q, {
+      userId: authOf(req).user.id,
+      threshold: trigramThreshold,
+      requestId: String(req.id),
+      openCatalog: {},
+      ...(ai && { ai }),
+      ...(logger && { logger }),
+    });
+    res.json({
+      query: {
+        normalised: resolution.normalised,
+        ...(resolution.quantity && { quantity: resolution.quantity }),
+      },
+      item: resolution.item,
+      matchedBy: resolution.matchedBy,
+      ...(resolution.refused && { refused: resolution.refused }),
     });
   });
 
