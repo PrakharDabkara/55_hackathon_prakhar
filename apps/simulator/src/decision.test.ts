@@ -244,3 +244,58 @@ describe('decide: a shop says yes only to items of its own categories (live: a h
     expect(d).toMatchObject({ kind: 'answer', body: { answer: 'yes' } });
   });
 });
+
+describe('decide: a yes sometimes carries an exact quantity and a delivery offer (ADR-0031)', () => {
+  const yeses = (category: string | null, n = 4000) => {
+    const rng = createRng(21);
+    return Array.from({ length: n }, () =>
+      decide(profile({ replyProbability: 1 }), { refPricePaise: 5000, category }, rng, 1),
+    ).flatMap((d) => (d.kind === 'answer' && d.body.answer === 'yes' ? [d.body] : []));
+  };
+
+  it('about a third of the yes answers give a quantity, in a sensible unit for the kind of shop', () => {
+    const all = yeses('grocery');
+    const withQty = all.filter((b) => b.quantity);
+    expect(withQty.length / all.length).toBeGreaterThan(0.28);
+    expect(withQty.length / all.length).toBeLessThan(0.42);
+    for (const b of withQty) {
+      expect(['kg', 'g', 'l', 'ml', 'piece', 'packet']).toContain(b.quantity?.unit);
+      expect(b.quantity?.amount).toBeGreaterThan(0);
+    }
+    expect(
+      new Set(yeses('stationery').flatMap((b) => (b.quantity ? [b.quantity.unit] : []))),
+    ).toEqual(new Set(['piece']));
+    expect(new Set(yeses('dairy').flatMap((b) => (b.quantity ? [b.quantity.unit] : [])))).toEqual(
+      new Set(['l', 'packet']),
+    );
+  });
+
+  it('about a quarter offer delivery, with a fee (sometimes free) and a time', () => {
+    const all = yeses('grocery');
+    const offers = all.filter((b) => b.delivery);
+    expect(offers.length / all.length).toBeGreaterThan(0.2);
+    expect(offers.length / all.length).toBeLessThan(0.34);
+    for (const b of offers) {
+      expect([0, 2000, 3000, 5000]).toContain(b.delivery?.feePaise);
+      expect(b.delivery?.minutes).toBeGreaterThanOrEqual(20);
+      expect(b.delivery?.minutes).toBeLessThanOrEqual(60);
+    }
+    expect(offers.some((b) => b.delivery?.feePaise === 0)).toBe(true);
+  });
+
+  it('a no never carries a quantity or a delivery offer, and the answers are repeatable', () => {
+    const rng = createRng(5);
+    for (let i = 0; i < 500; i++) {
+      const d = decide(
+        profile({ replyProbability: 1, alwaysNo: true }),
+        { refPricePaise: 5000 },
+        rng,
+        1,
+      );
+      if (d.kind === 'answer') {
+        expect(d.body).toEqual({ answer: 'no' });
+      }
+    }
+    expect(yeses('hardware', 50)).toEqual(yeses('hardware', 50));
+  });
+});
