@@ -31,19 +31,19 @@ function rng(seed: number): () => number {
 
 /** How common each kind of shop is on a typical Indian street. */
 const WEIGHTS: [Category, number][] = [
-  ['grocery', 28],
-  ['general_store', 12],
-  ['household_kitchen', 8],
-  ['stationery', 10],
-  ['hardware', 9],
-  ['electrical', 7],
-  ['mobile_accessories', 5],
-  ['personal_care', 5],
-  ['dairy', 5],
-  ['sabzi_fruit', 5],
-  ['pooja', 5],
-  ['medical', 4],
-  ['bakery_sweets', 4],
+  ['grocery', 24],
+  ['general_store', 13],
+  ['household_kitchen', 10],
+  ['stationery', 14],
+  ['hardware', 10],
+  ['electrical', 9],
+  ['mobile_accessories', 8],
+  ['personal_care', 9],
+  ['dairy', 10],
+  ['sabzi_fruit', 7],
+  ['pooja', 9],
+  ['medical', 8],
+  ['bakery_sweets', 8],
 ];
 
 const SURNAMES = [
@@ -166,6 +166,34 @@ function roman(n: number): string {
 const pick = <T>(list: readonly T[], next: () => number): T =>
   list[Math.floor(next() * list.length)] as T;
 
+/**
+ * The first category of each shop, dealt like cards from a deck whose mix matches WEIGHTS (largest
+ * remainders), then shuffled. Chance decides where a shop stands, not how many of each kind exist,
+ * so 200 shops always have about their share of every kind (a street without any dairy is a bad demo).
+ */
+function dealCategories(
+  count: number,
+  allowed: readonly Category[],
+  next: () => number,
+): Category[] {
+  const kinds = WEIGHTS.filter(([c]) => allowed.includes(c));
+  const total = kinds.reduce((sum, [, w]) => sum + w, 0);
+  const deck: Category[] = [];
+  const left: { category: Category; rest: number }[] = [];
+  for (const [category, weight] of kinds) {
+    const exact = (count * weight) / total;
+    for (let i = 0; i < Math.floor(exact); i++) deck.push(category);
+    left.push({ category, rest: exact - Math.floor(exact) });
+  }
+  left.sort((a, b) => b.rest - a.rest);
+  for (const { category } of left) if (deck.length < count) deck.push(category);
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [deck[i], deck[j]] = [deck[j] as Category, deck[i] as Category];
+  }
+  return deck;
+}
+
 function pickCategory(next: () => number, allowed: readonly Category[], not?: Category): Category {
   const options = WEIGHTS.filter(([c]) => c !== not && allowed.includes(c));
   let roll = next() * options.reduce((sum, [, w]) => sum + w, 0);
@@ -191,12 +219,13 @@ export function generateShops({
   categories: allowed = CATEGORIES,
 }: GenerateInput): SimShopSpec[] {
   const next = rng(seed);
+  const deck = dealCategories(count, allowed, next);
   const phones = new Set<string>();
   const taken = new Set<string>();
   const shops: SimShopSpec[] = [];
 
   while (shops.length < count) {
-    const first = pickCategory(next, allowed);
+    const first = deck[shops.length] ?? pickCategory(next, allowed);
     const wantsSecond = next() < 0.25 && allowed.length > 1;
     const categories: Category[] = wantsSecond
       ? [first, pickCategory(next, allowed, first)]

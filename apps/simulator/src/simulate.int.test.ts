@@ -40,7 +40,7 @@ describe('the simulator against a real API', () => {
       workersEnabled: true,
       redisUrl: redis.url,
       // A second admin: a phone may ask for only 3 login codes per 10 minutes.
-      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202'],
+      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202', '+919810000204'],
     });
     realtime = createRealtime({ redisUrl: redis.url, logger: quiet, heartbeatMs: 200 });
     workers = startWorkers({
@@ -95,6 +95,11 @@ describe('the simulator against a real API', () => {
     const sim = await runSimulator(options(lines));
     running.push(sim);
     expect(await simulated()).toBe(20);
+    // The answered path needs shops that carry the item: guaranteed by the fixed seed, and checked.
+    const sellers = await testDb.pool.query(
+      `SELECT 1 FROM shops WHERE is_simulated AND 'grocery' = ANY(categories)`,
+    );
+    expect(sellers.rowCount).toBeGreaterThanOrEqual(3);
 
     const seeker = await loginAs(app, 'seeker', String(phone++));
     const asked = await request(app)
@@ -219,5 +224,64 @@ describe('the simulator against a real API', () => {
         stateFile: path.join(path.dirname(stateFile), 'other.json'),
       }),
     ).rejects.toThrow(/ADMIN_PHONES/);
+  }, 60_000);
+
+  it("a shop outside the item's category says no, a shop inside it says yes (every shop answers)", async () => {
+    await Promise.all(running.splice(0).map((s) => s.stop()));
+    const sim = await runSimulator({
+      ...options([]),
+      adminPhone: '9810000204',
+      count: 12,
+      seed: 31,
+      categories: ['hardware', 'stationery'],
+      eager: true,
+      stateFile: path.join(path.dirname(stateFile), 'categories.json'),
+    });
+    running.push(sim);
+    const seeker = await loginAs(app, 'seeker', String(phone++));
+    const ask = async (q: string) =>
+      (
+        await request(app)
+          .post('/requests')
+          .set({ Authorization: `Bearer ${seeker.token}` })
+          .send({ q, lat: ORIGIN.lat, lng: ORIGIN.lng })
+      ).body.id as string;
+    const answers = async (requestId: string, wanted: number) => {
+      await waitFor(
+        async () =>
+          (
+            await testDb.pool.query(
+              `SELECT 1 FROM pings WHERE request_id = $1 AND state IN ('YES', 'NO')`,
+              [requestId],
+            )
+          ).rowCount,
+        (n) => (n ?? 0) >= wanted,
+        15_000,
+      );
+      return (
+        await testDb.pool.query<{ state: string; categories: string[] }>(
+          `SELECT p.state, s.categories FROM pings p JOIN shops s ON s.id = p.shop_id
+            WHERE p.request_id = $1 AND p.state IN ('YES', 'NO')`,
+          [requestId],
+        )
+      ).rows;
+    };
+
+    // Flour is a grocery item and there is no grocery shop: the nearest shops are asked anyway,
+    // and each of them, having no flour, says no.
+    const flour = await answers(await ask('aata'), 3);
+    expect(flour.length).toBeGreaterThanOrEqual(3);
+    for (const row of flour) {
+      expect(row.categories).not.toContain('grocery');
+      expect(row.state).toBe('NO');
+    }
+
+    // Chart paper is a stationery item: the stationery shops say yes, the others say no.
+    const paper = await answers(await ask('chart paper'), 3);
+    const inside = paper.filter((r) => r.categories.includes('stationery'));
+    expect(inside.length).toBeGreaterThanOrEqual(1);
+    for (const row of inside) expect(row.state).toBe('YES');
+    for (const row of paper.filter((r) => !r.categories.includes('stationery')))
+      expect(row.state).toBe('NO');
   }, 60_000);
 });

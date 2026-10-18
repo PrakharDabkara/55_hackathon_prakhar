@@ -35,6 +35,7 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Do not install dependencies the brief does not call for without asking.
 - Keep docs short. Update `CHANGELOG.md` under `Unreleased` in each PR.
 - Commit messages follow Conventional Commits (feat:, fix:, chore:, docs:, test:, refactor:, ci:).
+- Never push to main. Every change goes through a PR: main deploys to production. Before any commit or push, run `git branch --show-current`; if it says main, switch to a branch first. A tracked pre-push hook (`.githooks/pre-push`, enabled by `npm install`) refuses pushes to main and master; never bypass it with `--no-verify`.
 - When unsure, ask instead of guessing.
 
 ## Working style
