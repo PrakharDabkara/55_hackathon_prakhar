@@ -112,7 +112,7 @@ export function ErrandResult({ plan, origin, busy = false, onAskAgain }: Props) 
         // Asking again cannot help when every missing item was refused for good (blocked, or over
         // the limit): it would only be refused again.
         onAskAgain &&
-        missing.some((item) => item.refused === null || item.refused === 'unavailable') && (
+        missing.some((item) => !item.refused || item.refused === 'unavailable') && (
           <button type="button" className="btn btn-yes" disabled={busy} onClick={onAskAgain}>
             {t.errandAskAgain}
           </button>

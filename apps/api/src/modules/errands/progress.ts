@@ -99,6 +99,7 @@ export function buildProgress(
       );
   const waiting = state === 'PLANNING' || state === 'WAITING_FOR_SHOPS' || state === 'NEEDS_INPUT';
   let understoodSaid = false;
+  const told = new Set<string>();
 
   for (const step of steps) {
     if (step.kind !== 'tool' || step.resultSummary['error']) continue;
@@ -111,6 +112,15 @@ export function buildProgress(
           understoodSaid = true;
         }
         if (s['status'] === 'unresolved') line(`"${String(step.args['text'])}" samajh nahi aaya`);
+        // One line for each kind, not one per item: the screen would repeat itself.
+        else if (s['status'] === 'new' && !told.has('new'))
+          (told.add('new'), line('Nayi cheez: dukaanon se pooch rahe hain'));
+        else if (s['status'] === 'blocked' && !told.has('blocked'))
+          (told.add('blocked'), line('Ye cheez hum dukaanon ko nahi bhej sakte'));
+        else if (s['status'] === 'unavailable' && !told.has('unavailable'))
+          (told.add('unavailable'), line('Abhi ye cheez dukaanon ko nahi bhej sakte'));
+        else if (s['status'] === 'limit' && !told.has('limit'))
+          (told.add('limit'), line('Ek kaam mein 5 se zyada nayi cheezein nahi pooch sakte'));
         break;
       case 'find_item_nearby': {
         const label = cap(String(s['label'] ?? 'Item'));

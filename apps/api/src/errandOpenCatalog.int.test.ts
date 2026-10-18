@@ -97,6 +97,9 @@ describe('errand agent with the open catalog', () => {
     }[];
   };
   const view = async (id: string) => (await getErrand({ db: pool, logger }, userId, id))!;
+  type PlanRow = Record<string, unknown>;
+  const planItems = (v: Awaited<ReturnType<typeof view>>) =>
+    (v.plan as unknown as { items: PlanRow[] }).items;
 
   it('a real unknown product is created, asked as plain text to the right shops, and tagged as new', async () => {
     const stationers = await Promise.all(
@@ -171,7 +174,7 @@ describe('errand agent with the open catalog', () => {
     expect((await pool.query(`SELECT 1 FROM requests`)).rowCount).toBe(0);
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
     const v = await view(id);
-    expect(v.plan?.items[0]).toMatchObject({
+    expect(planItems(v)[0]).toMatchObject({
       text: 'country made pistol',
       status: 'not_found',
       refused: 'blocked',
@@ -192,7 +195,7 @@ describe('errand agent with the open catalog', () => {
     await runErrand(deps(), id);
     expect(toolResult(1)[0]?.result).toMatchObject({ unavailable: true });
     const v = await view(id);
-    expect(v.plan?.items[0]).toMatchObject({ status: 'not_found', refused: 'unavailable' });
+    expect(planItems(v)[0]).toMatchObject({ status: 'not_found', refused: 'unavailable' });
     expect(v.progress).toContain('Abhi ye cheez dukaanon ko nahi bhej sakte');
     expect((await pool.query(`SELECT 1 FROM requests`)).rowCount).toBe(0);
   });
@@ -210,18 +213,27 @@ describe('errand agent with the open catalog', () => {
     expect(results.at(-1)).toMatchObject({ limit: true });
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(5);
     const v = await view(id);
-    expect(v.plan?.items.at(-1)).toMatchObject({ refused: 'limit' });
+    expect(planItems(v).find((i) => i['text'] === 'snqrf kit')).toMatchObject({ refused: 'limit' });
   });
 
   it('a new item that no shop has confirmed stays "not found" with its name and the isNew tag', async () => {
     const id = await start('bead dazzling kit');
     provider.playChat([
       { toolCalls: [call('resolve_item', { text: 'bead dazzling kit' })] },
-      { toolCalls: [submit([{ text: 'bead dazzling kit', status: 'not_found' }])] },
+      async () => {
+        const { rows } = await pool.query<{ id: string }>(
+          `SELECT id FROM items WHERE source = 'user'`,
+        );
+        return {
+          toolCalls: [
+            submit([{ text: 'bead dazzling kit', itemId: rows[0]?.id, status: 'not_found' }]),
+          ],
+        };
+      },
     ]);
     await runErrand(deps(), id);
     const v = await view(id);
-    expect(v.plan?.items[0]).toMatchObject({
+    expect(planItems(v)[0]).toMatchObject({
       status: 'not_found',
       itemName: 'Bead dazzling kit',
       isNew: true,

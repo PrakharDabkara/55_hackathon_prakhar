@@ -134,8 +134,10 @@ describe('MCP contract', () => {
     const by = (n: string) => listed.find((t) => t.name === n)?.annotations;
     expect(by('ask_shops')).toMatchObject({ readOnlyHint: false, idempotentHint: false });
     expect(by('close_request')).toMatchObject({ readOnlyHint: false, idempotentHint: true });
-    for (const n of ['resolve_item', 'find_item_nearby', 'get_request_status', 'plan_route'])
+    for (const n of ['find_item_nearby', 'get_request_status', 'plan_route'])
       expect(by(n), n).toMatchObject({ readOnlyHint: true });
+    // resolve_item can add an unverified item to the catalog, but asking twice adds nothing more.
+    expect(by('resolve_item')).toMatchObject({ readOnlyHint: false, idempotentHint: true });
   });
 
   it('describes the errand workflow in the server instructions', () => {

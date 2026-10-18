@@ -44,6 +44,60 @@ describe('resolve_item', () => {
     expect(seen[0]).toMatchObject({ method: 'GET', path: '/search', query: { q: 'chini' } });
   });
 
+  it('asks the API to open the catalog, so a real unknown product becomes a new item (ADR-0028)', async () => {
+    const { api, seen } = ok({ query: {}, item: null, matchedBy: null, results: [] });
+    await runTool('resolve_item', { text: 'bead dazzling kit' }, api);
+    expect(seen[0]?.query).toMatchObject({ q: 'bead dazzling kit', create: 'true' });
+  });
+
+  it('says so when the item is new and no shop has confirmed it yet', async () => {
+    const { api } = ok({
+      query: {},
+      item: { ...ITEM, nameEn: 'Bead dazzling kit', nameHi: 'Bead dazzling kit', unverified: true },
+      matchedBy: 'new_item',
+      results: [],
+    });
+    expect(await runTool('resolve_item', { text: 'bead dazzling kit' }, api)).toEqual({
+      item: {
+        id: ITEM.id,
+        name: 'Bead dazzling kit',
+        nameHi: 'Bead dazzling kit',
+        category: 'grocery',
+        isNew: true,
+      },
+    });
+  });
+
+  it('tells an assistant plainly when an item may not be sent to shops', async () => {
+    for (const [reason, key] of [
+      ['blocked', 'blocked'],
+      ['unavailable', 'unavailable'],
+    ] as const) {
+      const { api } = ok({
+        query: {},
+        item: null,
+        matchedBy: null,
+        refused: { reason },
+        results: [],
+      });
+      const out = (await runTool('resolve_item', { text: 'thing' }, api)) as Record<
+        string,
+        unknown
+      >;
+      expect(out[key], reason).toBe(true);
+      expect(out['unresolved']).toBeUndefined();
+      expect(String(out['message'])).toMatch(/shops/i);
+    }
+    const { api } = ok({
+      query: {},
+      item: null,
+      matchedBy: null,
+      refused: { reason: 'limit', scope: 'day' },
+      results: [],
+    });
+    expect(await runTool('resolve_item', { text: 'thing' }, api)).toMatchObject({ limit: true });
+  });
+
   it('reports text that matches nothing as unresolved, with a hint', async () => {
     const { api } = ok({ query: {}, item: null, matchedBy: null, results: [] });
     const out = (await runTool('resolve_item', { text: 'xyzzy' }, api)) as { unresolved: boolean };
