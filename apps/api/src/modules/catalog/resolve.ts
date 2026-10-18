@@ -10,6 +10,7 @@ import {
   type Candidate,
 } from '../ai/index.js';
 import { isTypoOf } from './editDistance.js';
+import { createUserItem, type Refusal } from './openCatalog.js';
 import { formConflict } from './productForm.js';
 import { firstLine, normaliseQuery, type Quantity } from './normalise.js';
 import {
@@ -34,6 +35,8 @@ export interface CatalogItem {
   category: string;
   /** Every kind of shop that carries the item, the primary first. */
   categories: string[];
+  /** A customer-made item (ADR-0028) that no shop has confirmed yet. */
+  unverified: boolean;
 }
 
 /** Several words: a rival item this close to the best match makes the match a coin toss. */
@@ -49,7 +52,8 @@ const CANDIDATES_PER_STEP = 5;
 const MAX_SHORTLIST = 10;
 const LLM_MAX_OUTPUT_TOKENS = 300;
 
-export type MatchedBy = 'cache' | 'synonym' | 'trigram' | 'default' | 'embedding' | 'llm';
+export type MatchedBy =
+  'cache' | 'synonym' | 'trigram' | 'default' | 'embedding' | 'llm' | 'new_item';
 
 export interface AmbiguousChoice {
   question: string;
@@ -66,6 +70,8 @@ export interface Resolution {
   similarity: number;
   /** Set when the customer must choose between genuinely different items. */
   ambiguous?: AmbiguousChoice;
+  /** Set when the text looked like a product but may not be sent to shops (ADR-0029). */
+  refused?: Refusal;
 }
 
 export interface ResolveOptions {
@@ -77,6 +83,11 @@ export interface ResolveOptions {
   requestId?: string;
   /** Where a skipped AI step is logged (event llm_skipped_suspicious). */
   logger?: Logger;
+  /**
+   * Turn a real product the catalog does not know into a new item (ADR-0028). Needs `ai` and a
+   * `userId`. `errandId` counts the new item toward that errand's limit.
+   */
+  openCatalog?: { errandId?: string | null | undefined };
 }
 
 const toItem = (r: ItemRow): CatalogItem => ({
@@ -86,6 +97,7 @@ const toItem = (r: ItemRow): CatalogItem => ({
   nameHi: r.name_hi,
   category: r.category,
   categories: r.categories,
+  unverified: r.unverified,
 });
 
 const toCandidate = (r: ItemRow): Candidate => ({
@@ -100,6 +112,7 @@ interface Found {
   matchedBy: MatchedBy | null;
   similarity: number;
   ambiguous?: AmbiguousChoice;
+  refused?: Refusal;
 }
 
 const choiceFor = async (
@@ -129,9 +142,11 @@ export async function resolveItem(
   // Only the first line is the query (see firstLine); the raw text is kept in the log row.
   const query = firstLine(raw);
   const { text, quantity } = normaliseQuery(query);
-  const found = text
+  let found: Found = text
     ? await findItem(db, text, opts, query)
     : { item: null, matchedBy: null, similarity: 0 };
+  if (text && !found.item && !found.ambiguous && opts.openCatalog && opts.ai && opts.userId)
+    found = await openCatalog(db, opts.ai, query, text, found, opts);
 
   await db.query(
     `INSERT INTO search_queries (user_id, raw_text, normalised, item_id, matched_by)
@@ -139,6 +154,36 @@ export async function resolveItem(
     [opts.userId ?? null, raw, text, found.item?.id ?? null, found.matchedBy],
   );
   return { normalised: text, ...(quantity && { quantity }), ...found };
+}
+
+/** Nothing in the catalog fits: is it a real product we do not know yet? (ADR-0028) */
+async function openCatalog(
+  db: Queryable,
+  ai: AiContext,
+  query: string,
+  text: string,
+  found: Found,
+  opts: ResolveOptions,
+): Promise<Found> {
+  const outcome = await createUserItem(db, ai, query, text, {
+    userId: opts.userId as string,
+    errandId: opts.openCatalog?.errandId,
+    requestId: opts.requestId,
+    logger: opts.logger,
+  });
+  if (outcome.kind === 'none') return found;
+  if (outcome.kind === 'refused') return { ...found, refused: outcome.refusal };
+  // Remember it, so a cached "nothing fits" from an earlier look no longer hides the item.
+  await writeCache(
+    db,
+    text,
+    'llm',
+    { itemId: outcome.row.id, question: null, optionIds: null },
+    CATALOG_VERSION,
+  );
+  return outcome.created
+    ? { item: toItem(outcome.row), matchedBy: 'new_item', similarity: 1 }
+    : { item: toItem(outcome.row), matchedBy: 'trigram', similarity: 1 };
 }
 
 async function findItem(
@@ -174,7 +219,7 @@ async function findItem(
 
   // b) An exact synonym.
   const exact = await db.query<ItemRow>(
-    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories
+    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified
        FROM item_synonyms s JOIN items i ON i.id = s.item_id
       WHERE s.term = $1`,
     [text],
@@ -187,7 +232,7 @@ async function findItem(
   // "several plausible items". The weaker candidates are kept as the LLM's shortlist.
   const fuzzyAll = await db.query<ItemRow>(
     `SELECT * FROM (
-       SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories,
+       SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified,
               s.term, similarity(s.term, $1) AS sim
          FROM item_synonyms s JOIN items i ON i.id = s.item_id
         WHERE s.term % $1
@@ -359,7 +404,7 @@ export async function getRefPricePaise(db: Queryable, itemId: string): Promise<n
 
 export async function getItem(db: Queryable, id: string): Promise<CatalogItem | null> {
   const { rows } = await db.query<ItemRow>(
-    `SELECT id, slug, name_en, name_hi, category, categories FROM items WHERE id = $1`,
+    `SELECT id, slug, name_en, name_hi, category, categories, unverified FROM items WHERE id = $1`,
     [id],
   );
   return rows[0] ? toItem(rows[0]) : null;

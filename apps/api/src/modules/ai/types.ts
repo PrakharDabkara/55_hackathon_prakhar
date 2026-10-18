@@ -2,7 +2,8 @@ import type { ZodObject, ZodType } from 'zod';
 import type { RateLimitInfo } from './quota.js';
 
 /** Why a call is made. Stored in ai_calls so cost can be traced to a feature. */
-export type Purpose = 'resolve_query' | 'embed_query' | 'embed_catalog' | 'errand';
+export type Purpose =
+  'resolve_query' | 'embed_query' | 'embed_catalog' | 'errand' | 'classify_item';
 export type EmbedPurpose = Extract<Purpose, 'embed_query' | 'embed_catalog'>;
 
 export interface Usage {

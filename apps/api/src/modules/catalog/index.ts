@@ -14,4 +14,6 @@ export type {
   ResolveOptions,
 } from './resolve.js';
 export { CATALOG_VERSION, loadSeedCatalog, seedCatalog } from './seed.js';
+export { cleanItemName } from './itemName.js';
+export type { Refusal } from './openCatalog.js';
 export { cacheAdminRouter } from './cacheAdminRouter.js';

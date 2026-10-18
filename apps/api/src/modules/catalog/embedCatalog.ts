@@ -42,6 +42,7 @@ export async function embedCatalog(
     `SELECT i.id, i.name_en, i.name_hi, i.embedding_source_hash AS hash,
             coalesce(array_agg(s.term ORDER BY s.term) FILTER (WHERE s.term IS NOT NULL), '{}') AS terms
        FROM items i LEFT JOIN item_synonyms s ON s.item_id = i.id
+      WHERE i.source = 'catalog'
       GROUP BY i.id ORDER BY i.slug`,
   );
 

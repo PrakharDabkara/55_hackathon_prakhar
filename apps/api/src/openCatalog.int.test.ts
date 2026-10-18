@@ -224,20 +224,31 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
 
   it('limits: at most 5 new items per errand, with a plain refusal after', async () => {
     const { ai } = setup();
-    for (const q of ['alpha kit', 'bravo kit', 'charlie kit', 'delta kit', 'echo kit']) {
+    for (const q of ['qorvex kit', 'blintz kit', 'zumbo kit', 'flarn kit', 'gribble kit']) {
       expect((await open(q, ai, { errandId })).item, q).not.toBeNull();
     }
     const sixth = await open('foxtrot kit', ai, { errandId });
     expect(sixth.item).toBeNull();
     expect(sixth.refused).toEqual({ reason: 'limit', scope: 'errand' });
     // A reused item is free: it is not a new item.
-    expect((await open('alpha kit', ai, { errandId })).item).not.toBeNull();
+    expect((await open('qorvex kit', ai, { errandId })).item).not.toBeNull();
   });
 
   it('limits: at most 10 new items per user per day; another user is unaffected', async () => {
     const { ai } = setup();
-    for (let n = 0; n < 10; n++) {
-      expect((await open(`gadget${'x'.repeat(n + 1)} kit`, ai)).item).not.toBeNull();
+    for (const word of [
+      'qorvex',
+      'blintz',
+      'zumbo',
+      'flarn',
+      'gribble',
+      'snorfle',
+      'plimk',
+      'dorvan',
+      'wexel',
+      'yumbo',
+    ]) {
+      expect((await open(`${word} kit`, ai)).item, word).not.toBeNull();
     }
     const eleventh = await open('one more kit', ai);
     expect(eleventh.refused).toEqual({ reason: 'limit', scope: 'day' });
@@ -258,7 +269,6 @@ describe('open catalog: resolve creates items the catalog does not know', () => 
   it('dedupe respects the product-form guard: "chandan itr" is not "chandan powder"', async () => {
     const { ai } = setup({ verdict: 'allowed', category: 'pooja' });
     const r = await open('chandan itr', ai);
-    expect(r.item?.source ?? r.item?.nameEn).toBeDefined();
     expect(r.item?.nameEn).toBe('Chandan itr');
     expect(r.item?.slug).not.toBe('chandan');
   });

@@ -151,3 +151,73 @@ describe('decide', () => {
     expect(run()).toEqual(run());
   });
 });
+
+describe('decide for an item with no reference price (a customer-made item, ADR-0028)', () => {
+  const unknown = (category: string | null) => ({
+    pingId: 'p1',
+    shopId: 's1',
+    refPricePaise: null,
+    category,
+  });
+  const answers = (category: string | null, n = 4000, seed = 9) => {
+    const rng = createRng(seed);
+    return Array.from({ length: n }, () =>
+      decide(profile({ replyProbability: 1 }), unknown(category), rng, 1),
+    ).flatMap((d) => (d.kind === 'answer' ? [d.body] : []));
+  };
+
+  it('says yes about 40 % of the time and no otherwise', () => {
+    const all = answers('stationery');
+    const yes = all.filter((b) => b.answer === 'yes').length;
+    expect(yes / all.length).toBeGreaterThan(0.36);
+    expect(yes / all.length).toBeLessThan(0.44);
+  });
+
+  it('quotes a plausible price for the category, in whole rupees for dear things', () => {
+    const range: Record<string, [number, number]> = {
+      stationery: [1000, 30000],
+      hardware: [2000, 80000],
+      pooja: [1000, 50000],
+      grocery: [1000, 50000],
+    };
+    for (const [category, [low, high]] of Object.entries(range)) {
+      const prices = answers(category).flatMap((b) =>
+        b.answer === 'yes' && b.pricePaise !== undefined ? [b.pricePaise] : [],
+      );
+      expect(prices.length, category).toBeGreaterThan(1000);
+      for (const p of prices) {
+        expect(p, category).toBeGreaterThanOrEqual(low);
+        expect(p, category).toBeLessThanOrEqual(high);
+        expect(p % 50, category).toBe(0);
+      }
+      // Not one fixed number: the prices spread over the range.
+      expect(new Set(prices).size, category).toBeGreaterThan(20);
+    }
+  });
+
+  it('uses a general range when the category is unknown or missing', () => {
+    for (const category of [null, 'something_new']) {
+      const prices = answers(category).flatMap((b) =>
+        b.answer === 'yes' && b.pricePaise !== undefined ? [b.pricePaise] : [],
+      );
+      expect(prices.length).toBeGreaterThan(500);
+      for (const p of prices) {
+        expect(p).toBeGreaterThanOrEqual(1000);
+        expect(p).toBeLessThanOrEqual(50000);
+      }
+    }
+  });
+
+  it('is repeatable for the same seed, and a catalog item still quotes near its reference price', () => {
+    expect(answers('pooja', 50, 5)).toEqual(answers('pooja', 50, 5));
+    const rng = createRng(1);
+    const d = decide(
+      profile({ replyProbability: 1 }),
+      { refPricePaise: 5000, category: 'pooja' },
+      rng,
+      1,
+    );
+    if (d.kind === 'answer' && d.body.answer === 'yes')
+      expect(d.body.pricePaise).toBeGreaterThanOrEqual(3500);
+  });
+});

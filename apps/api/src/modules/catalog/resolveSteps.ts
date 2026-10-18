@@ -8,6 +8,8 @@ export interface ItemRow {
   category: string;
   /** Every kind of shop that carries the item, the primary (`category`) first. */
   categories: string[];
+  /** A customer-made item no shop has confirmed yet. */
+  unverified: boolean;
   sim?: number;
   term?: string;
 }
@@ -83,7 +85,7 @@ export async function suggestSynonym(db: Queryable, term: string, itemId: string
 export async function itemsByIds(db: Queryable, ids: string[]): Promise<ItemRow[]> {
   if (ids.length === 0) return [];
   const { rows } = await db.query<ItemRow>(
-    `SELECT id, slug, name_en, name_hi, category, categories FROM items WHERE id = ANY($1::uuid[])`,
+    `SELECT id, slug, name_en, name_hi, category, categories, unverified FROM items WHERE id = ANY($1::uuid[])`,
     [ids],
   );
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -96,7 +98,7 @@ export const hasEmbeddings = async (db: Queryable): Promise<boolean> =>
 /** The 5 items closest to the query vector by cosine similarity (1 = identical direction). */
 export async function nearestItems(db: Queryable, vector: number[], limit = 5): Promise<ItemRow[]> {
   const { rows } = await db.query<ItemRow>(
-    `SELECT id, slug, name_en, name_hi, category, categories, 1 - (embedding <=> $1::vector) AS sim
+    `SELECT id, slug, name_en, name_hi, category, categories, unverified, 1 - (embedding <=> $1::vector) AS sim
        FROM items WHERE embedding IS NOT NULL
       ORDER BY embedding <=> $1::vector LIMIT $2`,
     [`[${vector.join(',')}]`, limit],
@@ -107,7 +109,7 @@ export async function nearestItems(db: Queryable, vector: number[], limit = 5): 
 /** The item a generic word defaults to ("pen" → ball pen), from the catalog file. */
 export async function defaultItem(db: Queryable, text: string): Promise<ItemRow | null> {
   const { rows } = await db.query<ItemRow>(
-    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories
+    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified
        FROM item_defaults d JOIN items i ON i.id = d.item_id WHERE d.term = $1`,
     [text],
   );
