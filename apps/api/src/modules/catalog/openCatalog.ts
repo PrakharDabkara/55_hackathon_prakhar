@@ -9,6 +9,7 @@ import {
   recordNewItemAttempt,
   type LimitScope,
 } from '../safety/index.js';
+import { checkProductName } from './itemSanity.js';
 import { formConflict } from './productForm.js';
 import { cleanItemName, slugForUserItem } from './itemName.js';
 import { firstLine } from './normalise.js';
@@ -79,6 +80,9 @@ export async function createUserItem(
   const existing = (await findExisting(db, text)).find(fits);
   if (existing) return { kind: 'item', row: existing, created: false };
 
+  // Not a product, by code alone: random, mash, a sentence, a vehicle or a phone itself. Free.
+  if (!checkProductName(text).ok) return { kind: 'none' };
+
   const over = await overNewItemLimit(db, opts);
   if (over) return { kind: 'refused', refusal: { reason: 'limit', scope: over } };
   if (!(await ai.limiter.allow(opts.userId))) return unavailable();
@@ -90,7 +94,7 @@ export async function createUserItem(
     if (error instanceof AiUnavailableError) return unavailable();
     throw error;
   }
-  if (verdict.verdict === 'nonsense') return { kind: 'none' };
+  if (verdict.verdict === 'nonsense' || verdict.verdict === 'unsure') return { kind: 'none' };
   if (verdict.verdict === 'blocked') return blocked(db, opts, 'classifier', 'classifier');
 
   const slug = slugForUserItem(text);

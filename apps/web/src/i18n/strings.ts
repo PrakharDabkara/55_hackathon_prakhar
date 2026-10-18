@@ -220,8 +220,7 @@ export const hi: Strings = {
   demoLocation: 'Demo location (Indore)',
   search: 'Dhoondho',
   searching: 'Dhoondh rahe hain…',
-  errUnresolved:
-    "Samajh nahi aaya — thoda aur detail mein likhiye (jaise 'paper clip', 'nail cutter')",
+  errUnresolved: 'Ye cheez samajh nahi aayi — thoda aur batayein',
   errItemBlocked: 'Ye cheez hum dukaanon ko nahi bhej sakte',
   errItemUnavailable: 'Abhi ye cheez dukaanon ko nahi bhej sakte',
   errNewItemLimit: (scope) =>
@@ -402,8 +401,7 @@ export const en: Strings = {
   demoLocation: 'Demo location (Indore)',
   search: 'Search',
   searching: 'Searching…',
-  errUnresolved:
-    "We couldn't tell which item you mean. Add a little more detail (like 'paper clip', 'nail cutter').",
+  errUnresolved: "We couldn't understand that item. Please tell us a little more.",
   errItemBlocked: "We can't send this item to shops",
   errItemUnavailable: "We can't send this item to shops right now",
   errNewItemLimit: (scope) =>

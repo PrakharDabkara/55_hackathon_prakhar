@@ -143,7 +143,7 @@ export function scenarioGenerateHandler(scenario: Scenario) {
     const rule = (scenario.classify ?? []).find((r) => new RegExp(r.match, 'i').test(name));
     if (!rule) return { verdict: 'nonsense' };
     return rule.verdict === 'allowed'
-      ? { verdict: 'allowed', category: rule.category ?? 'general_store' }
+      ? { verdict: 'allowed', confidence: 'high', category: rule.category ?? 'general_store' }
       : { verdict: rule.verdict };
   };
 }
