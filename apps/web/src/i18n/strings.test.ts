@@ -35,6 +35,15 @@ describe('the two dictionaries', () => {
     }
   });
 
+  it('give every category a Devanagari name with a Hinglish name under it, and an English name', () => {
+    for (const c of CATEGORIES) {
+      expect(hi.categoryLabels[c].main, c).toMatch(/[ऀ-ॿ]/);
+      expect(hi.categoryLabels[c].sub, c).toMatch(/^[A-Za-z ]+$/);
+      expect(en.categoryLabels[c].main, c).toMatch(/^[A-Za-z ,&]+$/);
+      expect(en.categoryLabels[c].sub, c).toBeUndefined();
+    }
+  });
+
   it('use the wording the shopkeeper flow promises', () => {
     expect(hi.yes).toEqual({ main: 'हाँ है', sub: 'Haan hai' });
     expect(hi.no).toEqual({ main: 'नहीं है', sub: 'Nahi hai' });

@@ -210,3 +210,37 @@ describe('decide for an item with no reference price (a customer-made item, ADR-
       expect(d.body.pricePaise).toBeGreaterThanOrEqual(3500);
   });
 });
+
+describe('decide: a shop says yes only to items of its own categories (live: a hardware store said yes to haldi)', () => {
+  const ask = (
+    itemCategories: string[],
+    shopCategories: string[],
+    refPricePaise: number | null = 5000,
+  ) => {
+    const rng = createRng(11);
+    return Array.from({ length: 400 }, () =>
+      decide(
+        profile({ replyProbability: 1 }),
+        { refPricePaise, category: itemCategories[0] ?? null, itemCategories, shopCategories },
+        rng,
+        1,
+      ),
+    ).flatMap((d) => (d.kind === 'answer' ? [d.body.answer] : []));
+  };
+
+  it("a catalog item outside the shop's categories is always a no", () => {
+    expect(new Set(ask(['grocery', 'general_store'], ['hardware']))).toEqual(new Set(['no']));
+  });
+
+  it('an item that shares any category with the shop can be a yes (and a no for a shop that never has anything)', () => {
+    expect(ask(['grocery', 'general_store'], ['hardware', 'general_store'])).toContain('yes');
+    expect(ask(['stationery'], ['stationery'], null)).toContain('yes');
+    expect(new Set(ask(['stationery'], ['grocery'], null))).toEqual(new Set(['no']));
+  });
+
+  it('without category information (an older server) it behaves as before', () => {
+    const rng = createRng(3);
+    const d = decide(profile({ replyProbability: 1 }), { refPricePaise: 5000 }, rng, 1);
+    expect(d).toMatchObject({ kind: 'answer', body: { answer: 'yes' } });
+  });
+});
