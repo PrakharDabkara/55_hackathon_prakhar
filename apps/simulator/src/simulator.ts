@@ -1,5 +1,5 @@
 import { ApiFailure, createClient } from './client.ts';
-import { decide, makeProfile, type ShopProfile } from './decision.ts';
+import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.ts';
 import { createRng, hashSeed } from './rng.ts';
 import { readSse } from './sse.ts';
 import { loadState, matches, saveState } from './state.ts';
@@ -117,7 +117,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     shops.set(login.shopId, {
       ...login,
       profile: options.eager
-        ? { replyProbability: 1, alwaysNo: false }
+        ? { replyProbability: 1, alwaysNo: false, neverDeclines: true }
         : makeProfile(createRng(hashSeed(seed, login.shopId))),
     });
   }
@@ -194,6 +194,73 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     timers.add(timer);
   }
 
+  /** Runs `step` after `ms`, unless the simulator stops first. */
+  function later(ms: number, step: () => Promise<void>) {
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        void step().finally(resolve);
+      }, ms);
+      timers.add(timer);
+      // stop() clears the timer; this lets the waiting order give up instead of hanging stop().
+      abort.signal.addEventListener('abort', () => resolve(), { once: true });
+    });
+  }
+
+  async function moveOrder(
+    shop: Shop,
+    orderId: string,
+    verb: 'accept' | 'decline' | 'out' | 'delivered',
+  ): Promise<boolean> {
+    const label = {
+      accept: 'accepted',
+      decline: 'declined',
+      out: 'out for delivery',
+      delivered: 'delivered',
+    }[verb];
+    try {
+      await client.orderAction(shop.token, orderId, verb, abort.signal);
+      log(`${clock()}  shop ${short(shop.shopId)}  order ${short(orderId)}  ${label}`);
+      return true;
+    } catch (error) {
+      if (stopped) return false;
+      // 404 or 409: the customer cancelled, or the order ran out of time. Nothing more to do.
+      log(
+        `${clock()}  shop ${short(shop.shopId)}  order ${short(orderId)}  ${label}: ${(error as Error).message}`,
+      );
+      return false;
+    }
+  }
+
+  /** An order for one of our shops: accept (or decline), then set out and deliver, with short waits. */
+  function onOrder(data: unknown) {
+    const d = data as { orderId?: unknown; shopId?: unknown } | null;
+    if (typeof d?.orderId !== 'string' || typeof d.shopId !== 'string') return;
+    const shop = shops.get(d.shopId);
+    if (!shop) return;
+    const orderId = d.orderId;
+    const decision = decideOrder(shop.profile, createRng(hashSeed(seed, d.shopId, orderId)), speed);
+    const run = (async () => {
+      if (decision.kind === 'decline') {
+        await later(decision.delayMs, async () => void (await moveOrder(shop, orderId, 'decline')));
+        return;
+      }
+      let ok = false;
+      await later(
+        decision.acceptMs,
+        async () => void (ok = await moveOrder(shop, orderId, 'accept')),
+      );
+      if (!ok || stopped) return;
+      await later(decision.outMs, async () => void (ok = await moveOrder(shop, orderId, 'out')));
+      if (!ok || stopped) return;
+      await later(
+        decision.deliveredMs,
+        async () => void (await moveOrder(shop, orderId, 'delivered')),
+      );
+    })().finally(() => inFlight.delete(run));
+    inFlight.add(run);
+  }
+
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, ms);
@@ -231,6 +298,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         backoff = 1000;
         for await (const message of readSse(res.body as unknown as AsyncIterable<Uint8Array>)) {
           if (message.event === 'ping.created') onPing(message.data);
+          else if (message.event === 'order.created') onOrder(message.data);
         }
       } catch (error) {
         if (stopped) return;
