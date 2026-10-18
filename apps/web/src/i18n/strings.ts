@@ -161,6 +161,30 @@ export interface Strings {
   errandAskAgain: string;
   errandGone: string;
 
+  // Exact quantity and delivery (ADR-0031)
+  qtyHas: (quantity: string) => string;
+  qtyShort: (quantity: string) => string;
+  qtyNotEnough: string;
+  qtyLast: (quantity: string) => string;
+  qtyAmountLabel: string;
+  errUnitNeeded: string;
+  deliveryOffer: string;
+  deliveryStanding: string;
+  deliveryChip: (fee: string | null, free: boolean, minutes: number | null) => string;
+  deliveryFeeLabel: string;
+  deliveryMinutesLabel: string;
+  deliverySettings: string;
+  save: string;
+  saved: string;
+  modePickup: string;
+  modeDelivery: string;
+  feeLine: string;
+  grandTotal: string;
+  unknownPrices: (count: number) => string;
+  unknownFees: (count: number) => string;
+  shopOpen: string;
+  shopClosed: string;
+  errSetOpen: string;
   // Photos (optional, both sides)
   photoAdd: string;
   photoAddFor: (what: string) => string;
@@ -345,6 +369,33 @@ export const hi: Strings = {
   errandAskAgain: 'Dukaanon se phir poochein',
   errandGone: 'Ye kaam nahi mila.',
 
+  qtyHas: (quantity) => `${quantity} hai`,
+  qtyShort: (quantity) => `Sirf ${quantity} hai`,
+  qtyNotEnough: 'Kam hai (not enough)',
+  qtyLast: (quantity) => `Pichhli baar: ${quantity}`,
+  qtyAmountLabel: 'Kitna hai? (maatra)',
+  errUnitNeeded: 'Maatra ke saath unit chunein (kg, g, L, ml, piece ya packet).',
+  deliveryOffer: 'Ghar bhej denge',
+  deliveryStanding: 'Hum ghar bhejte hain',
+  deliveryChip: (fee, free, minutes) =>
+    ['Ghar bhej denge', free ? 'muft' : fee, minutes !== null ? `${minutes} min` : null]
+      .filter(Boolean)
+      .join(' · '),
+  deliveryFeeLabel: 'Delivery ka daam (₹)',
+  deliveryMinutesLabel: 'Kitne minute mein?',
+  deliverySettings: 'Delivery ki settings',
+  save: 'Save karein',
+  saved: 'Save ho gaya',
+  modePickup: 'Khud lene jaunga',
+  modeDelivery: 'Ghar mangwao',
+  feeLine: 'Delivery ka daam',
+  grandTotal: 'Kul (delivery ke saath)',
+  unknownPrices: (count) => `+ ${count} ${count === 1 ? 'cheez' : 'cheezein'} ka daam pata nahi`,
+  unknownFees: (count) =>
+    `+ ${count} ${count === 1 ? 'dukaan' : 'dukaanon'} ka delivery daam pata nahi`,
+  shopOpen: 'Dukaan khuli hai',
+  shopClosed: 'Dukaan aaj band hai',
+  errSetOpen: 'Ye nahi ho paya. Dobara try karein.',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',
@@ -559,6 +610,32 @@ export const en: Strings = {
   errandAskAgain: 'Ask the shops again',
   errandGone: 'That errand was not found.',
 
+  qtyHas: (quantity) => `${quantity} available`,
+  qtyShort: (quantity) => `Only ${quantity} available`,
+  qtyNotEnough: 'Kam hai (not enough)',
+  qtyLast: (quantity) => `Last time: ${quantity}`,
+  qtyAmountLabel: 'How much is there? (amount)',
+  errUnitNeeded: 'Choose a unit with the amount (kg, g, L, ml, piece or packet).',
+  deliveryOffer: 'We deliver',
+  deliveryStanding: 'We deliver to homes',
+  deliveryChip: (fee, free, minutes) =>
+    ['We deliver', free ? 'free' : fee, minutes !== null ? `${minutes} min` : null]
+      .filter(Boolean)
+      .join(' · '),
+  deliveryFeeLabel: 'Delivery fee (₹)',
+  deliveryMinutesLabel: 'In how many minutes?',
+  deliverySettings: 'Delivery settings',
+  save: 'Save',
+  saved: 'Saved',
+  modePickup: "I'll pick it up",
+  modeDelivery: 'Deliver to me',
+  feeLine: 'Delivery fee',
+  grandTotal: 'Total with delivery',
+  unknownPrices: (count) => `+ ${count} ${count === 1 ? 'item' : 'items'} with no price`,
+  unknownFees: (count) => `+ ${count} ${count === 1 ? 'shop' : 'shops'} with no delivery fee told`,
+  shopOpen: 'Shop is open',
+  shopClosed: 'Shop is closed today',
+  errSetOpen: 'That did not work. Please try again.',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',

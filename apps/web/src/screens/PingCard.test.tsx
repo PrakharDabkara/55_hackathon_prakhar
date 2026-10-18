@@ -214,3 +214,91 @@ describe('PingCard photos (optional, both ways)', () => {
     await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
   });
 });
+
+describe('PingCard: exact quantity and delivery with a yes (ADR-0031)', () => {
+  const open = async (props: Partial<Parameters<typeof PingCard>[0]> = {}) => {
+    const onAnswer = vi.fn();
+    const ui = renderApp(<PingCard ping={ping()} onAnswer={onAnswer} {...props} />);
+    await ui.user.click(screen.getByRole('button', { name: /Haan hai/ }));
+    return { onAnswer, ...ui };
+  };
+
+  it('has an optional amount with unit chips next to the price', async () => {
+    await open();
+    expect(screen.getByLabelText('Kitna hai? (maatra)')).toBeTruthy();
+    for (const unit of ['kg', 'g', 'L', 'ml', 'piece', 'packet'])
+      expect(screen.getByRole('button', { name: unit })).toBeTruthy();
+  });
+
+  it('sends the quantity with its unit', async () => {
+    const { user, onAnswer } = await open();
+    await user.type(screen.getByLabelText('Kitna hai? (maatra)'), '5');
+    await user.click(screen.getByRole('button', { name: 'kg' }));
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes', quantity: { amount: 5, unit: 'kg' } });
+  });
+
+  it('sends no quantity when there is an amount but no unit chosen, and asks for the unit', async () => {
+    const { user, onAnswer } = await open();
+    await user.type(screen.getByLabelText('Kitna hai? (maatra)'), '5');
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).not.toHaveBeenCalled();
+    expect((await screen.findByRole('alert')).textContent).toMatch(/unit|kg/i);
+  });
+
+  it('accepts a decimal amount with a comma', async () => {
+    const { user, onAnswer } = await open();
+    await user.type(screen.getByLabelText('Kitna hai? (maatra)'), '1,5');
+    await user.click(screen.getByRole('button', { name: 'L' }));
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes', quantity: { amount: 1.5, unit: 'l' } });
+  });
+
+  it('"Ghar bhej denge" with a fee and a time is one tap and two small fields', async () => {
+    const { user, onAnswer } = await open();
+    await user.click(screen.getByRole('switch', { name: 'Ghar bhej denge' }));
+    await user.type(screen.getByLabelText('Delivery ka daam (₹)'), '30');
+    await user.type(screen.getByLabelText('Kitne minute mein?'), '45');
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({
+      answer: 'yes',
+      delivery: { feePaise: 3000, minutes: 45 },
+    });
+  });
+
+  it('a delivery with no fee and no time is still an offer, and a fee of 0 is free', async () => {
+    const first = await open();
+    await first.user.click(screen.getByRole('switch', { name: 'Ghar bhej denge' }));
+    await first.user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(first.onAnswer).toHaveBeenCalledWith({ answer: 'yes', delivery: {} });
+    first.unmount();
+    const second = await open();
+    await second.user.click(screen.getByRole('switch', { name: 'Ghar bhej denge' }));
+    await second.user.type(screen.getByLabelText('Delivery ka daam (₹)'), '0');
+    await second.user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(second.onAnswer).toHaveBeenCalledWith({ answer: 'yes', delivery: { feePaise: 0 } });
+  });
+
+  it("starts from the shop's standing offer, so a repeat yes is one tap", async () => {
+    const { user, onAnswer } = await open({
+      defaults: { deliversDefault: true, defaultFeePaise: 2000, defaultMinutes: 40 },
+    });
+    expect(
+      screen.getByRole('switch', { name: 'Ghar bhej denge' }).getAttribute('aria-checked'),
+    ).toBe('true');
+    expect((screen.getByLabelText('Delivery ka daam (₹)') as HTMLInputElement).value).toBe('20');
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({
+      answer: 'yes',
+      delivery: { feePaise: 2000, minutes: 40 },
+    });
+  });
+
+  it('Skip is still a plain yes, whatever the defaults', async () => {
+    const { user, onAnswer } = await open({
+      defaults: { deliversDefault: true, defaultFeePaise: 2000, defaultMinutes: 40 },
+    });
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes' });
+  });
+});

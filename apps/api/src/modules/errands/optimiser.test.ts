@@ -311,3 +311,83 @@ describe('recommend', () => {
     );
   });
 });
+
+describe('an offer with no price is never ₹0 (live: "Daam nahi bataya" left the item out of the total)', () => {
+  it('counts it as unknown: the total leaves it out and says how many, never silently', () => {
+    const { sasta } = optimise(
+      START,
+      [want('chai'), want('chini')],
+      [offer('chai', 'A', 12000, 0.3), offer('chini', 'A', null, 0.3)],
+    );
+    expect(sasta.totalPricePaise).toBe(12000);
+    expect(sasta.unknownPriceKeys).toEqual(['chini']);
+  });
+
+  it('estimates it for ranking from the median of what other shops quoted for that item', () => {
+    // A said yes to chini without a price; B and C (learned stock) quoted 4000 and 6000, D 5000.
+    const { sasta } = optimise(
+      START,
+      [want('chai'), want('chini')],
+      [
+        offer('chai', 'A', 12000, 0.3),
+        offer('chini', 'A', null, 0.3, 'confirmed'),
+        offer('chini', 'B', 4000, 0.5, 'likely'),
+        offer('chini', 'C', 6000, 0.6, 'likely'),
+        offer('chini', 'D', 5000, 0.7, 'likely'),
+      ],
+    );
+    expect(pickOf(sasta, 'chini')?.shopId).toBe('A'); // a yes in this errand still wins
+    expect(sasta.unknownPriceKeys).toEqual(['chini']);
+    expect(sasta.totalPricePaise).toBe(12000);
+    expect(sasta.comparablePricePaise).toBe(12000 + 5000);
+  });
+
+  it("falls back to the item's typical price when nobody else quoted one, and to nothing when there is none", () => {
+    const withRef = optimise(START, [want('chini', 1, 5500)], [offer('chini', 'A', null, 0.3)]);
+    expect(withRef.sasta.comparablePricePaise).toBe(5500);
+    expect(withRef.sasta.unknownPriceKeys).toEqual(['chini']);
+    const none = optimise(START, [want('chini')], [offer('chini', 'A', null, 0.3)]);
+    expect(none.sasta.comparablePricePaise).toBe(0);
+    expect(none.sasta.unknownPriceKeys).toEqual(['chini']);
+  });
+
+  it('multiplies the estimate by the quantity', () => {
+    const { sasta } = optimise(START, [want('chini', 3, 1000)], [offer('chini', 'A', null, 0.3)]);
+    expect(sasta.comparablePricePaise).toBe(3000);
+  });
+
+  it('a plan with all prices known has comparable = total and no unknowns', () => {
+    const { sasta, kam_dukaan } = optimise(START, [want('chai')], [offer('chai', 'A', 12000, 0.3)]);
+    for (const p of [sasta, kam_dukaan]) {
+      expect(p.unknownPriceKeys).toEqual([]);
+      expect(p.comparablePricePaise).toBe(p.totalPricePaise);
+    }
+  });
+
+  it('does not rank a shop with an unknown price as the cheapest cover', () => {
+    // Two one-shop covers. A: chai 10000 + chini unpriced. B: chai 10000 + chini 9000 quoted by B.
+    // Treated as ₹0, A would win kam_dukaan; with the estimate (9000 from B) the two are level and
+    // the nearer shop decides only after price, so A does not win on a phantom saving.
+    const items = [want('chai'), want('chini')];
+    const offers = [
+      offer('chai', 'A', 10000, 0.3),
+      offer('chini', 'A', null, 0.3, 'likely'),
+      offer('chai', 'B', 10000, 0.6),
+      offer('chini', 'B', 9000, 0.6, 'likely'),
+    ];
+    const { kam_dukaan } = optimise(START, items, offers);
+    // chini has a priced offer, so only priced offers count for it: B.
+    expect(shopsOf(kam_dukaan)).toEqual(['B']);
+  });
+
+  it('recommend compares comparable prices, so a missing price is not a saving', () => {
+    const sasta = { shopIds: ['a', 'b'], totalPricePaise: 1000, comparablePricePaise: 1500 };
+    const kam = { shopIds: ['a'], totalPricePaise: 1200, comparablePricePaise: 1300 };
+    // By totals kam looks ₹2 dearer; by comparable prices it is cheaper: not "too dear" either way,
+    // but the extra shown is the comparable one.
+    expect(recommend(sasta, kam, { maxExtraPaise: 3000 }).extraPaise).toBe(-200);
+    const dear = { shopIds: ['a'], totalPricePaise: 900, comparablePricePaise: 9000 };
+    expect(recommend(sasta, dear, { maxExtraPaise: 3000 }).recommended).toBe('sasta');
+    expect(recommend(sasta, dear, { maxExtraPaise: 3000 }).reason).toBe('fewer_stops_too_dear');
+  });
+});

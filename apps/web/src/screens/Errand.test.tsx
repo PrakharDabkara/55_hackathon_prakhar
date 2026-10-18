@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { PlanItem } from '../lib/seekerApi.js';
-import { errandPlan, errandView, FakeEventSource, fakeSeekerApi } from '../test/fakes.js';
+import { errandPlan, errandView, FakeEventSource, fakeSeekerApi, planItem } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
 
@@ -662,6 +662,119 @@ describe('the result', () => {
         await screen.findAllByRole('button', { name: 'Dukaan ki photo: bada karein' }),
       ).toHaveLength(1);
       expect(api.photoSrc).toHaveBeenCalledWith('shop-photo-7');
+    });
+
+    describe('delivery and unknown prices on the plan (ADR-0031)', () => {
+      const delivering = (over: Partial<PlanItem> = {}): PlanItem =>
+        ({
+          ...planItem({ text: 'chai patti', itemName: 'tea leaves', pricePaise: 9900 }),
+          delivery: { feePaise: 3000, minutes: 45 },
+          mode: 'pickup',
+          ...over,
+        }) as PlanItem;
+      const planWith = (items: PlanItem[], extra: Record<string, unknown> = {}) => {
+        const plan = errandPlan();
+        for (const k of ['kam_dukaan', 'sasta'] as const) {
+          plan.plans[k] = { ...plan.plans[k], items, ...extra } as typeof plan.plans.sasta;
+        }
+        return plan;
+      };
+
+      it('shows the delivery chip and a pickup / delivery choice on a shop that delivers', async () => {
+        await showPlain(planWith([delivering()]));
+        expect(screen.getByText('Ghar bhej denge · ₹30 · 45 min')).toBeTruthy();
+        const pickup = screen.getByRole('button', { name: 'Khud lene jaunga' });
+        expect(pickup.getAttribute('aria-pressed')).toBe('true');
+        expect(
+          screen.getByRole('button', { name: 'Ghar mangwao' }).getAttribute('aria-pressed'),
+        ).toBe('false');
+      });
+
+      it('shows no choice for a shop that does not deliver', async () => {
+        await showPlain(planWith([planItem({ text: 'chini', itemName: 'sugar' })]));
+        expect(screen.queryByRole('button', { name: 'Ghar mangwao' })).toBeNull();
+      });
+
+      it('tapping "Ghar mangwao" asks the server to switch that shop and shows the new plan', async () => {
+        const plan = planWith([delivering()]);
+        const after = planWith([delivering({ mode: 'delivery' })], {
+          deliveryFeePaise: 3000,
+          deliveryShopCount: 1,
+          grandTotalPaise: 18000,
+        });
+        const getErrand = vi
+          .fn()
+          .mockResolvedValueOnce(ready(plan))
+          .mockResolvedValue(ready(after));
+        const setDeliveryMode = vi.fn(async () => ready(after));
+        const { user } = setup({ getErrand, setDeliveryMode });
+        await start(user);
+        await screen.findByRole('region', { name: 'Plan taiyaar' });
+        await user.click(screen.getByRole('button', { name: 'Ghar mangwao' }));
+        expect(setDeliveryMode).toHaveBeenCalledWith('errand-1', 's1', 'delivery');
+        expect(await screen.findByText('Delivery ka daam')).toBeTruthy();
+        expect(screen.getByText('₹180')).toBeTruthy();
+      });
+
+      it('shows the delivery fee and the grand total only when delivery is chosen', async () => {
+        await showPlain(planWith([delivering()]));
+        expect(screen.queryByText('Delivery ka daam')).toBeNull();
+      });
+
+      it('says what is not known instead of hiding it: "+ 1 cheez ka daam pata nahi"', async () => {
+        await showPlain(
+          planWith(
+            [
+              planItem({ text: 'chai patti', itemName: 'tea leaves', pricePaise: 9900 }),
+              planItem({ text: 'chini', itemName: 'sugar', pricePaise: null }),
+            ],
+            { unknownPriceCount: 1, totalPricePaise: 9900 },
+          ),
+        );
+        expect(screen.getByText('+ 1 cheez ka daam pata nahi')).toBeTruthy();
+      });
+
+      it('says when a delivery fee is not known: "+ 1 dukaan ka delivery daam pata nahi"', async () => {
+        const plan = planWith(
+          [delivering({ delivery: { feePaise: null, minutes: null }, mode: 'delivery' })],
+          {
+            deliveryShopCount: 1,
+            unknownFeeCount: 1,
+            deliveryFeePaise: 0,
+            grandTotalPaise: 15000,
+          },
+        );
+        await showPlain(plan);
+        expect(screen.getByText('+ 1 dukaan ka delivery daam pata nahi')).toBeTruthy();
+      });
+
+      it('shows what a shop has: "5 piece hai", "Sirf 1 piece hai" and a remembered quantity', async () => {
+        await showPlain(
+          planWith([
+            planItem({
+              text: 'a',
+              itemName: 'a',
+              offeredQuantity: { amount: 5, unit: 'piece' },
+            }) as PlanItem,
+            planItem({
+              text: 'b',
+              itemName: 'b',
+              offeredQuantity: { amount: 1, unit: 'piece' },
+              quantityCheck: 'short',
+            }) as PlanItem,
+            planItem({
+              text: 'c',
+              itemName: 'c',
+              status: 'likely',
+              offeredQuantity: { amount: 5, unit: 'kg' },
+            }) as PlanItem,
+          ]),
+        );
+        expect(screen.getByText('5 piece hai')).toBeTruthy();
+        expect(screen.getByText('Sirf 1 piece hai')).toBeTruthy();
+        expect(screen.getByText('Kam hai (not enough)')).toBeTruthy();
+        expect(screen.getByText('Pichhli baar: 5 kg')).toBeTruthy();
+      });
     });
 
     it('some found, some not: found items first, the others together under "Nahi mila"', async () => {

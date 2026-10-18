@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/index.js';
-import { ApiError, type AnswerBody, type ShopApi, type ShopPing } from '../lib/api.js';
+import { ApiError, type AnswerBody, type MyShop, type ShopApi, type ShopPing } from '../lib/api.js';
 import { canGoLive, connectLive, type LiveOptions } from '../lib/live.js';
 import { PingCard } from './PingCard.js';
+import { ShopBar } from './ShopBar.js';
 
 interface Props {
   api: ShopApi;
@@ -20,7 +21,21 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
   const [sendFailed, setSendFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [isLive, setIsLive] = useState(false);
+  const [shop, setShop] = useState<MyShop | null>(null);
   const alive = useRef(true);
+
+  // The shop's own record: the open switch and the standing delivery offer. Without it the screen
+  // simply has no bar; a question never waits for it.
+  useEffect(() => {
+    let live = true;
+    api.getMyShop().then(
+      (mine) => live && setShop(mine),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [api]);
 
   const refresh = useCallback(async () => {
     try {
@@ -83,6 +98,7 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
   return (
     <section aria-live="polite">
       {isLive && <span className="live-dot" role="img" aria-label={t.live} title={t.live} />}
+      {shop && <ShopBar api={api} shop={shop} onChange={setShop} />}
       {offline && (
         <p role="status" className="status">
           {t.errOffline}
@@ -99,6 +115,7 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
         <PingCard
           key={current.id}
           photos={api}
+          {...(shop && { defaults: shop })}
           ping={current}
           busy={busy}
           onAnswer={(body) => void answer(body)}

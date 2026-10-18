@@ -2,7 +2,7 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
-import { FakeEventSource, fakeApi, ping } from '../test/fakes.js';
+import { FakeEventSource, fakeApi, ping, shop } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { PingHome } from './PingHome.js';
 
@@ -208,5 +208,50 @@ describe('PingHome', () => {
       await screen.findByText(/Abhi koi sawaal nahi/);
       expect(screen.queryByRole('img', { name: 'Live' })).toBeNull();
     });
+  });
+});
+
+describe('PingHome: the open / closed switch and the standing delivery offer (ADR-0031)', () => {
+  it('shows "Dukaan khuli hai" and closes the shop for the day with one tap', async () => {
+    const api = fakeApi();
+    const { user } = renderApp(<PingHome api={api} />);
+    const toggle = await screen.findByRole('switch', { name: 'Dukaan khuli hai' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    await user.click(toggle);
+    expect(api.setShopOpen).toHaveBeenCalledWith(false);
+    expect(await screen.findByRole('switch', { name: 'Dukaan aaj band hai' })).toBeTruthy();
+    await user.click(screen.getByRole('switch', { name: 'Dukaan aaj band hai' }));
+    expect(api.setShopOpen).toHaveBeenLastCalledWith(true);
+    expect(await screen.findByRole('switch', { name: 'Dukaan khuli hai' })).toBeTruthy();
+  });
+
+  it('starts closed when the shop is closed', async () => {
+    const api = fakeApi({ getMyShop: vi.fn(async () => shop({ open: false })) });
+    renderApp(<PingHome api={api} />);
+    expect(await screen.findByRole('switch', { name: 'Dukaan aaj band hai' })).toBeTruthy();
+  });
+
+  it('keeps the shop open on screen if closing fails', async () => {
+    const api = fakeApi({ setShopOpen: vi.fn().mockRejectedValue(new Error('x')) });
+    const { user } = renderApp(<PingHome api={api} />);
+    await user.click(await screen.findByRole('switch', { name: 'Dukaan khuli hai' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/nahi ho paya|dobara/i);
+    expect(screen.getByRole('switch', { name: 'Dukaan khuli hai' })).toBeTruthy();
+  });
+
+  it('lets the shop set its standing delivery offer under "Delivery ki settings"', async () => {
+    const api = fakeApi();
+    const { user } = renderApp(<PingHome api={api} />);
+    await user.click(await screen.findByText('Delivery ki settings'));
+    await user.click(screen.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }));
+    await user.type(screen.getByLabelText('Delivery ka daam (₹)'), '25');
+    await user.type(screen.getByLabelText('Kitne minute mein?'), '40');
+    await user.click(screen.getByRole('button', { name: 'Save karein' }));
+    await waitFor(() =>
+      expect(api.updateDelivery).toHaveBeenCalledWith({ feePaise: 2500, minutes: 40 }),
+    );
+    await user.click(screen.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }));
+    await user.click(screen.getByRole('button', { name: 'Save karein' }));
+    await waitFor(() => expect(api.updateDelivery).toHaveBeenLastCalledWith(null));
   });
 });

@@ -5,6 +5,7 @@ import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import {
   answerErrand,
   cancelErrand,
+  chooseDeliveryMode,
   createErrand,
   getErrand,
   type ErrandsContext,
@@ -36,6 +37,21 @@ export function errandsRouter(deps: ErrandsContext): Router {
       { ...deps, logger: req.log ?? deps.logger },
       authOf(req).user.id,
       String(req.params['id']),
+    );
+    if (!view) throw new ApiError(404, 'not_found', 'No such errand');
+    res.json(view);
+  });
+
+  // Owner only: pickup or delivery for one shop of the finished plan (ADR-0031).
+  const modeBody = z.object({ shopId: z.uuid(), mode: z.enum(['pickup', 'delivery']) });
+  router.post('/errands/:id/modes', requireAuth, requireRole('seeker'), async (req, res) => {
+    const { shopId, mode } = parse(modeBody, req.body);
+    const view = await chooseDeliveryMode(
+      { ...deps, logger: req.log ?? deps.logger },
+      authOf(req).user.id,
+      String(req.params['id']),
+      shopId,
+      mode,
     );
     if (!view) throw new ApiError(404, 'not_found', 'No such errand');
     res.json(view);

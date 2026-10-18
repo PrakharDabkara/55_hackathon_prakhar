@@ -31,3 +31,8 @@ Day 12 and 13 let the model pick a shop for each item and the server only checke
 - An item with a stale or unpriced answer can lose to a cheaper likely offer only when no shop confirmed it; `confirmed` always wins.
 - The prompt no longer tells the model to compare prices (it said "prefer the cheaper shop"); the eval gate covers the resolve pipeline, not this.
 - ERRAND_FEWER_STOPS_MAX_EXTRA_PAISE is the one knob; the 10 % is a constant in `optimiser.ts`.
+
+## Amendment 2026-10-18 (Day 16): unknown prices, delivery fees and per-shop modes (ADR-0031)
+
+- **An offer with no price is never ₹0.** The plan counts it (`unknownPriceCount`), leaves it out of `totalPricePaise`, and ranks it at an estimate: the median price any shop quoted for that item (this errand's yes answers and learned stock), else the item's typical price, else nothing. `comparablePricePaise` is the total with those estimates and is what plans are compared with; `recommend` uses it, so a missing price is neither a saving nor a cost.
+- **Delivery.** An offer may carry the shop's delivery (fee, time). The optimiser still plans for pickup; the customer's pickup or delivery choice per shop is applied afterwards by the pure `applyModes`: one fee per shop (the largest if answers differ), a shop on delivery leaves the route (its distance counts as 0, the route is planned again over the rest, `shopCount` is the pickup stops left), an unnamed fee is counted (`unknownFeeCount`) and ranked with a typical ₹30, never added as 0. With a delivery chosen, the recommendation is worked out again over the grand totals with the default extra-cost limit.

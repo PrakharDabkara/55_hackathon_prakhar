@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db/queryable.js';
 import { formConflict, termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
+import { compareQuantity, type ExactQuantity } from '@kahanmilega/shared';
 import { refusalKey, type Refused } from './executor.js';
 import { isExpectedMatch } from './matchedAs.js';
 import {
@@ -45,6 +46,12 @@ export interface PlanItem {
   referencePricePaise: number | null;
   /** The shop's photo of the item with its yes, to show on the card (GET /photos/:id). */
   photoId: string | null;
+  /** The delivery the shop offered ("Ghar bhej denge"), with its yes or last time. */
+  delivery: { feePaise: number | null; minutes: number | null } | null;
+  /** The exact quantity the shop said (a yes) or last said (learned stock: remembered, never a promise). */
+  offeredQuantity: ExactQuantity | null;
+  /** Enough for what the customer asked? Only when both are in units that compare (ADR-0031). */
+  quantityCheck: 'enough' | 'short' | 'unknown' | null;
   /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Pichhla jawab: kal" for learned stock. */
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
@@ -70,6 +77,10 @@ export interface PlanVariant {
   route: PlanRoute | null;
   /** Sum of price × quantity over the confirmed and likely items that have a recorded price. */
   totalPricePaise: number;
+  /** Items whose shop gave no price: counted here, left out of the total, never ₹0 (ADR-0031). */
+  unknownPriceCount: number;
+  /** The total plus a fair estimate for each unknown price: for ranking, never shown as a price. */
+  comparablePricePaise: number;
   /** The length of the route in metres. */
   totalDistanceM: number;
   shopCount: number;
@@ -91,6 +102,21 @@ export interface Plan {
   plans: Record<PlanKind, PlanVariant>;
   recommended: PlanKind;
   recommendation: Omit<Recommendation, 'recommended'>;
+}
+
+/**
+ * Is what the shop has enough for the number the customer wants? The plan counts things, not
+ * weights, so only a shop that counted in pieces or packets can be compared; a kilo says nothing.
+ */
+function quantityCheckFor(
+  wanted: number,
+  offered: ExactQuantity | null,
+): PlanItem['quantityCheck'] {
+  if (!offered || (offered.unit !== 'piece' && offered.unit !== 'packet')) return null;
+  return compareQuantity(
+    { amount: wanted, unit: offered.unit },
+    { amount: offered.amount, unit: offered.unit },
+  );
 }
 
 /** "Confirmed just now", "Confirmed 2 min ago": how long ago a shop said yes. */
@@ -229,6 +255,8 @@ export async function buildPlan(
         status: 'confirmed',
         freshness: confirmedLabel(said.answeredAt, now),
         photoId: said.photoId,
+        delivery: said.delivery,
+        offeredQuantity: said.quantity,
       });
     for (const stock of await findLearnedStock(db, itemId, where.lat, where.lng, CHECK_RADIUS_M))
       offers.push({
@@ -241,6 +269,8 @@ export async function buildPlan(
         pricePaise: stock.pricePaise,
         status: 'likely',
         freshness: previousAnswerLabel(stock.lastConfirmedAt, now),
+        delivery: stock.delivery,
+        offeredQuantity: stock.quantity,
       });
   }
 
@@ -273,6 +303,9 @@ export async function buildPlan(
         matchedAs: false,
         isNew: known?.unverified ?? false,
         refused: refused.get(refusalKey(claim.text)) ?? null,
+        delivery: null,
+        offeredQuantity: null,
+        quantityCheck: null,
       };
       const offer = bought.get(String(index));
       if (offer) {
@@ -284,6 +317,9 @@ export async function buildPlan(
           distanceM: offer.distanceM,
           pricePaise: offer.pricePaise,
           photoId: offer.status === 'confirmed' ? (offer.photoId ?? null) : null,
+          delivery: offer.delivery ?? null,
+          offeredQuantity: offer.offeredQuantity ?? null,
+          quantityCheck: quantityCheckFor(claim.quantity ?? 1, offer.offeredQuantity ?? null),
           freshness: offer.freshness,
           downgraded:
             claim.status === 'confirmed' && offer.status === 'likely' ? 'not_confirmed' : null,
@@ -304,6 +340,8 @@ export async function buildPlan(
       items: planned,
       route: plan.route,
       totalPricePaise: plan.totalPricePaise,
+      unknownPriceCount: plan.unknownPriceKeys.length,
+      comparablePricePaise: plan.comparablePricePaise,
       totalDistanceM: plan.totalDistanceM,
       shopCount: plan.shopIds.length,
       savingsPaise: plan.savingsPaise,

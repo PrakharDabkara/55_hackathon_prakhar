@@ -1,3 +1,4 @@
+import type { QuantityUnit } from '@kahanmilega/shared';
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 
@@ -17,6 +18,12 @@ export interface ShopResult {
   savingsPaise?: number;
   /** The shop's photo of the item, if it added one with its yes. */
   photoId?: string;
+  /** What the shop has: said now (live) or last time (learned: remembered, never a promise). */
+  quantity?: { amount: number; unit: QuantityUnit };
+  /** Is it enough for what the customer typed? Live answers only. */
+  quantityCheck?: 'enough' | 'short' | 'unknown';
+  /** "Ghar bhej denge": a fee (0 is free, null not told) and a time. */
+  delivery?: { feePaise: number | null; minutes: number | null };
 }
 
 export interface PingStats {
@@ -86,6 +93,12 @@ export interface PlanItem {
   freshness: string | null;
   /** The shop's photo of the item with its yes (GET /photos/:id). */
   photoId?: string | null;
+  /** The delivery the shop offered, with its yes or last time. */
+  delivery?: { feePaise: number | null; minutes: number | null } | null;
+  offeredQuantity?: { amount: number; unit: QuantityUnit } | null;
+  quantityCheck?: 'enough' | 'short' | 'unknown' | null;
+  /** The customer's choice for this item's shop. */
+  mode?: 'pickup' | 'delivery';
   downgraded: string | null;
   /** True when the item is not what the customer's words would lead them to expect. */
   matchedAs: boolean;
@@ -109,6 +122,15 @@ export interface PlanVariant {
   totalDistanceM: number;
   shopCount: number;
   savingsPaise: number;
+  /** Items whose shop gave no price: left out of the total, never ₹0. */
+  unknownPriceCount?: number;
+  /** Fees of the shops the customer chose delivery from (once per shop). */
+  deliveryFeePaise?: number;
+  /** Shops that deliver without saying what it costs. */
+  unknownFeeCount?: number;
+  deliveryShopCount?: number;
+  /** Items plus the known fees: what the customer will pay. */
+  grandTotalPaise?: number;
 }
 
 export interface ErrandPlan {
@@ -118,6 +140,8 @@ export interface ErrandPlan {
   savingsPaise: number;
   plans: Record<PlanKind, PlanVariant>;
   recommended: PlanKind;
+  /** The customer's pickup or delivery choice per shop (a shop not listed is pickup). */
+  modes?: Record<string, 'pickup' | 'delivery'>;
   recommendation: {
     extraPaise: number;
     stopsSaved: number;
@@ -175,6 +199,8 @@ export interface SeekerApi
   getErrand(id: string): Promise<ErrandView>;
   answerErrand(id: string, answer: ErrandAnswer): Promise<ErrandView>;
   cancelErrand(id: string): Promise<ErrandView>;
+  /** Pickup or delivery for one shop of the finished plan. */
+  setDeliveryMode(id: string, shopId: string, mode: 'pickup' | 'delivery'): Promise<ErrandView>;
 }
 
 /** A key that is new for each search, so a double tap cannot start two requests. */
@@ -223,5 +249,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     answerErrand: (errandId, answer) =>
       call<ErrandView>('POST', `/errands/${id(errandId)}/answer`, answer),
     cancelErrand: (errandId) => call<ErrandView>('POST', `/errands/${id(errandId)}/cancel`),
+    setDeliveryMode: (errandId, shopId, mode) =>
+      call<ErrandView>('POST', `/errands/${id(errandId)}/modes`, { shopId, mode }),
   };
 }

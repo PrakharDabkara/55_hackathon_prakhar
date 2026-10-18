@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
+import { OfferLines } from '../components/OfferLines.js';
 import { ResultsMap } from '../components/ResultsMap.js';
 import { useT } from '../i18n/index.js';
 import { formatCountdown, formatDistance } from '../lib/format.js';
@@ -141,6 +142,12 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                 )}
                 <p className="meta">{t.away(formatDistance(r.distanceM))}</p>
                 <p className="meta">{r.freshness}</p>
+                <OfferLines
+                  quantity={r.quantity}
+                  check={r.quantityCheck}
+                  remembered={r.source === 'learned'}
+                  delivery={r.delivery}
+                />
                 {r.quantityHint && (
                   <p className="meta">{r.quantityHint === 'few' ? t.few : t.plenty}</p>
                 )}

@@ -21,6 +21,10 @@ export const ping = (overrides: Partial<ShopPing> = {}): ShopPing => ({
 });
 
 export const shop = (overrides: Partial<MyShop> = {}): MyShop => ({
+  open: true,
+  deliversDefault: false,
+  defaultFeePaise: null,
+  defaultMinutes: null,
   id: 'shop-1',
   name: 'Sharma Kirana',
   lat: 22.7196,
@@ -46,6 +50,14 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     createShop: vi.fn(async (input) => shop({ ...input })),
     listPings: vi.fn(async () => []),
     answerPing: vi.fn(async () => undefined),
+    setShopOpen: vi.fn(async (open: boolean) => shop({ open })),
+    updateDelivery: vi.fn(async (delivery) =>
+      shop({
+        deliversDefault: delivery !== null,
+        defaultFeePaise: delivery?.feePaise ?? null,
+        defaultMinutes: delivery?.minutes ?? null,
+      }),
+    ),
     eventTicket: vi.fn(async () => 'ticket-1'),
     ...fakePhotos(),
     ...overrides,
@@ -139,6 +151,7 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     getErrand: vi.fn(async () => errandView()),
     answerErrand: vi.fn(async () => errandView()),
     cancelErrand: vi.fn(async () => errandView({ state: 'CANCELLED' })),
+    setDeliveryMode: vi.fn(async () => errandView()),
     ...fakePhotos(),
     ...overrides,
   };

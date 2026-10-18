@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Queryable } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
-import { createShop, findShopByOwner, updateShopByOwner } from './service.js';
+import { createShop, findShopByOwner, setShopOpen, updateShopByOwner } from './service.js';
 
 const name = z.string().trim().min(1).max(80);
 const lat = z.number().min(-90).max(90);
@@ -18,7 +18,21 @@ const categories = z
 /** A shop that picks no category is a kirana (ADR-0028). */
 const DEFAULT_CATEGORIES: Category[] = ['grocery'];
 
-const createBody = z.object({ name, lat, lng, categories: categories.optional() });
+/** A standing delivery offer: a fee and a time, either may be left out. */
+const delivery = z
+  .object({
+    feePaise: z.number().int().min(0).max(1_000_000).optional(),
+    minutes: z.number().int().min(1).max(1440).optional(),
+  })
+  .strict();
+
+const createBody = z.object({
+  name,
+  lat,
+  lng,
+  categories: categories.optional(),
+  delivery: delivery.optional(),
+});
 
 const patchBody = z
   .object({
@@ -26,6 +40,7 @@ const patchBody = z
     lat: lat.optional(),
     lng: lng.optional(),
     categories: categories.optional(),
+    delivery: delivery.nullable().optional(),
   })
   .refine((b) => (b.lat === undefined) === (b.lng === undefined), 'lat and lng go together')
   .refine((b) => Object.values(b).some((v) => v !== undefined), 'nothing to update');
@@ -51,12 +66,22 @@ export function shopsRouter({ db }: { db: Queryable }): Router {
   });
 
   router.patch('/shops/me', ...shopOnly, async (req, res) => {
-    const { name, lat, lng, categories } = parse(patchBody, req.body);
+    const { name, lat, lng, categories, delivery } = parse(patchBody, req.body);
     const shop = await updateShopByOwner(db, authOf(req).user.id, {
       ...(name !== undefined && { name }),
       ...(categories !== undefined && { categories }),
+      ...(delivery !== undefined && { delivery }),
       ...(lat !== undefined && lng !== undefined && { location: { lat, lng } }),
     });
+    if (!shop) throw new ApiError(404, 'not_found', 'You have not created a shop yet');
+    res.json(shop);
+  });
+
+  // "Dukaan aaj band hai": closed shops get no pings and are left out of learned stock until the
+  // end of the day, or until the owner opens again (ADR-0031).
+  router.put('/shops/me/open', ...shopOnly, async (req, res) => {
+    const { open } = parse(z.object({ open: z.boolean() }), req.body);
+    const shop = await setShopOpen(db, authOf(req).user.id, open);
     if (!shop) throw new ApiError(404, 'not_found', 'You have not created a shop yet');
     res.json(shop);
   });

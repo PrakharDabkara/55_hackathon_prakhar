@@ -1,4 +1,10 @@
-import { freshnessLabel, type LearnedStockResult, type QuantityHint } from '../shops/index.js';
+import { compareQuantity, type ExactQuantity } from '@kahanmilega/shared';
+import {
+  freshnessLabel,
+  type DeliveryOffer,
+  type LearnedStockResult,
+  type QuantityHint,
+} from '../shops/index.js';
 
 export type SortKey = 'distance' | 'price';
 
@@ -14,6 +20,8 @@ export interface LiveAnswer {
   answeredAt: Date;
   /** The shop's photo of the item with its yes, if it added one. */
   photoId?: string | null;
+  quantity?: ExactQuantity | null;
+  delivery?: DeliveryOffer | null;
 }
 
 export interface RequestResult {
@@ -32,6 +40,12 @@ export interface RequestResult {
   savingsPaise?: number;
   /** The shop's photo of the item (live answers only). */
   photoId?: string;
+  /** The exact quantity the shop said (live), or last said (learned: remembered, never a promise). */
+  quantity?: ExactQuantity;
+  /** Is it enough for what the customer typed ("2 kg")? Live answers only. */
+  quantityCheck?: 'enough' | 'short' | 'unknown';
+  /** "Ghar bhej denge": what the shop offered, with its yes or last time. */
+  delivery?: DeliveryOffer;
 }
 
 export function liveLabel(answeredAt: Date, now: Date): string {
@@ -49,6 +63,8 @@ interface Input {
   /** Default: price when a target price is set, else distance. */
   sort: SortKey | undefined;
   now: Date;
+  /** What the customer typed ("2 kg"), to check a shop's exact quantity against. */
+  askedQuantity?: ExactQuantity | null;
 }
 
 /** Live answers plus learned stock, one row per shop (live wins), sorted, with savings. */
@@ -58,10 +74,17 @@ export function buildResults({
   targetPricePaise,
   sort,
   now,
+  askedQuantity = null,
 }: Input): RequestResult[] {
   const rows = new Map<string, RequestResult>();
 
-  for (const l of learned) rows.set(l.shopId, { ...l, source: 'learned' });
+  for (const { quantity, delivery, ...l } of learned)
+    rows.set(l.shopId, {
+      ...l,
+      source: 'learned',
+      ...(quantity && { quantity }),
+      ...(delivery && { delivery }),
+    });
   for (const a of live) {
     rows.set(a.shopId, {
       shopId: a.shopId,
@@ -75,6 +98,11 @@ export function buildResults({
       freshness: liveLabel(a.answeredAt, now),
       source: 'live',
       ...(a.photoId && { photoId: a.photoId }),
+      ...(a.quantity && {
+        quantity: a.quantity,
+        ...(askedQuantity && { quantityCheck: compareQuantity(askedQuantity, a.quantity) }),
+      }),
+      ...(a.delivery && { delivery: a.delivery }),
     });
   }
 

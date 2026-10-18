@@ -1,4 +1,5 @@
 import type { Queryable } from '../../db/queryable.js';
+import type { ExactQuantity } from '@kahanmilega/shared';
 import {
   freshnessLabel,
   rankResults,
@@ -14,6 +15,11 @@ interface Row {
   lng: number;
   price_paise: number | null;
   quantity_hint: QuantityHint | null;
+  qty_amount: number | null;
+  qty_unit: ExactQuantity['unit'] | null;
+  delivers: boolean;
+  delivery_fee_paise: number | null;
+  delivery_minutes: number | null;
   last_confirmed_at: Date;
 }
 
@@ -34,11 +40,15 @@ export async function findLearnedStock(
     `WITH origin AS (SELECT ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography AS point)
      SELECT s.id AS shop_id, s.name, ST_Distance(s.location, origin.point) AS distance_m,
             ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
-            st.price_paise, st.quantity_hint, st.last_confirmed_at
+            st.price_paise, st.quantity_hint, st.last_confirmed_at,
+            st.qty_amount::float8 AS qty_amount, st.qty_unit, st.delivers,
+            st.delivery_fee_paise, st.delivery_minutes
        FROM shop_stock st
        JOIN shops s ON s.id = st.shop_id, origin
       WHERE st.item_id = $1
         AND st.expires_at > $5
+        -- a shop that closed for the day is not a place to go until it opens again
+        AND (s.closed_until IS NULL OR s.closed_until <= $5)
         AND ST_DWithin(s.location, origin.point, $4)`,
     [itemId, lng, lat, radiusM, now],
   );
@@ -51,6 +61,11 @@ export async function findLearnedStock(
       lng: r.lng,
       pricePaise: r.price_paise,
       quantityHint: r.quantity_hint,
+      quantity:
+        r.qty_amount !== null && r.qty_unit !== null
+          ? { amount: r.qty_amount, unit: r.qty_unit }
+          : null,
+      delivery: r.delivers ? { feePaise: r.delivery_fee_paise, minutes: r.delivery_minutes } : null,
       lastConfirmedAt: r.last_confirmed_at,
       freshness: freshnessLabel(r.last_confirmed_at, now),
     })),

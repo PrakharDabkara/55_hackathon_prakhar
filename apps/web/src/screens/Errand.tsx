@@ -347,6 +347,7 @@ function ErrandRun({ api, id, pollMs, live, onRestart, onNew }: RunProps) {
           <ErrandResult
             plan={view.plan}
             photos={api}
+            onMode={(shopId, mode) => void act(() => api.setDeliveryMode(id, shopId, mode))}
             origin={origin}
             busy={busy}
             onAskAgain={() => void again()}

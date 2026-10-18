@@ -1,3 +1,4 @@
+import type { ExactQuantity } from '@kahanmilega/shared';
 import { planRoute, type Point, type RoutePlan } from '../routing/index.js';
 
 /**
@@ -22,6 +23,10 @@ export interface Offer {
   freshness: string | null;
   /** The shop's photo of the item, for a confirmed offer. */
   photoId?: string | null;
+  /** What the shop said about delivery with its yes (ADR-0031): null when it did not offer it. */
+  delivery?: { feePaise: number | null; minutes: number | null } | null;
+  /** The exact quantity the shop said it has, if it said one. */
+  offeredQuantity?: ExactQuantity | null;
 }
 
 /** One thing the customer wants. `key` tells two entries apart (the same item may appear twice). */
@@ -45,8 +50,16 @@ export interface OptimisedPlan {
   /** The shops to visit, in route order. */
   shopIds: string[];
   route: { orderedStops: RoutePlan['orderedStops']; legsM: number[]; totalM: number } | null;
-  /** Sum of price × quantity over the assignments that have a price. */
+  /** Sum of price × quantity over the assignments that have a price. Unknown prices are not in it. */
   totalPricePaise: number;
+  /** Keys of the assignments whose shop gave no price: counted, never treated as ₹0. */
+  unknownPriceKeys: string[];
+  /**
+   * `totalPricePaise` plus a fair estimate for each unknown price (the median other shops quoted
+   * for that item, else the item's typical price, else nothing). Used to compare plans, never shown
+   * as a price.
+   */
+  comparablePricePaise: number;
   /** The length of the route in metres (0 without one). */
   totalDistanceM: number;
   /** Sum of (reference − price) × quantity where both are known; negative if dearer. */
@@ -85,11 +98,37 @@ export function usableOffers(offers: Offer[]): Offer[] {
 type Candidates = Map<string, Offer[]>;
 type Chosen = Map<string, Offer>;
 
-const priceOf = (chosen: Chosen, quantity: Map<string, number>): number => {
+/** What an item with no quoted price is ranked at, per key (see `estimates`). */
+type Estimates = Map<string, number>;
+
+const priceOf = (chosen: Chosen, quantity: Map<string, number>, estimate: Estimates): number => {
   let total = 0;
-  for (const [key, o] of chosen) total += (o.pricePaise ?? 0) * (quantity.get(key) ?? 1);
+  for (const [key, o] of chosen)
+    total += (o.pricePaise ?? estimate.get(key) ?? 0) * (quantity.get(key) ?? 1);
   return total;
 };
+
+/** The middle of a list of prices (the lower middle for an even count). */
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor((sorted.length - 1) / 2)] as number;
+}
+
+/**
+ * A fair price for an item whose chosen offer has none: the median of what any shop quoted for it
+ * (this errand's yes answers and learned stock alike), else its typical price, else none.
+ */
+function estimatesFor(wanted: Wanted[], offers: Offer[]): Estimates {
+  const out: Estimates = new Map();
+  for (const w of wanted) {
+    const quoted = offers
+      .filter((o) => o.itemId === w.itemId && o.pricePaise !== null)
+      .map((o) => o.pricePaise as number);
+    const guess = quoted.length > 0 ? median(quoted) : w.referencePricePaise;
+    if (guess !== null) out.set(w.key, guess);
+  }
+  return out;
+}
 
 const usedShops = (chosen: Chosen): string[] => [
   ...new Set([...chosen.values()].map((o) => o.shopId)),
@@ -118,6 +157,7 @@ function fewestShops(
   keys: string[],
   candidates: Candidates,
   quantity: Map<string, number>,
+  estimate: Estimates,
 ): Chosen {
   const sortedKeys = [...keys].sort();
   const shopsFor = new Map<string, string[]>(
@@ -144,8 +184,8 @@ function fewestShops(
     const ka = usedShops(a).length;
     const kb = usedShops(b).length;
     if (ka !== kb) return ka < kb;
-    const pa = priceOf(a, quantity);
-    const pb = priceOf(b, quantity);
+    const pa = priceOf(a, quantity, estimate);
+    const pb = priceOf(b, quantity, estimate);
     if (pa !== pb) return pa < pb;
     const da = distanceOf(a);
     const db = distanceOf(b);
@@ -199,6 +239,7 @@ function finish(
   wanted: Wanted[],
   chosen: Chosen,
   missing: string[],
+  estimate: Estimates,
 ): OptimisedPlan {
   const { kept, dropped } = capStops(chosen);
   const byKey = new Map(wanted.map((w) => [w.key, w]));
@@ -226,11 +267,19 @@ function finish(
   }
 
   let totalPricePaise = 0;
+  let comparablePricePaise = 0;
   let savingsPaise = 0;
+  const unknownPriceKeys: string[] = [];
   for (const a of assignments) {
     const w = byKey.get(a.key) as Wanted;
-    if (a.pricePaise === null) continue;
+    if (a.pricePaise === null) {
+      // Not ₹0: left out of the total, counted, and ranked at an estimate.
+      unknownPriceKeys.push(a.key);
+      comparablePricePaise += (estimate.get(a.key) ?? 0) * w.quantity;
+      continue;
+    }
     totalPricePaise += a.pricePaise * w.quantity;
+    comparablePricePaise += a.pricePaise * w.quantity;
     if (w.referencePricePaise !== null)
       savingsPaise += (w.referencePricePaise - a.pricePaise) * w.quantity;
   }
@@ -242,6 +291,8 @@ function finish(
     shopIds: route ? route.orderedStops.map((s) => s.shopId) : [],
     route,
     totalPricePaise,
+    unknownPriceKeys,
+    comparablePricePaise,
     totalDistanceM: route?.totalM ?? 0,
     savingsPaise,
   };
@@ -268,6 +319,7 @@ export function optimise(
     else all.set(w.key, usable);
   }
   const keys = [...all.keys()];
+  const estimate = estimatesFor(wanted, offers);
 
   const cheapest: Candidates = new Map();
   for (const [key, list] of all) {
@@ -278,13 +330,21 @@ export function optimise(
     );
   }
   return {
-    sasta: finish('sasta', start, wanted, fewestShops(start, keys, cheapest, quantity), missing),
+    sasta: finish(
+      'sasta',
+      start,
+      wanted,
+      fewestShops(start, keys, cheapest, quantity, estimate),
+      missing,
+      estimate,
+    ),
     kam_dukaan: finish(
       'kam_dukaan',
       start,
       wanted,
-      fewestShops(start, keys, all, quantity),
+      fewestShops(start, keys, all, quantity, estimate),
       missing,
+      estimate,
     ),
   };
 }
@@ -298,6 +358,13 @@ export interface Recommendation {
   reason: 'no_stops_saved' | 'fewer_stops_within_limit' | 'fewer_stops_too_dear';
 }
 
+/** What `recommend` needs of a plan. */
+export interface PlanCost {
+  shopIds: string[];
+  totalPricePaise: number;
+  comparablePricePaise?: number;
+}
+
 /** kam_dukaan may cost this share of the sasta total more and still be recommended. */
 export const FEWER_STOPS_MAX_EXTRA_PERCENT = 10;
 
@@ -306,17 +373,19 @@ export const FEWER_STOPS_MAX_EXTRA_PERCENT = 10;
  * ₹30) or at most 10 % more than sasta; otherwise sasta.
  */
 export function recommend(
-  sasta: Pick<OptimisedPlan, 'shopIds' | 'totalPricePaise'>,
-  kam: Pick<OptimisedPlan, 'shopIds' | 'totalPricePaise'>,
+  sasta: PlanCost,
+  kam: PlanCost,
   limits: { maxExtraPaise: number },
 ): Recommendation {
-  const extraPaise = kam.totalPricePaise - sasta.totalPricePaise;
+  // Comparable prices, so a missing price is neither a saving nor a cost (ADR-0031).
+  const priced = (p: PlanCost) => p.comparablePricePaise ?? p.totalPricePaise;
+  const extraPaise = priced(kam) - priced(sasta);
   const stopsSaved = sasta.shopIds.length - kam.shopIds.length;
   if (stopsSaved <= 0)
     return { recommended: 'sasta', extraPaise, stopsSaved: 0, reason: 'no_stops_saved' };
   const withinLimit =
     extraPaise <= limits.maxExtraPaise ||
-    extraPaise * 100 <= sasta.totalPricePaise * FEWER_STOPS_MAX_EXTRA_PERCENT;
+    extraPaise * 100 <= priced(sasta) * FEWER_STOPS_MAX_EXTRA_PERCENT;
   return withinLimit
     ? { recommended: 'kam_dukaan', extraPaise, stopsSaved, reason: 'fewer_stops_within_limit' }
     : { recommended: 'sasta', extraPaise, stopsSaved, reason: 'fewer_stops_too_dear' };
