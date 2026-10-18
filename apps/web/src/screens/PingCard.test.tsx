@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ping } from '../test/fakes.js';
+import { fakePhotos, ping } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { PingCard } from './PingCard.js';
 
@@ -156,5 +156,55 @@ describe('PingCard', () => {
     expect(screen.queryByText('Haan hai')).toBeNull(); // the Latin line is only for the Hindi screen
     expect(screen.getByText('A customer saw it for ₹60. Do you have it for less?')).toBeTruthy();
     expect(screen.getByText('आटा')).toBeTruthy(); // the item name stays in Hindi
+  });
+});
+
+describe('PingCard photos (optional, both ways)', () => {
+  it("shows the customer's photo on the request card, tap to enlarge", async () => {
+    const photos = fakePhotos();
+    const { user } = renderApp(
+      <PingCard ping={ping({ photoId: 'cust-1' })} photos={photos} onAnswer={vi.fn()} />,
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Customer ki photo: bada karein' }),
+    ).toBeTruthy();
+    expect(photos.photoSrc).toHaveBeenCalledWith('cust-1');
+    await user.click(screen.getByRole('button', { name: 'Customer ki photo: bada karein' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('shows no photo area when the customer added none', () => {
+    renderApp(<PingCard ping={ping()} photos={fakePhotos()} onAnswer={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /Customer ki photo/ })).toBeNull();
+  });
+
+  it('lets the shop attach one photo with its yes, and sends its id', async () => {
+    const onAnswer = vi.fn();
+    const photos = fakePhotos({ uploadPhoto: vi.fn(async () => ({ id: 'shop-9' })) });
+    const { user, container } = renderApp(
+      <PingCard ping={ping()} photos={photos} onAnswer={onAnswer} />,
+    );
+    await user.click(screen.getByRole('button', { name: /Haan hai/ }));
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array(300)], 'a.jpg', { type: 'image/jpeg' }));
+    await screen.findByRole('button', { name: 'Photo hatayein' });
+    expect(photos.uploadPhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ role: 'answer' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes', photoId: 'shop-9' });
+  });
+
+  it('is never needed: Skip and Nahi hai send no photo, and the photo step only follows a yes', async () => {
+    const onAnswer = vi.fn();
+    const { user, container } = renderApp(
+      <PingCard ping={ping()} photos={fakePhotos()} onAnswer={onAnswer} />,
+    );
+    expect(container.querySelector('input[type="file"]')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Haan hai/ }));
+    await user.click(screen.getByRole('button', { name: 'Chhodo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes' });
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
   });
 });

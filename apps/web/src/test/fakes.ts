@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
+import type { PhotoApi } from '../lib/photoApi.js';
 import type {
   ErrandPlan,
   ErrandView,
@@ -28,6 +29,13 @@ export const shop = (overrides: Partial<MyShop> = {}): MyShop => ({
   ...overrides,
 });
 
+/** The photo half of both apps: every call is a spy that succeeds. */
+export const fakePhotos = (overrides: Partial<PhotoApi> = {}): PhotoApi => ({
+  uploadPhoto: vi.fn(async () => ({ id: 'photo-1' })),
+  photoSrc: vi.fn(async () => 'data:image/jpeg;base64,/9j/4AAQ'),
+  ...overrides,
+});
+
 /** A ShopApi where every call is a spy that succeeds; override what a test cares about. */
 export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
   return {
@@ -39,6 +47,7 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     listPings: vi.fn(async () => []),
     answerPing: vi.fn(async () => undefined),
     eventTicket: vi.fn(async () => 'ticket-1'),
+    ...fakePhotos(),
     ...overrides,
   };
 }
@@ -123,6 +132,7 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     getErrand: vi.fn(async () => errandView()),
     answerErrand: vi.fn(async () => errandView()),
     cancelErrand: vi.fn(async () => errandView({ state: 'CANCELLED' })),
+    ...fakePhotos(),
     ...overrides,
   };
 }

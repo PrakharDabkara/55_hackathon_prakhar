@@ -285,3 +285,26 @@ describe('Results', () => {
     expect(screen.getAllByRole('link', { name: 'Directions' })).toHaveLength(3);
   });
 });
+
+describe('Results with a shop photo', () => {
+  it("shows the shop's photo on its card, tap to enlarge, and none for a shop without one", async () => {
+    const api = fakeSeekerApi();
+    const request = seekerRequest({
+      state: 'ANSWERED',
+      pingStats: { sent: 2, yes: 2, no: 0, pending: 0 },
+      results: [
+        result({ shopId: 'a', name: 'Sharma Kirana', photoId: 'shop-photo-1' }),
+        result({ shopId: 'b', name: 'Gupta Stores' }),
+      ],
+    });
+    const { user } = renderApp(
+      <Results api={api} initial={request} origin={origin} onDone={vi.fn()} live={live} />,
+    );
+    const photo = await screen.findByRole('button', { name: 'Dukaan ki photo: bada karein' });
+    expect(within(photo.closest('li') as HTMLElement).getByText('Sharma Kirana')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: /Dukaan ki photo/ })).toHaveLength(1);
+    expect(api.photoSrc).toHaveBeenCalledWith('shop-photo-1');
+    await user.click(photo);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+});

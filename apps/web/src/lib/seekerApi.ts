@@ -14,6 +14,8 @@ export interface ShopResult {
   /** `live`: said yes to this request. `learned`: remembered from an earlier yes. */
   source: 'live' | 'learned';
   savingsPaise?: number;
+  /** The shop's photo of the item, if it added one with its yes. */
+  photoId?: string;
 }
 
 export interface PingStats {

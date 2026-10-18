@@ -210,3 +210,53 @@ describe('Search', () => {
     });
   });
 });
+
+describe('Search with a photo (optional)', () => {
+  const searchWithPhoto = async (api: ReturnType<typeof fakeSeekerApi>, attach: boolean) => {
+    const { user, container } = renderApp(<Search api={api} onFound={vi.fn()} />);
+    await user.type(screen.getByLabelText('क्या चाहिए?'), 'bottle brush');
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    if (attach) {
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      await user.upload(input, new File([new Uint8Array(300)], 'a.jpg', { type: 'image/jpeg' }));
+      await screen.findByRole('button', { name: 'Photo hatayein' });
+    }
+    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+  };
+
+  it('offers "Photo jodein" and sends the photo id with the request', async () => {
+    const api = fakeSeekerApi();
+    await searchWithPhoto(api, true);
+    await waitFor(() =>
+      expect(api.createRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'bottle brush', photoId: 'photo-1' }),
+      ),
+    );
+    expect(api.uploadPhoto).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ role: 'request' }),
+    );
+  });
+
+  it('is never required: without a photo the request has no photoId', async () => {
+    const api = fakeSeekerApi();
+    await searchWithPhoto(api, false);
+    await waitFor(() => expect(api.createRequest).toHaveBeenCalled());
+    expect(api.createRequest).toHaveBeenCalledWith(
+      expect.not.objectContaining({ photoId: expect.anything() }),
+    );
+  });
+
+  it('a failed upload does not block the search', async () => {
+    const api = fakeSeekerApi({ uploadPhoto: vi.fn().mockRejectedValue(new Error('x')) });
+    const { user, container } = renderApp(<Search api={api} onFound={vi.fn()} />);
+    await user.type(screen.getByLabelText('क्या चाहिए?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, new File([new Uint8Array(300)], 'a.jpg', { type: 'image/jpeg' }));
+    await screen.findByRole('alert');
+    expect((screen.getByRole('button', { name: 'Dhoondho' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+});
