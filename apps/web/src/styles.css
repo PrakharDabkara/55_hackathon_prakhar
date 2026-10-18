@@ -864,3 +864,11 @@ details[open] > summary {
   display: grid;
   gap: 0.25rem;
 }
+
+/* Exact quantity, delivery and the open switch (ADR-0031). */
+.shop-bar,
+.delivery-fields,
+.quantity-fields {
+  display: grid;
+  gap: 0.5rem;
+}

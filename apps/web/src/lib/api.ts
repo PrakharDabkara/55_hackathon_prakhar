@@ -25,12 +25,23 @@ export interface ShopPing {
   expiresAt: string;
 }
 
+/** What a shop offers for delivery: a fee and a time, either may be left out (a fee of 0 is free). */
+export interface DeliveryDefaults {
+  feePaise?: number;
+  minutes?: number;
+}
+
 export interface MyShop {
   id: string;
   name: string;
   lat: number;
   lng: number;
   categories: Category[];
+  /** False while the shop is closed for the day. */
+  open: boolean;
+  deliversDefault: boolean;
+  defaultFeePaise: number | null;
+  defaultMinutes: number | null;
 }
 
 export interface NewShop {
@@ -38,6 +49,7 @@ export interface NewShop {
   lat: number;
   lng: number;
   categories: Category[];
+  delivery?: DeliveryDefaults;
 }
 
 export interface AnswerBody {
@@ -46,6 +58,10 @@ export interface AnswerBody {
   quantityHint?: 'few' | 'plenty';
   /** The shop's own photo of the item, only with a yes. */
   photoId?: string;
+  /** An exact quantity next to the price, only with a yes. */
+  quantity?: { amount: number; unit: 'kg' | 'g' | 'l' | 'ml' | 'piece' | 'packet' };
+  /** "Ghar bhej denge", only with a yes: present means the shop delivers. */
+  delivery?: DeliveryDefaults;
 }
 
 /** Everything the shop app asks of the server. */
@@ -59,6 +75,10 @@ export interface ShopApi extends PhotoApi {
   createShop(input: NewShop): Promise<MyShop>;
   listPings(): Promise<ShopPing[]>;
   answerPing(id: string, body: AnswerBody): Promise<void>;
+  /** Opens or closes the shop for the day ("Dukaan aaj band hai"). */
+  setShopOpen(open: boolean): Promise<MyShop>;
+  /** The standing delivery offer, or null to stop offering it. */
+  updateDelivery(delivery: DeliveryDefaults | null): Promise<MyShop>;
   /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
   eventTicket(): Promise<string>;
 }
@@ -160,6 +180,8 @@ export function createApi(options: ClientOptions): ShopApi {
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
+    setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),
+    updateDelivery: (delivery) => call<MyShop>('PATCH', '/shops/me', { delivery }),
     async answerPing(id, body) {
       await call('POST', `/pings/${encodeURIComponent(id)}/answer`, body);
     },

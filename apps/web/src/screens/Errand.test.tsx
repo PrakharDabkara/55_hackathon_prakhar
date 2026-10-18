@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { PlanItem } from '../lib/seekerApi.js';
-import { errandPlan, errandView, FakeEventSource, fakeSeekerApi } from '../test/fakes.js';
+import { errandPlan, errandView, FakeEventSource, fakeSeekerApi, planItem } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Errand } from './Errand.js';
 

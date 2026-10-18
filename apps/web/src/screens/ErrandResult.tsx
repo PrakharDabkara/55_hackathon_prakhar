@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
+import { OfferLines } from '../components/OfferLines.js';
 import { PlanMap } from '../components/PlanMap.js';
 import { useT } from '../i18n/index.js';
 import { directionsForRoute, plansIdentical, stopsForMap } from '../lib/errand.js';
@@ -14,6 +15,8 @@ interface Props {
   photos?: PhotoApi;
   origin: { lat: number; lng: number };
   busy?: boolean;
+  /** The customer switched a shop between pickup and delivery. */
+  onMode?: (shopId: string, mode: 'pickup' | 'delivery') => void;
   /** Nothing was found: a new errand with the same task and place. */
   onAskAgain?: () => void;
 }
@@ -21,7 +24,7 @@ interface Props {
 const TABS: PlanKind[] = ['kam_dukaan', 'sasta'];
 
 /** Two plans in two tabs, the recommended one open: items, totals, and the route on a map. */
-export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }: Props) {
+export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain, onMode }: Props) {
   const { t } = useT();
   const [kind, setKind] = useState<PlanKind>(plan.recommended);
   // Two plans that are the same thing are shown once: no tabs, nothing "recommended".
@@ -39,8 +42,23 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }:
   else if (plan.recommended === 'kam_dukaan') why = t.reasonKam(extra, stopsSaved);
   else why = t.reasonSasta(extra ?? formatRupees(0), stopsSaved);
 
-  const rows = (items: PlanItem[]) =>
-    items.map((item, i) => <PlanRow key={`${item.text}-${i}`} item={item} photos={photos} />);
+  // The pickup / delivery choice is one per shop: it sits on the first item of that shop.
+  const rows = (items: PlanItem[]) => {
+    const choiceShown = new Set<string>();
+    return items.map((item, i) => {
+      const first = Boolean(item.shopId && item.delivery && !choiceShown.has(item.shopId));
+      if (first && item.shopId) choiceShown.add(item.shopId);
+      return (
+        <PlanRow
+          key={`${item.text}-${i}`}
+          item={item}
+          photos={photos}
+          busy={busy}
+          {...(first && onMode && { onMode })}
+        />
+      );
+    });
+  };
 
   return (
     <section className="stack" aria-label={t.errandStates.PLAN_READY}>
@@ -128,6 +146,18 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }:
               <dt>{t.errandTotal}</dt>
               <dd>{formatRupees(variant.totalPricePaise)}</dd>
             </div>
+            {(variant.deliveryShopCount ?? 0) > 0 && (
+              <>
+                <div>
+                  <dt>{t.feeLine}</dt>
+                  <dd>{formatRupees(variant.deliveryFeePaise ?? 0)}</dd>
+                </div>
+                <div>
+                  <dt>{t.grandTotal}</dt>
+                  <dd>{formatRupees(variant.grandTotalPaise ?? variant.totalPricePaise)}</dd>
+                </div>
+              </>
+            )}
             {variant.savingsPaise > 0 && (
               <div>
                 <dt>{t.errandSavings}</dt>
@@ -143,6 +173,12 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }:
               <dd>{formatDistance(variant.totalDistanceM)}</dd>
             </div>
           </dl>
+          {(variant.unknownPriceCount ?? 0) > 0 && (
+            <p className="meta">{t.unknownPrices(variant.unknownPriceCount ?? 0)}</p>
+          )}
+          {(variant.unknownFeeCount ?? 0) > 0 && (
+            <p className="meta">{t.unknownFees(variant.unknownFeeCount ?? 0)}</p>
+          )}
         </div>
       )}
 
@@ -165,7 +201,17 @@ export function ErrandResult({ plan, photos, origin, busy = false, onAskAgain }:
   );
 }
 
-function PlanRow({ item, photos }: { item: PlanItem; photos: PhotoApi | undefined }) {
+function PlanRow({
+  item,
+  photos,
+  busy,
+  onMode,
+}: {
+  item: PlanItem;
+  photos: PhotoApi | undefined;
+  busy: boolean;
+  onMode?: (shopId: string, mode: 'pickup' | 'delivery') => void;
+}) {
   const { t } = useT();
   const name = item.itemName ?? item.text;
   const label = name.toLowerCase() !== item.text.toLowerCase() && (
@@ -204,6 +250,28 @@ function PlanRow({ item, photos }: { item: PlanItem; photos: PhotoApi | undefine
         {item.quantity > 1 && <span className="qty"> × {item.quantity}</span>}
       </p>
       {item.freshness && <p className="meta">{item.freshness}</p>}
+      <OfferLines
+        quantity={item.offeredQuantity}
+        check={item.quantityCheck}
+        remembered={item.status === 'likely'}
+        delivery={item.delivery}
+      />
+      {onMode && item.shopId && (
+        <div className="chips" role="group" aria-label={item.shopName ?? ''}>
+          {(['pickup', 'delivery'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className="chip"
+              aria-pressed={(item.mode ?? 'pickup') === mode}
+              disabled={busy}
+              onClick={() => onMode(item.shopId as string, mode)}
+            >
+              {mode === 'pickup' ? t.modePickup : t.modeDelivery}
+            </button>
+          ))}
+        </div>
+      )}
       {photos && item.photoId && <AuthPhoto api={photos} id={item.photoId} alt={t.photoShop} />}
       {item.matchedAs && item.itemName && (
         <p className="note">

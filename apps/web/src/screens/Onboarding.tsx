@@ -1,5 +1,6 @@
 import { CATEGORIES, type Category } from '@kahanmilega/shared';
 import { useState, type FormEvent } from 'react';
+import { DeliveryFields, deliveryFrom, type DeliveryState } from '../components/DeliveryFields.js';
 import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import type { MyShop, ShopApi } from '../lib/api.js';
@@ -33,6 +34,7 @@ export function Onboarding({ api, onDone }: Props) {
   const [lng, setLng] = useState('');
   const [located, setLocated] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [delivery, setDelivery] = useState<DeliveryState>({ enabled: false, fee: '', minutes: '' });
   const [locationFailed, setLocationFailed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,7 +90,21 @@ export function Onboarding({ api, onDone }: Props) {
     setBusy(true);
     setError(null);
     try {
-      onDone(await api.createShop({ name: name.trim(), lat: latValue, lng: lngValue, categories }));
+      const offer = deliveryFrom(delivery);
+      if (!offer.ok) {
+        setError(t.badPrice);
+        setBusy(false);
+        return;
+      }
+      onDone(
+        await api.createShop({
+          name: name.trim(),
+          lat: latValue,
+          lng: lngValue,
+          categories,
+          ...(offer.value && { delivery: offer.value }),
+        }),
+      );
     } catch {
       setError(t.errCreateShop);
       setBusy(false);
@@ -126,6 +142,8 @@ export function Onboarding({ api, onDone }: Props) {
           );
         })}
       </fieldset>
+
+      <DeliveryFields state={delivery} onChange={setDelivery} control="checkbox" />
 
       <div className="actions">
         <button type="button" className="btn btn-quiet" onClick={useMyLocation}>
