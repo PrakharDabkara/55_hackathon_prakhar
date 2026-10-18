@@ -390,7 +390,7 @@ export async function answerPing(
   if (outcome.fresh) {
     // This shop's ping is finished (it may have it open on another phone).
     deps.events?.publish(
-      { to: { userId: ownerUserId }, type: 'ping.closed', data: { pingId } },
+      { to: { userId: ownerUserId }, type: 'ping.closed', data: { pingId, reason: 'answered' } },
       deps.logger,
     );
     // A live yes changes what the seeker sees even when the request was already ANSWERED.

@@ -270,9 +270,11 @@ describe('realtime over SSE', () => {
       // The answering shop's ping is done; the other shop's ping closed with the request.
       expect((await (s1 as SseStream).waitForEvent('ping.closed')).data).toEqual({
         pingId: c1.data['pingId'],
+        reason: 'answered',
       });
       expect((await (s2 as SseStream).waitForEvent('ping.closed')).data).toEqual({
         pingId: c2.data['pingId'],
+        reason: 'enough_answers',
       });
 
       await settle();

@@ -5,14 +5,23 @@ export type { MoveResult, Outcome } from './persistence.js';
 export {
   answerErrand,
   cancelErrand,
+  chooseDeliveryMode,
   createErrand,
+  deliveryOfferForErrand,
   expireErrand,
+  fallBackToPickup,
   getErrand,
   limitsFromConfig,
   resumeIfDue,
   sweepErrands,
 } from './service.js';
-export type { EnqueueErrand, ErrandLimits, ErrandsContext, ErrandView } from './service.js';
+export type {
+  EnqueueErrand,
+  ErrandDeliveryOffer,
+  ErrandLimits,
+  ErrandsContext,
+  ErrandView,
+} from './service.js';
 export { createErrandWaker } from './wake.js';
 export type { ErrandWaker } from './wake.js';
 export { errandsRouter } from './router.js';

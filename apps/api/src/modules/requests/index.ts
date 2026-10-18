@@ -15,6 +15,8 @@ export type {
   RequestsContext,
 } from './service.js';
 export { requestsRouter } from './router.js';
+export { deliveryOfferForRequest } from './deliveryOffer.js';
+export type { RequestDeliveryOffer } from './deliveryOffer.js';
 export { answerPing, fanOutPings, listShopPings } from './pings.js';
 export type { PingClaims, FanOutResult } from './pings.js';
 export { onRequestPinging } from './pinging.js';

@@ -132,6 +132,7 @@ describe('delivery orders', () => {
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe('no_delivery_offer');
 
+      await pool.query('TRUNCATE requests, pings, shop_stock CASCADE'); // the shop is asked again
       const answered = await answeredRequest();
       const silent = await order(seeker, {
         shopId: rival.shopId,
