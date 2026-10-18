@@ -250,7 +250,6 @@ describe('errand eval harness (fake model, real database)', () => {
         newItemsToMatchingShops: true,
       },
     });
-    await pool.query(`DELETE FROM items WHERE source = 'user'`);
     const { results } = await runErrandEval({
       pool,
       ai,
@@ -286,7 +285,6 @@ describe('errand eval harness (fake model, real database)', () => {
         noShopAsk: true,
       },
     });
-    await pool.query(`DELETE FROM items WHERE source = 'user'`);
     const { results } = await runErrandEval({
       pool,
       ai,
