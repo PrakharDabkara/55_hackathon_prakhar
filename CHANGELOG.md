@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 15, PR B: photos)
+
+- Optional photos on both sides, never required (ADR-0030): a customer on a single search and on any checklist item ("Photo jodein"), a shop with its yes. The shop sees the customer's photo on the request card, the customer sees the shop's on the result and plan cards; tap to enlarge.
+- The browser shrinks to 1024 px and about 100 KB (no EXIF) with upload progress and plain error messages; the server checks magic bytes (JPEG, PNG, WebP only, at most 400 KB), re-encodes with `sharp` (orientation kept, all metadata gone) and stores the JPEG in Postgres (migration 015).
+- `GET /photos/:id` with the login: a customer's photo only to them and the shops the request went to, a shop's only to that shop and the customer who asked; others get 404; `Cache-Control: private`; CSP unchanged.
+- 10 photos per user per day, `PHOTO_STORAGE_CAP_MB` (default 300) with the total logged on every upload, and a sweeper that deletes photos 7 days after their request expires. Photos never go to a model.
+- e2e: both sides attach a photo at 360 px, in two real browsers.
+
 ### Added (Day 14c, part 2: agent evals)
 
 - Agent eval harness (ADR-0027): `evals/errand.dev.jsonl` (17 cases) and `evals/errand.holdout.jsonl` (16), written before any run. `npm run eval:errand` plays each case as a real errand in process: real model, throwaway Postgres with the seeded catalog, eight synthetic shops, a deterministic shop responder (all / none / partial / slow), scripted answers for `ask_user`. Success, tool correctness, hallucinations, injection resistance, tokens, calls, p50/p95 and failures by kind are all computed in code. Gates (fixed before the first run): success ≥ 80 %, tool correctness ≥ 90 %, hallucinations 0, injection 100 %, errors ≤ 2.

@@ -243,3 +243,9 @@ npm 11 asks which dependency install scripts may run. The decision, kept in `all
 Nothing here is needed to build or run the app. Approve one (`npm install-scripts approve <package>`) only if a profile shows its native module matters.
 
 **Evals and the free quota.** Evals use their own Google project and key (the `evals` environment secret and your local `.env`), never the key in Render or the `production` environment, so a run can never use up the live site's quota. Limits per project: embeddings 100 requests/min and 1,000/day (each text counts as one), Flash Lite 15/min and 500/day. The runner stays inside them: catalog embedding at 60 texts/min (20 per batch, 20 s apart), at most one model call every 5 s (about 12/min), 429s retried with doubling waits. One full run is about 224 + 143 embedding requests and about 60 generation requests, so **the budget is one full eval run per day per project**. The catalog vectors are cached in CI (`evals/.cache`, keyed on the hash of `catalog.seed.json`), so after the first run on a given catalog only changed items cost embedding requests; the log line `loaded N saved embeddings` shows a cache hit.
+
+## Photos (Day 15)
+
+- **Setting:** `PHOTO_STORAGE_CAP_MB` (Render env, default 300). Uploads above it get 503 `photo_storage_full`; the app keeps working without photos. **Migration 015 runs on deploy** and only adds a table; nothing to set by hand.
+- **How much is stored:** `SELECT count(*), pg_size_pretty(sum(size)) FROM photos`; every upload logs `photo_stored` with `totalBytes`, the sweeper logs `photos_swept`. To free space now: `DELETE FROM photos WHERE created_at < now() - interval '1 day'` (cards simply show no photo).
+- **A photo that should not be there:** `DELETE FROM photos WHERE id = ...`. No photo is ever sent to Gemini or anywhere outside Postgres.

@@ -1,0 +1,146 @@
+import { expect, test, type Page } from '@playwright/test';
+import sharp from 'sharp';
+
+// Photos on both sides, in two real browsers at 360 px against the real API and Postgres: a
+// customer attaches a photo to a search, the shopkeeper sees it on the request card and answers
+// with a photo of their own, and the customer sees that one on the result. Both pictures start as
+// big GPS-tagged JPEGs; what the other side receives is small and carries no metadata (ADR-0030).
+const VIEWPORT = { width: 360, height: 740 };
+// Far from the simulated shops (around the demo location, 12 km away), so only the real shop below
+// is asked and nobody answers before it can.
+const ELSEWHERE = { latitude: 22.8, longitude: 75.95 };
+test.use({ geolocation: ELSEWHERE, permissions: ['geolocation'] });
+
+/** A 3000 x 2000 photo with a GPS position and a camera name, as a phone makes it. */
+const phonePhoto = (name: string) =>
+  sharp({
+    create: { width: 3000, height: 2000, channels: 3, background: { r: 40, g: 140, b: 90 } },
+  })
+    .jpeg({ quality: 95 })
+    .withMetadata({
+      exif: {
+        IFD0: { Make: `Phone-${name}` },
+        IFD3: {
+          GPSLatitudeRef: 'N',
+          GPSLatitude: '22/1 43/1 11/1',
+          GPSLongitudeRef: 'E',
+          GPSLongitude: '75/1 51/1 28/1',
+        },
+      },
+    })
+    .toBuffer();
+
+const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+
+async function login(page: Page, path: string) {
+  await page.goto(path);
+  await page.getByLabel(/mobile number/i).fill(newPhone());
+  await page.getByRole('button', { name: 'OTP bhejo' }).click();
+  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
+  await page.getByRole('button', { name: 'Login karein' }).click();
+}
+
+const noSidewaysScroll = async (page: Page) =>
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+
+/** The bytes behind the first picture of this kind on the page, read from its data: URL. */
+async function pictureBytes(page: Page, name: string) {
+  const src = await page.getByRole('img', { name }).first().getAttribute('src');
+  expect(src).toMatch(/^data:image\/jpeg;base64,/);
+  return Buffer.from((src as string).split(',')[1] as string, 'base64');
+}
+
+async function expectClean(bytes: Buffer) {
+  const meta = await sharp(bytes).metadata();
+  expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(1024);
+  expect(bytes.length).toBeLessThan(400 * 1024);
+  expect(meta.exif).toBeUndefined();
+  expect(bytes.toString('latin1')).not.toContain('Phone-');
+}
+
+test("a customer and a shop each attach a photo, and each sees the other's, at 360 px", async ({
+  page,
+  browser,
+}) => {
+  // The shop: a kirana in that quiet corner, the only shop near the customer.
+  const shopContext = await browser.newContext({ viewport: VIEWPORT });
+  const shop = await shopContext.newPage();
+  await login(shop, '/app/shop');
+  await shop.getByLabel('Dukaan ka naam').fill('Photo Test Kirana');
+  await shop.getByRole('button', { name: /किराना/ }).click();
+  await shop.getByText('Haath se likhein').click();
+  await shop.getByLabel('Latitude').fill(String(ELSEWHERE.latitude));
+  await shop.getByLabel('Longitude').fill(String(ELSEWHERE.longitude));
+  await shop.getByRole('button', { name: 'Dukaan shuru karein' }).click();
+  await expect(shop.getByText(/Abhi koi sawaal nahi|sawaal/i).first()).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // The customer asks for turmeric with a photo.
+  await login(page, '/app/');
+  await page.getByRole('button', { name: 'Meri location' }).click();
+  await page.getByLabel('क्या चाहिए?').fill('haldi');
+  const asking = phonePhoto('customer');
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles({ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: await asking });
+  await expect(page.getByRole('button', { name: 'Photo hatayein' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await noSidewaysScroll(page);
+  await page.screenshot({ path: 'e2e/artifacts/photo-customer-attached.png', fullPage: true });
+  await page.getByRole('button', { name: 'Dhoondho' }).click();
+
+  // The shop sees the customer's photo on the request card: small, clean, tap to enlarge.
+  const theirs = shop.getByRole('button', { name: 'Customer ki photo: bada karein' });
+  await expect(theirs).toBeVisible({ timeout: 30_000 });
+  await expectClean(await pictureBytes(shop, 'Customer ki photo'));
+  await noSidewaysScroll(shop);
+  await theirs.click();
+  const big = shop.getByRole('dialog');
+  await expect(big).toBeVisible();
+  const box = await big.locator('img').boundingBox();
+  expect(box?.width).toBeLessThanOrEqual(VIEWPORT.width);
+  await shop.screenshot({ path: 'e2e/artifacts/photo-shop-sees-customer.png' });
+  await shop.getByRole('button', { name: 'Band karein' }).click();
+
+  // The shop says yes with a photo of what it has.
+  await shop.getByRole('button', { name: /Haan hai/ }).click();
+  await shop
+    .locator('input[type="file"]')
+    .setInputFiles({ name: 'IMG_2.jpg', mimeType: 'image/jpeg', buffer: await phonePhoto('shop') });
+  await expect(shop.getByRole('button', { name: 'Photo hatayein' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await noSidewaysScroll(shop);
+  await shop.screenshot({ path: 'e2e/artifacts/photo-shop-attached.png', fullPage: true });
+  await shop.getByRole('button', { name: 'Bhejo' }).click();
+
+  // The customer sees the shop's photo on that shop's result card.
+  const shops = page.getByRole('button', { name: 'Dukaan ki photo: bada karein' });
+  await expect(shops.first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.result', { hasText: 'Photo Test Kirana' })).toBeVisible();
+  await expectClean(await pictureBytes(page, 'Dukaan ki photo'));
+  await noSidewaysScroll(page);
+  await shops.first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.screenshot({ path: 'e2e/artifacts/photo-customer-sees-shop.png' });
+  await page.getByRole('button', { name: 'Band karein' }).click();
+
+  await shopContext.close();
+});
+
+test('a search needs no photo: the button is there and the search works without it', async ({
+  page,
+}) => {
+  await login(page, '/app/');
+  await expect(page.getByRole('button', { name: 'Photo jodein' })).toBeVisible();
+  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
+  await page.getByLabel('क्या चाहिए?').fill('namak');
+  await page.getByRole('button', { name: 'Dhoondho' }).click();
+  await expect(page.locator('.status-line')).toBeVisible({ timeout: 30_000 });
+});

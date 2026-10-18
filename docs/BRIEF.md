@@ -81,6 +81,8 @@ Built on Days 12 and 13 (ADR-0024). Step 6 is a stretch.
 
 6. Stretch: "Want me to order this?" Only on the user's yes, the shop gets a delivery request (cash on delivery) and can accept or decline; on decline the plan falls back to pickup.
 
+**Photos (Day 15, ADR-0030).** Optional on both sides, never required: the customer can attach one photo to a search or to any checklist item, a shop can attach one when it says yes. The shop sees the customer's photo on the request card and the customer sees the shop's on the result or plan card, tap to enlarge. The browser shrinks to 1024 px and about 100 KB; the server re-encodes and strips all metadata, stores the picture in Postgres (10 a day per user, a size cap of 300 MB, deleted 7 days after the request expires) and shows it only to the people in the loop. Photos are never sent to a model.
+
 **Zero-training rule.** A shopkeeper installs the app and is using it at once, with no explanation, demo or class. Every shop screen must pass that test:
 
 - The main screen is one ping card: the item, and two big buttons, "Haan hai" and "Nahi hai".
