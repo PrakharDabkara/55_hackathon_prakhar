@@ -6,7 +6,7 @@ function setup(answer: unknown) {
   const provider = createFakeProvider();
   provider.onGenerate(() => answer);
   const recorder = {
-    record: async (_row: AiCallRow) => 'call',
+    record: async (row: AiCallRow) => (row ? 'call' : 'call'),
     markInvalid: async () => undefined,
   };
   const client = createAiClient({ provider, recorder, backoffMs: 1, retries: 0 });

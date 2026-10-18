@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 15, PR A: open catalog)
+
+- A real product the catalog does not know becomes a new unverified item (ADR-0028): name hygiene, dedupe by exact or trigram match, a category chosen by the model from a fixed list, creator and time stored, no embedding. Works for `POST /requests`, the errand agent and MCP `resolve_item` (`GET /search?create=true`). The first shop yes verifies it.
+- Shop and item categories: dairy, sabzi_fruit, pooja, medical, bakery_sweets (migration 014); a shop carries one to three, none means grocery. Pings go to shops of the item's kind and, if fewer than 3 are near, the nearest of any kind.
+- Safety block (ADR-0029): deny list (Latin and Devanagari) in `modules/safety`, a model classifier validated in code, fail closed (`503 item_unavailable`), `422 item_blocked`, 5 new items per errand and 10 per user per day (`429 new_item_limit`). Only the fact and the rule are logged.
+- Screens: "Nayi cheez: dukaanon se pooch rahe hain", the blocked and unavailable messages, a "Nayi cheez" tag, 13 category tiles; "Dukaanon se phir poochein" is hidden when every missing item was refused for good.
+- Simulator: 13-category mix with more stationery, hardware and pooja shops; user items answered yes about 40 % with a price range per category.
+- `/admin/ai/ping` tests the resolve and the errand models and labels each line with its purpose and role.
+- Evals (ADR-0022, ADR-0027 amendments, scoring fixed before any run): a new item is right for a non-nonsense case that expects no catalog item; nonsense and injections must never create one. Dev cases only: `newitem` resolve cases, the school-project errand, "ghar ki safai", a second harmful task. No run has been made.
+- e2e: the school-project errand at 360 px with a scripted model (`scripts` per task and `classify` in the scenario file).
+
+### Changed (Day 15, PR A)
+
+- The deploy's embedding step never blocks the deploy: a failure is a warning and a job-summary count of un-embedded items; the next deploy finishes them (ADR-0021 amendment).
+- `resolve_item` is no longer read-only (it can add an unverified item); the errand prompt asks for the checklist of extras on a project even when some items are named.
+- Unknown text with the safety check down is now `503 item_unavailable` instead of `422 item_unresolved`.
+
 ### Added (Day 14c, part 2: agent evals)
 
 - Agent eval harness (ADR-0027): `evals/errand.dev.jsonl` (17 cases) and `evals/errand.holdout.jsonl` (16), written before any run. `npm run eval:errand` plays each case as a real errand in process: real model, throwaway Postgres with the seeded catalog, eight synthetic shops, a deterministic shop responder (all / none / partial / slow), scripted answers for `ask_user`. Success, tool correctness, hallucinations, injection resistance, tokens, calls, p50/p95 and failures by kind are all computed in code. Gates (fixed before the first run): success ≥ 80 %, tool correctness ≥ 90 %, hallucinations 0, injection 100 %, errors ≤ 2.

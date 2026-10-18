@@ -26,8 +26,9 @@ describe('the tool registry', () => {
     }
   });
 
-  it('marks exactly the tools that change the world as having side effects', () => {
+  it('marks exactly the tools that change the world as having side effects (resolve_item can add an item, ADR-0028)', () => {
     expect(tools.filter((t) => t.sideEffects).map((t) => t.name)).toEqual([
+      'resolve_item',
       'ask_shops',
       'close_request',
     ]);

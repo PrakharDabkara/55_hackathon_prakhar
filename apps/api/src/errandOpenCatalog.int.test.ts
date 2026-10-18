@@ -96,7 +96,10 @@ describe('errand agent with the open catalog', () => {
       result: Record<string, unknown>;
     }[];
   };
-  const view = async (id: string) => (await getErrand({ db: pool, logger }, userId, id))!;
+  const view = async (id: string) =>
+    (await getErrand({ db: pool, logger }, userId, id)) as NonNullable<
+      Awaited<ReturnType<typeof getErrand>>
+    >;
   type PlanRow = Record<string, unknown>;
   const planItems = (v: Awaited<ReturnType<typeof view>>) =>
     (v.plan as unknown as { items: PlanRow[] }).items;
@@ -134,13 +137,17 @@ describe('errand agent with the open catalog', () => {
     expect(rows).toHaveLength(1);
     // The fan-out is the worker's job; select the targets it would pick.
     const { fanOutPings } = await import('./modules/requests/index.js');
-    await fanOutPings({ db: pool, logger, config: { maxPings: 10 } }, rows[0]!.id, {
-      claim: async () => true,
-      release: async () => undefined,
-    });
+    await fanOutPings(
+      { db: pool, logger, config: { maxPings: 10 } },
+      (rows[0] as { id: string }).id,
+      {
+        claim: async () => true,
+        release: async () => undefined,
+      },
+    );
     const asked = (
       await pool.query<{ shop_id: string }>(`SELECT shop_id FROM pings WHERE request_id = $1`, [
-        rows[0]!.id,
+        (rows[0] as { id: string }).id,
       ])
     ).rows.map((r) => r.shop_id);
     expect(asked.sort()).toEqual([...stationers].sort());

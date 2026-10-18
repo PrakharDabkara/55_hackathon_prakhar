@@ -14,10 +14,10 @@ describe('seed catalog file', () => {
     expect(catalog.note).toMatch(/review/i);
   });
 
-  it('has about 150 items or more, spread over all 8 categories', () => {
+  it('has about 150 items or more, spread over the 8 launch categories (the other five fill from use, ADR-0028)', () => {
     expect(catalog.items.length).toBeGreaterThanOrEqual(140);
     const used = new Set(catalog.items.map((i) => i.category));
-    expect([...used].sort()).toEqual([...CATEGORIES].sort());
+    expect([...used].sort()).toEqual([...CATEGORIES.slice(0, 8)].sort());
   });
 
   it('gives every item a Devanagari name and 3–6 synonyms', () => {
