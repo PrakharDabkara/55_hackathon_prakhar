@@ -1,8 +1,13 @@
 import { isFinalOrderState, type OrderState } from './stateMachine.js';
-import type { OrderLine, OrderRecord } from './types.js';
+import type { OrderLine, OrderRecord, ShopCancelReason } from './types.js';
 
 /** The shop learns the address only from these states on: after it said yes (ADR-0031). */
-const ADDRESS_SHOWN_TO_SHOP: readonly OrderState[] = ['ACCEPTED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const ADDRESS_SHOWN_TO_SHOP: readonly OrderState[] = [
+  'ACCEPTED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'NOT_CONFIRMED',
+];
 
 export interface SeekerOrderView {
   id: string;
@@ -23,6 +28,12 @@ export interface SeekerOrderView {
   payment: 'cash_on_delivery';
   /** The shop did not take it (declined or no answer in time): the customer picks it up instead. */
   pickupFallback: boolean;
+  note: string | null;
+  /** Only while OUT_FOR_DELIVERY: the customer should tap Received before this. */
+  receiveBy: string | null;
+  cancelledBy: 'customer' | 'shop' | null;
+  cancelReason: ShopCancelReason | null;
+  cancelText: string | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +49,10 @@ export interface ShopOrderView {
   /** The customer's first name if they gave one, else "Grahak". Never a phone. */
   contactName: string;
   final: boolean;
+  /** What the customer wrote for the shop (≤140, phone numbers removed). */
+  note: string | null;
+  /** Only on an order the shop cancelled, for its own record. */
+  cancelReason: ShopCancelReason | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +78,11 @@ export function seekerOrderView(o: OrderRecord): SeekerOrderView {
     customerName: o.customerFirstName,
     payment: 'cash_on_delivery',
     pickupFallback: o.state === 'DECLINED' || o.state === 'EXPIRED',
+    note: o.note,
+    receiveBy: o.state === 'OUT_FOR_DELIVERY' && o.receiveBy ? o.receiveBy.toISOString() : null,
+    cancelledBy: o.cancelledBy,
+    cancelReason: o.cancelReason,
+    cancelText: o.cancelText,
     expiresAt: o.expiresAt.toISOString(),
     createdAt: o.createdAt.toISOString(),
     updatedAt: o.updatedAt.toISOString(),
@@ -84,6 +104,8 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
     feePaise: o.feePaise,
     contactName: o.customerFirstName ?? 'Grahak',
     final: isFinalOrderState(o.state),
+    note: o.note,
+    cancelReason: o.cancelledBy === 'shop' ? o.cancelReason : null,
     expiresAt: o.expiresAt.toISOString(),
     createdAt: o.createdAt.toISOString(),
     updatedAt: o.updatedAt.toISOString(),

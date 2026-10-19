@@ -180,19 +180,23 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
 
     it('an order without the tick saves nothing, and the last order is not "saved"', async () => {
       await place(await answeredRequest(), { customerName: 'Asha' });
-      expect((await saved()).body).toEqual({ addressText: null, customerName: null });
+      expect((await saved()).body).toEqual({ id: null, addressText: null, customerName: null });
     });
 
     it('with the tick the address goes on the profile; it can be deleted, and is only theirs', async () => {
       await place(await answeredRequest(), { saveAddress: true, customerName: 'Asha Verma' });
-      expect((await saved()).body).toEqual({ addressText: ADDRESS, customerName: 'Asha' });
+      expect((await saved()).body).toEqual({
+        id: expect.any(String),
+        addressText: ADDRESS,
+        customerName: 'Asha',
+      });
       const strangers = await request(app).get('/orders/saved-address').set(auth(other));
-      expect(strangers.body).toEqual({ addressText: null, customerName: null });
+      expect(strangers.body).toEqual({ id: null, addressText: null, customerName: null });
 
       expect((await request(app).delete('/orders/saved-address').set(auth(seeker))).status).toBe(
         204,
       );
-      expect((await saved()).body).toEqual({ addressText: null, customerName: null });
+      expect((await saved()).body).toEqual({ id: null, addressText: null, customerName: null });
     });
 
     it('a later order without the tick leaves the saved address as it was', async () => {

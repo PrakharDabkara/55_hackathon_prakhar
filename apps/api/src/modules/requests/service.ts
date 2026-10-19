@@ -1,4 +1,5 @@
 import type { ExactQuantity } from '@kahanmilega/shared';
+import { ownsSavedAddress } from './deliveryAddress.js';
 import { unitFromQuery } from '@kahanmilega/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
@@ -71,6 +72,9 @@ export interface CreateRequestInput {
   requestId?: string | undefined;
   /** The errand this request belongs to: a new item counts toward its limit of five. */
   errandId?: string | undefined;
+  /** "Deliver to me" (ADR-0039): needs the customer's own saved address. Set by code for errands. */
+  wantsDelivery?: boolean | undefined;
+  deliveryAddressId?: string | undefined;
   idempotencyKey?: string;
 }
 
@@ -81,6 +85,7 @@ export interface RequestView {
   quantity?: Quantity;
   radiusM: number;
   targetPricePaise?: number;
+  wantsDelivery: boolean;
   results: RequestResult[];
   /** How the shops have answered this request so far. */
   pingStats: PingStats;
@@ -177,6 +182,7 @@ async function toView(
     ...(r.quantity && { quantity: r.quantity }),
     ...(r.targetPricePaise !== null && { targetPricePaise: r.targetPricePaise }),
     radiusM: r.radiusM,
+    wantsDelivery: r.wantsDelivery,
     results: buildResults({
       live,
       learned,
@@ -232,6 +238,15 @@ export async function createRequest(
     throw new ApiError(422, 'item_unresolved', 'We could not tell which item you mean');
   }
 
+  // Ticked "Deliver to me": the address must be this customer's own, saved and still there.
+  const wantsDelivery = input.wantsDelivery === true;
+  if (wantsDelivery && !(await ownsSavedAddress(ctx.db, userId, input.deliveryAddressId)))
+    throw new ApiError(
+      400,
+      'invalid_request',
+      'deliveryAddressId: choose one of your saved addresses to get delivery',
+    );
+
   const radiusM = input.radiusM ?? DEFAULT_RADIUS_M;
   const stock = await findLearnedStock(ctx.db, resolution.item.id, input.lat, input.lng, radiusM);
   const event: RequestEvent =
@@ -242,9 +257,10 @@ export async function createRequest(
     // PostGIS points are (x = longitude, y = latitude): lng comes first.
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO requests (user_id, item_id, raw_query, quantity, location, radius_m,
-                             expires_at, idempotency_key, target_price_paise)
+                             expires_at, idempotency_key, target_price_paise,
+                             wants_delivery, delivery_address_id)
        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7,
-               now() + make_interval(mins => $8::int), $9, $10)
+               now() + make_interval(mins => $8::int), $9, $10, $11, $12)
        ON CONFLICT (user_id, idempotency_key) DO NOTHING
        RETURNING id`,
       [
@@ -258,6 +274,8 @@ export async function createRequest(
         ctx.config.ttlMinutes,
         key ?? null,
         input.targetPricePaise ?? null,
+        wantsDelivery,
+        wantsDelivery ? (input.deliveryAddressId ?? null) : null,
       ],
     );
     const row = inserted.rows[0];

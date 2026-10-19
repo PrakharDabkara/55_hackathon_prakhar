@@ -280,8 +280,22 @@ describe('Delivery v2', () => {
   describe('S16: the customer picks ONE shop', () => {
     async function twoOffers() {
       const requestId = await find({ wantsDelivery: true });
-      await answer(shopA, OFFER);
-      await answer(shopB, { ...OFFER, pricePaise: 4000 });
+      // Both shops have the question open and answer at the same moment (S5): the first yes
+      // answers the request, the second is kept as well.
+      const [a] = await cards(shopA);
+      const [b] = await cards(shopB);
+      for (const [shop, card, price] of [
+        [shopA, a, 4500],
+        [shopB, b, 4000],
+      ] as const)
+        expect(
+          (
+            await request(app)
+              .post(`/pings/${card.id}/answer`)
+              .set(auth(shop))
+              .send({ ...OFFER, pricePaise: price })
+          ).status,
+        ).toBe(200);
       return requestId;
     }
 
@@ -603,12 +617,13 @@ describe('Delivery v2', () => {
     });
 
     it('the customer still cancels REQUESTED or ACCEPTED, with an optional reason', async () => {
-      const id = await accepted();
+      const requestId = await offered();
+      const id = (await order(seeker, shopA, requestId)).body.id as string;
       const res = await act(seeker, id, 'cancel', { reason: 'changed my mind' });
       expect(res.body.state).toBe('CANCELLED');
       expect(res.body.cancelledBy).toBe('customer');
-      const bare = await order(seeker, shopA, await offered());
-      expect((await act(seeker, bare.body.id, 'cancel')).body.state).toBe('CANCELLED');
+      const again = await order(seeker, shopA, requestId);
+      expect((await act(seeker, again.body.id, 'cancel')).body.state).toBe('CANCELLED');
     });
 
     it('is decided by who the caller is to THIS order, not by a global role', async () => {

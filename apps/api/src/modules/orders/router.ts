@@ -9,7 +9,9 @@ import {
   listMyOrders,
   listSeekerOrders,
   listShopOrders,
+  keepAddress,
   placeOrder,
+  receiveOrder,
   savedAddress,
   shopAct,
   type OrdersContext,
@@ -22,9 +24,10 @@ const placeBody = z
     shopId: z.uuid(),
     requestId: z.uuid().optional(),
     errandId: z.uuid().optional(),
-    addressText: z.string().trim().min(5).max(300),
+    addressText: z.string().trim().min(5).max(300).optional(),
     customerName: z.string().trim().max(60).optional(),
     saveAddress: z.boolean().optional(),
+    note: z.string().trim().max(140).optional(),
   })
   .refine((b) => (b.requestId === undefined) !== (b.errandId === undefined), {
     message: 'give a requestId or an errandId, not both',
@@ -73,6 +76,17 @@ export function ordersRouter(deps: OrdersContext): Router {
     res.json(await savedAddress(ctxFor(req), authOf(req).user.id));
   });
 
+  router.put('/orders/saved-address', ...seekerOnly, async (req, res) => {
+    const body = parse(
+      z.object({
+        addressText: z.string().trim().min(5).max(300),
+        customerName: z.string().trim().max(60).optional(),
+      }),
+      req.body,
+    );
+    res.json(await keepAddress(ctxFor(req), authOf(req).user.id, body));
+  });
+
   router.delete('/orders/saved-address', ...seekerOnly, async (req, res) => {
     await forgetAddress(ctxFor(req), authOf(req).user.id);
     res.status(204).end();
@@ -88,15 +102,27 @@ export function ordersRouter(deps: OrdersContext): Router {
     res.json(await getSeekerOrder(ctxFor(req), authOf(req).user.id, orderId(req)));
   });
 
-  router.post('/orders/:id/cancel', ...seekerOnly, async (req, res) => {
-    res.json(await cancelOrder(ctxFor(req), authOf(req).user.id, orderId(req)));
+  // Either side cancels here; who the caller is to this order decides which rules apply.
+  router.post('/orders/:id/cancel', requireAuth, async (req, res) => {
+    const body = parse(
+      z.object({
+        reason: z.string().trim().max(140).optional(),
+        text: z.string().trim().max(140).optional(),
+      }),
+      req.body ?? {},
+    );
+    res.json(await cancelOrder(ctxFor(req), authOf(req).user.id, orderId(req), body));
+  });
+
+  router.post('/orders/:id/received', ...seekerOnly, async (req, res) => {
+    res.json(await receiveOrder(ctxFor(req), authOf(req).user.id, orderId(req)));
   });
 
   router.get('/shops/me/orders', ...shopOnly, async (req, res) => {
     res.json(await listShopOrders(ctxFor(req), authOf(req).user.id));
   });
 
-  for (const verb of ['accept', 'decline', 'out', 'delivered'] as const satisfies ShopVerb[]) {
+  for (const verb of ['accept', 'decline', 'out'] as const satisfies ShopVerb[]) {
     router.post(`/orders/:id/${verb}`, ...shopOnly, async (req, res) => {
       res.json(await shopAct(ctxFor(req), authOf(req).user.id, orderId(req), verb));
     });

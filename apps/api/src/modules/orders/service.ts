@@ -8,23 +8,32 @@ import {
   type ErrandsContext,
 } from '../errands/index.js';
 import type { EventPublisher } from '../realtime/index.js';
-import { deliveryOfferForRequest } from '../requests/index.js';
+import { deliveryOfferForRequest, otherAnsweredShops } from '../requests/index.js';
 import {
   findOpenOrder,
   findOrder,
   findOverdueOrderIds,
   clearOldAddresses,
   forgetSavedAddress,
+  findUnconfirmedOrderIds,
   getSavedAddress,
+  getSavedAddressById,
   insertOrder,
   listOrdersForShop,
   listOrdersForSource,
   listOrdersForUser,
   moveOrder,
   saveAddress,
+  type MoveDetails,
 } from './persistence.js';
-import { ORDER_EXPIRY_MINUTES, type OrderEvent } from './stateMachine.js';
-import type { OrderLine, OrderRecord } from './types.js';
+import { cleanNote } from './note.js';
+import { OFFER_FRESH_MINUTES, ORDER_EXPIRY_MINUTES, type OrderEvent } from './stateMachine.js';
+import {
+  SHOP_CANCEL_REASONS,
+  type OrderLine,
+  type OrderRecord,
+  type ShopCancelReason,
+} from './types.js';
 import { seekerOrderView, shopOrderView } from './view.js';
 
 export interface OrdersContext {
@@ -39,8 +48,11 @@ export interface PlaceOrderInput {
   shopId: string;
   requestId?: string | undefined;
   errandId?: string | undefined;
-  addressText: string;
+  /** Typed by the customer. Without it the address they picked on Find is used (ADR-0039). */
+  addressText?: string | undefined;
   customerName?: string | undefined;
+  /** For the shop, up to 140 characters; phone numbers are removed. */
+  note?: string | undefined;
   /** The customer ticked "Is pate ko yaad rakhein": keep this address on their profile. */
   saveAddress?: boolean | undefined;
 }
@@ -99,9 +111,12 @@ export async function placeOrder(
   input: PlaceOrderInput,
 ): Promise<{ order: OrderRecord; created: boolean }> {
   const { db } = ctx;
-  const offer = input.requestId
+  const fromRequest = input.requestId
     ? await deliveryOfferForRequest(db, userId, input.requestId, input.shopId)
-    : await deliveryOfferForErrand(ctx, userId, input.errandId as string, input.shopId);
+    : null;
+  const offer =
+    fromRequest ??
+    (await deliveryOfferForErrand(ctx, userId, input.errandId as string, input.shopId));
   const shop = (
     await db.query<{ id: string; open: boolean }>(
       `SELECT id, (closed_until IS NULL OR closed_until <= now()) AS open FROM shops WHERE id = $1`,
@@ -116,23 +131,52 @@ export async function placeOrder(
   const open = await findOpenOrder(db, userId, input.shopId, sourceId);
   if (open) return { order: open, created: false };
 
+  // The address: what the customer typed, else the one they picked on Find (if it is still there).
+  const picked =
+    input.addressText === undefined && offer.deliveryAddressId
+      ? await getSavedAddressById(db, userId, offer.deliveryAddressId)
+      : null;
+  const addressText = input.addressText ?? picked?.addressText;
+  if (!addressText)
+    throw new ApiError(400, 'address_required', 'Tell us where to deliver: the address is needed');
+
+  // A fresh yes from the shop itself, on a request still open, is binding: no second accept.
+  const binding =
+    fromRequest !== null &&
+    fromRequest.ownOfferAgeSeconds !== null &&
+    fromRequest.ownOfferAgeSeconds <= OFFER_FRESH_MINUTES * 60 &&
+    fromRequest.requestLive;
+
   const { totalPaise, unknown } = totalOf(offer.lines);
-  const id = await insertOrder(db, {
-    userId,
-    shopId: input.shopId,
-    requestId: input.requestId ?? null,
-    errandId: input.errandId ?? null,
-    lines: offer.lines,
-    itemsTotalPaise: totalPaise,
-    unknownPriceCount: unknown,
-    feePaise: offer.feePaise,
-    feeMinutes: offer.minutes,
-    addressText: input.addressText,
-    customerFirstName: firstNameOf(input.customerName),
-    lat: offer.lat,
-    lng: offer.lng,
-    expiryMinutes: ORDER_EXPIRY_MINUTES,
-  });
+  let id: string | null;
+  try {
+    id = await insertOrder(db, {
+      userId,
+      shopId: input.shopId,
+      requestId: input.requestId ?? null,
+      errandId: input.errandId ?? null,
+      lines: offer.lines,
+      itemsTotalPaise: totalPaise,
+      unknownPriceCount: unknown,
+      feePaise: offer.feePaise,
+      feeMinutes: offer.minutes,
+      addressText,
+      customerFirstName: firstNameOf(input.customerName) ?? picked?.customerName ?? null,
+      lat: offer.lat,
+      lng: offer.lng,
+      note: cleanNote(input.note),
+      state: binding ? 'ACCEPTED' : 'REQUESTED',
+      expiryMinutes: ORDER_EXPIRY_MINUTES,
+    });
+  } catch (err) {
+    // The customer picks ONE shop: the unique index lets only one order per request be live.
+    if ((err as { code?: string }).code === '23505') {
+      const winner = await findOpenOrder(db, userId, input.shopId, sourceId);
+      if (winner) return { order: winner, created: false };
+      throw new ApiError(409, 'already_ordered', "You've already ordered this from another shop");
+    }
+    throw err;
+  }
   if (!id) {
     // A second tap landed between our look and our insert: the first one is the order.
     const winner = await findOpenOrder(db, userId, input.shopId, sourceId);
@@ -142,24 +186,42 @@ export async function placeOrder(
   const order = (await findOrder(db, id)) as OrderRecord;
   // Only on the customer's own tick; no tick, nothing is kept beyond the order.
   if (input.saveAddress === true)
-    await saveAddress(db, userId, input.addressText, firstNameOf(input.customerName));
+    await saveAddress(db, userId, addressText, firstNameOf(input.customerName));
   // A plan card: the shop is now a delivery stop on the plan, until it says no.
   if (input.errandId)
     await chooseDeliveryMode(ctx, userId, input.errandId, input.shopId, 'delivery');
 
   ctx.logger.info({ orderId: order.id, shopId: order.shopId }, 'delivery order placed');
   announce(ctx, order, 'created');
+  if (input.requestId) await tellOtherShops(ctx, input.requestId, order.shopId);
   if (ctx.events && (await isSimulated(db, order.shopId)))
     // The simulator listens on one admin stream for every simulated shop.
     ctx.events.publish(
       {
         to: { admin: true },
         type: 'order.created',
-        data: { orderId: order.id, shopId: order.shopId },
+        data: { orderId: order.id, shopId: order.shopId, state: order.state },
       },
       ctx.logger,
     );
   return { order, created: true };
+}
+
+/**
+ * The customer picked a shop, so the others that answered are told "the customer already got an
+ * answer" (the same note as when enough shops had said yes). Ids only.
+ */
+async function tellOtherShops(ctx: OrdersContext, requestId: string, chosenShopId: string) {
+  if (!ctx.events) return;
+  for (const other of await otherAnsweredShops(ctx.db, requestId, chosenShopId))
+    ctx.events.publish(
+      {
+        to: { userId: other.ownerUserId },
+        type: 'ping.closed',
+        data: { pingId: other.pingId, reason: 'customer_chose' },
+      },
+      ctx.logger,
+    );
 }
 
 /** A declined, expired or cancelled order puts the plan back on pickup for that shop. */
@@ -173,8 +235,13 @@ async function backToPickup(ctx: OrdersContext, order: OrderRecord): Promise<voi
 }
 
 /** Moves an order by one event and tells both sides. A repeated tap changes nothing. */
-async function apply(ctx: OrdersContext, id: string, event: OrderEvent): Promise<OrderRecord> {
-  const moved = await moveOrder(ctx.db, id, event);
+async function apply(
+  ctx: OrdersContext,
+  id: string,
+  event: OrderEvent,
+  details?: MoveDetails,
+): Promise<OrderRecord> {
+  const moved = await moveOrder(ctx.db, id, event, details);
   if (moved.kind === 'not_found') throw new ApiError(404, 'not_found', 'No such order');
   if (moved.kind === 'invalid')
     throw new ApiError(409, 'invalid_transition', 'This order cannot do that now', {
@@ -193,21 +260,33 @@ async function apply(ctx: OrdersContext, id: string, event: OrderEvent): Promise
   return moved.order;
 }
 
-/** An order that waited too long ends now, whoever looks first. */
+/**
+ * An order past its deadline ends now, whoever looks first: a REQUESTED one the shop did not
+ * answer in time is EXPIRED, an OUT_FOR_DELIVERY one the customer never confirmed is NOT_CONFIRMED.
+ */
 async function expireIfDue(ctx: OrdersContext, order: OrderRecord): Promise<OrderRecord> {
-  if (order.state !== 'REQUESTED' || order.expiresAt.getTime() > Date.now()) return order;
-  // The database clock decides in the sweep; here the same guard lets only one caller expire it.
+  const event =
+    order.state === 'REQUESTED'
+      ? 'EXPIRE'
+      : order.state === 'OUT_FOR_DELIVERY'
+        ? 'NOT_CONFIRM'
+        : null;
+  const deadline = order.state === 'REQUESTED' ? order.expiresAt : order.receiveBy;
+  if (!event || !deadline || deadline.getTime() > Date.now()) return order;
+  // The database clock decides in the sweep; here the same guard lets only one caller move it.
   const { rowCount } = await ctx.db.query(
-    `SELECT 1 FROM delivery_orders WHERE id = $1 AND state = 'REQUESTED' AND expires_at <= now()`,
+    order.state === 'REQUESTED'
+      ? `SELECT 1 FROM delivery_orders WHERE id = $1 AND state = 'REQUESTED' AND expires_at <= now()`
+      : `SELECT 1 FROM delivery_orders WHERE id = $1 AND state = 'OUT_FOR_DELIVERY' AND receive_by <= now()`,
     [order.id],
   );
   if (!rowCount) return order;
-  return apply(ctx, order.id, 'EXPIRE').catch(
+  return apply(ctx, order.id, event).catch(
     async () => (await findOrder(ctx.db, order.id)) ?? order,
   );
 }
 
-/** Expires every order whose shop did not answer in time. Returns how many it expired. */
+/** Ends every order past its deadline (unanswered, or never received). Returns how many. */
 export async function sweepOrders(
   ctx: Pick<OrdersContext, 'db' | 'logger' | 'events'>,
 ): Promise<number> {
@@ -218,6 +297,14 @@ export async function sweepOrders(
     expired++;
     ctx.logger.info({ orderId: id }, 'delivery order expired');
     await backToPickup(ctx, moved.order);
+    announce(ctx, moved.order, 'updated');
+  }
+  // The customer did not confirm in time: final, and never DELIVERED (ADR-0039).
+  for (const id of await findUnconfirmedOrderIds(ctx.db, 100)) {
+    const moved = await moveOrder(ctx.db, id, 'NOT_CONFIRM');
+    if (moved.kind !== 'applied') continue;
+    expired++;
+    ctx.logger.info({ orderId: id }, 'delivery order not confirmed by the customer');
     announce(ctx, moved.order, 'updated');
   }
   return expired;
@@ -250,13 +337,75 @@ export async function listMyOrders(ctx: OrdersContext, userId: string) {
   return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(seekerOrderView);
 }
 
-export async function cancelOrder(ctx: OrdersContext, userId: string, id: string) {
+/** The customer confirms the delivery arrived. Only OUT_FOR_DELIVERY, and only before the deadline. */
+export async function receiveOrder(ctx: OrdersContext, userId: string, id: string) {
   await owned(ctx, userId, id);
-  return seekerOrderView(await apply(ctx, id, 'CANCEL'));
+  return seekerOrderView(await apply(ctx, id, 'RECEIVE'));
+}
+
+export interface CancelInput {
+  reason?: string | undefined;
+  text?: string | undefined;
+}
+
+/**
+ * One cancel route, two people. Who the caller is to THIS order decides (a user can be a
+ * shopkeeper and a customer): the order's customer may cancel REQUESTED or ACCEPTED with an optional
+ * reason; the order's shop only ACCEPTED, with a reason from the list. Both at once is refused.
+ */
+export async function cancelOrder(
+  ctx: OrdersContext,
+  callerUserId: string,
+  id: string,
+  input: CancelInput = {},
+) {
+  const order = await findOrder(ctx.db, id);
+  const isCustomer = order?.userId === callerUserId;
+  const isShop = order?.shopOwnerUserId === callerUserId;
+  if (!order || (!isCustomer && !isShop)) throw new ApiError(404, 'not_found', 'No such order');
+  if (isCustomer && isShop)
+    throw new ApiError(
+      409,
+      'ambiguous_cancel',
+      'You are both the customer and the shop on this order: it cannot be cancelled from here',
+    );
+  if (isCustomer) {
+    await expireIfDue(ctx, order);
+    const words = cleanNote(input.text ?? input.reason);
+    const done = await apply(ctx, id, 'CANCEL', {
+      cancelledBy: 'customer',
+      ...(words && { text: words }),
+    });
+    return seekerOrderView(done);
+  }
+  const reason = input.reason as ShopCancelReason | undefined;
+  if (!reason || !SHOP_CANCEL_REASONS.includes(reason))
+    throw new ApiError(400, 'invalid_request', 'reason: out_of_stock, cannot_deliver_now or other');
+  const text = cleanNote(input.text);
+  const fresh = await expireIfDue(ctx, order);
+  return shopOrderView(
+    await apply(ctx, fresh.id, 'SHOP_CANCEL', {
+      cancelledBy: 'shop',
+      reason,
+      ...(text && { text }),
+    }),
+  );
 }
 
 export async function savedAddress(ctx: OrdersContext, userId: string) {
-  return (await getSavedAddress(ctx.db, userId)) ?? { addressText: null, customerName: null };
+  return (
+    (await getSavedAddress(ctx.db, userId)) ?? { id: null, addressText: null, customerName: null }
+  );
+}
+
+/** Keeps the customer's address (one per customer) so Find can point a request at it. */
+export async function keepAddress(
+  ctx: OrdersContext,
+  userId: string,
+  input: { addressText: string; customerName?: string | undefined },
+) {
+  await saveAddress(ctx.db, userId, input.addressText, firstNameOf(input.customerName));
+  return savedAddress(ctx, userId);
 }
 
 export async function forgetAddress(ctx: OrdersContext, userId: string): Promise<void> {
@@ -277,11 +426,11 @@ export async function listShopOrders(ctx: OrdersContext, ownerUserId: string) {
   return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(shopOrderView);
 }
 
+// There is no "delivered" for a shop: only the customer's Received ends a delivery (ADR-0039).
 const SHOP_EVENTS = {
   accept: 'ACCEPT',
   decline: 'DECLINE',
   out: 'DISPATCH',
-  delivered: 'DELIVER',
 } as const;
 export type ShopVerb = keyof typeof SHOP_EVENTS;
 

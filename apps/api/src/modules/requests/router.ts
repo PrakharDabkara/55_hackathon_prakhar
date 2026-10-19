@@ -26,6 +26,9 @@ const createBody = z
     understanding: z.enum(['confirmed', 'changed']).optional(),
     /** An optional photo of what is wanted: one the customer uploaded and has not used (ADR-0030). */
     photoId: z.uuid().optional(),
+    /** "Deliver to me" (ADR-0039): with one of the customer's own saved addresses. */
+    wantsDelivery: z.boolean().optional(),
+    deliveryAddressId: z.uuid().optional(),
   })
   .refine((v) => v.q !== undefined || v.itemId !== undefined, {
     message: 'q: give the text to look for, or an itemId',

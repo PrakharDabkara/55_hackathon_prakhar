@@ -4,7 +4,7 @@ import type { Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import { looksLikeInstruction } from '../ai/index.js';
 import type { EventPublisher } from '../realtime/index.js';
-import type { RequestsContext } from '../requests/index.js';
+import { ownsSavedAddress, type RequestsContext } from '../requests/index.js';
 import { closeLinkedRequests } from './bridge.js';
 import { partialPlan, rebuildRunState } from './conversation.js';
 import {
@@ -95,6 +95,8 @@ export interface CreateErrandInput {
   lng: number;
   budgetPaise?: number | undefined;
   requestId?: string | undefined;
+  wantsDelivery?: boolean | undefined;
+  deliveryAddressId?: string | undefined;
 }
 
 /**
@@ -122,7 +124,17 @@ export async function createErrand(
     );
   }
 
+  const wantsDelivery = input.wantsDelivery === true;
+  if (wantsDelivery && !(await ownsSavedAddress(ctx.db, userId, input.deliveryAddressId)))
+    throw new ApiError(
+      400,
+      'invalid_request',
+      'deliveryAddressId: choose one of your saved addresses to get delivery',
+    );
+
   const created = await insertErrand(ctx.db, {
+    wantsDelivery,
+    deliveryAddressId: wantsDelivery ? (input.deliveryAddressId ?? null) : null,
     userId,
     task,
     lat: input.lat,
@@ -325,6 +337,8 @@ export interface ErrandDeliveryOffer {
   lines: { name: string; text?: string; count: number; pricePaise: number | null }[];
   feePaise: number | null;
   minutes: number | null;
+  /** The saved address picked on Find, if the customer ticked "Deliver to me" (ADR-0039). */
+  deliveryAddressId: string | null;
 }
 
 /**
@@ -371,6 +385,7 @@ export async function deliveryOfferForErrand(
     })),
     feePaise: fees.length > 0 ? Math.max(...fees) : null,
     minutes: minutes.length > 0 ? Math.max(...minutes) : null,
+    deliveryAddressId: errand.deliveryAddressId,
   };
 }
 

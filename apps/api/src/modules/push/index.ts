@@ -1,6 +1,6 @@
 export { createNotifier } from './notifier.js';
 export type { EnqueuePush, Notifier } from './notifier.js';
-export { buildPayload } from './payload.js';
+export { buildPayload, stripPhoneNumbers } from './payload.js';
 export type { PushKind, PushPayload } from './payload.js';
 export { createRateLimiter } from './rateLimit.js';
 export type { CounterStore, RateLimiter } from './rateLimit.js';

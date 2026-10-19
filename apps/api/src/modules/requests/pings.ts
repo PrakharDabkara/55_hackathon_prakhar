@@ -176,6 +176,27 @@ interface SentPing {
 }
 
 /** After the commit: tell each shop (and the simulator) about its new ping so it can fetch it. */
+/**
+ * Whether the customer wants delivery and whether this shop can bring it that far (ADR-0039).
+ * canDeliver is about distance alone: a shop with no limit can always deliver, and a standing
+ * offer is only a shortcut for the fee and time. Kept in one place so a ping card and an answer
+ * are judged the same way.
+ */
+const CAN_DELIVER = `(s.delivery_max_km IS NULL OR ST_Distance(s.location, r.location) <= s.delivery_max_km * 1000)`;
+
+async function deliveryFlags(
+  db: Queryable,
+  pingIds: string[],
+): Promise<Map<string, { wantsDelivery: boolean; canDeliver: boolean }>> {
+  const { rows } = await db.query<{ id: string; wants: boolean; can: boolean }>(
+    `SELECT p.id, r.wants_delivery AS wants, ${CAN_DELIVER} AS can
+       FROM pings p JOIN shops s ON s.id = p.shop_id JOIN requests r ON r.id = p.request_id
+      WHERE p.id = ANY($1::uuid[])`,
+    [pingIds],
+  );
+  return new Map(rows.map((r) => [r.id, { wantsDelivery: r.wants, canDeliver: r.can }]));
+}
+
 async function announcePings(
   deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
   item: { id: string; slug: string; nameEn: string; category: string; categories: string[] },
@@ -183,6 +204,10 @@ async function announcePings(
 ): Promise<void> {
   const { db, logger } = deps;
   const refPricePaise = sent.some((p) => p.simulated) ? await getRefPricePaise(db, item.id) : null;
+  const flags = await deliveryFlags(
+    db,
+    sent.filter((p) => p.simulated).map((p) => p.id),
+  );
   for (const ping of sent) {
     if (ping.ownerUserId) {
       deps.events?.publish(
@@ -205,6 +230,8 @@ async function announcePings(
             itemCategories: item.categories,
             shopCategories: ping.categories,
             refPricePaise,
+            wantsDelivery: flags.get(ping.id)?.wantsDelivery ?? false,
+            canDeliver: flags.get(ping.id)?.canDeliver ?? true,
           },
         },
         logger,
@@ -319,6 +346,10 @@ export interface ShopPing {
   distanceBand: string;
   /** The customer's photo of what they want, if they added one. Fetch it from GET /photos/:id. */
   photoId?: string;
+  /** The customer ticked "Deliver to me". The address is not here: a shop learns it once ACCEPTED. */
+  wantsDelivery: boolean;
+  /** This shop can bring it that far (its own limit, if any). */
+  canDeliver: boolean;
   sentAt: Date;
   expiresAt: Date;
 }
@@ -334,6 +365,8 @@ interface ShopPingRow {
   sent_at: Date;
   expires_at: Date;
   photo_id: string | null;
+  wants_delivery: boolean;
+  can_deliver: boolean;
 }
 
 /**
@@ -344,7 +377,8 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
   const { rows } = await db.query<ShopPingRow>(
     `SELECT p.id, i.slug, i.name_en, i.name_hi, r.quantity, r.target_price_paise,
             ST_Distance(s.location, r.location) AS distance_m, p.sent_at, r.expires_at,
-            (SELECT ph.id FROM photos ph WHERE ph.request_id = r.id) AS photo_id
+            (SELECT ph.id FROM photos ph WHERE ph.request_id = r.id) AS photo_id,
+            r.wants_delivery, ${CAN_DELIVER} AS can_deliver
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
@@ -360,6 +394,8 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
     ...(r.target_price_paise !== null && { targetPricePaise: r.target_price_paise }),
     distanceBand: distanceBand(r.distance_m),
     ...(r.photo_id && { photoId: r.photo_id }),
+    wantsDelivery: r.wants_delivery,
+    canDeliver: r.can_deliver,
     sentAt: r.sent_at,
     expiresAt: r.expires_at,
   }));
@@ -439,6 +475,14 @@ export async function answerPing(
     if (!ping || ping.owner_user_id !== ownerUserId) return null;
 
     await tx.query('SELECT 1 FROM requests WHERE id = $1 FOR UPDATE', [ping.request_id]);
+
+    // "Ghar bhej denge" only where the shop can reach: beyond its own limit it can say yes, not deliver.
+    if (input.delivery && !(await deliveryFlags(tx, [pingId])).get(pingId)?.canDeliver)
+      throw new ApiError(
+        409,
+        'cannot_deliver',
+        'This customer is beyond the distance you deliver to',
+      );
 
     const moves: ApplyResult[] = [];
     // A request past its deadline is over even if nothing has expired it yet: do that first, so

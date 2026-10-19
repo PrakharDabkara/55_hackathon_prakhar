@@ -345,17 +345,21 @@ describe('delivery orders', () => {
 
     it('is offered a saved address only if they ticked it, and nobody else’s', async () => {
       const empty = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(empty.body).toEqual({ addressText: null, customerName: null });
+      expect(empty.body).toEqual({ id: null, addressText: null, customerName: null });
       await place(await answeredRequest(), { customerName: 'Asha' });
       const untouched = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(untouched.body).toEqual({ addressText: null, customerName: null });
+      expect(untouched.body).toEqual({ id: null, addressText: null, customerName: null });
       await pool.query(`UPDATE delivery_orders SET state = 'CANCELLED'`);
       await pool.query('DELETE FROM shop_stock'); // asked again, not answered from memory
       await place(await answeredRequest(), { customerName: 'Asha', saveAddress: true });
       const saved = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(saved.body).toEqual({ addressText: ADDRESS, customerName: 'Asha' });
+      expect(saved.body).toEqual({
+        id: expect.any(String),
+        addressText: ADDRESS,
+        customerName: 'Asha',
+      });
       const theirs = await request(app).get('/orders/saved-address').set(auth(other));
-      expect(theirs.body).toEqual({ addressText: null, customerName: null });
+      expect(theirs.body).toEqual({ id: null, addressText: null, customerName: null });
       expect((await request(app).get('/orders/saved-address').set(auth(shop))).status).toBe(403);
     });
   });
@@ -649,7 +653,11 @@ describe('delivery orders', () => {
       await pool.query(`UPDATE shops SET is_simulated = true WHERE id = $1`, [shop.shopId]);
       const placed = await place(await answeredRequest());
       const forSim = events.find((e) => e.type === 'order.created' && 'admin' in e.to);
-      expect(forSim?.data).toEqual({ orderId: placed.body.id, shopId: shop.shopId });
+      expect(forSim?.data).toEqual({
+        orderId: placed.body.id,
+        shopId: shop.shopId,
+        state: 'REQUESTED',
+      });
     });
   });
 

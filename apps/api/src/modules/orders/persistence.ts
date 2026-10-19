@@ -1,6 +1,12 @@
 import type { Queryable } from '../../db/queryable.js';
-import { ORDER_STATES, orderTransition, type OrderEvent, type OrderState } from './stateMachine.js';
-import type { OrderLine, OrderRecord } from './types.js';
+import {
+  ORDER_STATES,
+  RECEIVE_WINDOW_HOURS,
+  orderTransition,
+  type OrderEvent,
+  type OrderState,
+} from './stateMachine.js';
+import type { OrderLine, OrderRecord, ShopCancelReason } from './types.js';
 
 interface Row {
   id: string;
@@ -20,6 +26,12 @@ interface Row {
   customer_first_name: string | null;
   lat: number | null;
   lng: number | null;
+  note: string | null;
+  out_for_delivery_at: Date | null;
+  receive_by: Date | null;
+  cancelled_by: 'customer' | 'shop' | null;
+  cancel_reason: ShopCancelReason | null;
+  cancel_text: string | null;
   expires_at: Date;
   created_at: Date;
   updated_at: Date;
@@ -28,6 +40,7 @@ interface Row {
 const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name, s.owner_user_id AS shop_owner_user_id,
        o.request_id, o.errand_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
        o.fee_paise, o.fee_minutes, o.address_text, o.customer_first_name, o.lat, o.lng,
+       o.note, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
        o.expires_at, o.created_at, o.updated_at
   FROM delivery_orders o JOIN shops s ON s.id = o.shop_id`;
 
@@ -49,6 +62,12 @@ const toRecord = (r: Row): OrderRecord => ({
   customerFirstName: r.customer_first_name,
   lat: r.lat,
   lng: r.lng,
+  note: r.note,
+  outForDeliveryAt: r.out_for_delivery_at,
+  receiveBy: r.receive_by,
+  cancelledBy: r.cancelled_by,
+  cancelReason: r.cancel_reason,
+  cancelText: r.cancel_text,
   expiresAt: r.expires_at,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -68,6 +87,9 @@ export interface NewOrder {
   customerFirstName: string | null;
   lat: number;
   lng: number;
+  note: string | null;
+  /** ACCEPTED when the customer took a binding offer; otherwise the shop must accept in time. */
+  state: 'REQUESTED' | 'ACCEPTED';
   expiryMinutes: number;
 }
 
@@ -77,9 +99,9 @@ export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | 
     `INSERT INTO delivery_orders
        (user_id, shop_id, request_id, errand_id, source_id, lines, items_total_paise,
         unknown_price_count, fee_paise, fee_minutes, address_text, customer_first_name, lat, lng,
-        expires_at)
+        note, state, expires_at)
      VALUES ($1, $2, $3::uuid, $4::uuid, COALESCE($3::uuid, $4::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
-             now() + make_interval(mins => $14::int))
+             $14, $15, now() + make_interval(mins => $16::int))
      ON CONFLICT (user_id, shop_id, source_id)
        WHERE state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY') DO NOTHING
      RETURNING id`,
@@ -97,6 +119,8 @@ export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | 
       o.customerFirstName,
       o.lat,
       o.lng,
+      o.note,
+      o.state,
       o.expiryMinutes,
     ],
   );
@@ -138,7 +162,7 @@ export async function listOrdersForSource(
 }
 
 const ACTIVE = `('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')`;
-const FINAL = `('DECLINED', 'EXPIRED', 'DELIVERED', 'CANCELLED')`;
+const FINAL = `('DECLINED', 'EXPIRED', 'DELIVERED', 'CANCELLED', 'NOT_CONFIRMED')`;
 
 /** All the customer's orders: the open ones first, then the finished, each newest first. */
 export async function listOrdersForUser(
@@ -169,18 +193,34 @@ export async function listOrdersForShop(
 }
 
 export interface SavedAddress {
+  id: string;
   addressText: string;
   customerName: string | null;
 }
 
 /** What the customer chose to keep ("Is pate ko yaad rakhein"). Theirs only. */
 export async function getSavedAddress(db: Queryable, userId: string): Promise<SavedAddress | null> {
-  const { rows } = await db.query<{ address_text: string; customer_first_name: string | null }>(
-    `SELECT address_text, customer_first_name FROM saved_addresses WHERE user_id = $1`,
-    [userId],
-  );
+  const { rows } = await db.query<{
+    id: string;
+    address_text: string;
+    customer_first_name: string | null;
+  }>(`SELECT id, address_text, customer_first_name FROM saved_addresses WHERE user_id = $1`, [
+    userId,
+  ]);
   const row = rows[0];
-  return row ? { addressText: row.address_text, customerName: row.customer_first_name } : null;
+  return row
+    ? { id: row.id, addressText: row.address_text, customerName: row.customer_first_name }
+    : null;
+}
+
+/** The customer's saved address if this id is theirs and still there. */
+export async function getSavedAddressById(
+  db: Queryable,
+  userId: string,
+  id: string,
+): Promise<SavedAddress | null> {
+  const saved = await getSavedAddress(db, userId);
+  return saved?.id === id ? saved : null;
 }
 
 export async function saveAddress(
@@ -188,16 +228,18 @@ export async function saveAddress(
   userId: string,
   addressText: string,
   firstName: string | null,
-): Promise<void> {
-  await db.query(
+): Promise<string> {
+  const { rows } = await db.query<{ id: string }>(
     `INSERT INTO saved_addresses (user_id, address_text, customer_first_name)
      VALUES ($1, $2, $3)
      ON CONFLICT (user_id) DO UPDATE
        SET address_text = EXCLUDED.address_text,
            customer_first_name = EXCLUDED.customer_first_name,
-           updated_at = now()`,
+           updated_at = now()
+     RETURNING id`,
     [userId, addressText, firstName],
   );
+  return (rows[0] as { id: string }).id;
 }
 
 export async function forgetSavedAddress(db: Queryable, userId: string): Promise<void> {
@@ -230,7 +272,18 @@ export type MoveResult =
  * Moves an order by one event. The UPDATE is guarded (`WHERE state = from`), so of two taps at
  * once exactly one is applied; the other finds the state changed and is reported, not forced.
  */
-export async function moveOrder(db: Queryable, id: string, event: OrderEvent): Promise<MoveResult> {
+export interface MoveDetails {
+  cancelledBy?: 'customer' | 'shop';
+  reason?: ShopCancelReason | null;
+  text?: string | null;
+}
+
+export async function moveOrder(
+  db: Queryable,
+  id: string,
+  event: OrderEvent,
+  details: MoveDetails = {},
+): Promise<MoveResult> {
   const current = await findOrder(db, id);
   if (!current) return { kind: 'not_found' };
   const next = orderTransition(current.state, event);
@@ -242,9 +295,28 @@ export async function moveOrder(db: Queryable, id: string, event: OrderEvent): P
     });
     return repeated ? { kind: 'unchanged', order: current } : { kind: 'invalid', order: current };
   }
+  // What each move records, in the same guarded UPDATE: when the shop set out and the customer's
+  // three hours; who cancelled and why.
   const { rowCount } = await db.query(
-    `UPDATE delivery_orders SET state = $3, updated_at = now() WHERE id = $1 AND state = $2`,
-    [id, current.state, next.to],
+    `UPDATE delivery_orders
+        SET state = $3, updated_at = now(),
+            out_for_delivery_at = CASE WHEN $4::text = 'DISPATCH' THEN now() ELSE out_for_delivery_at END,
+            receive_by = CASE WHEN $4::text = 'DISPATCH'
+                              THEN now() + make_interval(hours => $5::int) ELSE receive_by END,
+            cancelled_by = COALESCE($6::text, cancelled_by),
+            cancel_reason = COALESCE($7::text, cancel_reason),
+            cancel_text = COALESCE($8::text, cancel_text)
+      WHERE id = $1 AND state = $2`,
+    [
+      id,
+      current.state,
+      next.to,
+      event,
+      RECEIVE_WINDOW_HOURS,
+      details.cancelledBy ?? null,
+      details.reason ?? null,
+      details.text ?? null,
+    ],
   );
   const after = (await findOrder(db, id)) as OrderRecord;
   if (rowCount === 1) return { kind: 'applied', order: after, from: current.state };
@@ -259,6 +331,16 @@ export async function findOverdueOrderIds(db: Queryable, limit: number): Promise
   const { rows } = await db.query<{ id: string }>(
     `SELECT id FROM delivery_orders WHERE state = 'REQUESTED' AND expires_at <= now()
       ORDER BY expires_at LIMIT $1`,
+    [limit],
+  );
+  return rows.map((r) => r.id);
+}
+
+/** Ids of orders out for delivery whose customer did not tap Received in time. */
+export async function findUnconfirmedOrderIds(db: Queryable, limit: number): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM delivery_orders WHERE state = 'OUT_FOR_DELIVERY' AND receive_by <= now()
+      ORDER BY receive_by LIMIT $1`,
     [limit],
   );
   return rows.map((r) => r.id);
