@@ -23,68 +23,69 @@ function client(status: PushStatus, over: Partial<PushClient> = {}): PushClient 
 }
 const setup = (status: PushStatus, over: Partial<PushClient> = {}) => {
   const push = client(status, over);
-  return { push, ...renderApp(<NotifyToggle api={fakePush()} client={push} />) };
+  return { push, ...renderApp(<NotifyToggle api={fakePush()} client={push} />, 'en') };
 };
 
-describe('the notification button', () => {
-  it('offers "Notification chalu karein", and asks for nothing until it is tapped', async () => {
+describe('the notifications switch', () => {
+  it('is an off switch titled Notifications, and asks for nothing until it is tapped', async () => {
     const { push } = setup('off');
-    expect(await screen.findByRole('button', { name: 'Notification chalu karein' })).toBeTruthy();
+    const toggle = await screen.findByRole('switch', { name: 'Notifications' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
     expect(push.enable).not.toHaveBeenCalled();
   });
 
-  it('turns notifications on with a tap, then offers to turn them off', async () => {
+  it('turns notifications on with a tap, then off again', async () => {
     const { push, user } = setup('off');
-    await user.click(await screen.findByRole('button', { name: 'Notification chalu karein' }));
+    await user.click(await screen.findByRole('switch', { name: 'Notifications' }));
     expect(push.enable).toHaveBeenCalledOnce();
-    await user.click(await screen.findByRole('button', { name: 'Notification band karein' }));
+    const on = await screen.findByRole('switch', { name: 'Notifications', checked: true });
+    await user.click(on);
     expect(push.disable).toHaveBeenCalledOnce();
-    expect(await screen.findByRole('button', { name: 'Notification chalu karein' })).toBeTruthy();
+    expect(
+      await screen.findByRole('switch', { name: 'Notifications', checked: false }),
+    ).toBeTruthy();
   });
 
-  it('starts out showing "off" when notifications are already on', async () => {
-    setup('on');
-    expect(await screen.findByRole('button', { name: 'Notification band karein' })).toBeTruthy();
+  it('starts out on when notifications are already on, and quietly resyncs', async () => {
+    const { push } = setup('on');
+    expect(
+      await screen.findByRole('switch', { name: 'Notifications', checked: true }),
+    ).toBeTruthy();
+    expect(push.resync).toHaveBeenCalledOnce();
   });
 
-  it('on an iPhone that has not installed the app, shows the hint and a button that cannot be pressed', async () => {
+  it('on an iPhone that has not installed the app, shows the hint and a switch that cannot be pressed', async () => {
     const { push } = setup('ios_install');
-    expect(await screen.findByText("Pehle 'Add to Home Screen' karein")).toBeTruthy();
-    const button = screen.getByRole('button', { name: 'Notification chalu karein' });
-    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText("First tap Share, then 'Add to Home Screen'.")).toBeTruthy();
+    const toggle = screen.getByRole('switch', { name: 'Notifications' }) as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
     expect(push.enable).not.toHaveBeenCalled();
   });
 
   it('when the browser has blocked notifications, says where to allow them', async () => {
     setup('blocked');
-    expect(await screen.findByText(/browser ki settings/i)).toBeTruthy();
+    expect(await screen.findByText(/browser settings/i)).toBeTruthy();
   });
 
-  it('says so when turning on did not work, and lets the person try again', async () => {
+  it('says so when turning on did not work, and stays off', async () => {
     const { user } = setup('off', { enable: vi.fn(async () => 'failed' as const) });
-    await user.click(await screen.findByRole('button', { name: 'Notification chalu karein' }));
+    await user.click(await screen.findByRole('switch', { name: 'Notifications' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Notification chalu karein' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Notifications', checked: false })).toBeTruthy();
   });
 
   it('shows nothing where push cannot work or the server has it off', async () => {
     for (const status of ['unsupported', 'disabled'] as const) {
       const { container, unmount } = setup(status);
       await vi.waitFor(() => expect(container.querySelector('[data-notify]')).toBeNull());
-      expect(screen.queryByRole('button')).toBeNull();
+      expect(screen.queryByRole('switch')).toBeNull();
       unmount();
     }
   });
 
-  it("quietly refreshes the server's copy of the subscription when it is already on", async () => {
-    const { push } = setup('on');
-    await screen.findByRole('button', { name: 'Notification band karein' });
-    expect(push.resync).toHaveBeenCalledOnce();
-  });
-
-  it('speaks English when the language is English', async () => {
+  it('speaks Hindi on a Hindi screen', async () => {
     const push = client('off');
-    renderApp(<NotifyToggle api={fakePush()} client={push} />, 'en');
-    expect(await screen.findByRole('button', { name: 'Turn on notifications' })).toBeTruthy();
+    renderApp(<NotifyToggle api={fakePush()} client={push} />, 'hi');
+    expect(await screen.findByRole('switch', { name: 'Notification' })).toBeTruthy();
   });
 });

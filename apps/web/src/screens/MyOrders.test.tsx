@@ -1,128 +1,236 @@
 // @vitest-environment jsdom
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { timeAfter } from '../lib/time.js';
 import { fakeSeekerApi, seekerOrder } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { MyOrders } from './MyOrders.js';
 
-function setup(overrides: Parameters<typeof fakeSeekerApi>[0] = {}) {
+function setup(overrides: Parameters<typeof fakeSeekerApi>[0] = {}, lang: 'en' | 'hi' = 'en') {
   const api = fakeSeekerApi(overrides);
-  const onOpen = vi.fn();
+  const navigate = vi.fn();
   const onBack = vi.fn();
-  const utils = renderApp(<MyOrders api={api} onOpen={onOpen} onBack={onBack} />);
-  return { api, onOpen, onBack, ...utils };
+  const utils = renderApp(<MyOrders api={api} navigate={navigate} onBack={onBack} />, lang);
+  return { api, navigate, onBack, ...utils };
 }
 
-describe('Mere orders', () => {
-  it('says so when there is nothing yet', async () => {
-    setup();
-    expect(await screen.findByText('Abhi koi order nahi.')).toBeTruthy();
+const waiting = {
+  id: 'p1',
+  item: { nameEn: 'sugar', nameHi: 'चीनी' },
+  shop: { name: 'Sharma Kirana' },
+};
+
+describe('My orders', () => {
+  it('has the title and a way back', async () => {
+    const { user, onBack } = setup();
+    expect(screen.getByRole('heading', { name: 'My orders' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onBack).toHaveBeenCalled();
   });
 
-  it('lists each order with shop, items, total including the fee, and its state; active first', async () => {
-    setup({
-      myOrders: vi.fn(async () => [
-        seekerOrder({ id: 'o-active', shopName: 'Mishra Kirana', state: 'ACCEPTED' }),
-        seekerOrder({
-          id: 'o-done',
-          shopName: 'Gupta Store',
-          state: 'DELIVERED',
-          lines: [{ name: 'atta', count: 1, pricePaise: 4000 }],
-          itemsTotalPaise: 4000,
-          feePaise: 2000,
-        }),
-      ]),
-    });
-    const rows = await screen.findAllByRole('link', { name: /Kirana|Store/ });
-    expect(rows).toHaveLength(2);
-    const first = within(rows[0] as HTMLElement);
-    expect(first.getByText('Mishra Kirana')).toBeTruthy();
-    expect(first.getByText(/2 × sugar/)).toBeTruthy();
-    // ₹90 of goods and a ₹30 fee.
-    expect(first.getByText(/₹120/)).toBeTruthy();
-    expect(first.getByText('Dukaan ne order le liya')).toBeTruthy();
-    const second = within(rows[1] as HTMLElement);
-    expect(second.getByText(/₹60/)).toBeTruthy();
-    expect(second.getByText('Pahuncha diya — order poora hua')).toBeTruthy();
+  it('says so when there are no orders, with a way back to Find', async () => {
+    const { user, navigate } = setup();
+    expect(await screen.findByText('No orders yet.')).toBeTruthy();
+    expect(screen.getByText('Orders you place from a request show up here.')).toBeTruthy();
+    await user.click(screen.getByRole('link', { name: 'Find an item' }));
+    expect(navigate).toHaveBeenCalledWith('/app/');
   });
 
-  it('sorts active orders above finished ones even if the server sent them mixed', async () => {
-    setup({
-      myOrders: vi.fn(async () => [
-        seekerOrder({ id: 'o1', shopName: 'Old Store', state: 'DELIVERED' }),
-        seekerOrder({ id: 'o2', shopName: 'New Kirana', state: 'REQUESTED' }),
-      ]),
-    });
-    const rows = await screen.findAllByRole('link', { name: /Kirana|Store/ });
-    expect(rows[0]?.textContent).toMatch(/New Kirana/);
+  it('shows skeletons while loading', () => {
+    setup({ myOrders: vi.fn(() => new Promise<never>(() => undefined)) });
+    expect(screen.getByLabelText('Loading')).toBeTruthy();
   });
 
-  it('does not invent a total when no price is known', async () => {
-    setup({
-      myOrders: vi.fn(async () => [
-        seekerOrder({ itemsTotalPaise: null, feePaise: 3000, unknownPriceCount: 1 }),
-      ]),
-    });
-    const row = await screen.findByRole('link', { name: /Mishra Kirana/ });
-    expect(row.textContent).not.toMatch(/₹0/);
-    expect(row.textContent).toMatch(/Daam dukaan se poochein/);
-  });
-
-  it('opens an order with its own address', async () => {
-    const { user } = setup({ myOrders: vi.fn(async () => [seekerOrder({ id: 'o-9' })]) });
-    const row = await screen.findByRole('link', { name: /Mishra Kirana/ });
-    expect(row.getAttribute('href')).toBe('/app/order/o-9');
-    await user.click(row);
-  });
-
-  it('calls onOpen with the id when a row is tapped (no full page load)', async () => {
-    const { user, onOpen } = setup({ myOrders: vi.fn(async () => [seekerOrder({ id: 'o-9' })]) });
-    await user.click(await screen.findByRole('link', { name: /Mishra Kirana/ }));
-    expect(onOpen).toHaveBeenCalledWith('o-9');
-  });
-
-  it('shows the kept address and lets the customer delete it', async () => {
-    const savedAddress = vi
+  it('shows an error with a retry', async () => {
+    const myOrders = vi
       .fn()
-      .mockResolvedValueOnce({ addressText: 'Flat 4B, Sapna Apartments', customerName: 'Asha' })
-      .mockResolvedValue({ addressText: null, customerName: null });
-    const { user, api } = setup({ savedAddress });
-    expect(await screen.findByText('Flat 4B, Sapna Apartments')).toBeTruthy();
-    expect(screen.getByText('Yaad rakha hua pata')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Pata hatayein' }));
-    expect(api.forgetAddress).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => expect(screen.queryByText('Flat 4B, Sapna Apartments')).toBeNull());
-    expect(screen.queryByRole('button', { name: 'Pata hatayein' })).toBeNull();
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue([seekerOrder()]);
+    const { user } = setup({ myOrders });
+    expect((await screen.findByRole('alert')).textContent).toContain("Couldn't load this.");
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('link', { name: /Mishra Kirana/ })).toBeTruthy();
   });
 
-  it('shows no address block when none was kept', async () => {
+  it('shows an offline banner', async () => {
+    const spy = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
     setup();
-    await screen.findByText('Abhi koi order nahi.');
-    expect(screen.queryByText('Yaad rakha hua pata')).toBeNull();
+    expect(await screen.findByText("You're offline. Reconnect to see the latest.")).toBeTruthy();
+    spy.mockRestore();
   });
 
-  it('says so when the orders cannot be fetched', async () => {
-    setup({
-      myOrders: vi.fn(async () => {
-        throw new Error('offline');
-      }),
-    });
-    expect((await screen.findByRole('alert')).textContent).toMatch(/nahi/);
-  });
-});
-
-describe('Mere orders: names follow the language (PR H)', () => {
-  it('shows the customer’s own word on a Hindi screen, not the English catalog name', async () => {
-    setup({
-      myOrders: vi.fn(async () => [
+  describe('active and earlier', () => {
+    const mixed = () =>
+      vi.fn(async () => [
+        seekerOrder({ id: 'o-done', shopName: 'Gupta Store', state: 'DELIVERED' }),
         seekerOrder({
-          lines: [
-            { name: 'cinnamon', nameHi: 'दालचीनी', text: 'dalchini', count: 1, pricePaise: 3000 },
-          ],
+          id: 'o-out',
+          shopName: 'Mishra Kirana',
+          state: 'OUT_FOR_DELIVERY',
+          feeMinutes: 45,
+          outForDeliveryAt: '2026-10-16T10:20:00.000Z',
         }),
-      ]),
+      ]);
+
+    it('lists active orders under "Active" and finished ones under "Earlier"', async () => {
+      setup({ myOrders: mixed() });
+      await screen.findByRole('link', { name: /Mishra Kirana/ });
+      const active = screen.getByRole('region', { name: 'Active' });
+      const earlier = screen.getByRole('region', { name: 'Earlier' });
+      expect(within(active).getByText('Mishra Kirana')).toBeTruthy();
+      expect(within(active).queryByText('Gupta Store')).toBeNull();
+      expect(within(earlier).getByText('Gupta Store')).toBeTruthy();
     });
-    expect(await screen.findByText(/1 × dalchini/)).toBeTruthy();
-    expect(screen.queryByText(/cinnamon/)).toBeNull();
+
+    it('an active row shows logo, item, shop, total with the fee, a status pill and "by" time', async () => {
+      setup({ myOrders: mixed() });
+      const row = within(await screen.findByRole('link', { name: /Mishra Kirana/ }));
+      expect(row.getByText(/2 × sugar/)).toBeTruthy();
+      expect(row.getByText('₹120')).toBeTruthy();
+      expect(row.getByText('Out for delivery')).toBeTruthy();
+      expect(row.getByText(`by ${timeAfter('2026-10-16T10:20:00.000Z', 45)}`)).toBeTruthy();
+    });
+
+    it('shows no "by" time when it is not known', async () => {
+      setup({ myOrders: vi.fn(async () => [seekerOrder({ state: 'REQUESTED' })]) });
+      const row = within(await screen.findByRole('link', { name: /Mishra Kirana/ }));
+      expect(row.getByText('Waiting for the shop')).toBeTruthy();
+      expect(row.queryByText(/^by /)).toBeNull();
+    });
+
+    it('an earlier row shows plain status text', async () => {
+      setup({ myOrders: mixed() });
+      const row = within(await screen.findByRole('link', { name: /Gupta Store/ }));
+      expect(row.getByText('Delivered')).toBeTruthy();
+    });
+
+    it.each([
+      [{ state: 'NOT_CONFIRMED' }, "You didn't confirm"],
+      [{ state: 'CANCELLED', cancelledBy: 'shop' }, 'Cancelled by shop'],
+      [{ state: 'CANCELLED', cancelledBy: 'customer' }, 'Cancelled by you'],
+      [{ state: 'DECLINED' }, 'Shop declined'],
+      [{ state: 'EXPIRED' }, 'No answer from shop'],
+    ] as const)('earlier status for %j reads "%s"', async (over, text) => {
+      setup({ myOrders: vi.fn(async () => [seekerOrder({ ...over })]) });
+      expect(await screen.findByText(text)).toBeTruthy();
+    });
+
+    it('sorts active above finished even if the server sent them mixed', async () => {
+      setup({
+        myOrders: vi.fn(async () => [
+          seekerOrder({ id: 'o1', shopName: 'Old Store', state: 'DELIVERED' }),
+          seekerOrder({ id: 'o2', shopName: 'New Kirana', state: 'REQUESTED' }),
+        ]),
+      });
+      const rows = await screen.findAllByRole('link', { name: /Kirana|Store/ });
+      expect(rows[0]?.textContent).toMatch(/New Kirana/);
+    });
+
+    it('does not invent a total when no price is known', async () => {
+      setup({
+        myOrders: vi.fn(async () => [
+          seekerOrder({ itemsTotalPaise: null, feePaise: 3000, unknownPriceCount: 1 }),
+        ]),
+      });
+      const row = await screen.findByRole('link', { name: /Mishra Kirana/ });
+      expect(row.textContent).not.toMatch(/₹0/);
+      expect(row.textContent).toMatch(/Ask the shop for the price/);
+    });
+
+    it('opens an order with its own address, through navigate on a plain tap', async () => {
+      const { user, navigate } = setup({
+        myOrders: vi.fn(async () => [seekerOrder({ id: 'o-9' })]),
+      });
+      const row = await screen.findByRole('link', { name: /Mishra Kirana/ });
+      expect(row.getAttribute('href')).toBe('/app/order/o-9');
+      await user.click(row);
+      expect(navigate).toHaveBeenCalledWith('/app/order/o-9');
+    });
+  });
+
+  describe('"Did you get it?" card', () => {
+    it('comes first, with the three answers', async () => {
+      setup({
+        pendingPickups: vi.fn(async () => [waiting]),
+        myOrders: vi.fn(async () => [seekerOrder()]),
+      });
+      const question = await screen.findByText('Did you get sugar at Sharma Kirana?');
+      expect(screen.getByText('Your answer helps the next person nearby.')).toBeTruthy();
+      for (const name of ['Got it', "Wasn't there", "Didn't go"])
+        expect(screen.getByRole('button', { name })).toBeTruthy();
+      const active = await screen.findByRole('region', { name: 'Active' });
+      expect(
+        question.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it.each([
+      ['Got it', 'found'],
+      ["Wasn't there", 'not_there'],
+      ["Didn't go", 'not_gone'],
+    ] as const)('"%s" sends %s, removes the card and thanks quietly', async (label, answer) => {
+      const { api, user } = setup({ pendingPickups: vi.fn(async () => [waiting]) });
+      await user.click(await screen.findByRole('button', { name: label }));
+      expect(api.answerPickup).toHaveBeenCalledWith('p1', answer);
+      await waitFor(() => expect(screen.queryByText(/Did you get sugar/)).toBeNull());
+      expect((await screen.findByRole('status')).textContent).toBe(
+        'Thanks! Your answer helps the next person nearby.',
+      );
+    });
+
+    it('is absent when nothing is waiting or it cannot be fetched', async () => {
+      setup({
+        pendingPickups: vi.fn(async () => {
+          throw new Error('offline');
+        }),
+      });
+      await screen.findByText('No orders yet.');
+      expect(screen.queryByText(/Did you get/)).toBeNull();
+    });
+  });
+
+  describe('saved address', () => {
+    it('shows the kept address and lets the customer delete it, with an inline "Deleted"', async () => {
+      const savedAddress = vi
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'a',
+          addressText: 'Flat 4B, Sapna Apartments',
+          customerName: 'Asha',
+        })
+        .mockResolvedValue({ id: null, addressText: null, customerName: null });
+      const { user, api } = setup({ savedAddress });
+      expect(await screen.findByText('Flat 4B, Sapna Apartments')).toBeTruthy();
+      expect(screen.getByText(/Saved address/)).toBeTruthy();
+      expect(screen.getByText(/used for delivery/)).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'Delete' }));
+      expect(api.forgetAddress).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByText('Flat 4B, Sapna Apartments')).toBeNull());
+      expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+      expect(screen.getByText('Deleted')).toBeTruthy();
+    });
+
+    it('shows no address row when none was kept', async () => {
+      setup();
+      await screen.findByText('No orders yet.');
+      expect(screen.queryByText(/Saved address/)).toBeNull();
+    });
+  });
+
+  it('has a Notifications row at the bottom when push can work', async () => {
+    const push = {
+      status: vi.fn(async () => 'off' as const),
+      enable: vi.fn(async () => 'on' as const),
+      disable: vi.fn(async () => undefined),
+      resync: vi.fn(async () => undefined),
+    };
+    const api = fakeSeekerApi();
+    renderApp(<MyOrders api={api} navigate={vi.fn()} onBack={vi.fn()} pushClient={push} />, 'en');
+    expect(await screen.findByRole('switch', { name: 'Notifications' })).toBeTruthy();
+  });
+
+  it('speaks Hindi on a Hindi screen', async () => {
+    setup({}, 'hi');
+    expect(await screen.findByText('Abhi koi order nahi.')).toBeTruthy();
   });
 });

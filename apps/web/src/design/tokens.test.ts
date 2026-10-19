@@ -15,7 +15,11 @@ function cssFiles(dir: string): string[] {
     return path.endsWith('.css') ? [path] : [];
   });
 }
-const shopCss = [...cssFiles(join(src, 'shop')), ...cssFiles(join(src, 'ui'))].map((path) => ({
+const shopCss = [
+  ...cssFiles(join(src, 'shop')),
+  ...cssFiles(join(src, 'ui')),
+  ...cssFiles(join(src, 'customer')),
+].map((path) => ({
   path: path.replace(src, 'src'),
   text: readFileSync(path, 'utf8'),
 }));
@@ -23,8 +27,7 @@ const shopCss = [...cssFiles(join(src, 'shop')), ...cssFiles(join(src, 'ui'))].m
 describe('tokens.css', () => {
   const light = /:root\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
   const dark =
-    /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ??
-    '';
+    /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ?? '';
   const names = (block: string) => [...block.matchAll(/(--[\w-]+):/g)].map((m) => m[1]);
 
   it('has the colour, space, radius and type tokens the rules name', () => {

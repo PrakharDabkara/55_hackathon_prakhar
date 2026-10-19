@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeekerApp, SEEKER_UNAUTHORIZED_EVENT } from './SeekerApp.js';
 import type { Session } from './lib/session.js';
 import { errandView, fakeSeekerApi, result, seekerOrder, seekerRequest } from './test/fakes.js';
@@ -22,126 +22,122 @@ const memorySession = (token: string | null = null): Session => {
   };
 };
 
+beforeEach(() => sessionStorage.clear());
+afterEach(() => vi.unstubAllGlobals());
+
+const here = () =>
+  vi.stubGlobal('navigator', {
+    ...navigator,
+    geolocation: {
+      getCurrentPosition: (ok: (p: unknown) => void) =>
+        ok({ coords: { latitude: 12.97, longitude: 77.59 } }),
+    },
+  });
+
+const render = (api = fakeSeekerApi(), session = memorySession()) =>
+  renderApp(<SeekerApp api={api} session={session} />, 'en');
+
 describe('SeekerApp', () => {
-  it('starts at login with the Demo mode box after the code is sent', async () => {
-    const { user } = renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession()} />);
-    await user.type(screen.getByLabelText(/mobile number/i), '9876543210');
-    await user.click(screen.getByRole('button', { name: 'OTP bhejo' }));
-    expect(await screen.findByText('Demo mode')).toBeTruthy();
+  it('opens on Find without a login wall, with a link for shopkeepers', () => {
+    render();
+    expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('link', { name: 'For shopkeepers' }).getAttribute('href')).toBe(
+      '/app/shop',
+    );
   });
 
-  it('logs in as a seeker, then shows the search box', async () => {
-    const api = fakeSeekerApi();
-    const session = memorySession();
-    const { user } = renderApp(<SeekerApp api={api} session={session} />);
-    await user.type(screen.getByLabelText(/mobile number/i), '9876543210');
-    await user.click(screen.getByRole('button', { name: 'OTP bhejo' }));
-    await user.click(await screen.findByRole('button', { name: 'Demo OTP bharein' }));
-    await user.click(screen.getByRole('button', { name: 'Login karein' }));
-    expect(await screen.findByLabelText('क्या चाहिए?')).toBeTruthy();
-    expect(session.getToken()).toBe('seeker-token');
-  });
-
-  it('goes from search to results, and back to search after "Ho gaya"', async () => {
+  it('asks for a login when Find is pressed signed out, then sends the request and shows its replies', async () => {
+    here();
     const api = fakeSeekerApi({
       createRequest: vi.fn(async () =>
-        seekerRequest({ state: 'ANSWERED', results: [result({ name: 'Sharma Kirana' })] }),
+        seekerRequest({
+          id: 'req-5',
+          state: 'ANSWERED',
+          results: [result({ name: 'Sharma Kirana' })],
+        }),
       ),
     });
-    const { user } = renderApp(<SeekerApp api={api} session={memorySession('t')} />);
-    await user.type(screen.getByLabelText('क्या चाहिए?'), 'chini');
-    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
-    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    const session = memorySession();
+    const { user } = render(api, session);
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await user.type(await screen.findByLabelText('Mobile number'), '9876543210');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.click(await screen.findByRole('button', { name: 'Fill demo OTP' }));
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
     expect(await screen.findByText('Sharma Kirana')).toBeTruthy();
-    expect(screen.getByTestId('map')).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: 'Ho gaya' }));
-    expect(await screen.findByLabelText('क्या चाहिए?')).toBeTruthy();
+    expect(session.getToken()).toBe('seeker-token');
+    expect(api.createRequest).toHaveBeenCalledTimes(1);
+    expect(api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ q: 'chini' }));
+    expect(location.pathname).toBe('/app/request/req-5');
+    at('/app/');
   });
 
-  it('returns to login when the server says the session is over', async () => {
-    renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
-    expect(screen.getByLabelText('क्या चाहिए?')).toBeTruthy();
+  it('falls back to a signed-out Find when the server says the session is over', async () => {
+    const session = memorySession('t');
+    render(fakeSeekerApi(), session);
     act(() => void window.dispatchEvent(new Event(SEEKER_UNAUTHORIZED_EVENT)));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'OTP bhejo' })).toBeTruthy());
+    await waitFor(() => expect(session.getToken()).toBeNull());
+    expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeTruthy();
   });
 
-  it('links to the shop app for shopkeepers', () => {
-    renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession()} />);
-    expect(screen.getByRole('link', { name: /Dukaan/ }).getAttribute('href')).toBe('/app/shop');
+  it('shows the login sheet over an address that needs a login, and closing it goes to Find', async () => {
+    at('/app/orders');
+    const { user } = render();
+    expect(await screen.findByRole('dialog', { name: 'Log in to send your request' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(location.pathname).toBe('/app/');
+    expect(screen.getByRole('heading', { name: 'What do you need?' })).toBeTruthy();
   });
 });
 
-describe('SeekerApp: the errand entry (Day 14b)', () => {
-  it('offers "Poora kaam batao" on the search screen and opens the errand screen', async () => {
-    const { user } = renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
-    await user.click(screen.getByRole('link', { name: 'Poora kaam batao' }));
-    expect(await screen.findByLabelText('Kya kaam hai?')).toBeTruthy();
-    expect(location.pathname).toBe('/app/errand');
+const at = (path: string) => window.history.pushState({}, '', path);
 
-    await user.click(screen.getByRole('button', { name: 'Wapas' }));
-    expect(await screen.findByLabelText('क्या चाहिए?')).toBeTruthy();
+describe('SeekerApp: the errand entry', () => {
+  afterEach(() => at('/app/'));
+
+  it('opens the errand screen from the Plan an errand card, and Back returns to Find', async () => {
+    const { user } = render(fakeSeekerApi(), memorySession('t'));
+    await user.click(screen.getByRole('link', { name: /Plan an errand/ }));
+    expect(await screen.findByLabelText("What's the job?")).toBeTruthy();
+    expect(location.pathname).toBe('/app/errand');
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('heading', { name: 'What do you need?' })).toBeTruthy();
     expect(location.pathname).toBe('/app/');
   });
 
   it('opens straight on the errand screen at /app/errand', async () => {
-    window.history.pushState({}, '', '/app/errand');
-    renderApp(<SeekerApp api={fakeSeekerApi()} session={memorySession('t')} />);
-    expect(await screen.findByLabelText('Kya kaam hai?')).toBeTruthy();
-    window.history.pushState({}, '', '/app/');
-  });
-
-  it('puts the errand id in the address when an errand starts, and "Naya kaam" takes it out', async () => {
-    window.history.pushState({}, '', '/app/errand');
-    const api = fakeSeekerApi({
-      createErrand: vi.fn(async () => ({ id: 'errand-7', state: 'PLANNING' as const })),
-      getErrand: vi.fn(async () => errandView({ id: 'errand-7', state: 'CANCELLED' })),
-    });
-    const { user } = renderApp(<SeekerApp api={api} session={memorySession('t')} />);
-    await user.type(await screen.findByLabelText('Kya kaam hai?'), 'chai');
-    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
-    await user.click(screen.getByRole('button', { name: 'Plan banao' }));
-    await screen.findByRole('button', { name: 'Naya kaam' });
-    expect(location.pathname).toBe('/app/errand/errand-7');
-    await user.click(screen.getByRole('button', { name: 'Naya kaam' }));
-    expect(location.pathname).toBe('/app/errand');
-    window.history.pushState({}, '', '/app/');
+    at('/app/errand');
+    render(fakeSeekerApi(), memorySession('t'));
+    expect(await screen.findByLabelText("What's the job?")).toBeTruthy();
   });
 
   it('a reload at /app/errand/<id> shows the same errand, not the empty form', async () => {
-    window.history.pushState({}, '', '/app/errand/errand-7');
+    at('/app/errand/errand-7');
     const getErrand = vi.fn(async () =>
       errandView({ id: 'errand-7', state: 'WAITING_FOR_SHOPS', task: 'puja ka saaman' }),
     );
-    renderApp(<SeekerApp api={fakeSeekerApi({ getErrand })} session={memorySession('t')} />);
+    render(fakeSeekerApi({ getErrand }), memorySession('t'));
     expect(await screen.findByText('puja ka saaman')).toBeTruthy();
     expect(getErrand).toHaveBeenCalledWith('errand-7');
-    expect(screen.queryByLabelText('Kya kaam hai?')).toBeNull();
-    window.history.pushState({}, '', '/app/');
+    expect(screen.queryByLabelText("What's the job?")).toBeNull();
   });
 });
 
-describe('SeekerApp: addresses of its own (PR E)', () => {
-  const at = (path: string) => window.history.pushState({}, '', path);
+describe('SeekerApp: addresses of its own', () => {
   afterEach(() => at('/app/'));
 
   it('opens /app/order/<id> straight on that order, as after a reload', async () => {
     at('/app/order/o-42');
     const api = fakeSeekerApi({ getOrder: vi.fn(async () => seekerOrder({ id: 'o-42' })) });
-    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
-    expect(await screen.findByText('Mishra Kirana')).toBeTruthy();
+    render(api, memorySession('t'));
+    expect(await screen.findByText(/Mishra Kirana/)).toBeTruthy();
     expect(api.getOrder).toHaveBeenCalledWith('o-42');
-    expect(window.location.pathname).toBe('/app/order/o-42');
+    expect(location.pathname).toBe('/app/order/o-42');
   });
 
-  it('opens /app/orders on the list', async () => {
-    at('/app/orders');
-    const api = fakeSeekerApi({ myOrders: vi.fn(async () => [seekerOrder({ id: 'o-1' })]) });
-    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
-    expect(await screen.findByRole('link', { name: /Mishra Kirana/ })).toBeTruthy();
-  });
-
-  it('opens /app/request/<id> on the results of that search, without the customer’s own point', async () => {
+  it('opens /app/request/<id> on the replies of that search, without the customer’s own point', async () => {
     at('/app/request/req-9');
     const api = fakeSeekerApi({
       getRequest: vi.fn(async () =>
@@ -152,23 +148,22 @@ describe('SeekerApp: addresses of its own (PR E)', () => {
         }),
       ),
     });
-    renderApp(<SeekerApp api={api} session={memorySession('t')} />);
+    render(api, memorySession('t'));
     expect(await screen.findByText('Sharma Kirana')).toBeTruthy();
     expect(api.getRequest).toHaveBeenCalledWith('req-9');
   });
 
-  it('goes home → Mere orders → one order → back, keeping the address bar in step', async () => {
-    at('/app/');
+  it('goes Find → My orders → one order → back, keeping the address bar in step', async () => {
     const api = fakeSeekerApi({
       myOrders: vi.fn(async () => [seekerOrder({ id: 'o-1', state: 'ACCEPTED' })]),
       getOrder: vi.fn(async () => seekerOrder({ id: 'o-1', state: 'ACCEPTED' })),
     });
-    const { user } = renderApp(<SeekerApp api={api} session={memorySession('t')} />);
-    await user.click(await screen.findByRole('link', { name: /Mere orders/ }));
-    expect(window.location.pathname).toBe('/app/orders');
+    const { user } = render(api, memorySession('t'));
+    await user.click(await screen.findByRole('link', { name: /My orders/ }));
+    expect(location.pathname).toBe('/app/orders');
     await user.click(await screen.findByRole('link', { name: /Mishra Kirana/ }));
-    expect(window.location.pathname).toBe('/app/order/o-1');
-    await user.click(await screen.findByRole('button', { name: 'Wapas' }));
-    expect(window.location.pathname).toBe('/app/orders');
+    expect(location.pathname).toBe('/app/order/o-1');
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+    expect(location.pathname).toBe('/app/orders');
   });
 });
