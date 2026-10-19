@@ -33,6 +33,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 // docs/scenarios.md: interactions between features, each with the behaviour we expect. One test
 // per scenario; the name starts with its number there. (S1 lives in shopCatchUp.int.test.ts.)
@@ -91,8 +92,9 @@ describe('cross-feature scenarios', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, delivery_orders, errands, ai_calls, new_item_attempts CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'requests, pings, shop_stock, delivery_orders, errands, ai_calls, new_item_attempts',
     );
     await pool.query('DELETE FROM shops');
     await pool.query(`DELETE FROM items WHERE source = 'user'`);
@@ -307,7 +309,7 @@ describe('cross-feature scenarios', () => {
     const s = await shop('S8 Kirana', 0.3, ['grocery'], { feePaise: 0, minutes: 30 });
     const outcomes = new Set<string>();
     for (let i = 0; i < 4; i++) {
-      await pool.query('TRUNCATE delivery_orders, requests, pings, shop_stock CASCADE');
+      await truncateKeepingShops(pool, 'delivery_orders, requests, pings, shop_stock');
       const r = await search('chini');
       await fan(r.id);
       await yes(s, { delivery: { minutes: 30 } });

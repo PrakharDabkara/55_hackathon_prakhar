@@ -11,6 +11,8 @@ export interface DeliveryOffer {
 export interface LearnedStockResult {
   shopId: string;
   name: string;
+  /** The shop's published logo, or null (ADR-0040). */
+  logoUrl?: string | null | undefined;
   distanceM: number;
   /** Where the shop is. Shops are public businesses, so this is shown to seekers. */
   lat: number;

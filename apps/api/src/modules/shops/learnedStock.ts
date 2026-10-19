@@ -11,6 +11,7 @@ import {
 interface Row {
   shop_id: string;
   name: string;
+  logo_url: string | null;
   distance_m: number;
   lat: number;
   lng: number;
@@ -46,7 +47,8 @@ export async function findLearnedStock(
             st.price_paise, st.quantity_hint, st.last_confirmed_at,
             st.qty_amount::float8 AS qty_amount, st.qty_unit, st.delivers,
             st.delivery_fee_paise, st.delivery_minutes,
-            st.customer_verified_at IS NOT NULL AS verified, st.wrong_reports
+            st.customer_verified_at IS NOT NULL AS verified, st.wrong_reports,
+            CASE WHEN s.logo_photo_id IS NOT NULL THEN '/photos/' || s.logo_photo_id END AS logo_url
        FROM shop_stock st
        JOIN shops s ON s.id = st.shop_id, origin
       WHERE st.item_id = $1
@@ -60,6 +62,7 @@ export async function findLearnedStock(
     rows.map((r) => ({
       shopId: r.shop_id,
       name: r.name,
+      logoUrl: r.logo_url,
       distanceM: Math.round(r.distance_m),
       lat: r.lat,
       lng: r.lng,

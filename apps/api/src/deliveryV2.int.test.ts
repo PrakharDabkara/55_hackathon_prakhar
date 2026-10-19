@@ -11,6 +11,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
 const ADDRESS = 'Flat 4B, Sapna Apartments, Vijay Nagar, Indore';
@@ -57,8 +58,9 @@ describe('Delivery v2', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, delivery_orders, errands, saved_addresses CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'requests, pings, shop_stock, delivery_orders, errands, saved_addresses',
     );
     await pool.query(
       `UPDATE shops SET closed_until = NULL, is_simulated = false, delivery_max_km = NULL,
@@ -160,11 +162,20 @@ describe('Delivery v2', () => {
 
   // ---- the shop's side of a ping -----------------------------------------------------------
   describe('what a shop sees of a ping (S21)', () => {
-    it('adds wantsDelivery and canDeliver to the allow-list, and nothing else', async () => {
+    it('adds wantsDelivery and canDeliver to the allow-list, and nothing else (lastPricePaise: ADR-0040)', async () => {
       await find({ wantsDelivery: true });
       const [card] = await cards(shopA);
       expect(Object.keys(card).sort()).toEqual(
-        ['canDeliver', 'distanceBand', 'expiresAt', 'id', 'item', 'sentAt', 'wantsDelivery'].sort(),
+        [
+          'canDeliver',
+          'distanceBand',
+          'expiresAt',
+          'id',
+          'item',
+          'lastPricePaise',
+          'sentAt',
+          'wantsDelivery',
+        ].sort(),
       );
       expect(card).toMatchObject({ wantsDelivery: true, canDeliver: true });
       expect(JSON.stringify(card)).not.toMatch(/Sapna|Vijay|Flat|Asha|address/i);

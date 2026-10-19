@@ -14,6 +14,8 @@ export interface SeekerOrderView {
   state: OrderState;
   shopId: string;
   shopName: string;
+  /** The shop's published logo, or null (ADR-0040). */
+  logoUrl: string | null;
   requestId: string | null;
   errandId: string | null;
   lines: OrderLine[];
@@ -67,6 +69,7 @@ export function seekerOrderView(o: OrderRecord): SeekerOrderView {
     state: o.state,
     shopId: o.shopId,
     shopName: o.shopName,
+    logoUrl: o.logoUrl ?? null,
     requestId: o.requestId,
     errandId: o.errandId,
     lines: o.lines,

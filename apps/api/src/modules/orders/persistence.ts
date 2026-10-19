@@ -13,6 +13,7 @@ interface Row {
   user_id: string;
   shop_id: string;
   shop_name: string;
+  logo_url: string | null;
   shop_owner_user_id: string | null;
   request_id: string | null;
   errand_id: string | null;
@@ -37,7 +38,9 @@ interface Row {
   updated_at: Date;
 }
 
-const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name, s.owner_user_id AS shop_owner_user_id,
+const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name,
+       CASE WHEN s.logo_photo_id IS NOT NULL THEN '/photos/' || s.logo_photo_id END AS logo_url,
+       s.owner_user_id AS shop_owner_user_id,
        o.request_id, o.errand_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
        o.fee_paise, o.fee_minutes, o.address_text, o.customer_first_name, o.lat, o.lng,
        o.note, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
@@ -49,6 +52,7 @@ const toRecord = (r: Row): OrderRecord => ({
   userId: r.user_id,
   shopId: r.shop_id,
   shopName: r.shop_name,
+  logoUrl: r.logo_url,
   shopOwnerUserId: r.shop_owner_user_id,
   requestId: r.request_id,
   errandId: r.errand_id,

@@ -9,6 +9,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 // ADR-0035: "Aaj ki maang", worked out from the database alone, and aggregate when it is nearby.
 describe('"Aaj ki maang" on the shop screen', () => {
@@ -63,7 +64,7 @@ describe('"Aaj ki maang" on the shop screen', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE requests, pings CASCADE');
+    await truncateKeepingShops(pool, 'requests, pings');
   });
 
   const groceries = async () =>
@@ -111,6 +112,8 @@ describe('"Aaj ki maang" on the shop screen', () => {
     const res = await demand();
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
+      days: 1,
+      avgReplySeconds: null,
       today: { received: 0, answered: 0, yes: 0 },
       asked: [],
       nearby: [],
@@ -246,8 +249,10 @@ describe('"Aaj ki maang" on the shop screen', () => {
       expect([...keys].sort()).toEqual([
         'answered',
         'asked',
+        'avgReplySeconds',
         'count',
         'customers',
+        'days',
         'item',
         'nameEn',
         'nameHi',

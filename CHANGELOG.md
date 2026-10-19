@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 17, PR K: shop-screen data and logo)
+
+- `lastPricePaise` on a shop's ping card (its own last quoted price; `null` when unknown or called wrong).
+- `GET /shops/me/demand?days=1|7` (default 1, else 400): `today`, `asked` and `nearby` follow the window, `days` and `avgReplySeconds` (YES/NO, not late) are added.
+- Shop logo: `POST /shops/me/logo` (512 px square webp, replaces the old one), `DELETE /shops/me/logo`; `logoUrl` in `GET /shops/me`, search results and the order views. A logo is readable by anyone with a long cache header. Migration 023, ADR-0040.
+
+### Changed (Day 17, PR K)
+
+- Integration tests clear request data with `truncateKeepingShops`, because a shop now points at its logo photo.
+
 ### Added (Day 17, PR J: Delivery v2)
 
 - "Deliver to me" on Find (`wants_delivery`, a saved address); shops see `wantsDelivery` and `canDeliver` on a ping and answer with three choices; a shop sets how far it delivers (`PATCH /shops/me { deliveryMaxKm }`). Migration 022, ADR-0039.

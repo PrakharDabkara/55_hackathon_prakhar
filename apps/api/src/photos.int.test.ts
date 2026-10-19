@@ -14,6 +14,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const lines: string[] = [];
 const sink = new Writable({
@@ -77,7 +78,7 @@ describe('photos', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE photos, requests, pings, shop_stock CASCADE');
+    await truncateKeepingShops(pool, 'photos, requests, pings, shop_stock');
     lines.length = 0;
   });
 
@@ -186,7 +187,7 @@ describe('photos', () => {
       expect(res.status).toBe(503);
       expect(res.body.error.code).toBe('photo_storage_full');
       expect(lines.join('')).toMatch(/"event":"photo_storage_full"/);
-      await pool.query('TRUNCATE photos');
+      await truncateKeepingShops(pool, 'photos');
       await upload(seeker, await jpeg(400, 300));
       const logged = lines.map((l) => JSON.parse(l)).find((l) => l.event === 'photo_stored');
       expect(logged).toMatchObject({

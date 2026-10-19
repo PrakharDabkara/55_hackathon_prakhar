@@ -13,6 +13,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 // ADR-0035: "Le liya?" — the customer's word keeps learned stock honest, and stays anonymous.
 describe('"Le liya?": pickups, the question, and what the answers do to learned stock', () => {
@@ -57,9 +58,7 @@ describe('"Le liya?": pickups, the question, and what the answers do to learned 
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, delivery_orders, pickup_visits CASCADE',
-    );
+    await truncateKeepingShops(pool, 'requests, pings, shop_stock, delivery_orders, pickup_visits');
     await pool.query(`UPDATE shops SET closed_until = NULL, is_simulated = false`);
     await learn();
   });
@@ -436,8 +435,9 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, pickup_visits, push_subscriptions CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'requests, pings, shop_stock, pickup_visits, push_subscriptions',
     );
     queued = [];
     await subscribed();

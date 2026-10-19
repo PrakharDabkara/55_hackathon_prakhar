@@ -17,6 +17,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const quiet = pino({ level: 'silent' });
 const allow: PingClaims = { claim: async () => true, release: async () => undefined };
@@ -59,7 +60,7 @@ describe('catch-up pings for a shop that opens late', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE requests, pings, shop_stock CASCADE');
+    await truncateKeepingShops(pool, 'requests, pings, shop_stock');
     await pool.query('DELETE FROM shops');
     events.length = 0;
     wanted.length = 0;

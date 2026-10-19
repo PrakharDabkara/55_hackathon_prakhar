@@ -18,6 +18,7 @@ import {
 import { testConfig } from './testing/config.js';
 import { ORIGIN } from './testing/fixtures.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const call = (name: string, args: Record<string, unknown>) => ({ name, args });
@@ -47,7 +48,7 @@ describe('an identical tool call within one errand returns the earlier result', 
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE errands, ai_calls, requests, pings, search_queries CASCADE');
+    await truncateKeepingShops(pool, 'errands, ai_calls, requests, pings, search_queries');
     provider = createFakeProvider();
     ai = createAi({
       provider,

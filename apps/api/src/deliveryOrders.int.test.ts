@@ -11,6 +11,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
 const ADDRESS = 'Flat 4B, Sapna Apartments, Vijay Nagar, Indore';
@@ -70,8 +71,9 @@ describe('delivery orders', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, delivery_orders, errands, saved_addresses CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'requests, pings, shop_stock, delivery_orders, errands, saved_addresses',
     );
     await pool.query(`UPDATE shops SET closed_until = NULL, is_simulated = false`);
     logs.length = 0;
@@ -151,7 +153,7 @@ describe('delivery orders', () => {
       expect(res.status).toBe(409);
       expect(res.body.error.code).toBe('no_delivery_offer');
 
-      await pool.query('TRUNCATE requests, pings, shop_stock CASCADE'); // the shop is asked again
+      await truncateKeepingShops(pool, 'requests, pings, shop_stock'); // the shop is asked again
       const answered = await answeredRequest();
       const silent = await order(seeker, {
         shopId: rival.shopId,

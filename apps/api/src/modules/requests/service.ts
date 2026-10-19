@@ -121,6 +121,7 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
   const { rows } = await ctx.db.query<{
     shop_id: string;
     name: string;
+    logo_url: string | null;
     distance_m: number;
     lat: number;
     lng: number;
@@ -135,6 +136,7 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
     delivery_minutes: number | null;
   }>(
     `SELECT s.id AS shop_id, s.name, ST_Distance(s.location, r.location) AS distance_m,
+            CASE WHEN s.logo_photo_id IS NOT NULL THEN '/photos/' || s.logo_photo_id END AS logo_url,
             ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
             p.price_paise, p.quantity_hint, p.answered_at,
             (SELECT ph.id FROM photos ph WHERE ph.ping_id = p.id) AS photo_id,
@@ -149,6 +151,7 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
   return rows.map((x) => ({
     shopId: x.shop_id,
     name: x.name,
+    logoUrl: x.logo_url,
     distanceM: Math.round(x.distance_m),
     lat: x.lat,
     lng: x.lng,

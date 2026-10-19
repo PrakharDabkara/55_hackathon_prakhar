@@ -13,6 +13,7 @@ import {
 import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const call = (name: string, args: Record<string, unknown>) => ({ name, args });
@@ -45,7 +46,7 @@ describe('errand plans honour what customers reported at the shop (Le liya?, ADR
   });
 
   beforeEach(async () => {
-    await pool.query('TRUNCATE errands, requests, ai_calls CASCADE');
+    await truncateKeepingShops(pool, 'errands, requests, ai_calls');
     await pool.query('DELETE FROM shop_stock');
     await pool.query(`DELETE FROM shops WHERE name LIKE 'P17 %'`);
     provider = createFakeProvider();

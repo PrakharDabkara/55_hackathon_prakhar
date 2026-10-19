@@ -24,7 +24,7 @@ export async function sweepPhotos(
            OR (p.ping_id IS NOT NULL AND EXISTS (
                  SELECT 1 FROM pings g JOIN requests r ON r.id = g.request_id
                   WHERE g.id = p.ping_id AND r.expires_at < $1::timestamptz - make_interval(days => $2)))
-           OR (p.request_id IS NULL AND p.ping_id IS NULL
+           OR (p.request_id IS NULL AND p.ping_id IS NULL AND p.role <> 'logo'
                AND p.created_at < $1::timestamptz - make_interval(hours => $3))
         RETURNING 1)
      SELECT count(*)::int AS n FROM gone`,

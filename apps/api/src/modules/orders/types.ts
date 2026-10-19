@@ -20,6 +20,7 @@ export interface OrderRecord {
   userId: string;
   shopId: string;
   shopName: string;
+  logoUrl?: string | null | undefined;
   shopOwnerUserId: string | null;
   requestId: string | null;
   errandId: string | null;

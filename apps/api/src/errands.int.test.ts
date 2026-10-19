@@ -25,6 +25,7 @@ import { insertShopWithStock, north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 import { waitFor } from './testing/waitFor.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const UNKNOWN = '99999999-9999-4999-8999-999999999999';
@@ -92,7 +93,7 @@ describe('errand agent core (fake model, real database)', () => {
   });
 
   beforeEach(async () => {
-    await pool.query('TRUNCATE errands, ai_calls CASCADE');
+    await truncateKeepingShops(pool, 'errands, ai_calls');
     provider = createFakeProvider();
     ai = createAi({
       provider,

@@ -15,6 +15,7 @@ import { testConfig } from './testing/config.js';
 import { ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 // Day 17, PR H: the app says what it understood before it asks any shop (ADR-0036), and a word
 // that only names a modifier of a longer term ("phool" in "phool jhadu") is never that item.
@@ -52,8 +53,9 @@ describe('understanding the customer before any ping', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE query_cache, suggested_synonyms, ai_calls, search_queries, requests CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'query_cache, suggested_synonyms, ai_calls, search_queries, requests',
     );
     await pool.query('UPDATE items SET embedding = NULL, embedding_source_hash = NULL');
     await pool.query(`DELETE FROM items WHERE source = 'user'`);

@@ -12,6 +12,7 @@ export type SortKey = 'distance' | 'price';
 export interface LiveAnswer {
   shopId: string;
   name: string;
+  logoUrl?: string | null | undefined;
   distanceM: number;
   lat: number;
   lng: number;
@@ -27,6 +28,8 @@ export interface LiveAnswer {
 export interface RequestResult {
   shopId: string;
   name: string;
+  /** The shop's published logo (a /photos/ address anyone may read), or null. */
+  logoUrl: string | null;
   distanceM: number;
   lat: number;
   lng: number;
@@ -86,6 +89,7 @@ export function buildResults({
     if (unsure) doubtful.add(l.shopId);
     rows.set(l.shopId, {
       ...l,
+      logoUrl: l.logoUrl ?? null,
       source: 'learned',
       ...(quantity && { quantity }),
       ...(delivery && { delivery }),
@@ -97,6 +101,7 @@ export function buildResults({
     rows.set(a.shopId, {
       shopId: a.shopId,
       name: a.name,
+      logoUrl: a.logoUrl ?? null,
       distanceM: a.distanceM,
       lat: a.lat,
       lng: a.lng,
