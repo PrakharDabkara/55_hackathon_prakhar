@@ -373,6 +373,25 @@ describe('fan-out, ping answers and the price check', () => {
     });
   });
 
+  describe('catch-up through the worker queue (PR I)', () => {
+    it('a shop that opens late is asked about a live request by the worker, once', async () => {
+      const shop = await makeShop('Late Opener', 0.2, ['grocery']);
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: false });
+      const created = await ask({ q: 'namak' });
+      expect(created.status).toBe(201);
+      const ours = async () =>
+        (await pingsOf(created.body.id)).filter((r) => r.shop_id === shop.shopId);
+      expect(await ours()).toEqual([]); // closed: not asked
+
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: true });
+      await waitFor(ours, (r) => r.length >= 1);
+      // Opening again changes nothing: no second ping.
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: true });
+      await new Promise((r) => setTimeout(r, 500));
+      expect(await ours()).toHaveLength(1);
+    });
+  });
+
   describe('fan-out', () => {
     const claims = (allow: (shopId: string) => boolean) => {
       const released: string[] = [];
