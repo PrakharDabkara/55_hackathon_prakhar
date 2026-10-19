@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { login, newCorner, onboardShop, setDelivery, shopContextAt } from './orderFlow.js';
+import { ask, login, newCorner, onboardShop, setDelivery, shopContextAt } from './orderFlow.js';
 import { uniqueName } from './unique.js';
 
 // Exact quantity, a delivery offer and the open switch, in two real browsers at 360 px (ADR-0031).
@@ -24,9 +24,7 @@ test('a shop answers with a price and a delivery offer, closes for the day, and 
   await setDelivery(shop);
 
   await login(page, '/app/');
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('haldi');
-  await page.getByRole('button', { name: 'Search' }).click();
+  await ask(page, 'haldi');
 
   // The answer starts from the standing offer (₹20, 30 minutes); the shop adds a price.
   await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
@@ -43,7 +41,7 @@ test('a shop answers with a price and a delivery offer, closes for the day, and 
   await expect(shop.getByText('No requests right now')).toBeVisible();
 
   // The customer sees the price and that it delivers, with the fee and the time.
-  await expect(page.getByText('We deliver · ₹20 · 30 min')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Delivers · ₹20 · 30 min')).toBeVisible({ timeout: 30_000 });
   await noSidewaysScroll(page);
   await page.screenshot({ path: 'e2e/artifacts/offer-customer-sees.png', fullPage: true });
 
@@ -52,10 +50,8 @@ test('a shop answers with a price and a delivery offer, closes for the day, and 
   await expect(shop.getByRole('switch', { name: 'Closed' })).toBeVisible();
   await expect(shop.getByText("You're closed", { exact: true })).toBeVisible();
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('namak');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await expect(page.locator('.status-line')).toBeVisible({ timeout: 30_000 });
+  await ask(page, 'namak');
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
   await page.waitForTimeout(3000);
   await expect(shop.getByRole('button', { name: 'Answer' })).toHaveCount(0);
   await shop.screenshot({ path: 'e2e/artifacts/offer-shop-closed.png', fullPage: true });

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniquePhone } from './unique.js';
 
 // The login screens at 360 px (the playwright config's viewport): nothing sticks out sideways and
 // no button, link or field sits on top of another.
@@ -34,27 +35,39 @@ async function expectNoOverlap(page: Page) {
   expect(sideways).toBe(0);
 }
 
-test('the seeker login: the shopkeeper link is clear of the OTP button', async ({ page }) => {
+test('the customer login sheet: the shopkeeper link and the sheet do not overlap', async ({
+  page,
+}) => {
   await page.goto('/app/');
-  const send = page.getByRole('button', { name: 'Send OTP' });
-  const link = page.getByRole('link', { name: 'Own a shop? Go here' });
-  await expect(link).toBeVisible();
-  await expectNoOverlap(page);
-  const [b, l] = await Promise.all([send.boundingBox(), link.boundingBox()]);
-  if (!b || !l) throw new Error('button or link not on the page');
-  expect(l.y).toBeGreaterThanOrEqual(b.y + b.height + 8);
-
-  await page.getByLabel(/mobile number/i).fill('9810000502');
-  await send.click();
-  await expect(page.getByRole('button', { name: 'Fill demo OTP' })).toBeVisible();
-  await expectNoOverlap(page);
+  await expect(page.getByRole('link', { name: 'For shopkeepers' })).toBeVisible();
+  // Find opens for anyone; the sheet comes up on the first Find.
+  await page.getByLabel('What do you need?').fill('chini');
+  await page.getByRole('button', { name: 'Near you' }).click();
+  await page.getByRole('button', { name: 'Use demo location (Indore)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('button', { name: 'Find nearby' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Log in to send your request' });
+  await expect(sheet).toBeVisible();
+  await sheet.getByLabel('Mobile number').fill(uniquePhone());
+  await sheet.getByRole('button', { name: 'Send code' }).click();
+  await expect(sheet.getByRole('button', { name: 'Fill demo OTP' })).toBeVisible();
+  const sideways = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(sideways).toBe(0);
+  // Nothing in the sheet sticks out of it.
+  const box = await sheet.boundingBox();
+  const viewport = page.viewportSize();
+  if (!box || !viewport) throw new Error('no sheet');
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
 });
 
 test('the shop login fits too', async ({ page }) => {
   await page.goto('/app/shop');
   await expect(page.getByLabel(/mobile number/i)).toBeVisible();
   await expectNoOverlap(page);
-  await page.getByLabel(/mobile number/i).fill('9810000503');
+  await page.getByLabel(/mobile number/i).fill(uniquePhone());
   await page.getByRole('button', { name: 'Send code' }).click();
   await expect(page.getByRole('button', { name: 'Fill the code' })).toBeVisible();
   await expectNoOverlap(page);

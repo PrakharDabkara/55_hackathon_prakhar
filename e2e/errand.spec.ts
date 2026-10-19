@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { login } from './orderFlow.js';
 
 // A whole errand in a real browser against the real API, Postgres, Redis and five simulated
 // grocery shops. The model is scripted (e2e/errand-scenario.json, LLM_PROVIDER=fake), so the run
@@ -9,67 +10,54 @@ import { expect, test } from '@playwright/test';
 test('a customer plans an errand: question, waiting, both plans, route on the map', async ({
   page,
 }) => {
-  await page.goto('/app/');
-  // A new number each run, so a local re-run never meets the OTP limit. The errand uses items the
-  // sugar search in seeker.spec.ts does not (its shops would otherwise already know the answer).
-  const phone = `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
-  await page.getByLabel(/mobile number/i).fill(phone);
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
-  await page.getByRole('button', { name: 'Log in' }).click();
-
-  await page.getByRole('link', { name: 'Describe a whole errand' }).click();
+  // A new number each run (one OTP login per phone). The errand uses items the sugar search in
+  // seeker.spec.ts does not (its shops would otherwise already know the answer).
+  await login(page, '/app/');
+  await page.getByRole('link', { name: /Plan an errand/ }).click();
   await expect(page).toHaveURL(/\/app\/errand$/);
-  await page.getByLabel('What is the errand?').fill('chai banane ka saaman');
-  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByRole('button', { name: 'Make a plan' }).click();
+  await page.getByLabel("What's the job?").fill('chai banane ka saaman');
+  await page.getByRole('button', { name: 'Use demo location (Indore)' }).click();
+  await page.getByRole('button', { name: 'Make my list' }).click();
 
-  // The agent proposes the usual items and asks once: defaults ticked, the customer adds one.
-  // (The timeline can name the question a moment before the box opens: wait for the box.)
-  await expect(page.getByRole('checkbox', { name: 'chai patti' })).toBeVisible({ timeout: 30_000 });
+  // The agent proposes the usual items and asks once: defaults ticked, the customer adds one. The
+  // heading is the app's own "Your list": the model's question text is never shown.
+  await expect(page.getByRole('heading', { name: 'Your list' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Ye cheezein chahiye?')).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: 'chai patti' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'doodh' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'adrak' })).not.toBeChecked();
   await page.getByRole('checkbox', { name: 'adrak' }).check();
-
-  // At 360 px the long status chip sits under the title: the title keeps the full width.
-  const title = await page.locator('.errand-task').boundingBox();
-  const chip = await page.locator('.state-chip').boundingBox();
-  const column = await page.locator('.screen').boundingBox();
-  expect(chip?.y).toBeGreaterThanOrEqual((title?.y ?? 0) + (title?.height ?? 0) - 1);
-  expect(title?.width).toBeGreaterThan((column?.width ?? 0) * 0.8);
-  expect(title?.height).toBeLessThan(40); // one line, not one word per line
+  await expect(page.getByText('AI made this list and can make mistakes.')).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
   await page.screenshot({ path: 'e2e/artifacts/errand-question.png', fullPage: true });
 
-  await page.getByRole('button', { name: 'Looks right' }).click();
+  await page.getByRole('button', { name: /Ask shops for these \d+/ }).click();
 
   // Progress lines appear while the shops answer.
-  await expect(page.getByText('Samjha: 3 cheezein')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Understood: 3 items')).toBeVisible({ timeout: 30_000 });
 
   // The plan. The simulated shops answer at random, so the two plans are sometimes the same
-  // (shown once, no tabs, no badge) and sometimes differ (two tabs, one Recommended).
+  // (shown once) and sometimes differ ("See other options").
   await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 60_000 });
-  const tabs = page.getByRole('tab');
-  const plans = (await tabs.count()) === 0 ? 1 : 2;
-  if (plans === 2) {
-    await expect(tabs.nth(0)).toContainText('Fewest shops');
-    await expect(tabs.nth(1)).toContainText('Cheapest');
-    await expect(page.getByText('Recommended')).toHaveCount(1);
-  } else {
-    await expect(page.getByText('Recommended')).toHaveCount(0);
-  }
-  await expect(page.locator('.plan-item')).toHaveCount(3);
-  // The summary is built from the plan, not the model's sentence.
-  await expect(page.getByRole('status', { name: 'Summary' })).toContainText('3 of 3 items found');
-  await expect(page.getByText(/Confirmed|Last answer/).first()).toBeVisible();
-  await expect(page.getByRole('group', { name: 'Totals' })).toContainText('₹');
+  await expect(page.getByText('chai patti').first()).toBeVisible();
+  const tiles = page.getByRole('region', { name: 'Plan at a glance' });
+  await expect(tiles).toContainText('₹');
+  await expect(page.getByText(/AI picked this plan for the shortest trip/)).toBeVisible();
+  const other = page.getByRole('button', { name: 'See other options' });
+  const hasOther = (await other.count()) > 0;
+  await expect(page.getByRole('list', { name: 'Stops in order' })).toBeVisible();
 
   // Numbered stops on the map, in route order, and a link that opens Google Maps with them.
-  const stops = page.locator('.leaflet-marker-icon.km-stop');
+  const stops = page
+    .locator('.leaflet-marker-icon.cu-errand-pin')
+    .filter({ has: page.locator('.cu-errand-pin__num') });
   await expect(stops.first()).toBeVisible({ timeout: 15_000 });
   await expect(stops.first()).toHaveText('1');
   // Every numbered pin is on the map, inside its frame: the map fits all stops.
-  const frame = await page.locator('.results-map').boundingBox();
+  const frame = await page.locator('.cu-errand-map').boundingBox();
   const pins = await stops.evaluateAll((els) =>
     els.map((el) => ({ text: el.textContent, box: el.getBoundingClientRect().toJSON() })),
   );
@@ -84,26 +72,24 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   await expect(page.locator('.leaflet-control-attribution')).toContainText(
     '© OpenStreetMap contributors',
   );
-  await expect(page.getByRole('link', { name: 'Open route' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Start route' })).toHaveAttribute(
     'href',
     /google\.com\/maps\/dir\/\?api=1&origin=.*&destination=/,
   );
 
   // The other plan opens too, with its own totals.
-  if (plans === 2) {
-    await tabs.nth(1).click();
-    await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.plan-item')).toHaveCount(3);
-    await tabs.nth(0).click();
+  if (hasOther) {
+    await other.click();
+    await expect(page.getByRole('button', { name: 'Back to the suggested plan' })).toBeVisible();
+    await page.getByRole('button', { name: 'Back to the suggested plan' }).click();
   }
 
   // A reload shows the same errand: its id is in the address.
   await expect(page).toHaveURL(/\/app\/errand\/[0-9a-f-]{36}$/);
   await page.reload();
   await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole('tab')).toHaveCount(plans === 2 ? 2 : 0);
-  await expect(page.locator('.plan-item')).toHaveCount(3);
-  await expect(page.getByLabel('What is the errand?')).toHaveCount(0);
+  await expect(page.getByText('chai patti').first()).toBeVisible();
+  await expect(page.getByLabel("What's the job?")).toHaveCount(0);
 
   await page.screenshot({ path: 'e2e/artifacts/errand-result.png', fullPage: true });
 });

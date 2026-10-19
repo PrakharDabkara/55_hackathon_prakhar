@@ -153,7 +153,7 @@ describe('errand agent with the open catalog', () => {
     ).rows.map((r) => r.shop_id);
     expect(asked.sort()).toEqual([...stationers].sort());
 
-    expect((await view(id)).progress).toContain('Nayi cheez: dukaanon se pooch rahe hain');
+    expect((await view(id)).progress).toContain('New item: asking shops');
   });
 
   it('the model sees the item name and category only: no user id, phone or location', async () => {
@@ -187,7 +187,7 @@ describe('errand agent with the open catalog', () => {
       status: 'not_found',
       refused: 'blocked',
     });
-    expect(v.progress).toContain('Ye cheez hum dukaanon ko nahi bhej sakte');
+    expect(v.progress).toContain('We cannot send this item to shops');
     expect(provider.calls.filter((c) => c.kind === 'generate')).toHaveLength(0);
   });
 
@@ -204,7 +204,7 @@ describe('errand agent with the open catalog', () => {
     expect(toolResult(1)[0]?.result).toMatchObject({ unavailable: true });
     const v = await view(id);
     expect(planItems(v)[0]).toMatchObject({ status: 'not_found', refused: 'unavailable' });
-    expect(v.progress).toContain('Abhi ye cheez dukaanon ko nahi bhej sakte');
+    expect(v.progress).toContain('We cannot send this item to shops right now');
     expect((await pool.query(`SELECT 1 FROM requests`)).rowCount).toBe(0);
   });
 

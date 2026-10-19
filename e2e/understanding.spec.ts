@@ -1,25 +1,19 @@
 import { expect, test } from '@playwright/test';
+import { ask, login, useDemoLocation } from './orderFlow.js';
 
 // PR H: a search the app is not certain about is confirmed before any shop is asked.
-test('a typo is confirmed with "Kya aapka matlab…?" before the shops are asked', async ({
-  page,
-}) => {
-  await page.goto('/app/');
-  await page.getByLabel(/mobile number/i).fill('9810000511');
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
-  await page.getByRole('button', { name: 'Log in' }).click();
+test('a typo is confirmed with "Did you mean…?" before the shops are asked', async ({ page }) => {
+  await login(page, '/app/');
+  await useDemoLocation(page);
+  await ask(page, 'bottle brsh');
 
-  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('bottle brsh');
-  await page.getByRole('button', { name: 'Search' }).click();
-
-  // The question, with the understood item, "Haan, yahi" and "Kuch aur likhein"; no results yet.
-  await expect(page.getByText('Did you mean…?')).toBeVisible();
-  const yes = page.getByRole('button', { name: /Yes, this one/ });
-  await expect(yes).toContainText('bottle brush');
-  await expect(page.getByRole('button', { name: 'Write something else' })).toBeVisible();
-  await expect(page.locator('.result')).toHaveCount(0);
+  // The question, with the understood item first and a way to say it differently; no replies yet.
+  const sheet = page.getByRole('dialog', { name: /Did you mean/ });
+  await expect(sheet).toBeVisible();
+  const yes = sheet.getByRole('button', { name: /Yes, this one/ });
+  await expect(yes).toContainText(/bottle brush/i);
+  await expect(sheet.getByLabel('Something else')).toBeVisible();
+  await expect(page).toHaveURL(/\/app\/$/);
 
   // It fits a 360 px phone without sideways scrolling.
   const overflow = await page.evaluate(
@@ -28,24 +22,21 @@ test('a typo is confirmed with "Kya aapka matlab…?" before the shops are asked
   expect(overflow).toBeLessThanOrEqual(0);
   await page.screenshot({ path: 'e2e/artifacts/understanding-confirm.png', fullPage: true });
 
-  // "Haan, yahi" asks the shops: the results screen opens with the item.
+  // "Yes, this one" asks the shops: the replies screen opens with the item on the parchi.
   await yes.click();
-  await expect(page.locator('.status-line')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('बोतल ब्रश');
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
+  await expect(page.locator('.sh-parchi__item')).toContainText(/bottle brush/i);
 });
 
-test('"Kuch aur likhein" empties the box and asks nothing', async ({ page }) => {
-  await page.goto('/app/');
-  await page.getByLabel(/mobile number/i).fill('9810000512');
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
-  await page.getByRole('button', { name: 'Log in' }).click();
-
-  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('bottle brsh');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await page.getByRole('button', { name: 'Write something else' }).click();
-  await expect(page.getByLabel('क्या चाहिए?')).toBeFocused();
-  await expect(page.getByLabel('क्या चाहिए?')).toHaveValue('');
-  await expect(page.getByText('Did you mean…?')).toHaveCount(0);
+test('"Something else" searches again with the new words and asks nothing before that', async ({
+  page,
+}) => {
+  await login(page, '/app/');
+  await useDemoLocation(page);
+  await ask(page, 'bottle brsh');
+  const sheet = page.getByRole('dialog', { name: /Did you mean/ });
+  await sheet.getByLabel('Something else').fill('chini');
+  await sheet.getByRole('button', { name: 'Search again' }).click();
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
+  await expect(page.locator('.sh-parchi__item')).toContainText(/sugar|chini/i);
 });

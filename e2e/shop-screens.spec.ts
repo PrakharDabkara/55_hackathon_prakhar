@@ -2,10 +2,12 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { ageAnswers } from './db.js';
 import {
-  ADDRESS,
+  ask as askFor,
+  customerAt,
   goTo,
   login,
   newCorner,
+  orderFromReply,
   onboardShop,
   setDelivery,
   shopContextAt,
@@ -34,27 +36,12 @@ const THEMES = ['light', 'dark'] as const;
 type Corner = ReturnType<typeof newCorner>;
 
 async function customer(browser: Browser, corner: Corner) {
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    geolocation: corner,
-    permissions: ['geolocation'],
-  });
-  const page = await context.newPage();
-  await login(page, '/app/');
-  // Wait for the login to finish before going anywhere else.
-  await expect(page.getByRole('button', { name: 'Use my location' })).toBeVisible();
-  return { context, page };
+  return customerAt(browser, corner);
 }
 
 async function ask(page: Page, what: string, delivery: boolean) {
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await page.getByLabel('क्या चाहिए?').fill(what);
-  if (delivery) {
-    await page.getByRole('checkbox', { name: 'Deliver to me' }).check();
-    await page.getByLabel('Home address').fill(ADDRESS);
-  }
-  await page.getByRole('button', { name: 'Search' }).click();
+  await askFor(page, what, { delivery });
 }
 
 /** The shop says "have it, will deliver" for the one question on its deck. */
@@ -67,12 +54,7 @@ async function willDeliver(shop: Page) {
 }
 
 async function orderIt(page: Page, shopName: string) {
-  const card = page.getByRole('listitem').filter({ hasText: shopName });
-  await expect(card).toBeVisible({ timeout: 30_000 });
-  await card.getByRole('button', { name: 'Deliver to me' }).click();
-  await card.getByRole('button', { name: 'Send order' }).click();
-  await card.getByRole('button', { name: 'Confirm', exact: true }).click();
-  return card;
+  await orderFromReply(page, shopName);
 }
 
 async function look(page: Page, name: string) {
@@ -141,20 +123,18 @@ test('every shop screen is readable and passes the accessibility scan', async ({
   contexts.push(sent.context);
   await ask(sent.page, 'chai patti', true);
   await willDeliver(shop);
-  const sentCard = await orderIt(sent.page, shopName);
-  await expect(sentCard.getByText('The shop accepted your order')).toBeVisible({ timeout: 15_000 });
+  await orderIt(sent.page, shopName);
 
   const done = await customer(browser, corner);
   contexts.push(done.context);
   await ask(done.page, 'adrak', true);
   await willDeliver(shop);
-  const doneCard = await orderIt(done.page, shopName);
-  await expect(doneCard.getByText('The shop accepted your order')).toBeVisible({ timeout: 15_000 });
+  await orderIt(done.page, shopName);
   await goTo(shop, 'orders');
   await shop.getByRole('button', { name: 'Out for delivery' }).first().click();
-  await expect(doneCard.getByText('On its way')).toBeVisible({ timeout: 15_000 });
-  await doneCard.getByRole('button', { name: 'Received' }).click();
-  await expect(doneCard.getByText(/Delivered\. Pay in cash/)).toBeVisible({ timeout: 15_000 });
+  await expect(done.page.getByText('Out for delivery').first()).toBeVisible({ timeout: 15_000 });
+  await done.page.getByRole('button', { name: 'I received it' }).click();
+  await expect(done.page.getByText('Delivered').first()).toBeVisible({ timeout: 15_000 });
 
   const waiting = await customer(browser, corner);
   contexts.push(waiting.context);

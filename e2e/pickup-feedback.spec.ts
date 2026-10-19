@@ -1,28 +1,33 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newCorner, noSidewaysScroll, setup } from './orderFlow.js';
+import { ask, newCorner, noSidewaysScroll, setup } from './orderFlow.js';
 
 // "Le liya?" (ADR-0035): a customer taps "Raasta", is asked on the home screen whether they got it,
 // and the answer keeps learned stock honest. Two real browsers at 360 px. The server asks at once
 // here (PICKUP_ASK_AFTER_MINUTES=0 in playwright.config.ts); in life it waits.
 
-const QUESTION = /Did you find .+ at .+\?/;
+const QUESTION = /Did you get .+ at .+\?/;
 
-/** Taps "Raasta" on the shop's card. The map is another site: it is not needed, only the tap. */
-async function tapRaasta(customer: Page, card: ReturnType<Page['locator']>) {
+/** Chooses pickup on the shop's reply and taps "Show the way". The map is another site: only the tap matters. */
+async function showTheWay(customer: Page, card: ReturnType<Page['locator']>) {
   await customer.context().route('https://www.google.com/**', (route) => route.abort());
+  await card.getByRole('button', { name: 'Choose this shop' }).click();
+  const sheet = customer.getByRole('dialog', { name: 'Choose this shop' });
+  await sheet.getByRole('radio', { name: /I'll pick it up/ }).check();
   const popup = customer.waitForEvent('popup').catch(() => null);
-  await card.getByRole('link', { name: 'Directions' }).click();
+  await sheet.getByRole('link', { name: 'Show the way' }).click();
   await (await popup)?.close().catch(() => undefined);
 }
 
+/** The pickup question lives on My orders. */
+const openMyOrders = (customer: Page) => customer.goto('/app/orders');
+
 async function searchAgain(customer: Page) {
-  await customer.getByLabel('क्या चाहिए?').fill('haldi');
-  const location = customer.getByRole('button', { name: 'Use my location' });
-  if (await location.isVisible()) await location.click();
-  await customer.getByRole('button', { name: 'Search' }).click();
+  await customer.goto('/app/');
+  await ask(customer, 'haldi');
+  await expect(customer).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
 }
 
-test('"Mil gaya" refreshes the answer: the next customer sees "Grahak ne confirm kiya"', async ({
+test('"Mil gaya" refreshes the answer: the next customer sees "Confirmed by a customer"', async ({
   browser,
 }) => {
   const { shopContext, customer, customerContext, card } = await setup(
@@ -30,23 +35,23 @@ test('"Mil gaya" refreshes the answer: the next customer sees "Grahak ne confirm
     'Le Liya Kirana',
     newCorner(),
   );
-  await tapRaasta(customer, card);
-  await customer.getByRole('button', { name: 'Done', exact: true }).click();
+  await showTheWay(customer, card);
+  await openMyOrders(customer);
 
   const question = customer.getByText(QUESTION);
   await expect(question).toBeVisible({ timeout: 15_000 });
   await expect(question).toContainText('Le Liya Kirana');
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/le-liya-question.png', fullPage: true });
-  for (const name of ['Found it', 'Not there', "Didn't go"])
+  for (const name of ['Got it', "Wasn't there", "Didn't go"])
     await expect(customer.getByRole('button', { name })).toBeVisible();
 
-  await customer.getByRole('button', { name: 'Found it' }).click();
+  await customer.getByRole('button', { name: 'Got it' }).click();
   await expect(question).toHaveCount(0);
 
   // Asked once per customer, shop and item: a reload does not ask again.
   await customer.reload();
-  await expect(customer.getByLabel('क्या चाहिए?')).toBeVisible();
+  await expect(customer.getByRole('heading', { name: 'My orders' })).toBeVisible();
   await expect(customer.getByText(QUESTION)).toHaveCount(0);
 
   // The shop's yes now stands as learned stock, marked as confirmed by a customer.
@@ -68,15 +73,19 @@ test('"Wahan nahi tha" takes the shop\'s answer off the map at once, and the sho
     'Wahan Nahi Kirana',
     newCorner(),
   );
-  await tapRaasta(customer, card);
-  await customer.getByRole('button', { name: 'Done', exact: true }).click();
+  await showTheWay(customer, card);
+  await openMyOrders(customer);
   await expect(customer.getByText(QUESTION)).toBeVisible({ timeout: 15_000 });
-  await customer.getByRole('button', { name: 'Not there' }).click();
+  await customer.getByRole('button', { name: "Wasn't there" }).click();
   await expect(customer.getByText(QUESTION)).toHaveCount(0);
 
   // It is no longer "Likely": a new search does not list the shop from memory.
   await searchAgain(customer);
-  await expect(customer.getByText(/No shop has said yes yet/)).toBeVisible({ timeout: 30_000 });
+  await expect(
+    customer.getByText(/shops? (is|are) still checking|All shops have replied/),
+  ).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(customer.getByRole('listitem').filter({ hasText: 'Wahan Nahi Kirana' })).toHaveCount(
     0,
   );
@@ -98,8 +107,8 @@ test('"Gaya nahi" changes nothing', async ({ browser }) => {
     'Gaya Nahi Kirana',
     newCorner(),
   );
-  await tapRaasta(customer, card);
-  await customer.getByRole('button', { name: 'Done', exact: true }).click();
+  await showTheWay(customer, card);
+  await openMyOrders(customer);
   await expect(customer.getByText(QUESTION)).toBeVisible({ timeout: 15_000 });
   await customer.getByRole('button', { name: "Didn't go" }).click();
   await expect(customer.getByText(QUESTION)).toHaveCount(0);

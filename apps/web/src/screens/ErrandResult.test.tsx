@@ -19,7 +19,7 @@ const origin = { lat: 22.7196, lng: 75.8577 };
 function show(plan = errandPlan(), props: Partial<Parameters<typeof ErrandResult>[0]> = {}) {
   return renderApp(<ErrandResult plan={plan} origin={origin} {...props} />, 'en');
 }
-const tiles = () => screen.getByRole('group', { name: 'Plan at a glance' });
+const tiles = () => screen.getByRole('region', { name: 'Plan at a glance' });
 
 describe('the recommended plan first', () => {
   it('opens on the recommended variant, its stops numbered in route order', () => {
@@ -149,7 +149,7 @@ describe('the page', () => {
       },
     );
     expect(screen.getByText('No shop has answered yet.')).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Plan at a glance' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Plan at a glance' })).toBeNull();
     expect(screen.queryByTestId('plan-map')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Start route' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Ask shops again' }));
