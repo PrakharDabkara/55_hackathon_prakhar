@@ -391,3 +391,44 @@ describe('an offer with no price is never ₹0 (live: "Daam nahi bataya" left th
     expect(recommend(sasta, dear, { maxExtraPaise: 3000 }).reason).toBe('fewer_stops_too_dear');
   });
 });
+
+describe('an offer from a shop customers reported as wrong (doubtful) ranks after the others for that item', () => {
+  const doubtful = (o: Offer): Offer => ({ ...o, doubtful: true });
+
+  it('a dearer, farther clean offer beats a cheap doubtful one, in both plans', () => {
+    const offers = [
+      doubtful(offer('chini', 'A', 4000, 0.2, 'likely')),
+      offer('chini', 'B', 5200, 0.9, 'likely'),
+    ];
+    const { sasta, kam_dukaan } = optimise(START, [want('chini')], offers);
+    expect(pickOf(sasta, 'chini')?.shopId).toBe('B');
+    expect(pickOf(kam_dukaan, 'chini')?.shopId).toBe('B');
+  });
+
+  it('is used when it is the only shop that has the item', () => {
+    const { sasta } = optimise(
+      START,
+      [want('chini')],
+      [doubtful(offer('chini', 'A', 4000, 0.2, 'likely'))],
+    );
+    expect(pickOf(sasta, 'chini')?.shopId).toBe('A');
+  });
+
+  it('does not outrank a live yes: confirmed offers still come first', () => {
+    const offers = [
+      offer('chini', 'A', 6000, 0.2, 'confirmed'),
+      offer('chini', 'B', 4000, 0.3, 'likely'),
+    ];
+    expect(pickOf(optimise(START, [want('chini')], offers).sasta, 'chini')?.shopId).toBe('A');
+  });
+
+  it('only affects the item it was reported for', () => {
+    const offers = [
+      doubtful(offer('chini', 'A', 4000, 0.2, 'likely')),
+      offer('doodh', 'A', 3000, 0.2, 'likely'),
+      offer('doodh', 'B', 3500, 0.4, 'likely'),
+    ];
+    const { sasta } = optimise(START, [want('chini'), want('doodh')], offers);
+    expect(pickOf(sasta, 'doodh')?.shopId).toBe('A');
+  });
+});

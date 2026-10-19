@@ -128,6 +128,18 @@ describe('delivery orders', () => {
       expect(Date.parse(res.body.expiresAt) - Date.now()).toBeLessThanOrEqual(10 * 60_000);
     });
 
+    it("keeps the customer's own word and the Hindi name on each line; the shop sees only the name (PR H)", async () => {
+      const requestId = await answeredRequest();
+      const res = await place(requestId);
+      expect(res.body.lines[0]).toMatchObject({
+        name: 'sugar',
+        nameHi: expect.stringMatching(/[ऀ-ॿ]/),
+        text: 'chini',
+      });
+      const seen = (await shopList()).body[0].lines[0];
+      expect(seen).toEqual({ name: 'sugar', count: 1, pricePaise: 4500 });
+    });
+
     it('is refused if the shop did not offer delivery, did not answer, or the request is not yours', async () => {
       const noDelivery = await answeredRequest(shop, null);
       const res = await place(noDelivery);
@@ -491,6 +503,11 @@ describe('delivery orders', () => {
       expect(res.body.lines.map((l: { name: string }) => l.name)).toContain('chini');
       expect(res.body).toMatchObject({ feePaise: 0, errandId });
       expect((await errandView()).plan.modes).toEqual({ [shop.shopId]: 'delivery' });
+    });
+
+    it("takes the customer's own word for the line from the plan (PR H)", async () => {
+      const res = await errandOrder();
+      expect(res.body.lines.every((l: { text?: string }) => typeof l.text === 'string')).toBe(true);
     });
 
     it('is refused for a shop that is not in the plan or did not offer delivery, or for someone else’s errand', async () => {

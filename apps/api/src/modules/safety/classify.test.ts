@@ -31,6 +31,34 @@ describe('classifyNewItem (layer 2 of the safety block, ADR-0029)', () => {
       expect(await classifyNewItem(setup(answer).ai, 'Thing')).toEqual({ verdict: 'unsure' });
   });
 
+  it('"medium" confidence is unsure by default, and allowed when a person already confirmed the item', async () => {
+    const answer = { verdict: 'allowed', confidence: 'medium', category: 'stationery' };
+    expect(await classifyNewItem(setup(answer).ai, 'Bead dazzling kit')).toEqual({
+      verdict: 'unsure',
+    });
+    expect(
+      await classifyNewItem(setup(answer).ai, 'Bead dazzling kit', undefined, {
+        minConfidence: 'medium',
+      }),
+    ).toEqual({ verdict: 'allowed', category: 'stationery' });
+  });
+
+  it('low confidence is unsure at every level, and blocked stays blocked at medium', async () => {
+    const low = { verdict: 'allowed', confidence: 'low', category: 'stationery' };
+    expect(
+      await classifyNewItem(setup(low).ai, 'Thing', undefined, { minConfidence: 'medium' }),
+    ).toEqual({ verdict: 'unsure' });
+    expect(
+      await classifyNewItem(setup({ verdict: 'blocked', confidence: 'high' }).ai, 'x', undefined, {
+        minConfidence: 'medium',
+      }),
+    ).toEqual({ verdict: 'blocked' });
+  });
+
+  it('the prompt defines medium as probably an ordinary product', () => {
+    expect(buildClassifyPrompt('x').system).toMatch(/"medium"/);
+  });
+
   it('returns blocked and nonsense verdicts without a category', async () => {
     expect(await classifyNewItem(setup({ verdict: 'blocked' }).ai, 'x item')).toEqual({
       verdict: 'blocked',

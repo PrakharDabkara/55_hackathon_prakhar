@@ -248,6 +248,120 @@ describe('Search', () => {
   });
 });
 
+describe('Search: "Kya aapka matlab…?" before any shop is asked (PR H)', () => {
+  const unsure = new ApiError(422, 'item_confirm', 'Do you mean?', {
+    item: { itemId: 'item-brush', nameEn: 'bottle brush', nameHi: 'बोतल ब्रश' },
+    alternatives: [
+      { itemId: 'item-toilet', nameEn: 'toilet brush', nameHi: 'टॉयलेट ब्रश' },
+      { itemId: 'item-hair', nameEn: 'hair brush', nameHi: 'हेयर ब्रश' },
+    ],
+  });
+
+  async function ask(api: ReturnType<typeof fakeSeekerApi>, text = 'bottle brsh') {
+    const onFound = vi.fn();
+    const view = renderApp(<Search api={api} onFound={onFound} />);
+    await view.user.type(screen.getByLabelText('क्या चाहिए?'), text);
+    await view.user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+    await view.user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    return { ...view, onFound };
+  }
+  const apiWith = (...more: unknown[]) => {
+    const createRequest = vi.fn().mockRejectedValueOnce(unsure);
+    for (const m of more) createRequest.mockResolvedValueOnce(m);
+    return fakeSeekerApi({ createRequest });
+  };
+
+  it('shows what was understood in Hindi and English, with "Haan, yahi", the alternatives and "Kuch aur likhein"', async () => {
+    await ask(apiWith());
+    expect(await screen.findByText('Kya aapka matlab…?')).toBeTruthy();
+    const yes = screen.getByRole('button', { name: /Haan, yahi/ });
+    expect(yes.textContent).toContain('बोतल ब्रश');
+    expect(yes.textContent).toContain('bottle brush');
+    expect(screen.getByRole('button', { name: /टॉयलेट ब्रश/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /हेयर ब्रश/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kuch aur likhein' })).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull(); // a question, not an error
+  });
+
+  it('"Haan, yahi" asks the shops: same text, price and place, with the understood item', async () => {
+    const api = apiWith(seekerRequest());
+    const { user, onFound } = await ask(api);
+    await user.click(await screen.findByRole('button', { name: /Haan, yahi/ }));
+    await waitFor(() => expect(api.createRequest).toHaveBeenCalledTimes(2));
+    expect(api.createRequest).toHaveBeenLastCalledWith({
+      q: 'bottle brsh',
+      lat: 22.7196,
+      lng: 75.8577,
+      itemId: 'item-brush',
+      understanding: 'confirmed',
+    });
+    expect(onFound).toHaveBeenCalled();
+  });
+
+  it('an alternative is searched with its own id and counted as a change', async () => {
+    const api = apiWith(seekerRequest());
+    const { user } = await ask(api);
+    await user.click(await screen.findByRole('button', { name: /टॉयलेट ब्रश/ }));
+    await waitFor(() => expect(api.createRequest).toHaveBeenCalledTimes(2));
+    expect(api.createRequest).toHaveBeenLastCalledWith(
+      expect.objectContaining({ itemId: 'item-toilet', understanding: 'changed' }),
+    );
+  });
+
+  it('"Kuch aur likhein" asks nothing, empties the box and focuses it; the next search is counted as a change', async () => {
+    const api = apiWith(seekerRequest());
+    const { user } = await ask(api);
+    await user.click(await screen.findByRole('button', { name: 'Kuch aur likhein' }));
+    const box = screen.getByLabelText('क्या चाहिए?') as HTMLInputElement;
+    expect(box.value).toBe('');
+    expect(document.activeElement).toBe(box);
+    expect(screen.queryByText('Kya aapka matlab…?')).toBeNull();
+    expect(api.createRequest).toHaveBeenCalledTimes(1);
+    await user.type(box, 'bottle cleaner');
+    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    await waitFor(() => expect(api.createRequest).toHaveBeenCalledTimes(2));
+    expect(api.createRequest).toHaveBeenLastCalledWith({
+      q: 'bottle cleaner',
+      lat: 22.7196,
+      lng: 75.8577,
+      understanding: 'changed',
+    });
+  });
+
+  it('a word with several meanings gets "Kuch aur likhein" too', async () => {
+    const ambiguous = new ApiError(422, 'item_ambiguous', 'x', {
+      question: 'Kaunsi mirch chahiye?',
+      options: [
+        { itemId: 'a', nameEn: 'green chilli', nameHi: 'हरी मिर्च' },
+        { itemId: 'b', nameEn: 'black pepper', nameHi: 'काली मिर्च' },
+      ],
+    });
+    await ask(fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(ambiguous) }), 'mirchi');
+    expect(await screen.findByText('Kaunsi mirch chahiye?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Kuch aur likhein' })).toBeTruthy();
+  });
+
+  it('clears the question when the customer types again, and shows names as plain text', async () => {
+    const hostile = new ApiError(422, 'item_confirm', 'x', {
+      item: { itemId: 'a', nameEn: '<img src=x onerror=alert(1)>', nameHi: 'अ' },
+      alternatives: [],
+    });
+    const { user } = await ask(
+      fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(hostile) }),
+    );
+    expect(await screen.findByText(/<img src=x/)).toBeTruthy();
+    expect(document.querySelector('img')).toBeNull();
+    await user.type(screen.getByLabelText('क्या चाहिए?'), 's');
+    expect(screen.queryByText('Kya aapka matlab…?')).toBeNull();
+  });
+
+  it('falls back to the generic error when the 422 has no usable item', async () => {
+    const broken = new ApiError(422, 'item_confirm', 'x', { alternatives: [] });
+    await ask(fakeSeekerApi({ createRequest: vi.fn().mockRejectedValue(broken) }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Kuch gadbad/);
+  });
+});
+
 describe('Search with a photo (optional)', () => {
   const searchWithPhoto = async (api: ReturnType<typeof fakeSeekerApi>, attach: boolean) => {
     const { user, container } = renderApp(<Search api={api} onFound={vi.fn()} />);

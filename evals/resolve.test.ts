@@ -24,7 +24,7 @@ const slugs = new Set(seed.items.map((i) => i.slug));
 describe('evals/resolve.dev.jsonl', () => {
   it('has about 80 labelled queries, each one line of JSON', () => {
     expect(cases.length).toBeGreaterThanOrEqual(75);
-    expect(cases.length).toBeLessThanOrEqual(125);
+    expect(cases.length).toBeLessThanOrEqual(135);
   });
 
   it('has dev cases for real products the catalog lacks: a new user item is right for them (ADR-0022)', () => {
@@ -47,6 +47,22 @@ describe('evals/resolve.dev.jsonl', () => {
     ])
       expect(nonsense, q).toContain(q);
     expect(nonsense.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it('has the PR H understanding cases: phool, phool jhadu, the mirch/daal/tel family and brand names', () => {
+    const expectedFor = (q: string) => cases.find((c) => c.q === q)?.expected;
+    expect(expectedFor('phool')).toBeNull(); // flowers: never the broom
+    expect(expectedFor('phool jhadu')).toBe('broom');
+    expect(expectedFor('mirchi')).toBe('ambiguous');
+    expect(expectedFor('hari mirchi')).toBe('green-chilli');
+    expect(expectedFor('lal mirch powder')).toBe('red-chilli-powder');
+    expect(expectedFor('daal')).toBe('ambiguous');
+    expect(expectedFor('tel')).toBe('ambiguous');
+    // Brand names: never a similar-spelled generic item.
+    expect(expectedFor('mentos')).toBeNull();
+    expect(expectedFor('harpic')).toBe('toilet-cleaner');
+    expect(expectedFor('fevicol')).toBe('wood-glue');
+    expect(expectedFor('maggi')).toBe('noodles');
   });
 
   it('keeps the holdouts as they were: no new-item case there', () => {

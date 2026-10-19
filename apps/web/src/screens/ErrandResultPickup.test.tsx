@@ -77,3 +77,31 @@ describe('"Raasta kholo" on a plan records the visits (ADR-0035)', () => {
     expect(screen.getByRole('link', { name: 'Raasta kholo' }).getAttribute('href')).toMatch(/maps/);
   });
 });
+
+describe('"Grahak ne confirm kiya" on plan cards (PR H)', () => {
+  it('shows the badge on an item whose shop a customer confirmed, and only there', () => {
+    setup([
+      planItem({ itemId: 'i-tea', shopId: 's1', status: 'likely', customerVerified: true }),
+      planItem({ itemId: 'i-sugar', shopId: 's2', status: 'likely' }),
+    ]);
+    expect(screen.getAllByText('Grahak ne confirm kiya')).toHaveLength(1);
+  });
+
+  it('is in English on an English screen', () => {
+    const base = errandPlan();
+    const variant = {
+      ...base.plans.kam_dukaan,
+      items: [planItem({ status: 'likely', customerVerified: true })],
+    };
+    renderApp(
+      <ErrandResult
+        plan={errandPlan({ plans: { ...base.plans, kam_dukaan: variant, sasta: variant } })}
+        origin={origin}
+        pickupApi={fakePickups()}
+        errandId="errand-7"
+      />,
+      'en',
+    );
+    expect(screen.getByText('Confirmed by a customer')).toBeTruthy();
+  });
+});

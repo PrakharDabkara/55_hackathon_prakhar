@@ -51,6 +51,29 @@ describe('"Aaj ki maang" card (ADR-0035)', () => {
     expect(row?.textContent).toMatch(/5 grahak/);
   });
 
+  it('names an item without a Devanagari name once ("Kesar Kesar" before)', async () => {
+    setup(
+      demand({
+        asked: [
+          { item: { nameEn: 'Kesar', nameHi: 'Kesar' }, count: 2 },
+          { item: { nameEn: 'saffron pouch', nameHi: 'Saffron Pouch' }, count: 1 },
+        ],
+      }),
+    );
+    const list = await screen.findByRole('list', { name: 'Log ye pooch rahe the' });
+    const [kesar, pouch] = within(list).getAllByRole('listitem');
+    expect(kesar?.textContent).toMatch(/Kesar/);
+    expect(kesar?.textContent?.match(/Kesar/g)).toHaveLength(1);
+    expect(pouch?.textContent?.match(/saffron pouch/gi)).toHaveLength(1);
+  });
+
+  it('still shows the Hindi name first when there is one', async () => {
+    setup(demand());
+    const list = await screen.findByRole('list', { name: 'Log ye pooch rahe the' });
+    const [cumin] = within(list).getAllByRole('listitem');
+    expect(cumin?.textContent).toMatch(/जीरा.*cumin/);
+  });
+
   it('says so, rather than showing an empty list, on a quiet day', async () => {
     setup(demand({ today: { received: 0, answered: 0, yes: 0 }, asked: [], nearby: [] }));
     const card = await screen.findByRole('region', { name: 'Aaj ki maang' });

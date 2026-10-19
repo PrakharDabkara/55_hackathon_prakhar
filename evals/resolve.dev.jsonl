@@ -118,3 +118,14 @@
 {"q": "kal subah kaun aayega", "kind": "nonsense", "expected": null}
 {"q": "ice cream scoop holder", "kind": "newitem", "expected": null}
 {"q": "phone cover", "kind": "newitem", "expected": null}
+{"q": "phool", "kind": "newitem", "expected": null}
+{"q": "phool jhadu", "kind": "hinglish", "expected": "broom"}
+{"q": "mirchi", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "hari mirchi", "kind": "hinglish", "expected": "green-chilli"}
+{"q": "lal mirch powder", "kind": "hinglish", "expected": "red-chilli-powder"}
+{"q": "daal", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "tel", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "mentos", "kind": "newitem", "expected": null}
+{"q": "harpic", "kind": "hinglish", "expected": "toilet-cleaner"}
+{"q": "fevicol", "kind": "hinglish", "expected": "wood-glue"}
+{"q": "maggi", "kind": "hinglish", "expected": "noodles"}

@@ -150,3 +150,12 @@ describe('submit_plan input', () => {
     ).toBe(true);
   });
 });
+
+describe('ask_user description (PR H)', () => {
+  it('tells the model to use multiSelect when the options are not mutually exclusive', async () => {
+    const { AGENT_TOOLS } = await import('./tools.js');
+    const ask = AGENT_TOOLS.find((t) => t.name === 'ask_user');
+    expect(ask?.description).toMatch(/not mutually exclusive/i);
+    expect(ask?.description).toMatch(/colours/);
+  });
+});
