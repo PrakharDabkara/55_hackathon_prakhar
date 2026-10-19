@@ -41,7 +41,7 @@ test('a school-project errand: checklist with extras, a new item, stationery sho
 
   // The new item is created and asked of the shops; the timeline says so in plain words.
   await expect(page.getByText('Samjha: 5 cheezein')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('New item: asking the shops')).toBeVisible({
+  await expect(page.getByText('Nayi cheez: dukaanon se pooch rahe hain')).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByText(new RegExp(`dukaanon se pooch raha hoon: ${KIT}`))).toBeVisible({
