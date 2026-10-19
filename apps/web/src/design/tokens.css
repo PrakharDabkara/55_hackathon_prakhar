@@ -47,6 +47,9 @@
   --font-hand: Kalam, 'Segoe Print', cursive;
 
   --motion: 160ms;
+
+  /* Native controls (radio buttons, scrollbars) follow the theme. */
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -67,5 +70,6 @@
     --danger: #f2857d;
     --danger-soft: #3a1a18;
     --focus: #79b0ff;
+    color-scheme: dark;
   }
 }

@@ -233,6 +233,15 @@ describe('Notifications', () => {
     ).toBeTruthy();
   });
 
+  it('says so when this browser cannot show notifications, instead of an empty card', async () => {
+    setup('unsupported');
+    expect(
+      await screen.findByText(
+        "This browser can't show notifications. Keep this page open to see new requests.",
+      ),
+    ).toBeTruthy();
+  });
+
   it('says what to do when turning on fails', async () => {
     const push = client('off');
     push.enable = vi.fn(async () => 'failed' as const);

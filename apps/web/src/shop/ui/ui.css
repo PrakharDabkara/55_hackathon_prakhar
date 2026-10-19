@@ -117,6 +117,10 @@
   background: var(--paper-ink);
   color: var(--paper);
 }
+.sh-btn--solid {
+  background: var(--brand);
+  color: var(--on-brand);
+}
 .sh-btn--neutral {
   background: transparent;
   border-color: var(--paper-edge);
@@ -190,6 +194,8 @@
 }
 .sh-input-wrap:focus-within {
   border-color: var(--focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .sh-prefix {
   display: flex;
@@ -210,8 +216,7 @@
   font: 400 16px/24px var(--font-ui);
 }
 .sh-input:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline: none; /* the whole field draws the ring (above) */
 }
 .sh-input[aria-invalid='true'] {
   color: var(--danger);

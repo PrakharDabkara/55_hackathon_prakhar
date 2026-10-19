@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The shop's order screen splits Active from Done today; an order sent out waits for the customer's Received (no shop "delivered").
 - `ShopApi` gains `updateShop` (one `PATCH /shops/me`), `uploadLogo`, `deleteLogo` and `shopDemand(days)`; the old `updateDelivery` and `setDeliveryLimit` are gone.
 
+- Review fixes: item names show with a capital letter (display only), ruled lines sit only behind the handwriting, Decline is neutral, "will deliver" needs a price before Confirm (with the total above it), the Open/Closed switch has a knob, and the two-tile strip is pinned to the bottom of Home.
+
 ### Removed (Day 18, PR L)
 
 - The old shop screens and components (`PingHome`, `PingCard`, `ShopBar`, shop `Onboarding`, `ShopOrders`, `ShopDemand`, `DeliveryFields`) and the strings only they used.

@@ -39,6 +39,8 @@ export function Notifications({ api, pushClient }: Props) {
           <Button variant="primary" disabled={push.busy} onClick={() => void push.enable()}>
             {s.turnOnNotifications}
           </Button>
+        ) : push.status === 'unsupported' || push.status === 'disabled' ? (
+          <p className="sh-helper">{s.notificationsUnavailable}</p>
         ) : null}
         {push.failed && (
           <p role="alert" className="sh-error">

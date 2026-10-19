@@ -1,6 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'ink' | 'danger' | 'neutral';
+export type ButtonVariant =
+  'primary' | 'secondary' | 'quiet' | 'ink' | 'danger' | 'neutral' | 'solid';
 
 const cls = (variant: ButtonVariant, extra?: string) =>
   `sh-btn sh-btn--${variant}${extra ? ` ${extra}` : ''}`;
@@ -8,7 +9,8 @@ const cls = (variant: ButtonVariant, extra?: string) =>
 /**
  * One primary (marigold) per screen. Secondary is outlined, quiet is plain brand-coloured text,
  * ink is the dark "Accept" on a request slip, neutral the quiet "Decline" beside it (a green
- * outline would read as a yes), danger confirms a cancel.
+ * outline would read as a yes), solid is the brand-filled action on an ordinary card (where ink would
+ * vanish in dark mode), danger confirms a cancel.
  */
 export function Button({
   variant = 'secondary',

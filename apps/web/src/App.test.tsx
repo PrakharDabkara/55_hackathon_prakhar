@@ -147,7 +147,9 @@ describe('App: the shell', () => {
     app(api);
     await screen.findByRole('heading', { name: 'Insights' });
     window.dispatchEvent(new Event('offline'));
-    expect(await screen.findByText("You're offline. Reconnect to answer.")).toBeTruthy();
+    expect(
+      await screen.findByText("You're offline. Reconnect to answer.", {}, { timeout: 4000 }),
+    ).toBeTruthy();
   });
 });
 

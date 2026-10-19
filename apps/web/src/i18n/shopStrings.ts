@@ -200,6 +200,7 @@ export interface ShopStrings {
   notificationsBlocked: string;
   notificationsIos: string;
   notificationsFailed: string;
+  notificationsUnavailable: string;
 }
 
 export const shopEn: ShopStrings = {
@@ -403,6 +404,8 @@ export const shopEn: ShopStrings = {
   notificationsBlocked: 'Notifications are blocked. Allow them in your browser settings.',
   notificationsIos: 'On iPhone, add this app to your Home Screen first.',
   notificationsFailed: "Couldn't turn on notifications. Try again.",
+  notificationsUnavailable:
+    "This browser can't show notifications. Keep this page open to see new requests.",
 };
 
 export const shopHi: ShopStrings = {
@@ -606,4 +609,6 @@ export const shopHi: ShopStrings = {
   notificationsBlocked: 'Notification band hain. Browser settings mein allow karein.',
   notificationsIos: 'iPhone par pehle is app ko Home Screen par jodein.',
   notificationsFailed: 'Notification chalu nahi hue. Dobara koshish karein.',
+  notificationsUnavailable:
+    'Ye browser notification nahi dikha sakta. Naye sawaal dekhne ke liye ye page khula rakhein.',
 };

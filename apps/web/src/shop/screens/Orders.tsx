@@ -147,7 +147,7 @@ export function Orders({ api, data, now }: Props) {
               {s.decline}
             </Button>
             <Button
-              variant="ink"
+              variant="solid"
               disabled={busy !== null}
               onClick={() =>
                 void run(order.id, 'accept', order.state, () => api.orderAction(order.id, 'accept'))
@@ -160,7 +160,7 @@ export function Orders({ api, data, now }: Props) {
         {order.state === 'ACCEPTED' && (
           <div className="sh-order__actions sh-order__actions--stack">
             <Button
-              variant={order.id === firstAccepted ? 'primary' : 'ink'}
+              variant={order.id === firstAccepted ? 'primary' : 'solid'}
               disabled={busy !== null}
               onClick={() =>
                 void run(order.id, 'out', order.state, () => api.orderAction(order.id, 'out'))
