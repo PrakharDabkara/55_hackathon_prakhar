@@ -130,9 +130,12 @@ describe('push notifications for the events of a search, an errand and an order'
       );
   };
   const to = (subscriptionId: string) => queued.filter((q) => q.subscriptionId === subscriptionId);
-  const orderOf = async () => {
+  /** A stale offer (older than 30 minutes) starts REQUESTED; a fresh one is binding and starts ACCEPTED. */
+  const orderOf = async (fresh = false) => {
     const requestId = await search();
     await answer('yes');
+    if (!fresh)
+      await pool.query(`UPDATE pings SET answered_at = answered_at - interval '31 minutes'`);
     const placed = await request(app)
       .post('/orders')
       .set(auth(seeker))
@@ -193,6 +196,20 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(to(seekerSub).map((q) => q.payload.title)).toEqual([
         expect.stringMatching(/^Dukaan ne jawab diya/),
       ]);
+    });
+
+    it('hears "Grahak ne aapko chuna" instead when the customer takes a fresh offer', async () => {
+      const { orderId } = await orderOf(true);
+      const chosen = to(shopSub).filter((q) =>
+        q.payload.title.startsWith('Grahak ne aapko chuna: '),
+      );
+      expect(chosen).toHaveLength(1);
+      expect(chosen[0]?.payload.url).toBe('/app/shop');
+      expect(to(shopSub).some((q) => q.payload.title.startsWith('Naya order: '))).toBe(false);
+      expect(
+        (await pool.query(`SELECT state FROM delivery_orders WHERE id = $1`, [orderId])).rows[0]
+          .state,
+      ).toBe('ACCEPTED');
     });
 
     it("sends one push to each of the shop's devices but counts it once against the limit", async () => {
@@ -306,13 +323,12 @@ describe('push notifications for the events of a search, an errand and an order'
       });
     });
 
-    it('hears about an order as the shop accepts, sends it out and delivers it', async () => {
+    it('hears about an order as the shop accepts and sends it out', async () => {
       const { orderId } = await orderOf();
       queued = [];
       for (const [verb, title] of [
         ['accept', /accept/i],
         ['out', /nikla|raaste|out/i],
-        ['delivered', /pahunch|deliver/i],
       ] as const) {
         await act(orderId, verb);
         await notifier.idle();
@@ -322,6 +338,35 @@ describe('push notifications for the events of a search, an errand and an order'
         expect(heard[0]?.payload.url).toBe(`/app/order/${orderId}`);
         queued = [];
       }
+    });
+
+    it('tells the shop when the customer taps Received, with the existing delivered copy', async () => {
+      const { orderId } = await orderOf();
+      for (const verb of ['accept', 'out']) await act(orderId, verb);
+      await notifier.idle();
+      queued = [];
+      await request(app).post(`/orders/${orderId}/received`).set(auth(seeker));
+      await notifier.idle();
+      expect(to(shopSub)).toHaveLength(1);
+      expect(to(shopSub)[0]?.payload.title).toMatch(/pahunch/i);
+      expect(to(shopSub)[0]?.payload.url).toBe('/app/shop');
+      expect(to(seekerSub)).toHaveLength(0);
+    });
+
+    it('tells the customer when the shop cancels an accepted order, with the reason kept out of the push', async () => {
+      const { orderId } = await orderOf();
+      await act(orderId, 'accept');
+      await notifier.idle();
+      queued = [];
+      await request(app)
+        .post(`/orders/${orderId}/cancel`)
+        .set(auth(shop))
+        .send({ reason: 'out_of_stock', text: 'call 9876543210' });
+      await notifier.idle();
+      expect(to(seekerSub)).toHaveLength(1);
+      expect(to(seekerSub)[0]?.payload.title).toMatch(/cancel/i);
+      expect(JSON.stringify(queued)).not.toMatch(/9876543210|out_of_stock/);
+      expect(to(shopSub)).toHaveLength(0);
     });
 
     it('hears when the shop declines, and the shop is not told about its own tap', async () => {
@@ -352,7 +397,8 @@ describe('push notifications for the events of a search, an errand and an order'
 
   it('puts no phone number, address or coordinates in anything it queues', async () => {
     const { orderId } = await orderOf();
-    for (const verb of ['accept', 'out', 'delivered']) await act(orderId, verb);
+    for (const verb of ['accept', 'out']) await act(orderId, verb);
+    await request(app).post(`/orders/${orderId}/received`).set(auth(seeker));
     await notifier.idle();
     expect(queued.length).toBeGreaterThan(3);
     const all = JSON.stringify(queued.map((q) => q.payload));

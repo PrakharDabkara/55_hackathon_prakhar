@@ -177,6 +177,8 @@ describe('cross-feature scenarios', () => {
     const r = await search('chini');
     await fan(r.id);
     await yes(s, { delivery: { feePaise: 3000, minutes: 45 } });
+    // Older than 30 minutes: the order starts REQUESTED (a fresh offer would start ACCEPTED, S17).
+    await pool.query(`UPDATE pings SET answered_at = answered_at - interval '31 minutes'`);
     const placed = await request(app)
       .post('/orders')
       .set(auth(seeker))
@@ -309,6 +311,8 @@ describe('cross-feature scenarios', () => {
       const r = await search('chini');
       await fan(r.id);
       await yes(s, { delivery: { minutes: 30 } });
+      // Older than 30 minutes: the order starts REQUESTED (a fresh offer would start ACCEPTED, S17).
+      await pool.query(`UPDATE pings SET answered_at = answered_at - interval '31 minutes'`);
       const placed = await request(app)
         .post('/orders')
         .set(auth(seeker))

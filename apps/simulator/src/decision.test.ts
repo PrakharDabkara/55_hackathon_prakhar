@@ -313,7 +313,7 @@ describe('decideOrder: a delivery order reaches a simulated shop (ADR-0031)', ()
     expect(accepted).toBeLessThan(0.85);
   });
 
-  it('an accepted order is set out and delivered after short delays, divided by the speed', () => {
+  it('an accepted order is set out after short delays, divided by the speed', () => {
     for (const speed of [1, 100]) {
       for (const d of draws(300, 7, speed, profile({ neverDeclines: true }))) {
         if (d.kind !== 'accept') throw new Error('should accept');
@@ -321,8 +321,8 @@ describe('decideOrder: a delivery order reaches a simulated shop (ADR-0031)', ()
         expect(d.acceptMs).toBeLessThanOrEqual(30_000 / speed);
         expect(d.outMs).toBeGreaterThanOrEqual(5000 / speed);
         expect(d.outMs).toBeLessThanOrEqual(30_000 / speed);
-        expect(d.deliveredMs).toBeGreaterThanOrEqual(10_000 / speed);
-        expect(d.deliveredMs).toBeLessThanOrEqual(60_000 / speed);
+        // Only the customer confirms receipt now: the shop has no "delivered" step.
+        expect(d).not.toHaveProperty('deliveredMs');
       }
     }
   });
@@ -345,5 +345,48 @@ describe('decideOrder: a delivery order reaches a simulated shop (ADR-0031)', ()
 
   it('is the same for the same seed', () => {
     expect(draws(20, 10)).toEqual(draws(20, 10));
+  });
+});
+
+describe('Delivery v2: answering a customer who wants delivery', () => {
+  const ping = (over: Record<string, unknown> = {}) => ({
+    refPricePaise: 4500,
+    category: 'grocery',
+    itemCategories: ['grocery'],
+    shopCategories: ['grocery'],
+    wantsDelivery: true,
+    canDeliver: true,
+    ...over,
+  });
+  const share = (over: Record<string, unknown>) => {
+    const rng = createRng(11);
+    let offered = 0;
+    let yeses = 0;
+    for (let i = 0; i < 4000; i++) {
+      const d = decide(profile({ replyProbability: 1 }), ping(over), rng, 1);
+      if (d.kind === 'answer' && d.body.answer === 'yes') {
+        yeses++;
+        if (d.body.delivery) offered++;
+      }
+    }
+    return offered / yeses;
+  };
+
+  it('offers delivery on about 40 % of yeses when the customer wants it and the shop can', () => {
+    expect(share({})).toBeGreaterThan(0.35);
+    expect(share({})).toBeLessThan(0.45);
+  });
+
+  it('never offers delivery to a customer out of its range', () => {
+    expect(share({ canDeliver: false })).toBe(0);
+    expect(share({ canDeliver: false, wantsDelivery: false })).toBe(0);
+  });
+
+  it('an order that starts ACCEPTED is only set out, never accepted or declined', () => {
+    const rng = createRng(3);
+    for (let i = 0; i < 200; i++) {
+      const d = decideOrder(profile(), rng, 1, 'ACCEPTED');
+      expect(d.kind).toBe('dispatch');
+    }
   });
 });

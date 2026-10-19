@@ -23,13 +23,19 @@ const order = (over: Partial<OrderRecord> = {}): OrderRecord => ({
   customerFirstName: null,
   lat: 22.72,
   lng: 75.86,
+  note: null,
+  outForDeliveryAt: null,
+  receiveBy: null,
+  cancelledBy: null,
+  cancelReason: null,
+  cancelText: null,
   expiresAt: new Date('2026-10-18T10:10:00Z'),
   createdAt: new Date('2026-10-18T10:00:00Z'),
   updatedAt: new Date('2026-10-18T10:00:00Z'),
   ...over,
 });
 
-const SEEN: OrderState[] = ['ACCEPTED', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const SEEN: OrderState[] = ['ACCEPTED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'NOT_CONFIRMED'];
 
 describe('what the shop sees of an order (ADR-0031)', () => {
   for (const state of ORDER_STATES) {
@@ -79,5 +85,45 @@ describe('what the customer sees of an order', () => {
     expect(seekerOrderView(order({ state: 'EXPIRED' })).pickupFallback).toBe(true);
     expect(seekerOrderView(order({ state: 'ACCEPTED' })).pickupFallback).toBe(false);
     expect(seekerOrderView(order({ state: 'CANCELLED' })).pickupFallback).toBe(false);
+  });
+});
+
+describe('Delivery v2 additions', () => {
+  it('the shop sees the customer note before accepting, still no address', () => {
+    const view = shopOrderView(order({ state: 'REQUESTED', note: 'Ring the bell twice' }));
+    expect(view.note).toBe('Ring the bell twice');
+    expect(view).not.toHaveProperty('addressText');
+  });
+
+  it('the shop sees why it cancelled; the customer sees the reason and who cancelled', () => {
+    const cancelled = order({
+      state: 'CANCELLED',
+      cancelledBy: 'shop',
+      cancelReason: 'out_of_stock',
+      cancelText: 'sold out',
+    });
+    expect(shopOrderView(cancelled)).toMatchObject({ cancelReason: 'out_of_stock' });
+    expect(seekerOrderView(cancelled)).toMatchObject({
+      cancelledBy: 'shop',
+      cancelReason: 'out_of_stock',
+      cancelText: 'sold out',
+    });
+  });
+
+  it('NOT_CONFIRMED is final and keeps the address for the shop (it did go out)', () => {
+    const view = shopOrderView(order({ state: 'NOT_CONFIRMED' }));
+    expect(view.final).toBe(true);
+    expect(view.addressText).toBe(ADDRESS);
+  });
+
+  it('the customer view carries the note and the receive deadline', () => {
+    const view = seekerOrderView(
+      order({
+        state: 'OUT_FOR_DELIVERY',
+        note: 'Gate 2',
+        receiveBy: new Date('2026-10-18T13:00:00Z'),
+      }),
+    );
+    expect(view).toMatchObject({ note: 'Gate 2', receiveBy: '2026-10-18T13:00:00.000Z' });
   });
 });

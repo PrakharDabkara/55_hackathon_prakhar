@@ -22,6 +22,21 @@ describe('buildPayload', () => {
     );
   });
 
+  it('writes the Delivery v2 titles and links', () => {
+    expect(buildPayload('order_chosen', { item: 'atta' })).toEqual({
+      title: 'Grahak ne aapko chuna: atta',
+      item: 'atta',
+      url: '/app/shop',
+    });
+    expect(buildPayload('order_received', { item: 'atta' }).title).toBe('Order pahunch gaya: atta');
+    expect(buildPayload('order_received', { item: 'atta' }).url).toBe('/app/shop');
+    expect(buildPayload('order_cancelled_by_shop', { item: 'atta', id: ID })).toEqual({
+      title: 'Dukaan ne order cancel kiya: atta',
+      item: 'atta',
+      url: `/app/order/${ID}`,
+    });
+  });
+
   it('asks "Le liya?" with the item only, and opens the home screen', () => {
     const payload = buildPayload('pickup_ask', { item: 'atta' });
     expect(payload).toEqual({ title: 'Kya aapko atta mila?', item: 'atta', url: '/app/' });
@@ -52,6 +67,9 @@ describe('buildPayload', () => {
       'order_declined',
       'order_out',
       'order_delivered',
+      'order_chosen',
+      'order_received',
+      'order_cancelled_by_shop',
       'pickup_ask',
     ];
 
