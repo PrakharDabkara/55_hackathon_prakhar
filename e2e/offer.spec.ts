@@ -1,22 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { newCorner } from './orderFlow.js';
+import { login, newCorner, onboardShop, setDelivery, shopContextAt } from './orderFlow.js';
 import { uniqueName } from './unique.js';
 
 // Exact quantity, a delivery offer and the open switch, in two real browsers at 360 px (ADR-0031).
 // A real shop in a quiet corner far from the simulated shops is the only one asked.
-const VIEWPORT = { width: 360, height: 740 };
 const CORNER = newCorner();
 test.use({ geolocation: CORNER, permissions: ['geolocation'] });
-
-const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
-
-async function login(page: Page, path: string) {
-  await page.goto(path);
-  await page.getByLabel(/mobile number/i).fill(newPhone());
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
-}
 
 const noSidewaysScroll = async (page: Page) =>
   expect(
@@ -25,66 +14,54 @@ const noSidewaysScroll = async (page: Page) =>
     ),
   ).toBeLessThanOrEqual(0);
 
-test('a shop answers with a quantity and a delivery offer, closes for the day, and the customer sees it all', async ({
+test('a shop answers with a price and a delivery offer, closes for the day, and the customer sees it all', async ({
   page,
   browser,
 }) => {
-  const shopContext = await browser.newContext({ viewport: VIEWPORT });
+  const shopContext = await shopContextAt(browser, CORNER);
   const shop = await shopContext.newPage();
-  await login(shop, '/app/shop');
-  await shop.getByLabel('Dukaan ka naam').fill(uniqueName('Offer Test Kirana'));
-  await shop.getByRole('button', { name: /किराना/ }).click();
-  await shop.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }).check();
-  await shop.getByLabel('Delivery ka daam (₹)').fill('20');
-  await shop.getByText('Haath se likhein').click();
-  await shop.getByLabel('Latitude').fill(String(CORNER.latitude));
-  await shop.getByLabel('Longitude').fill(String(CORNER.longitude));
-  await shop.getByRole('button', { name: 'Dukaan shuru karein' }).click();
-  await expect(shop.getByRole('switch', { name: 'Dukaan khuli hai' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await onboardShop(shop, uniqueName('Offer Test Kirana'));
+  await setDelivery(shop);
 
   await login(page, '/app/');
-  await page.getByRole('button', { name: 'Meri location' }).click();
+  await page.getByRole('button', { name: 'Use my location' }).click();
   await page.getByLabel('क्या चाहिए?').fill('haldi');
-  await page.getByRole('button', { name: 'Dhoondho' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
 
-  // The yes starts from the standing offer; the shop adds a price, an amount and its own fee.
-  await shop.getByRole('button', { name: /Haan hai/ }).click({ timeout: 30_000 });
-  // The question card (the settings above it have a fee field too).
-  const card = shop.locator('article.card');
-  const toggle = card.getByRole('switch', { name: 'Ghar bhej denge' });
-  await expect(toggle).toHaveAttribute('aria-checked', 'true');
-  await expect(card.getByLabel('Delivery ka daam (₹)')).toHaveValue('20');
-  await card.getByLabel('Aapka daam (₹)').fill('40');
-  await card.getByLabel('Kitna hai? (maatra)').fill('5');
-  await card.getByRole('button', { name: 'kg', exact: true }).click();
-  await card.getByLabel('Delivery ka daam (₹)').fill('30');
-  await card.getByLabel('Kitne minute mein?').fill('45');
+  // The answer starts from the standing offer (₹20, 30 minutes); the shop adds a price.
+  await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
+  const sheet = shop.getByRole('dialog');
+  await expect(sheet.getByRole('switch', { name: 'Offer delivery · ₹20 fee' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await sheet.getByLabel('Price · optional').fill('40');
   await noSidewaysScroll(shop);
   await shop.screenshot({ path: 'e2e/artifacts/offer-shop-yes.png', fullPage: true });
-  await shop.getByRole('button', { name: 'Bhejo' }).click();
+  await sheet.getByRole('button', { name: 'Send', exact: true }).click();
+  // The stamp lands, then the slip leaves the deck.
+  await expect(shop.getByText('No requests right now')).toBeVisible();
 
-  // The customer sees what the shop has and that it delivers, with the fee and the time.
-  await expect(page.getByText('5 kg hai')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Ghar bhej denge · ₹30 · 45 min')).toBeVisible();
+  // The customer sees the price and that it delivers, with the fee and the time.
+  await expect(page.getByText('We deliver · ₹20 · 30 min')).toBeVisible({ timeout: 30_000 });
   await noSidewaysScroll(page);
   await page.screenshot({ path: 'e2e/artifacts/offer-customer-sees.png', fullPage: true });
 
-  // "Dukaan aaj band hai": a closed shop is not asked.
-  await shop.getByRole('switch', { name: 'Dukaan khuli hai' }).click();
-  await expect(shop.getByRole('switch', { name: 'Dukaan aaj band hai' })).toBeVisible();
+  // A closed shop is not asked.
+  await shop.getByRole('switch', { name: 'Open' }).click();
+  await expect(shop.getByRole('switch', { name: 'Closed' })).toBeVisible();
+  await expect(shop.getByText("You're closed", { exact: true })).toBeVisible();
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Meri location' }).click();
+  await page.getByRole('button', { name: 'Use my location' }).click();
   await page.getByLabel('क्या चाहिए?').fill('namak');
-  await page.getByRole('button', { name: 'Dhoondho' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
   await expect(page.locator('.status-line')).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(3000);
-  await expect(shop.getByRole('button', { name: /Haan hai/ })).toHaveCount(0);
+  await expect(shop.getByRole('button', { name: 'Answer' })).toHaveCount(0);
   await shop.screenshot({ path: 'e2e/artifacts/offer-shop-closed.png', fullPage: true });
 
   // Opening again brings the shop back.
-  await shop.getByRole('switch', { name: 'Dukaan aaj band hai' }).click();
-  await expect(shop.getByRole('switch', { name: 'Dukaan khuli hai' })).toBeVisible();
+  await shop.getByRole('button', { name: 'Open shop' }).click();
+  await expect(shop.getByRole('switch', { name: 'Open' })).toBeVisible();
   await shopContext.close();
 });

@@ -14,15 +14,15 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   // sugar search in seeker.spec.ts does not (its shops would otherwise already know the answer).
   const phone = `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
   await page.getByLabel(/mobile number/i).fill(phone);
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
+  await page.getByRole('button', { name: 'Send OTP' }).click();
+  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Log in' }).click();
 
-  await page.getByRole('link', { name: 'Poora kaam batao' }).click();
+  await page.getByRole('link', { name: 'Describe a whole errand' }).click();
   await expect(page).toHaveURL(/\/app\/errand$/);
-  await page.getByLabel('Kya kaam hai?').fill('chai banane ka saaman');
+  await page.getByLabel('What is the errand?').fill('chai banane ka saaman');
   await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByRole('button', { name: 'Plan banao' }).click();
+  await page.getByRole('button', { name: 'Make a plan' }).click();
 
   // The agent proposes the usual items and asks once: defaults ticked, the customer adds one.
   // (The timeline can name the question a moment before the box opens: wait for the box.)
@@ -41,30 +41,28 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   expect(title?.height).toBeLessThan(40); // one line, not one word per line
   await page.screenshot({ path: 'e2e/artifacts/errand-question.png', fullPage: true });
 
-  await page.getByRole('button', { name: 'Theek hai' }).click();
+  await page.getByRole('button', { name: 'Looks right' }).click();
 
   // Progress lines appear while the shops answer.
   await expect(page.getByText('Samjha: 3 cheezein')).toBeVisible({ timeout: 30_000 });
 
   // The plan. The simulated shops answer at random, so the two plans are sometimes the same
   // (shown once, no tabs, no badge) and sometimes differ (two tabs, one Recommended).
-  await expect(page.getByText('Plan taiyaar', { exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 60_000 });
   const tabs = page.getByRole('tab');
   const plans = (await tabs.count()) === 0 ? 1 : 2;
   if (plans === 2) {
-    await expect(tabs.nth(0)).toContainText('Kam dukaan');
-    await expect(tabs.nth(1)).toContainText('Sabse sasta');
+    await expect(tabs.nth(0)).toContainText('Fewest shops');
+    await expect(tabs.nth(1)).toContainText('Cheapest');
     await expect(page.getByText('Recommended')).toHaveCount(1);
   } else {
     await expect(page.getByText('Recommended')).toHaveCount(0);
   }
   await expect(page.locator('.plan-item')).toHaveCount(3);
   // The summary is built from the plan, not the model's sentence.
-  await expect(page.getByRole('status', { name: 'Saaransh' })).toContainText(
-    '3 mein se 3 cheezein mili',
-  );
+  await expect(page.getByRole('status', { name: 'Summary' })).toContainText('3 of 3 items found');
   await expect(page.getByText(/Confirmed|Pichhla jawab/).first()).toBeVisible();
-  await expect(page.getByRole('group', { name: 'Kul hisaab' })).toContainText('₹');
+  await expect(page.getByRole('group', { name: 'Totals' })).toContainText('₹');
 
   // Numbered stops on the map, in route order, and a link that opens Google Maps with them.
   const stops = page.locator('.leaflet-marker-icon.km-stop');
@@ -86,7 +84,7 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   await expect(page.locator('.leaflet-control-attribution')).toContainText(
     '© OpenStreetMap contributors',
   );
-  await expect(page.getByRole('link', { name: 'Raasta kholo' })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'Open route' })).toHaveAttribute(
     'href',
     /google\.com\/maps\/dir\/\?api=1&origin=.*&destination=/,
   );
@@ -102,10 +100,10 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   // A reload shows the same errand: its id is in the address.
   await expect(page).toHaveURL(/\/app\/errand\/[0-9a-f-]{36}$/);
   await page.reload();
-  await expect(page.getByText('Plan taiyaar', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('tab')).toHaveCount(plans === 2 ? 2 : 0);
   await expect(page.locator('.plan-item')).toHaveCount(3);
-  await expect(page.getByLabel('Kya kaam hai?')).toHaveCount(0);
+  await expect(page.getByLabel('What is the errand?')).toHaveCount(0);
 
   await page.screenshot({ path: 'e2e/artifacts/errand-result.png', fullPage: true });
 });

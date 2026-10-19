@@ -6,19 +6,19 @@ test('a typo is confirmed with "Kya aapka matlab…?" before the shops are asked
 }) => {
   await page.goto('/app/');
   await page.getByLabel(/mobile number/i).fill('9810000511');
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
+  await page.getByRole('button', { name: 'Send OTP' }).click();
+  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Log in' }).click();
 
   await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
   await page.getByLabel('क्या चाहिए?').fill('bottle brsh');
-  await page.getByRole('button', { name: 'Dhoondho' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
 
   // The question, with the understood item, "Haan, yahi" and "Kuch aur likhein"; no results yet.
-  await expect(page.getByText('Kya aapka matlab…?')).toBeVisible();
-  const yes = page.getByRole('button', { name: /Haan, yahi/ });
+  await expect(page.getByText('Did you mean…?')).toBeVisible();
+  const yes = page.getByRole('button', { name: /Yes, this one/ });
   await expect(yes).toContainText('bottle brush');
-  await expect(page.getByRole('button', { name: 'Kuch aur likhein' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Write something else' })).toBeVisible();
   await expect(page.locator('.result')).toHaveCount(0);
 
   // It fits a 360 px phone without sideways scrolling.
@@ -37,15 +37,15 @@ test('a typo is confirmed with "Kya aapka matlab…?" before the shops are asked
 test('"Kuch aur likhein" empties the box and asks nothing', async ({ page }) => {
   await page.goto('/app/');
   await page.getByLabel(/mobile number/i).fill('9810000512');
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
+  await page.getByRole('button', { name: 'Send OTP' }).click();
+  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Log in' }).click();
 
   await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
   await page.getByLabel('क्या चाहिए?').fill('bottle brsh');
-  await page.getByRole('button', { name: 'Dhoondho' }).click();
-  await page.getByRole('button', { name: 'Kuch aur likhein' }).click();
+  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Write something else' }).click();
   await expect(page.getByLabel('क्या चाहिए?')).toBeFocused();
   await expect(page.getByLabel('क्या चाहिए?')).toHaveValue('');
-  await expect(page.getByText('Kya aapka matlab…?')).toHaveCount(0);
+  await expect(page.getByText('Did you mean…?')).toHaveCount(0);
 });

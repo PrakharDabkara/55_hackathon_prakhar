@@ -16,12 +16,45 @@ export const newCorner = () => ({
 
 export const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
 
+/** Logs in with a fresh phone number: the shop app and the customer app word their buttons differently. */
 export async function login(page: Page, path: string) {
+  const shop = path.startsWith('/app/shop');
   await page.goto(path);
   await page.getByLabel(/mobile number/i).fill(newPhone());
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
+  await page.getByRole('button', { name: shop ? 'Send code' : 'Send OTP' }).click();
+  await page.getByRole('button', { name: shop ? 'Fill the code' : 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Log in' }).click();
+}
+
+/** A browser for a shop standing at `corner`, so "Use my current location" finds it there. */
+export const shopContextAt = (browser: Browser, corner: { latitude: number; longitude: number }) =>
+  browser.newContext({ viewport: VIEWPORT, geolocation: corner, permissions: ['geolocation'] });
+
+/** First login of a new shop: a name, Grocery, and its place from the phone. No delivery here. */
+export async function onboardShop(shop: Page, name: string) {
+  await login(shop, '/app/shop');
+  await shop.getByLabel('Shop name').fill(name);
+  await shop.getByRole('button', { name: 'Grocery' }).click();
+  await shop.getByRole('button', { name: 'Use my current location' }).click();
+  await shop.getByRole('button', { name: 'Start getting requests' }).click();
+  await expect(shop.getByRole('switch', { name: 'Open' })).toBeVisible({ timeout: 15_000 });
+}
+
+/** Goes to a place in the shop app (the menu links are hash addresses). */
+export const goTo = (shop: Page, view: string) =>
+  shop.evaluate((v) => {
+    location.hash = `#/${v}`;
+  }, view);
+
+/** Turns on the standing delivery offer: ₹20, usually 30 minutes. */
+export async function setDelivery(shop: Page) {
+  await goTo(shop, 'delivery');
+  await shop.getByRole('switch', { name: 'I deliver' }).click();
+  await shop.getByLabel('Default fee ₹').fill('20');
+  await shop.getByRole('button', { name: '30 min' }).click();
+  await shop.getByRole('button', { name: 'Save' }).click();
+  await expect(shop.getByText('Saved.')).toBeVisible();
+  await goTo(shop, 'requests');
 }
 
 export const noSidewaysScroll = async (page: Page) =>
@@ -37,22 +70,12 @@ export async function setup(
   label: string,
   corner: { latitude: number; longitude: number },
 ) {
-  const shopContext = await browser.newContext({ viewport: VIEWPORT });
+  const shopContext = await shopContextAt(browser, corner);
   const shop = await shopContext.newPage();
-  await login(shop, '/app/shop');
   // A name nobody else has: shops from earlier runs may remember this item in the same corner.
   const name = `${label} ${Date.now().toString(36)}`;
-  await shop.getByLabel('Dukaan ka naam').fill(name);
-  await shop.getByRole('button', { name: /किराना/ }).click();
-  await shop.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }).check();
-  await shop.getByLabel('Delivery ka daam (₹)').fill('20');
-  await shop.getByText('Haath se likhein').click();
-  await shop.getByLabel('Latitude').fill(String(corner.latitude));
-  await shop.getByLabel('Longitude').fill(String(corner.longitude));
-  await shop.getByRole('button', { name: 'Dukaan shuru karein' }).click();
-  await expect(shop.getByRole('switch', { name: 'Dukaan khuli hai' })).toBeVisible({
-    timeout: 15_000,
-  });
+  await onboardShop(shop, name);
+  await setDelivery(shop);
 
   const customerContext = await browser.newContext({
     viewport: VIEWPORT,
@@ -61,17 +84,18 @@ export async function setup(
   });
   const customer = await customerContext.newPage();
   await login(customer, '/app/');
-  await customer.getByRole('button', { name: 'Meri location' }).click();
+  await customer.getByRole('button', { name: 'Use my location' }).click();
   await customer.getByLabel('क्या चाहिए?').fill('haldi');
   // "Deliver to me" with an address typed here (Delivery v2): the shop gets three answers.
-  await customer.getByRole('checkbox', { name: 'Ghar mangwao' }).check();
-  await customer.getByLabel('Ghar ka pata').fill(ADDRESS);
-  await customer.getByRole('button', { name: 'Dhoondho' }).click();
+  await customer.getByRole('checkbox', { name: 'Deliver to me' }).check();
+  await customer.getByLabel('Home address').fill(ADDRESS);
+  await customer.getByRole('button', { name: 'Search' }).click();
 
-  // The shop says "will deliver" (the standing offer pre-fills fee and time), and the customer sees its card.
-  await shop.getByRole('button', { name: /Haan, deliver karunga/ }).click({ timeout: 30_000 });
-  await shop.locator('article.card').getByLabel('Aapka daam (₹)').fill('40');
-  await shop.getByRole('button', { name: 'Bhejo' }).click();
+  // The shop says "will deliver" (the fee and time start from its delivery settings), and the customer sees its card.
+  await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
+  await shop.getByRole('radio', { name: 'Have it, will deliver' }).check();
+  await shop.getByLabel('Price', { exact: true }).fill('40');
+  await shop.getByRole('button', { name: 'Confirm' }).click();
   const card = customer.getByRole('listitem').filter({ hasText: name });
   await expect(card).toBeVisible({ timeout: 30_000 });
   return { shop, shopContext, customer, customerContext, card };
@@ -86,11 +110,11 @@ export async function order(
   card: ReturnType<Page['locator']>,
   { note }: { note?: string } = {},
 ) {
-  await card.getByRole('button', { name: 'Ghar mangwao' }).click();
-  await card.getByRole('button', { name: 'Order bhejo' }).click();
-  if (note) await card.getByLabel('Dukaan ke liye note').fill(note);
+  await card.getByRole('button', { name: 'Deliver to me' }).click();
+  await card.getByRole('button', { name: 'Send order' }).click();
+  if (note) await card.getByLabel('Note for the shop').fill(note);
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-address-step.png', fullPage: true });
-  await card.getByRole('button', { name: 'Pakka karo' }).click();
-  await expect(card.getByText('Dukaan ne order le liya')).toBeVisible({ timeout: 15_000 });
+  await card.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(card.getByText('The shop accepted your order')).toBeVisible({ timeout: 15_000 });
 }

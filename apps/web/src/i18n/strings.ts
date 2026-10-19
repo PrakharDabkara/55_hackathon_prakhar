@@ -1,4 +1,5 @@
 import type { Category } from '@kahanmilega/shared';
+import { shopEn, shopHi, type ShopStrings } from './shopStrings.js';
 
 /** The distance bands the API sends, as written there. */
 export type Band = 'under 1 km' | '1–2 km' | '2–5 km';
@@ -10,6 +11,8 @@ export interface Label {
 }
 
 export interface Strings {
+  /** The shop app's own copy (ADR-0041). */
+  shop: ShopStrings;
   appName: string;
   /** The label of the button that switches to the other language. */
   switchLanguage: string;
@@ -31,7 +34,6 @@ export interface Strings {
   otherNumber: string;
 
   // Onboarding
-  shopNameLabel: string;
   categoriesTitle: string;
   useMyLocation: string;
   locationOk: string;
@@ -39,27 +41,16 @@ export interface Strings {
   manualTitle: string;
   latitude: string;
   longitude: string;
-  startShop: string;
-  errCreateShop: string;
 
   // Ping card
   yes: Label;
-  no: Label;
   priceLabel: string;
-  quantityTitle: Label;
   few: string;
   plenty: string;
   send: string;
-  skip: string;
   badPrice: string;
-  emptyHome: string;
   loading: string;
-  errSend: string;
-  errOffline: string;
   live: string;
-  targetLine: (price: string) => string;
-  quantityLine: (quantity: string) => string;
-  customerDistance: (band: string) => string;
 
   // Seeker app
   queryLabel: string;
@@ -170,14 +161,8 @@ export interface Strings {
   qtyShort: (quantity: string) => string;
   qtyNotEnough: string;
   qtyLast: (quantity: string) => string;
-  qtyAmountLabel: string;
-  errUnitNeeded: string;
-  deliveryOffer: string;
-  deliveryStanding: string;
   deliveryChip: (fee: string | null, free: boolean, minutes: number | null) => string;
   deliveryFeeLabel: string;
-  deliveryMinutesLabel: string;
-  deliverySettings: string;
   save: string;
   saved: string;
   modePickup: string;
@@ -186,9 +171,6 @@ export interface Strings {
   grandTotal: string;
   unknownPrices: (count: number) => string;
   unknownFees: (count: number) => string;
-  shopOpen: string;
-  shopClosed: string;
-  errSetOpen: string;
 
   // Delivery orders (ADR-0031, PR D)
   orderFeeLine: (fee: string | null, free: boolean, minutes: number | null) => string;
@@ -224,16 +206,6 @@ export interface Strings {
   pickupNotGone: string;
   pickupError: string;
   verifiedByCustomer: string;
-  demandTitle: string;
-  demandReceived: string;
-  demandAnswered: string;
-  demandYes: string;
-  demandAskedTitle: string;
-  demandNearbyTitle: string;
-  demandAskedCount: (count: number) => string;
-  demandNearbyCount: (count: number) => string;
-  demandAskedNone: string;
-  demandNearbyNone: string;
   // Finding an order again (ADR-0033, PR E)
   myOrdersEntry: string;
   myOrdersEmpty: string;
@@ -250,24 +222,6 @@ export interface Strings {
   savedAddressForget: string;
   recentTitle: string;
   homeBack: string;
-  shopOrdersActiveTitle: string;
-  shopOrdersPastTitle: string;
-  shopOrderTitle: string;
-  shopOrderAccept: string;
-  shopOrderDecline: string;
-  shopOrderOut: string;
-  shopOrderDelivered: string;
-  shopOrderMap: string;
-  shopOrderContact: string;
-  shopOrderItems: string;
-  shopOrderFee: string;
-  shopOrderCod: string;
-  shopOrderWaiting: (minutes: number) => string;
-  shopOrderDone: string;
-  shopOrderDeclined: string;
-  shopOrderExpired: string;
-  shopOrderCancelled: string;
-  shopOrderOutNow: string;
   pingGone: string;
   // Delivery v2 (ADR-0039)
   findAddressLine: (address: string) => string;
@@ -278,18 +232,6 @@ export interface Strings {
   orderNotConfirmed: string;
   orderCancelledByShop: string;
   orderNoteLabel: string;
-  shopWillDeliver: string;
-  shopHaveNoDeliver: string;
-  shopCancel: string;
-  shopCancelOutOfStock: string;
-  shopCancelCannotDeliver: string;
-  shopCancelOther: string;
-  shopCancelTextLabel: string;
-  shopCancelConfirm: string;
-  shopOrderNotConfirmed: string;
-  shopOrderNote: (note: string) => string;
-  deliveryLimitLabel: string;
-  deliveryLimitSave: string;
   // Photos (optional, both sides)
   photoAdd: string;
   photoAddFor: (what: string) => string;
@@ -297,7 +239,6 @@ export interface Strings {
   photoPreparing: string;
   photoUploading: (percent: number) => string;
   photoPreviewAlt: string;
-  photoCustomer: string;
   photoShop: string;
   photoEnlarge: (what: string) => string;
   photoClose: string;
@@ -310,12 +251,12 @@ export interface Strings {
 
   categories: Record<Category, string>;
   /** Each category as a tile: Devanagari with its Hinglish name under it (English: the English name). */
-  categoryLabels: Record<Category, Label>;
   bands: Record<Band, string>;
 }
 
 /** Hindi: the one-tap words are Devanagari with the Latin spelling below; running text stays Latin so no keyboard switch is needed. */
 export const hi: Strings = {
+  shop: shopHi,
   appName: 'KahanMilega',
   switchLanguage: 'English',
 
@@ -334,7 +275,6 @@ export const hi: Strings = {
   errNotShop: 'Yeh number customer ka hai. Dukaan ke liye dusra number use karein.',
   otherNumber: 'Dusra number',
 
-  shopNameLabel: 'Dukaan ka naam',
   categoriesTitle: 'Aap kya bechte hain? (1 se 3 chunein)',
   useMyLocation: 'Meri location use karein',
   locationOk: 'Location mil gayi ✓',
@@ -342,26 +282,15 @@ export const hi: Strings = {
   manualTitle: 'Haath se likhein',
   latitude: 'Latitude',
   longitude: 'Longitude',
-  startShop: 'Dukaan shuru karein',
-  errCreateShop: 'Dukaan nahi ban paayi. Dobara try karein.',
 
   yes: { main: 'हाँ है', sub: 'Haan hai' },
-  no: { main: 'नहीं है', sub: 'Nahi hai' },
   priceLabel: 'Aapka daam (₹)',
-  quantityTitle: { main: 'कितना है?', sub: 'Kitna hai?' },
   few: 'थोड़ा बचा है',
   plenty: 'काफ़ी है',
   send: 'Bhejo',
-  skip: 'Skip',
   badPrice: 'Daam sahi nahi hai. Jaise 45 ya 45.50 likhein (paise mein 2 ank se zyada nahi).',
-  emptyHome: 'Abhi koi sawaal nahi. Naye sawaal yahan apne aap aayenge.',
   loading: 'Ruko…',
-  errSend: 'Jawab nahi ja paaya. Dobara try karein.',
-  errOffline: 'Internet nahi mil raha. Dobara koshish ho rahi hai.',
   live: 'Live',
-  targetLine: (price) => `Customer ne ${price} mein dekha hai — kya aapke paas isse kam mein hai?`,
-  quantityLine: (quantity) => `Matra: ${quantity}`,
-  customerDistance: (band) => `Customer ${band} door hai`,
 
   queryLabel: 'क्या चाहिए?',
   queryHint: 'aata, chini, bottle brush…',
@@ -481,17 +410,11 @@ export const hi: Strings = {
   qtyShort: (quantity) => `Sirf ${quantity} hai`,
   qtyNotEnough: 'Kam hai (not enough)',
   qtyLast: (quantity) => `Pichhli baar: ${quantity}`,
-  qtyAmountLabel: 'Kitna hai? (maatra)',
-  errUnitNeeded: 'Maatra ke saath unit chunein (kg, g, L, ml, piece ya packet).',
-  deliveryOffer: 'Ghar bhej denge',
-  deliveryStanding: 'Hum ghar bhejte hain',
   deliveryChip: (fee, free, minutes) =>
     ['Ghar bhej denge', free ? 'muft' : fee, minutes !== null ? `${minutes} min` : null]
       .filter(Boolean)
       .join(' · '),
   deliveryFeeLabel: 'Delivery ka daam (₹)',
-  deliveryMinutesLabel: 'Kitne minute mein?',
-  deliverySettings: 'Delivery ki settings',
   save: 'Save karein',
   saved: 'Save ho gaya',
   modePickup: 'Khud lene jaunga',
@@ -501,9 +424,6 @@ export const hi: Strings = {
   unknownPrices: (count) => `+ ${count} ${count === 1 ? 'cheez' : 'cheezein'} ka daam pata nahi`,
   unknownFees: (count) =>
     `+ ${count} ${count === 1 ? 'dukaan' : 'dukaanon'} ka delivery daam pata nahi`,
-  shopOpen: 'Dukaan khuli hai',
-  shopClosed: 'Dukaan aaj band hai',
-  errSetOpen: 'Ye nahi ho paya. Dobara try karein.',
   orderFeeLine: (fee, free, minutes) =>
     ['Delivery', free ? 'muft' : fee, minutes !== null ? `${minutes} min` : null]
       .filter(Boolean)
@@ -538,16 +458,6 @@ export const hi: Strings = {
   pickupNotGone: 'Gaya nahi',
   pickupError: 'Jawab nahi bhej paaye. Dobara try karein.',
   verifiedByCustomer: 'Grahak ne confirm kiya',
-  demandTitle: 'Aaj ki maang',
-  demandReceived: 'Aaye sawaal',
-  demandAnswered: 'Jawab diye',
-  demandYes: 'Haan kaha',
-  demandAskedTitle: 'Log ye pooch rahe the',
-  demandNearbyTitle: 'Aas-paas ki maang',
-  demandAskedCount: (count) => `${count} baar`,
-  demandNearbyCount: (count) => `${count} grahak`,
-  demandAskedNone: 'Aaj koi nahi: jo poocha, aapne de diya.',
-  demandNearbyNone: 'Abhi koi nahi. 3 ya zyada logon ke maangne par yahan dikhega.',
   myOrdersEntry: 'Mere orders',
   myOrdersEmpty: 'Abhi koi order nahi.',
   myOrdersError: 'Orders nahi dikh paaye. Dobara try karein.',
@@ -563,24 +473,6 @@ export const hi: Strings = {
   savedAddressForget: 'Pata hatayein',
   recentTitle: 'Haal ke kaam',
   homeBack: 'Wapas',
-  shopOrdersActiveTitle: 'Chal rahe orders',
-  shopOrdersPastTitle: 'Pichhle orders',
-  shopOrderTitle: 'Ghar bhejne ka order',
-  shopOrderAccept: 'Accept',
-  shopOrderDecline: 'Decline',
-  shopOrderOut: 'Nikal gaye',
-  shopOrderDelivered: 'Pahuncha diya',
-  shopOrderMap: 'Map par dekho',
-  shopOrderContact: 'Sampark',
-  shopOrderItems: 'Saaman',
-  shopOrderFee: 'Delivery',
-  shopOrderCod: 'Cash on delivery: grahak ghar par cash dega.',
-  shopOrderWaiting: (minutes) => `Jawab dene ke liye ${minutes} min`,
-  shopOrderDone: 'Pahuncha diya gaya',
-  shopOrderDeclined: 'Aapne mana kiya',
-  shopOrderExpired: 'Samay nikal gaya',
-  shopOrderCancelled: 'Grahak ne order cancel kiya',
-  shopOrderOutNow: 'Raste mein hai',
   pingGone: 'Grahak ko jawab mil gaya — shukriya',
   findAddressLine: (address) => `Delivery ka pata: ${address}`,
   findAddressSaveNote:
@@ -594,25 +486,12 @@ export const hi: Strings = {
   orderNotConfirmed: 'Aapne delivery confirm nahi ki',
   orderCancelledByShop: 'Dukaan ne order cancel kiya',
   orderNoteLabel: 'Dukaan ke liye note',
-  shopWillDeliver: 'Haan, deliver karunga',
-  shopHaveNoDeliver: 'Haan hai, deliver nahi',
-  shopCancel: 'Cancel karo',
-  shopCancelOutOfStock: 'Maal khatam',
-  shopCancelCannotDeliver: 'Abhi deliver nahi kar sakte',
-  shopCancelOther: 'Kuch aur',
-  shopCancelTextLabel: 'Wajah likhiye',
-  shopCancelConfirm: 'Pakka cancel',
-  shopOrderNotConfirmed: 'Grahak ne confirm nahi kiya',
-  shopOrderNote: (note) => `Grahak ka note: ${note}`,
-  deliveryLimitLabel: 'Kitne km tak deliver karte hain? (khaali: koi limit nahi)',
-  deliveryLimitSave: 'Limit rakho',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',
   photoPreparing: 'Photo taiyaar ho rahi hai…',
   photoUploading: (percent) => `Upload ho raha hai ${percent}%`,
   photoPreviewAlt: 'Aapki photo',
-  photoCustomer: 'Customer ki photo',
   photoShop: 'Dukaan ki photo',
   photoEnlarge: (what) => `${what}: bada karein`,
   photoClose: 'Band karein',
@@ -638,21 +517,6 @@ export const hi: Strings = {
     medical: 'मेडिकल',
     bakery_sweets: 'बेकरी और मिठाई',
   },
-  categoryLabels: {
-    grocery: { main: 'किराना', sub: 'Kirana' },
-    hardware: { main: 'हार्डवेयर', sub: 'Hardware' },
-    electrical: { main: 'बिजली का सामान', sub: 'Bijli ka saaman' },
-    stationery: { main: 'स्टेशनरी', sub: 'Stationery' },
-    mobile_accessories: { main: 'मोबाइल एक्सेसरीज़', sub: 'Mobile accessories' },
-    household_kitchen: { main: 'घर और रसोई', sub: 'Ghar aur rasoi' },
-    personal_care: { main: 'पर्सनल केयर', sub: 'Personal care' },
-    general_store: { main: 'जनरल स्टोर', sub: 'General store' },
-    dairy: { main: 'डेयरी', sub: 'Dairy' },
-    sabzi_fruit: { main: 'सब्ज़ी और फल', sub: 'Sabzi aur phal' },
-    pooja: { main: 'पूजा का सामान', sub: 'Pooja ka saaman' },
-    medical: { main: 'मेडिकल', sub: 'Medical' },
-    bakery_sweets: { main: 'बेकरी और मिठाई', sub: 'Bakery aur mithai' },
-  },
   bands: {
     'under 1 km': '1 km se kam',
     '1–2 km': '1–2 km',
@@ -661,6 +525,7 @@ export const hi: Strings = {
 };
 
 export const en: Strings = {
+  shop: shopEn,
   appName: 'KahanMilega',
   switchLanguage: 'हिंदी',
 
@@ -679,7 +544,6 @@ export const en: Strings = {
   errNotShop: 'This number belongs to a customer. Use another number for a dukaan (shop).',
   otherNumber: 'Another number',
 
-  shopNameLabel: 'Shop name',
   categoriesTitle: 'What do you sell? (pick 1 to 3)',
   useMyLocation: 'Use my location',
   locationOk: 'Got your location ✓',
@@ -687,26 +551,15 @@ export const en: Strings = {
   manualTitle: 'Enter it by hand',
   latitude: 'Latitude',
   longitude: 'Longitude',
-  startShop: 'Start my shop',
-  errCreateShop: 'Could not create your shop. Please try again.',
 
   yes: { main: 'Yes, I have it' },
-  no: { main: 'No' },
   priceLabel: 'Your price (₹)',
-  quantityTitle: { main: 'How many are left?' },
   few: 'Only a few left',
   plenty: 'Plenty',
   send: 'Send',
-  skip: 'Skip',
   badPrice: 'That price is not right. Write it like 45 or 45.50 (at most 2 digits after the dot).',
-  emptyHome: 'No questions right now. New ones will appear here by themselves.',
   loading: 'Please wait…',
-  errSend: 'Your answer did not go through. Please try again.',
-  errOffline: 'No internet. Trying again.',
   live: 'Live',
-  targetLine: (price) => `A customer saw it for ${price}. Do you have it for less?`,
-  quantityLine: (quantity) => `Quantity: ${quantity}`,
-  customerDistance: (band) => `Customer is ${band} away`,
 
   queryLabel: 'क्या चाहिए?',
   queryHint: 'aata, chini, bottle brush…',
@@ -827,17 +680,11 @@ export const en: Strings = {
   qtyShort: (quantity) => `Only ${quantity} available`,
   qtyNotEnough: 'Kam hai (not enough)',
   qtyLast: (quantity) => `Last time: ${quantity}`,
-  qtyAmountLabel: 'How much is there? (amount)',
-  errUnitNeeded: 'Choose a unit with the amount (kg, g, L, ml, piece or packet).',
-  deliveryOffer: 'We deliver',
-  deliveryStanding: 'We deliver to homes',
   deliveryChip: (fee, free, minutes) =>
     ['We deliver', free ? 'free' : fee, minutes !== null ? `${minutes} min` : null]
       .filter(Boolean)
       .join(' · '),
   deliveryFeeLabel: 'Delivery fee (₹)',
-  deliveryMinutesLabel: 'In how many minutes?',
-  deliverySettings: 'Delivery settings',
   save: 'Save',
   saved: 'Saved',
   modePickup: "I'll pick it up",
@@ -846,9 +693,6 @@ export const en: Strings = {
   grandTotal: 'Total with delivery',
   unknownPrices: (count) => `+ ${count} ${count === 1 ? 'item' : 'items'} with no price`,
   unknownFees: (count) => `+ ${count} ${count === 1 ? 'shop' : 'shops'} with no delivery fee told`,
-  shopOpen: 'Shop is open',
-  shopClosed: 'Shop is closed today',
-  errSetOpen: 'That did not work. Please try again.',
   orderFeeLine: (fee, free, minutes) =>
     ['Delivery', free ? 'free' : fee, minutes !== null ? `${minutes} min` : null]
       .filter(Boolean)
@@ -883,16 +727,6 @@ export const en: Strings = {
   pickupNotGone: "Didn't go",
   pickupError: 'Could not send your answer. Please try again.',
   verifiedByCustomer: 'Confirmed by a customer',
-  demandTitle: "Today's demand",
-  demandReceived: 'Questions received',
-  demandAnswered: 'Answered',
-  demandYes: 'Said yes',
-  demandAskedTitle: 'People were asking for',
-  demandNearbyTitle: 'Demand nearby',
-  demandAskedCount: (count) => `${count} ${count === 1 ? 'time' : 'times'}`,
-  demandNearbyCount: (count) => `${count} customers`,
-  demandAskedNone: 'None today: you had everything that was asked.',
-  demandNearbyNone: 'Nothing yet. It shows here once 3 or more people ask for the same thing.',
   myOrdersEntry: 'My orders',
   myOrdersEmpty: 'No orders yet.',
   myOrdersError: 'Could not load your orders. Please try again.',
@@ -908,24 +742,6 @@ export const en: Strings = {
   savedAddressForget: 'Delete address',
   recentTitle: 'Recent',
   homeBack: 'Back',
-  shopOrdersActiveTitle: 'Active orders',
-  shopOrdersPastTitle: 'Past orders',
-  shopOrderTitle: 'Home delivery order',
-  shopOrderAccept: 'Accept',
-  shopOrderDecline: 'Decline',
-  shopOrderOut: 'On my way',
-  shopOrderDelivered: 'Delivered',
-  shopOrderMap: 'See on map',
-  shopOrderContact: 'Contact',
-  shopOrderItems: 'Items',
-  shopOrderFee: 'Delivery',
-  shopOrderCod: 'Cash on delivery: the customer pays in cash at the door.',
-  shopOrderWaiting: (minutes) => `${minutes} min left to answer`,
-  shopOrderDone: 'Delivered',
-  shopOrderDeclined: 'You declined',
-  shopOrderExpired: 'Time ran out',
-  shopOrderCancelled: 'The customer cancelled the order',
-  shopOrderOutNow: 'On its way',
   pingGone: 'The customer already got an answer — thank you',
   findAddressLine: (address) => `Deliver to: ${address}`,
   findAddressSaveNote: "We'll save this address for next time. You can delete it in My orders.",
@@ -938,25 +754,12 @@ export const en: Strings = {
   orderNotConfirmed: "You didn't confirm delivery",
   orderCancelledByShop: 'The shop cancelled the order',
   orderNoteLabel: 'Note for the shop',
-  shopWillDeliver: 'Yes, I will deliver',
-  shopHaveNoDeliver: 'Have it, cannot deliver',
-  shopCancel: 'Cancel order',
-  shopCancelOutOfStock: 'Out of stock',
-  shopCancelCannotDeliver: 'Cannot deliver now',
-  shopCancelOther: 'Something else',
-  shopCancelTextLabel: 'Write the reason',
-  shopCancelConfirm: 'Confirm cancel',
-  shopOrderNotConfirmed: 'The customer did not confirm',
-  shopOrderNote: (note) => `Customer note: ${note}`,
-  deliveryLimitLabel: 'How far do you deliver, in km? (empty: no limit)',
-  deliveryLimitSave: 'Save limit',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',
   photoPreparing: 'Preparing the photo…',
   photoUploading: (percent) => `Uploading ${percent}%`,
   photoPreviewAlt: 'Your photo',
-  photoCustomer: "Customer's photo",
   photoShop: "Shop's photo",
   photoEnlarge: (what) => `${what}: enlarge`,
   photoClose: 'Close',
@@ -981,21 +784,6 @@ export const en: Strings = {
     pooja: 'Pooja items',
     medical: 'Medical',
     bakery_sweets: 'Bakery & sweets',
-  },
-  categoryLabels: {
-    grocery: { main: 'Grocery' },
-    hardware: { main: 'Hardware' },
-    electrical: { main: 'Electrical' },
-    stationery: { main: 'Stationery' },
-    mobile_accessories: { main: 'Mobile accessories' },
-    household_kitchen: { main: 'Household & kitchen' },
-    personal_care: { main: 'Personal care' },
-    general_store: { main: 'General store' },
-    dairy: { main: 'Dairy' },
-    sabzi_fruit: { main: 'Fruits & vegetables' },
-    pooja: { main: 'Pooja items' },
-    medical: { main: 'Medical' },
-    bakery_sweets: { main: 'Bakery & sweets' },
   },
   bands: {
     'under 1 km': 'under 1 km',

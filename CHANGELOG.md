@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 18, PR L: Parchi shop UI)
+
+- New shop app (ADR-0041): design tokens with light and dark themes, a request deck of paper slips (parchi) with a time ring and stamps, answer sheets for normal and delivery questions, Orders, Insights, Delivery, Shop settings and Notifications behind a menu drawer, and a Login and Set up screen in the same style.
+- Shop location is chosen on a small map with a draggable pin (arrow keys nudge it), at set-up and in Shop settings; set-up cannot finish without a pin.
+- Shop logo upload and removal in Shop settings and at set-up; the logo and initials show in the header and menu.
+- `BRAND_NAME` (`brand.ts`) with a test that keeps `index.html`, the manifest, the service worker and `appName` in step; Mukta and Kalam self-hosted through `@fontsource`.
+- E2E: `shop-screens.spec.ts` (every shop screen at 360 and 1280 px, light and dark, with an axe scan that must find nothing serious or critical) and `shop-setup.spec.ts`; `@axe-core/playwright` as a dev dependency.
+- UI rules section in CLAUDE.md.
+
+### Changed (Day 18, PR L)
+
+- The web app now starts in English when no language is saved (the Hindi table and the switch stay). Customer copy is polished in PR M.
+- The shop app no longer has a setup question about delivery: delivery is set on the Delivery screen. A "will deliver" answer needs a price and a fee.
+- The shop's order screen splits Active from Done today; an order sent out waits for the customer's Received (no shop "delivered").
+- `ShopApi` gains `updateShop` (one `PATCH /shops/me`), `uploadLogo`, `deleteLogo` and `shopDemand(days)`; the old `updateDelivery` and `setDeliveryLimit` are gone.
+
+- Review fixes: item names show with a capital letter (display only), ruled lines sit only behind the handwriting, Decline is neutral, "will deliver" needs a price before Confirm (with the total above it), the Open/Closed switch has a knob, and the two-tile strip is pinned to the bottom of Home.
+
+### Removed (Day 18, PR L)
+
+- The old shop screens and components (`PingHome`, `PingCard`, `ShopBar`, shop `Onboarding`, `ShopOrders`, `ShopDemand`, `DeliveryFields`) and the strings only they used.
+
 ### Added (Day 17, PR K: shop-screen data and logo)
 
 - `lastPricePaise` on a shop's ping card (its own last quoted price; `null` when unknown or called wrong).
