@@ -11,6 +11,9 @@ export interface ErrandRecord {
   lat: number;
   lng: number;
   budgetPaise: number | null;
+  /** "Deliver to me" from Find: set by code onto every request the errand opens (ADR-0039). */
+  wantsDelivery: boolean;
+  deliveryAddressId: string | null;
   state: ErrandState;
   version: number;
   stepCount: number;
@@ -74,12 +77,15 @@ interface Row {
   questions_asked: number;
   resume_reason: ResumeReason | null;
   delivery_modes: Record<string, 'pickup' | 'delivery'>;
+  wants_delivery: boolean;
+  delivery_address_id: string | null;
 }
 
 const SELECT = `SELECT id, user_id, task, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng,
        budget_paise, state, version, step_count, tokens_in, tokens_out, plan, failure_reason,
        request_id, created_at, updated_at, expires_at, waited_ms, wait_started_at, wait_deadline,
-       answer_deadline, question, answer, questions_asked, resume_reason, delivery_modes
+       answer_deadline, question, answer, questions_asked, resume_reason, delivery_modes,
+       wants_delivery, delivery_address_id
   FROM errands`;
 
 const toRecord = (r: Row): ErrandRecord => ({
@@ -89,6 +95,8 @@ const toRecord = (r: Row): ErrandRecord => ({
   lat: r.lat,
   lng: r.lng,
   budgetPaise: r.budget_paise,
+  wantsDelivery: r.wants_delivery,
+  deliveryAddressId: r.delivery_address_id,
   state: r.state,
   version: r.version,
   stepCount: r.step_count,
@@ -162,6 +170,8 @@ export async function insertErrand(
     lng: number;
     budgetPaise: number | null;
     requestId: string | null;
+    wantsDelivery: boolean;
+    deliveryAddressId: string | null;
     hourlyLimit: number;
     expiryMs: number;
   },
@@ -176,9 +186,10 @@ export async function insertErrand(
     );
     if ((recent.rows[0]?.n ?? 0) >= input.hourlyLimit) return { kind: 'rate_limited' as const };
     const { rows } = await tx.query<{ id: string }>(
-      `INSERT INTO errands (user_id, task, location, budget_paise, request_id, expires_at)
+      `INSERT INTO errands (user_id, task, location, budget_paise, request_id, expires_at,
+                            wants_delivery, delivery_address_id)
        VALUES ($1, $2, ST_SetSRID(ST_MakePoint($4, $3), 4326)::geography, $5, $6,
-               now() + make_interval(secs => $7::float / 1000))
+               now() + make_interval(secs => $7::float / 1000), $8, $9)
        RETURNING id`,
       [
         input.userId,
@@ -188,6 +199,8 @@ export async function insertErrand(
         input.budgetPaise,
         input.requestId,
         input.expiryMs,
+        input.wantsDelivery,
+        input.deliveryAddressId,
       ],
     );
     return { kind: 'created' as const, id: (rows[0] as { id: string }).id };

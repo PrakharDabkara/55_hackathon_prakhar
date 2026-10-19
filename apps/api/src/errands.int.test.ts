@@ -1144,6 +1144,24 @@ describe('errands over HTTP', () => {
     });
   });
 
+  it('Delivery v2: POST /errands takes wantsDelivery with the customer’s own saved address', async () => {
+    const mine = (
+      await request(app)
+        .put('/orders/saved-address')
+        .set('Authorization', `Bearer ${seeker.token}`)
+        .send({ addressText: 'Flat 4B, Vijay Nagar, Indore' })
+    ).body.id as string;
+    expect((await post(seeker.token, { ...body, wantsDelivery: true })).status).toBe(400);
+    expect(
+      (await post(seeker.token, { ...body, wantsDelivery: true, deliveryAddressId: UNKNOWN }))
+        .status,
+    ).toBe(400);
+    const ok = await post(seeker.token, { ...body, wantsDelivery: true, deliveryAddressId: mine });
+    expect(ok.status).toBe(201);
+    const row = (await pool.query(`SELECT * FROM errands WHERE id = $1`, [ok.body.id])).rows[0];
+    expect(row).toMatchObject({ wants_delivery: true, delivery_address_id: mine });
+  });
+
   it('needs a login and the seeker role', async () => {
     expect((await post(null, body)).status).toBe(401);
     expect((await post(shop.token, body)).status).toBe(403);

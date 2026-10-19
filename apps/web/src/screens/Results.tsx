@@ -180,8 +180,21 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                   quantity={r.quantity}
                   check={r.quantityCheck}
                   remembered={r.source === 'learned'}
-                  delivery={r.delivery}
+                  delivery={request.wantsDelivery ? undefined : r.delivery}
                 />
+                {request.wantsDelivery && (
+                  <p className="meta">
+                    {r.delivery
+                      ? t.willDeliverLine(
+                          r.delivery.feePaise !== null && r.delivery.feePaise > 0
+                            ? formatRupees(r.delivery.feePaise)
+                            : null,
+                          r.delivery.feePaise === 0,
+                          r.delivery.minutes,
+                        )
+                      : t.pickupOnly}
+                  </p>
+                )}
                 {r.quantityHint && (
                   <p className="meta">{r.quantityHint === 'few' ? t.few : t.plenty}</p>
                 )}
@@ -193,6 +206,7 @@ export function Results({ api, initial, origin, onDone, pollMs = 15_000, live }:
                         shop={{ id: r.shopId, name: r.name }}
                         source={{ requestId: request.id }}
                         offer={r.delivery}
+                        hasAddress={request.wantsDelivery === true}
                         order={orderForShop(orders, r.shopId)}
                         onChange={loadOrders}
                       />

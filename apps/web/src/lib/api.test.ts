@@ -118,11 +118,32 @@ describe('createApi: delivery orders (ADR-0031)', () => {
     ['accept', '/orders/o%201/accept'],
     ['decline', '/orders/o%201/decline'],
     ['out', '/orders/o%201/out'],
-    ['delivered', '/orders/o%201/delivered'],
   ] as const)('moves an order with %s', async (verb, url) => {
     const { api, fetchImpl } = setup(() => json(200, { id: 'o 1' }));
     await api.orderAction('o 1', verb);
     expect(fetchImpl.mock.calls[0]?.[0]).toBe(url);
     expect((fetchImpl.mock.calls[0]?.[1] as RequestInit).method).toBe('POST');
+  });
+
+  it('the shop cancels an order with a reason and words (Delivery v2)', async () => {
+    const { api, fetchImpl } = setup(() => json(200, { id: 'o 1' }));
+    await api.cancelOrder('o 1', { reason: 'other', text: 'Rider bimar' });
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe('/orders/o%201/cancel');
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({ reason: 'other', text: 'Rider bimar' });
+  });
+
+  it('sets the delivery limit in km, or null for none', async () => {
+    const { api, fetchImpl } = setup(() => json(200, {}));
+    await api.setDeliveryLimit(2.5);
+    expect(fetchImpl.mock.calls[0]?.[0]).toBe('/shops/me');
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({ deliveryMaxKm: 2.5 });
+    await api.setDeliveryLimit(null);
+    expect(JSON.parse(String((fetchImpl.mock.calls[1]?.[1] as RequestInit).body))).toEqual({
+      deliveryMaxKm: null,
+    });
   });
 });

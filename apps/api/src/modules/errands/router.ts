@@ -22,6 +22,9 @@ export function errandsRouter(deps: ErrandsContext): Router {
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
     budgetPaise: z.number().int().min(1).max(10_000_000).optional(),
+    /** "Deliver to me" (ADR-0039): every request the errand opens inherits it, set by code. */
+    wantsDelivery: z.boolean().optional(),
+    deliveryAddressId: z.uuid().optional(),
   });
 
   router.post('/errands', requireAuth, requireRole('seeker'), async (req, res) => {

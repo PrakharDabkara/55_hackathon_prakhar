@@ -11,7 +11,7 @@ test('an order is found again after "Ho gaya": Mere orders, the order page, a re
     'Mere Orders Kirana',
     newCorner(),
   );
-  await order(customer, card, { remember: true });
+  await order(customer, card);
 
   // The very gap found live: leave the results screen.
   await customer.getByRole('button', { name: 'Ho gaya' }).click();
@@ -27,21 +27,19 @@ test('an order is found again after "Ho gaya": Mere orders, the order page, a re
   await expect(customer).toHaveURL(/\/app\/orders$/);
   const row = customer.getByRole('link', { name: /Mere Orders Kirana/ });
   await expect(row).toBeVisible();
-  await expect(row.getByText(/jawab ka intezaar/)).toBeVisible();
+  await expect(row.getByText('Dukaan ne order le liya')).toBeVisible();
   await expect(customer.getByText(ADDRESS)).toBeVisible();
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/my-orders-list.png', fullPage: true });
 
   await row.click();
   await expect(customer).toHaveURL(/\/app\/order\/[\w-]+$/);
-  await expect(customer.getByText(/jawab ka intezaar/)).toBeVisible();
+  await expect(customer.getByText('Dukaan ne order le liya')).toBeVisible();
   await expect(customer.getByRole('button', { name: 'Order cancel karo' })).toBeVisible();
 
   // The shop moves it; the page follows without a reload.
   const shopCard = shop.locator('article.order-card');
   await expect(shopCard).toBeVisible({ timeout: 30_000 });
-  await shopCard.getByRole('button', { name: 'Accept' }).click();
-  await expect(customer.getByText('Dukaan ne order le liya')).toBeVisible({ timeout: 15_000 });
   await shopCard.getByRole('button', { name: 'Nikal gaye' }).click();
   await expect(customer.getByText('Nikal gaye — raste mein hai')).toBeVisible({ timeout: 15_000 });
   await expect(customer.getByRole('button', { name: 'Order cancel karo' })).toHaveCount(0);
@@ -52,7 +50,7 @@ test('an order is found again after "Ho gaya": Mere orders, the order page, a re
   await expect(customer.getByText('Nikal gaye — raste mein hai')).toBeVisible();
   await noSidewaysScroll(customer);
 
-  await shopCard.getByRole('button', { name: 'Pahuncha diya' }).click();
+  await customer.getByRole('button', { name: 'Mil gaya' }).click();
   await expect(customer.getByText('Pahuncha diya — order poora hua')).toBeVisible({
     timeout: 15_000,
   });

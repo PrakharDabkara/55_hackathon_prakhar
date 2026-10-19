@@ -301,7 +301,7 @@ describe('the simulator against a real API', () => {
     for (const row of paper.filter((r) => !r.categories.includes('stationery')))
       expect(row.state).toBe('NO');
   }, 60_000);
-  it('accepts an order for a simulated shop, sets out and delivers it, step by step', async () => {
+  it('takes a fresh order for a simulated shop (starts ACCEPTED), sets it out, and the customer confirms receipt', async () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
     await endLeftoverRequests();
     const lines: string[] = [];
@@ -353,16 +353,20 @@ describe('the simulator against a real API', () => {
         if (seen.at(-1) !== state) seen.push(state);
         return state;
       },
-      (state) => state === 'DELIVERED',
+      (state) => state === 'OUT_FOR_DELIVERY',
       30_000,
     );
-    expect(seen.at(-1)).toBe('DELIVERED');
+    // The shop no longer marks it delivered: only the customer's Received does (Delivery v2).
+    const received = await request(app)
+      .post(`/orders/${placed.body.id}/received`)
+      .set(auth(seeker));
+    expect(received.body.state).toBe('DELIVERED');
+    expect(placed.body.state).toBe('ACCEPTED');
     expect(seen).not.toContain('DECLINED');
     // One line per step, and the simulator never saw the address: it is told an id and a shop.
     const orderLines = lines.filter((l) => /order/i.test(l));
-    expect(orderLines.join('\n')).toMatch(/accepted/);
     expect(orderLines.join('\n')).toMatch(/out for delivery/);
-    expect(orderLines.join('\n')).toMatch(/delivered/);
+    expect(orderLines.join('\n')).not.toMatch(/marked delivered|moved .* delivered/);
     expect(lines.join('')).not.toContain('Sapna');
   }, 60_000);
 });

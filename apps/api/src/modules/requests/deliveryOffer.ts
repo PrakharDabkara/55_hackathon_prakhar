@@ -17,6 +17,15 @@ export interface RequestDeliveryOffer {
   }[];
   feePaise: number | null;
   minutes: number | null;
+  /** The saved address the customer picked on Find, if they ticked "Deliver to me". */
+  deliveryAddressId: string | null;
+  /**
+   * How old the shop's own yes with a delivery offer is, in seconds; null when the offer comes from
+   * learned stock (what the shop said some time ago is never binding).
+   */
+  ownOfferAgeSeconds: number | null;
+  /** The request can still be answered: PINGING or ANSWERED and not past its deadline. */
+  requestLive: boolean;
 }
 
 /**
@@ -38,8 +47,10 @@ export async function deliveryOfferForRequest(
     price_paise: number | null;
     delivery_fee_paise: number | null;
     delivery_minutes: number | null;
+    age_s: number;
   }>(
-    `SELECT price_paise, delivery_fee_paise, delivery_minutes FROM pings
+    `SELECT price_paise, delivery_fee_paise, delivery_minutes,
+            extract(epoch FROM now() - answered_at)::float8 AS age_s FROM pings
       WHERE request_id = $1 AND shop_id = $2 AND state = 'YES' AND delivers
       ORDER BY answered_at DESC LIMIT 1`,
     [requestId, shopId],
@@ -80,5 +91,26 @@ export async function deliveryOfferForRequest(
     ],
     feePaise: offer.feePaise,
     minutes: offer.minutes,
+    deliveryAddressId: request.deliveryAddressId,
+    ownOfferAgeSeconds: rows[0] ? rows[0].age_s : null,
+    requestLive: (request.state === 'PINGING' || request.state === 'ANSWERED') && !request.overdue,
   };
+}
+
+/**
+ * The other shops that answered this request, to tell them the customer has picked (ADR-0039).
+ * Only owners and ping ids: nothing about the order.
+ */
+export async function otherAnsweredShops(
+  db: Queryable,
+  requestId: string,
+  exceptShopId: string,
+): Promise<{ pingId: string; ownerUserId: string }[]> {
+  const { rows } = await db.query<{ id: string; owner_user_id: string }>(
+    `SELECT p.id, s.owner_user_id FROM pings p JOIN shops s ON s.id = p.shop_id
+      WHERE p.request_id = $1 AND p.shop_id <> $2 AND p.state IN ('YES', 'NO')
+        AND s.owner_user_id IS NOT NULL`,
+    [requestId, exceptShopId],
+  );
+  return rows.map((r) => ({ pingId: r.id, ownerUserId: r.owner_user_id }));
 }

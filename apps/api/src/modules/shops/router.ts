@@ -41,6 +41,8 @@ const patchBody = z
     lng: lng.optional(),
     categories: categories.optional(),
     delivery: delivery.nullable().optional(),
+    /** How far the shop delivers, in km; null removes the limit. */
+    deliveryMaxKm: z.number().min(0.1).max(100).nullable().optional(),
   })
   .refine((b) => (b.lat === undefined) === (b.lng === undefined), 'lat and lng go together')
   .refine((b) => Object.values(b).some((v) => v !== undefined), 'nothing to update');
@@ -75,11 +77,12 @@ export function shopsRouter({ db, hooks }: { db: Queryable; hooks?: ShopHooks })
   });
 
   router.patch('/shops/me', ...shopOnly, async (req, res) => {
-    const { name, lat, lng, categories, delivery } = parse(patchBody, req.body);
+    const { name, lat, lng, categories, delivery, deliveryMaxKm } = parse(patchBody, req.body);
     const shop = await updateShopByOwner(db, authOf(req).user.id, {
       ...(name !== undefined && { name }),
       ...(categories !== undefined && { categories }),
       ...(delivery !== undefined && { delivery }),
+      ...(deliveryMaxKm !== undefined && { deliveryMaxKm }),
       ...(lat !== undefined && lng !== undefined && { location: { lat, lng } }),
     });
     if (!shop) throw new ApiError(404, 'not_found', 'You have not created a shop yet');

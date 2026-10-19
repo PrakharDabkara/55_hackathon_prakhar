@@ -197,6 +197,19 @@ describe('createSeekerApi: delivery orders (ADR-0031)', () => {
     await api.savedAddress();
     expect(last()[0]).toBe('/orders/saved-address');
   });
+  it('marks an order received, and keeps an address for Find to point at', async () => {
+    const { api, last } = setup(() => json(200, {}));
+    await api.receiveOrder('o 1');
+    expect(last()[0]).toBe('/orders/o%201/received');
+    expect(last()[1].method).toBe('POST');
+    await api.keepAddress({ addressText: 'Flat 4B, Vijay Nagar', customerName: 'Asha' });
+    expect(last()[0]).toBe('/orders/saved-address');
+    expect(last()[1].method).toBe('PUT');
+    expect(JSON.parse(String(last()[1].body))).toEqual({
+      addressText: 'Flat 4B, Vijay Nagar',
+      customerName: 'Asha',
+    });
+  });
   it('lists all of my orders, reads one, and forgets the saved address', async () => {
     const { api, last } = setup(() => json(200, []));
     await api.myOrders();

@@ -31,11 +31,11 @@ export interface Client {
     body: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<void>;
-  /** Moves a delivery order as its shop would: accept, decline, out or delivered. */
+  /** Moves a delivery order as its shop would: accept, decline or out. */
   orderAction(
     token: string,
     orderId: string,
-    verb: 'accept' | 'decline' | 'out' | 'delivered',
+    verb: 'accept' | 'decline' | 'out',
     signal?: AbortSignal,
   ): Promise<void>;
   /** Whether a shop token still works. */

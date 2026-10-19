@@ -52,6 +52,13 @@ export function PingCard({ ping, photos, defaults, busy = false, onAnswer }: Pro
   );
   const [unitError, setUnitError] = useState(false);
 
+  /** A customer who ticked "Deliver to me" gets three answers instead of two (ADR-0039). */
+  const wantsDelivery = ping.wantsDelivery;
+  function openDetails(delivers: boolean) {
+    setDelivery((d) => ({ ...d, enabled: delivers }));
+    setStep('details');
+  }
+
   const band = t.bands[ping.distanceBand as Band] ?? ping.distanceBand;
   const quantity = ping.quantity ? `${ping.quantity.quantity} ${ping.quantity.unit}` : null;
 
@@ -104,14 +111,37 @@ export function PingCard({ ping, photos, defaults, busy = false, onAnswer }: Pro
 
       {step === 'ask' ? (
         <div className="actions">
-          <button
-            type="button"
-            className="btn btn-yes"
-            disabled={busy}
-            onClick={() => setStep('details')}
-          >
-            <Words label={t.yes} />
-          </button>
+          {wantsDelivery ? (
+            <>
+              {ping.canDeliver && (
+                <button
+                  type="button"
+                  className="btn btn-yes"
+                  disabled={busy}
+                  onClick={() => openDetails(true)}
+                >
+                  {t.shopWillDeliver}
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-yes"
+                disabled={busy}
+                onClick={() => openDetails(false)}
+              >
+                {t.shopHaveNoDeliver}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-yes"
+              disabled={busy}
+              onClick={() => setStep('details')}
+            >
+              <Words label={t.yes} />
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-no"
@@ -190,7 +220,12 @@ export function PingCard({ ping, photos, defaults, busy = false, onAnswer }: Pro
               </button>
             ))}
           </div>
-          <DeliveryFields state={delivery} onChange={setDelivery} control="switch" />
+          {ping.canDeliver && !wantsDelivery && (
+            <DeliveryFields state={delivery} onChange={setDelivery} control="switch" />
+          )}
+          {ping.canDeliver && wantsDelivery && delivery.enabled && (
+            <DeliveryFields state={delivery} onChange={setDelivery} control="switch" />
+          )}
           {photos && <PhotoPicker api={photos} role="answer" onChange={setPhotoId} />}
           <div className="actions">
             <button type="submit" className="btn btn-yes" disabled={busy}>

@@ -411,3 +411,65 @@ describe('Search with a photo (optional)', () => {
     );
   });
 });
+
+describe('Search: "Deliver to me" (Delivery v2)', () => {
+  const searchFor = async (user: ReturnType<typeof renderApp>['user']) => {
+    await user.type(screen.getByLabelText('क्या चाहिए?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Demo location (Indore)' }));
+  };
+
+  it('is unticked by default and sends no delivery fields', async () => {
+    const api = fakeSeekerApi();
+    const { user } = renderApp(<Search api={api} onFound={vi.fn()} />);
+    expect((screen.getByLabelText('Ghar mangwao') as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByLabelText('Ghar ka pata')).toBeNull();
+    await searchFor(user);
+    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    const sent = vi.mocked(api.createRequest).mock.calls[0]?.[0] as unknown as Record<
+      string,
+      unknown
+    >;
+    expect(sent).not.toHaveProperty('wantsDelivery');
+    expect(sent).not.toHaveProperty('deliveryAddressId');
+  });
+
+  it('ticked, it uses the saved address and sends wantsDelivery with its id', async () => {
+    const api = fakeSeekerApi({
+      savedAddress: vi.fn(async () => ({
+        id: 'addr-1',
+        addressText: 'Flat 4B, Vijay Nagar',
+        customerName: null,
+      })),
+    });
+    const { user } = renderApp(<Search api={api} onFound={vi.fn()} />);
+    await user.click(screen.getByLabelText('Ghar mangwao'));
+    expect(await screen.findByText(/Flat 4B, Vijay Nagar/)).toBeTruthy();
+    await searchFor(user);
+    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    expect(api.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ wantsDelivery: true, deliveryAddressId: 'addr-1' }),
+    );
+  });
+
+  it('ticked with no saved address it asks for one, keeps it, then searches', async () => {
+    const api = fakeSeekerApi({
+      keepAddress: vi.fn(async () => ({
+        id: 'addr-9',
+        addressText: 'Shop 9, Palasia',
+        customerName: null,
+      })),
+    });
+    const { user } = renderApp(<Search api={api} onFound={vi.fn()} />);
+    await user.click(screen.getByLabelText('Ghar mangwao'));
+    expect(screen.getByText(/save kar lenge/)).toBeTruthy();
+    await searchFor(user);
+    // Required once ticked: the search does not go without an address.
+    expect(screen.getByRole('button', { name: 'Dhoondho' }).hasAttribute('disabled')).toBe(true);
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Shop 9, Palasia');
+    await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
+    expect(api.keepAddress).toHaveBeenCalledWith({ addressText: 'Shop 9, Palasia' });
+    expect(api.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ wantsDelivery: true, deliveryAddressId: 'addr-9' }),
+    );
+  });
+});

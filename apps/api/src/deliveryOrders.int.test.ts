@@ -82,6 +82,7 @@ describe('delivery orders', () => {
   async function answeredRequest(
     answerer: User = shop,
     delivery: Record<string, unknown> | null = { feePaise: 3000, minutes: 45 },
+    fresh = false,
   ) {
     const made = await request(app)
       .post('/requests')
@@ -94,6 +95,10 @@ describe('delivery orders', () => {
       .post(`/pings/${pings[0].id}/answer`)
       .set(auth(answerer))
       .send({ answer: 'yes', pricePaise: 4500, ...(delivery && { delivery }) });
+    // A fresh offer (under 30 minutes) is binding and starts ACCEPTED (Delivery v2); these tests
+    // are about the older flow, where the shop still has ten minutes to accept.
+    if (!fresh)
+      await pool.query(`UPDATE pings SET answered_at = answered_at - interval '31 minutes'`);
     return requestId;
   }
   const order = (user: User, body: Record<string, unknown>) =>
@@ -243,7 +248,7 @@ describe('delivery orders', () => {
       expect(JSON.stringify(list.body)).not.toMatch(/phone|\+91/);
     });
 
-    it('walks accepted → out for delivery → delivered, and the customer follows it', async () => {
+    it('walks accepted → out for delivery → received by the customer, and the customer follows it', async () => {
       const placed = await place(await answeredRequest());
       const id = placed.body.id as string;
       expect((await act(shop, id, 'accept')).body.state).toBe('ACCEPTED');
@@ -251,7 +256,8 @@ describe('delivery orders', () => {
       expect((await request(app).get(`/orders/${id}`).set(auth(seeker))).body.state).toBe(
         'OUT_FOR_DELIVERY',
       );
-      const done = await act(shop, id, 'delivered');
+      expect((await act(shop, id, 'delivered')).status).toBe(404);
+      const done = await act(seeker, id, 'received');
       expect(done.body).toMatchObject({ state: 'DELIVERED', addressText: ADDRESS });
       expect((await request(app).get(`/orders/${id}`).set(auth(seeker))).body.state).toBe(
         'DELIVERED',
@@ -260,7 +266,7 @@ describe('delivery orders', () => {
 
     it('cannot skip a step; a repeated tap is harmless', async () => {
       const id = (await place(await answeredRequest())).body.id as string;
-      const early = await act(shop, id, 'delivered');
+      const early = await act(seeker, id, 'received');
       expect(early.status).toBe(409);
       expect(early.body.error.code).toBe('invalid_transition');
       expect((await act(shop, id, 'out')).status).toBe(409);
@@ -339,17 +345,21 @@ describe('delivery orders', () => {
 
     it('is offered a saved address only if they ticked it, and nobody else’s', async () => {
       const empty = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(empty.body).toEqual({ addressText: null, customerName: null });
+      expect(empty.body).toEqual({ id: null, addressText: null, customerName: null });
       await place(await answeredRequest(), { customerName: 'Asha' });
       const untouched = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(untouched.body).toEqual({ addressText: null, customerName: null });
+      expect(untouched.body).toEqual({ id: null, addressText: null, customerName: null });
       await pool.query(`UPDATE delivery_orders SET state = 'CANCELLED'`);
       await pool.query('DELETE FROM shop_stock'); // asked again, not answered from memory
       await place(await answeredRequest(), { customerName: 'Asha', saveAddress: true });
       const saved = await request(app).get('/orders/saved-address').set(auth(seeker));
-      expect(saved.body).toEqual({ addressText: ADDRESS, customerName: 'Asha' });
+      expect(saved.body).toEqual({
+        id: expect.any(String),
+        addressText: ADDRESS,
+        customerName: 'Asha',
+      });
       const theirs = await request(app).get('/orders/saved-address').set(auth(other));
-      expect(theirs.body).toEqual({ addressText: null, customerName: null });
+      expect(theirs.body).toEqual({ id: null, addressText: null, customerName: null });
       expect((await request(app).get('/orders/saved-address').set(auth(shop))).status).toBe(403);
     });
   });
@@ -567,7 +577,7 @@ describe('delivery orders', () => {
       const id = (await place(requestId, { customerName: 'Asha Verma' })).body.id as string;
       await act(shop, id, 'accept');
       await act(shop, id, 'out');
-      await act(shop, id, 'delivered');
+      await act(seeker, id, 'received');
       await request(app).get('/shops/me/orders').set(auth(shop));
       await request(app).get('/shops/me').set(auth(shop));
       await request(app).get('/shops/me/pings').set(auth(shop));
@@ -643,7 +653,11 @@ describe('delivery orders', () => {
       await pool.query(`UPDATE shops SET is_simulated = true WHERE id = $1`, [shop.shopId]);
       const placed = await place(await answeredRequest());
       const forSim = events.find((e) => e.type === 'order.created' && 'admin' in e.to);
-      expect(forSim?.data).toEqual({ orderId: placed.body.id, shopId: shop.shopId });
+      expect(forSim?.data).toEqual({
+        orderId: placed.body.id,
+        shopId: shop.shopId,
+        state: 'REQUESTED',
+      });
     });
   });
 

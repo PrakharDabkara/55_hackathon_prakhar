@@ -89,6 +89,8 @@ export interface ToolEnv {
   userId: string;
   /** Where the user is. Tools use it; the model never sees it. */
   where: { lat: number; lng: number };
+  /** From the errand's own row, never from the model: every request it opens inherits it. */
+  delivery?: { wants: boolean; addressId: string | null };
   requestId: string | null;
   trigramThreshold: number;
   maxItems: number;
@@ -349,6 +351,10 @@ async function askShops(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       lat: env.where.lat,
       lng: env.where.lng,
       ...(targetPricePaise !== undefined && { targetPricePaise }),
+      ...(env.delivery?.wants && {
+        wantsDelivery: true,
+        ...(env.delivery.addressId && { deliveryAddressId: env.delivery.addressId }),
+      }),
       ...(env.requestId && { requestId: env.requestId }),
       idempotencyKey: `errand-${env.errandId}-${itemId}`,
     });

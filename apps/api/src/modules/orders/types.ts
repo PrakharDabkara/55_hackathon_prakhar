@@ -1,5 +1,8 @@
 import type { OrderState } from './stateMachine.js';
 
+export const SHOP_CANCEL_REASONS = ['out_of_stock', 'cannot_deliver_now', 'other'] as const;
+export type ShopCancelReason = (typeof SHOP_CANCEL_REASONS)[number];
+
 /** One thing to bring: what the shop said yes to, and its price (null: the shop did not say). */
 export interface OrderLine {
   name: string;
@@ -32,6 +35,14 @@ export interface OrderRecord {
   customerFirstName: string | null;
   lat: number | null;
   lng: number | null;
+  /** The customer's note to the shop (≤140, phone numbers removed). */
+  note: string | null;
+  outForDeliveryAt: Date | null;
+  /** The customer has until then to tap Received; after it the order is NOT_CONFIRMED. */
+  receiveBy: Date | null;
+  cancelledBy: 'customer' | 'shop' | null;
+  cancelReason: ShopCancelReason | null;
+  cancelText: string | null;
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;

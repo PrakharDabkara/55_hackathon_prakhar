@@ -269,6 +269,27 @@ export interface Strings {
   shopOrderCancelled: string;
   shopOrderOutNow: string;
   pingGone: string;
+  // Delivery v2 (ADR-0039)
+  findAddressLine: (address: string) => string;
+  findAddressSaveNote: string;
+  willDeliverLine: (fee: string | null, free: boolean, minutes: number | null) => string;
+  pickupOnly: string;
+  orderReceived: string;
+  orderNotConfirmed: string;
+  orderCancelledByShop: string;
+  orderNoteLabel: string;
+  shopWillDeliver: string;
+  shopHaveNoDeliver: string;
+  shopCancel: string;
+  shopCancelOutOfStock: string;
+  shopCancelCannotDeliver: string;
+  shopCancelOther: string;
+  shopCancelTextLabel: string;
+  shopCancelConfirm: string;
+  shopOrderNotConfirmed: string;
+  shopOrderNote: (note: string) => string;
+  deliveryLimitLabel: string;
+  deliveryLimitSave: string;
   // Photos (optional, both sides)
   photoAdd: string;
   photoAddFor: (what: string) => string;
@@ -503,7 +524,7 @@ export const hi: Strings = {
   orderDeclined: 'Dukaan ne mana kiya. Aap khud jaakar le lein.',
   orderExpired: 'Dukaan ne jawab nahi diya. Aap khud jaakar le lein.',
   orderCancelled: 'Order cancel ho gaya.',
-  orderErrClosed: 'Ye dukaan abhi band hai.',
+  orderErrClosed: 'Ye dukaan abhi band ho gayi.',
   orderErrGeneric: 'Order nahi bhej paaye. Dobara try karein.',
   orderYourAddress: (address) => `Pata: ${address}`,
   notifyOn: 'Notification chalu karein',
@@ -561,6 +582,30 @@ export const hi: Strings = {
   shopOrderCancelled: 'Grahak ne order cancel kiya',
   shopOrderOutNow: 'Raste mein hai',
   pingGone: 'Grahak ko jawab mil gaya — shukriya',
+  findAddressLine: (address) => `Delivery ka pata: ${address}`,
+  findAddressSaveNote:
+    'Hum ye pata agli baar ke liye save kar lenge. Aap ise Mere orders mein delete kar sakte hain.',
+  willDeliverLine: (fee, free, minutes) =>
+    ['Deliver karenge', free ? 'muft' : fee, minutes === null ? null : `~${minutes} min`]
+      .filter((part) => part !== null)
+      .join(' · '),
+  pickupOnly: 'Sirf pick-up',
+  orderReceived: 'Mil gaya',
+  orderNotConfirmed: 'Aapne delivery confirm nahi ki',
+  orderCancelledByShop: 'Dukaan ne order cancel kiya',
+  orderNoteLabel: 'Dukaan ke liye note',
+  shopWillDeliver: 'Haan, deliver karunga',
+  shopHaveNoDeliver: 'Haan hai, deliver nahi',
+  shopCancel: 'Cancel karo',
+  shopCancelOutOfStock: 'Maal khatam',
+  shopCancelCannotDeliver: 'Abhi deliver nahi kar sakte',
+  shopCancelOther: 'Kuch aur',
+  shopCancelTextLabel: 'Wajah likhiye',
+  shopCancelConfirm: 'Pakka cancel',
+  shopOrderNotConfirmed: 'Grahak ne confirm nahi kiya',
+  shopOrderNote: (note) => `Grahak ka note: ${note}`,
+  deliveryLimitLabel: 'Kitne km tak deliver karte hain? (khaali: koi limit nahi)',
+  deliveryLimitSave: 'Limit rakho',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',
@@ -824,7 +869,7 @@ export const en: Strings = {
   orderDeclined: 'The shop said no. Please pick it up yourself.',
   orderExpired: 'The shop did not answer. Please pick it up yourself.',
   orderCancelled: 'Order cancelled.',
-  orderErrClosed: 'That shop is closed right now.',
+  orderErrClosed: 'This shop just closed.',
   orderErrGeneric: 'Could not send the order. Please try again.',
   orderYourAddress: (address) => `Address: ${address}`,
   notifyOn: 'Turn on notifications',
@@ -882,6 +927,29 @@ export const en: Strings = {
   shopOrderCancelled: 'The customer cancelled the order',
   shopOrderOutNow: 'On its way',
   pingGone: 'The customer already got an answer — thank you',
+  findAddressLine: (address) => `Deliver to: ${address}`,
+  findAddressSaveNote: "We'll save this address for next time. You can delete it in My orders.",
+  willDeliverLine: (fee, free, minutes) =>
+    ['Will deliver', free ? 'free' : fee, minutes === null ? null : `~${minutes} min`]
+      .filter((part) => part !== null)
+      .join(' · '),
+  pickupOnly: 'Pick up only',
+  orderReceived: 'Received',
+  orderNotConfirmed: "You didn't confirm delivery",
+  orderCancelledByShop: 'The shop cancelled the order',
+  orderNoteLabel: 'Note for the shop',
+  shopWillDeliver: 'Yes, I will deliver',
+  shopHaveNoDeliver: 'Have it, cannot deliver',
+  shopCancel: 'Cancel order',
+  shopCancelOutOfStock: 'Out of stock',
+  shopCancelCannotDeliver: 'Cannot deliver now',
+  shopCancelOther: 'Something else',
+  shopCancelTextLabel: 'Write the reason',
+  shopCancelConfirm: 'Confirm cancel',
+  shopOrderNotConfirmed: 'The customer did not confirm',
+  shopOrderNote: (note) => `Customer note: ${note}`,
+  deliveryLimitLabel: 'How far do you deliver, in km? (empty: no limit)',
+  deliveryLimitSave: 'Save limit',
   photoAdd: 'Photo jodein',
   photoAddFor: (what) => `Photo jodein: ${what}`,
   photoRemove: 'Photo hatayein',

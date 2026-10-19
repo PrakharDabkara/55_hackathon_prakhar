@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 17, PR J: Delivery v2)
+
+- "Deliver to me" on Find (`wants_delivery`, a saved address); shops see `wantsDelivery` and `canDeliver` on a ping and answer with three choices; a shop sets how far it delivers (`PATCH /shops/me { deliveryMaxKm }`). Migration 022, ADR-0039.
+- A fresh offer (30 minutes or less) is binding: the order starts ACCEPTED and the shop is pushed "Grahak ne aapko chuna". The customer picks one shop only; the others get the "customer got an answer" note.
+- The customer confirms delivery with `POST /orders/:id/received`; with no Received after 3 hours the order ends NOT_CONFIRMED.
+- A shop can cancel an ACCEPTED order with a reason (`POST /orders/:id/cancel`, decided by who the caller is to the order); a customer note (140) on an order.
+- `docs/scenarios.md`: S16 to S21.
+
+### Changed (Day 17, PR J)
+
+- `POST /orders/:id/delivered` (shop) is removed. The saved address has an id; `PUT /orders/saved-address` keeps one without ordering.
+- The simulator offers delivery on about 40 % of yeses for a customer who wants it, and only sets orders out.
+
 ### Added (Day 17, PR I, continued)
 
 - Catch-up pings: a shop that opens, finishes onboarding or is created by the simulator is asked about the live nearby requests in its categories that it never saw (not those ending within 2 minutes, answered, or at their maximum of pings). ADR-0038.

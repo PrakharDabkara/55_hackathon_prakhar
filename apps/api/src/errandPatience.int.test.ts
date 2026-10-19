@@ -246,6 +246,39 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
     );
 
   describe('asking shops and waiting', () => {
+    it('Delivery v2: every request the errand opens carries wants_delivery and the address, set from the errand', async () => {
+      const addressId = (
+        await pool.query<{ id: string }>(
+          `INSERT INTO saved_addresses (user_id, address_text) VALUES ($1, 'Flat 4B, Vijay Nagar, Indore')
+           ON CONFLICT (user_id) DO UPDATE SET address_text = EXCLUDED.address_text RETURNING id`,
+          [seekerId],
+        )
+      ).rows[0]?.id as string;
+      const { id } = await createErrand({ db: pool, logger, limits }, seekerId, {
+        task: 'ghar ki safai: phenyl, jhaadu',
+        lat: ORIGIN.lat,
+        lng: ORIGIN.lng,
+        requestId: 'req-j',
+        wantsDelivery: true,
+        deliveryAddressId: addressId,
+      });
+      provider.playChat([
+        ...askBothTurns(),
+        { toolCalls: [submit([{ text: 'x', status: 'not_found' }])] },
+      ]);
+      await runErrand(deps(), id);
+      const rows = (
+        await pool.query(
+          `SELECT r.wants_delivery, r.delivery_address_id FROM requests r
+             JOIN errand_requests er ON er.request_id = r.id WHERE er.errand_id = $1`,
+          [id],
+        )
+      ).rows;
+      expect(rows).toHaveLength(2);
+      for (const r of rows)
+        expect(r).toEqual({ wants_delivery: true, delivery_address_id: addressId });
+    });
+
     it('pings two items, waits, resumes on the answers and plans with confirmed items', async () => {
       waker = createErrandWaker({ db: pool, logger, limits, enqueue });
       const { id } = await newErrand();

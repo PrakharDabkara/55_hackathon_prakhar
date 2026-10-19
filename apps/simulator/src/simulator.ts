@@ -162,6 +162,8 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
       category?: unknown;
       itemCategories?: unknown;
       shopCategories?: unknown;
+      wantsDelivery?: unknown;
+      canDeliver?: unknown;
     } | null;
     if (typeof d?.pingId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
@@ -175,6 +177,8 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         category: typeof d.category === 'string' ? d.category : null,
         ...(itemCategories && { itemCategories }),
         ...(shopCategories && { shopCategories }),
+        wantsDelivery: d.wantsDelivery === true,
+        canDeliver: d.canDeliver !== false,
       },
       createRng(hashSeed(seed, d.shopId, d.pingId)),
       speed,
@@ -210,13 +214,12 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   async function moveOrder(
     shop: Shop,
     orderId: string,
-    verb: 'accept' | 'decline' | 'out' | 'delivered',
+    verb: 'accept' | 'decline' | 'out',
   ): Promise<boolean> {
     const label = {
       accept: 'accepted',
       decline: 'declined',
       out: 'out for delivery',
-      delivered: 'delivered',
     }[verb];
     try {
       await client.orderAction(shop.token, orderId, verb, abort.signal);
@@ -232,17 +235,26 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     }
   }
 
-  /** An order for one of our shops: accept (or decline), then set out and deliver, with short waits. */
+  /** An order for one of our shops: accept (or decline) and set out, with short waits. The customer confirms receipt. */
   function onOrder(data: unknown) {
-    const d = data as { orderId?: unknown; shopId?: unknown } | null;
+    const d = data as { orderId?: unknown; shopId?: unknown; state?: unknown } | null;
     if (typeof d?.orderId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
     if (!shop) return;
     const orderId = d.orderId;
-    const decision = decideOrder(shop.profile, createRng(hashSeed(seed, d.shopId, orderId)), speed);
+    const decision = decideOrder(
+      shop.profile,
+      createRng(hashSeed(seed, d.shopId, orderId)),
+      speed,
+      d.state === 'ACCEPTED' ? 'ACCEPTED' : 'REQUESTED',
+    );
     const run = (async () => {
       if (decision.kind === 'decline') {
         await later(decision.delayMs, async () => void (await moveOrder(shop, orderId, 'decline')));
+        return;
+      }
+      if (decision.kind === 'dispatch') {
+        await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
         return;
       }
       let ok = false;
@@ -251,12 +263,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         async () => void (ok = await moveOrder(shop, orderId, 'accept')),
       );
       if (!ok || stopped) return;
-      await later(decision.outMs, async () => void (ok = await moveOrder(shop, orderId, 'out')));
-      if (!ok || stopped) return;
-      await later(
-        decision.deliveredMs,
-        async () => void (await moveOrder(shop, orderId, 'delivered')),
-      );
+      await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
     })().finally(() => inFlight.delete(run));
     inFlight.add(run);
   }

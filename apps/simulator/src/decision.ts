@@ -18,6 +18,9 @@ export interface PingInfo {
   /** Every kind of shop that carries the item, and the kinds this shop is. Both known: a shop only has what its kind carries. */
   itemCategories?: string[];
   shopCategories?: string[];
+  /** The customer ticked "Deliver to me", and this shop is within its own delivery limit (ADR-0039). */
+  wantsDelivery?: boolean;
+  canDeliver?: boolean;
 }
 
 export interface AnswerBody {
@@ -70,6 +73,8 @@ const STOCK_UNITS: Record<
 const DEFAULT_STOCK = [{ unit: 'piece' as const, amounts: [2, 5, 10] }];
 const QUANTITY_RATE = 0.35;
 const DELIVERY_RATE = 0.25;
+/** A customer who asked for delivery gets an offer more often. */
+const WANTED_DELIVERY_RATE = 0.4;
 const DELIVERY_FEES_PAISE = [0, 2000, 3000, 5000];
 
 const MIN_DELAY_MS = 5000;
@@ -110,6 +115,7 @@ function extras(
   body: AnswerBody,
   category: string | null | undefined,
   rng: () => number,
+  delivery: Pick<PingInfo, 'wantsDelivery' | 'canDeliver'> = {},
 ): AnswerBody {
   if (rng() < QUANTITY_RATE) {
     const choices = (category ? STOCK_UNITS[category] : undefined) ?? DEFAULT_STOCK;
@@ -119,7 +125,9 @@ function extras(
       unit: kind.unit,
     };
   }
-  if (rng() < DELIVERY_RATE)
+  // Always one draw, so a seeded run is repeatable; a shop out of range cannot offer (the API refuses).
+  const offers = rng() < (delivery.wantsDelivery ? WANTED_DELIVERY_RATE : DELIVERY_RATE);
+  if (offers && delivery.canDeliver !== false)
     body.delivery = {
       feePaise: DELIVERY_FEES_PAISE[Math.floor(rng() * DELIVERY_FEES_PAISE.length)] as number,
       minutes: 20 + Math.floor(rng() * 9) * 5,
@@ -140,7 +148,15 @@ function roundPrice(paise: number, ref: number): number {
  */
 export function decide(
   profile: ShopProfile,
-  ping: Pick<PingInfo, 'refPricePaise' | 'category' | 'itemCategories' | 'shopCategories'>,
+  ping: Pick<
+    PingInfo,
+    | 'refPricePaise'
+    | 'category'
+    | 'itemCategories'
+    | 'shopCategories'
+    | 'wantsDelivery'
+    | 'canDeliver'
+  >,
   rng: () => number,
   speed: number,
 ): Decision {
@@ -164,6 +180,7 @@ export function decide(
         { answer: 'yes', pricePaise: priceFromRange(ping.category, rng) },
         ping.category,
         rng,
+        ping,
       ),
     };
   }
@@ -173,23 +190,32 @@ export function decide(
     body.pricePaise = roundPrice(ping.refPricePaise * factor, ping.refPricePaise);
   }
   if (rng() < HINT_RATE) body.quantityHint = rng() < 0.5 ? 'few' : 'plenty';
-  return { kind: 'answer', delayMs, body: extras(body, ping.category, rng) };
+  return { kind: 'answer', delayMs, body: extras(body, ping.category, rng, ping) };
 }
 
 /** What a shop does with a delivery order (ADR-0031): take it and bring it, or say no. */
 export type OrderDecision =
-  | { kind: 'accept'; acceptMs: number; outMs: number; deliveredMs: number }
+  | { kind: 'accept'; acceptMs: number; outMs: number }
+  /** The order started ACCEPTED (a fresh offer the customer took): only set out. */
+  | { kind: 'dispatch'; outMs: number }
   | { kind: 'decline'; delayMs: number };
 
 const ORDER_DECLINE_RATE = 0.2;
 const between = (rng: () => number, low: number, high: number) => low + rng() * (high - low);
 
 /**
- * Most orders are accepted after 3 to 30 s, set out 5 to 30 s later and delivered 10 to 60 s after
- * that (all divided by `speed`); about one in five is declined after 3 to 30 s. All randomness
- * comes from `rng`, so a seeded run is repeatable.
+ * Most orders are accepted after 3 to 30 s and set out 5 to 30 s later (all divided by `speed`);
+ * about one in five is declined after 3 to 30 s. An order that starts ACCEPTED is only set out.
+ * The shop never marks it delivered: the customer's Received does (ADR-0039). All randomness comes
+ * from `rng`, so a seeded run is repeatable.
  */
-export function decideOrder(profile: ShopProfile, rng: () => number, speed: number): OrderDecision {
+export function decideOrder(
+  profile: ShopProfile,
+  rng: () => number,
+  speed: number,
+  state: 'REQUESTED' | 'ACCEPTED' = 'REQUESTED',
+): OrderDecision {
+  if (state === 'ACCEPTED') return { kind: 'dispatch', outMs: between(rng, 5000, 30_000) / speed };
   const declines = !profile.neverDeclines && rng() < ORDER_DECLINE_RATE;
   const acceptMs = between(rng, 3000, 30_000) / speed;
   if (declines) return { kind: 'decline', delayMs: acceptMs };
@@ -197,6 +223,5 @@ export function decideOrder(profile: ShopProfile, rng: () => number, speed: numb
     kind: 'accept',
     acceptMs,
     outMs: between(rng, 5000, 30_000) / speed,
-    deliveredMs: between(rng, 10_000, 60_000) / speed,
   };
 }

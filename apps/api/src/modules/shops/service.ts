@@ -15,6 +15,8 @@ export interface Shop {
   deliversDefault: boolean;
   defaultFeePaise: number | null;
   defaultMinutes: number | null;
+  /** How far the shop delivers, in km; null means no limit (ADR-0039). */
+  deliveryMaxKm: number | null;
 }
 
 /** A delivery offer: both parts optional. */
@@ -37,6 +39,8 @@ export interface ShopChanges {
   categories?: Category[];
   /** A delivery offer, or null to stop offering it. */
   delivery?: DeliveryDefaults | null;
+  /** A distance limit in km, or null for none. */
+  deliveryMaxKm?: number | null;
 }
 
 const COLUMNS = `id, name, phone, categories,
@@ -44,7 +48,7 @@ const COLUMNS = `id, name, phone, categories,
   (closed_until IS NULL OR closed_until <= now()) AS open,
   CASE WHEN closed_until > now() THEN closed_until END AS "closedUntil",
   delivers_default AS "deliversDefault", default_fee_paise AS "defaultFeePaise",
-  default_minutes AS "defaultMinutes"`;
+  default_minutes AS "defaultMinutes", delivery_max_km::float8 AS "deliveryMaxKm"`;
 
 /** Creates the owner's shop, or returns null if they already have one. */
 export async function createShop(
@@ -94,7 +98,8 @@ export async function updateShopByOwner(
         location   = COALESCE(ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, location),
         delivers_default = CASE WHEN $6::boolean THEN $7::boolean ELSE delivers_default END,
         default_fee_paise = CASE WHEN $6::boolean THEN $8::integer ELSE default_fee_paise END,
-        default_minutes = CASE WHEN $6::boolean THEN $9::integer ELSE default_minutes END
+        default_minutes = CASE WHEN $6::boolean THEN $9::integer ELSE default_minutes END,
+        delivery_max_km = CASE WHEN $10::boolean THEN $11::numeric ELSE delivery_max_km END
       WHERE owner_user_id = $1
       RETURNING ${COLUMNS}`,
     [
@@ -107,6 +112,8 @@ export async function updateShopByOwner(
       Boolean(changes.delivery),
       changes.delivery?.feePaise ?? null,
       changes.delivery?.minutes ?? null,
+      changes.deliveryMaxKm !== undefined,
+      changes.deliveryMaxKm ?? null,
     ],
   );
   return rows[0] ?? null;

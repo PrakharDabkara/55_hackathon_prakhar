@@ -464,6 +464,7 @@ async function runTool(
         ai: deps.ai,
         userId: errand.userId,
         where: { lat: errand.lat, lng: errand.lng },
+        delivery: { wants: errand.wantsDelivery, addressId: errand.deliveryAddressId },
         requestId: errand.requestId,
         trigramThreshold: deps.trigramThreshold,
         maxItems: deps.limits.maxItems,

@@ -23,7 +23,7 @@ interface Props {
   /** Nothing was found: a new errand with the same task and place. */
   onAskAgain?: () => void;
   /** Delivery orders from this plan's shops (ADR-0031). Without `orderApi` there is no ordering. */
-  orderApi?: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
+  orderApi?: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress' | 'receiveOrder'>;
   errandId?: string;
   /** "Raasta kholo" notes the pickup shops so the home screen can ask "Le liya?" (ADR-0035). */
   pickupApi?: Pick<PickupApi, 'recordPickup'>;
@@ -263,7 +263,7 @@ function PlanRow({
   onMode?: (shopId: string, mode: 'pickup' | 'delivery') => void;
   /** The order panel, on the first item of a shop that delivers. */
   ordering?: {
-    api: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
+    api: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress' | 'receiveOrder'>;
     errandId: string;
     orders: SeekerOrder[];
     onChange: () => void;

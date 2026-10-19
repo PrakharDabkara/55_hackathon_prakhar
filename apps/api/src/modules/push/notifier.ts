@@ -30,7 +30,6 @@ const ORDER_KINDS: Record<string, PushKind> = {
   ACCEPTED: 'order_accepted',
   DECLINED: 'order_declined',
   OUT_FOR_DELIVERY: 'order_out',
-  DELIVERED: 'order_delivered',
 };
 
 interface Deps {
@@ -103,11 +102,12 @@ export function createNotifier(deps: Deps): Notifier {
     lines: { name: string }[];
     owner_user_id: string | null;
     is_simulated: boolean;
+    cancelled_by: string | null;
   }
   const loadOrder = async (orderId: string) =>
     (
       await db.query<OrderRow>(
-        `SELECT o.user_id, o.state, o.lines, s.owner_user_id, s.is_simulated
+        `SELECT o.user_id, o.state, o.lines, s.owner_user_id, s.is_simulated, o.cancelled_by
            FROM delivery_orders o JOIN shops s ON s.id = o.shop_id WHERE o.id = $1`,
         [orderId],
       )
@@ -118,13 +118,32 @@ export function createNotifier(deps: Deps): Notifier {
   async function onOrderCreated(userId: string, orderId: string) {
     const order = await loadOrder(orderId);
     if (!order || order.owner_user_id !== userId || order.is_simulated) return;
-    await notify(userId, 'new_order', { item: orderItem(order.lines) });
+    // A fresh offer the customer took is binding: the order starts ACCEPTED and the shop is told
+    // the customer chose it, not asked to accept.
+    const kind = order.state === 'ACCEPTED' ? 'order_chosen' : 'new_order';
+    await notify(userId, kind, { item: orderItem(order.lines) });
   }
 
   async function onOrderUpdated(userId: string, orderId: string) {
     const order = await loadOrder(orderId);
+    if (!order) return;
+    // The customer's Received is the one thing the shop is told about an order's progress.
+    if (order.owner_user_id === userId && order.user_id !== userId) {
+      if (order.state === 'DELIVERED' && !order.is_simulated)
+        await notify(userId, 'order_received', { item: orderItem(order.lines) });
+      return;
+    }
     // The same event also goes to the shop; only the customer hears about the shop's own taps.
-    if (!order || order.user_id !== userId) return;
+    if (order.user_id !== userId) return;
+    // A customer is not pushed about their own cancel, only about the shop's.
+    if (order.state === 'CANCELLED') {
+      if (order.cancelled_by === 'shop')
+        await notify(userId, 'order_cancelled_by_shop', {
+          item: orderItem(order.lines),
+          id: orderId,
+        });
+      return;
+    }
     const kind = ORDER_KINDS[order.state];
     if (!kind) return;
     await notify(userId, kind, { item: orderItem(order.lines), id: orderId });

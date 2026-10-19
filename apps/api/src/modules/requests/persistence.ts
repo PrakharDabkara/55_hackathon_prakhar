@@ -21,6 +21,9 @@ export interface RequestRecord {
   createdAt: Date;
   lat: number;
   lng: number;
+  /** Ticked "Deliver to me" on Find (ADR-0039). The address itself is never kept here. */
+  wantsDelivery: boolean;
+  deliveryAddressId: string | null;
   /** Past its deadline by the database clock. */
   overdue: boolean;
 }
@@ -39,12 +42,15 @@ interface Row {
   created_at: Date;
   lat: number;
   lng: number;
+  wants_delivery: boolean;
+  delivery_address_id: string | null;
   overdue: boolean;
 }
 
 const SELECT = `SELECT r.id, r.user_id, r.item_id, r.raw_query, r.quantity, r.target_price_paise, r.radius_m, r.state,
        r.version, r.expires_at, r.created_at,
        ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
+       r.wants_delivery, r.delivery_address_id,
        (r.expires_at <= now()) AS overdue
   FROM requests r`;
 
@@ -62,6 +68,8 @@ const toRecord = (r: Row): RequestRecord => ({
   createdAt: r.created_at,
   lat: r.lat,
   lng: r.lng,
+  wantsDelivery: r.wants_delivery,
+  deliveryAddressId: r.delivery_address_id,
   overdue: r.overdue,
 });
 

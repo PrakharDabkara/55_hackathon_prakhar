@@ -27,6 +27,28 @@ export function ShopBar({ api, shop, onChange }: Props) {
     deliveryStateFrom(shop.deliversDefault, shop.defaultFeePaise, shop.defaultMinutes),
   );
 
+  /** How far the shop delivers, in km as typed; empty means no limit. */
+  const [limit, setLimit] = useState(shop.deliveryMaxKm == null ? '' : String(shop.deliveryMaxKm));
+
+  async function saveLimit() {
+    const km = limit.trim() === '' ? null : Number(limit.replace(',', '.'));
+    if (km !== null && !(Number.isFinite(km) && km >= 0.1 && km <= 100)) {
+      setError(true);
+      return;
+    }
+    setBusy(true);
+    setError(false);
+    setSaved(false);
+    try {
+      onChange(await api.setDeliveryLimit(km));
+      setSaved(true);
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggleOpen() {
     setBusy(true);
     setError(false);
@@ -81,6 +103,24 @@ export function ShopBar({ api, shop, onChange }: Props) {
             onClick={() => void saveDelivery()}
           >
             {t.save}
+          </button>
+          <label className="field">
+            <span>{t.deliveryLimitLabel}</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={limit}
+              onChange={(event) => setLimit(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn-yes"
+            disabled={busy}
+            onClick={() => void saveLimit()}
+          >
+            {t.deliveryLimitSave}
           </button>
           {saved && <p role="status">{t.saved}</p>}
         </div>

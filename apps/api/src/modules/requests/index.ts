@@ -17,7 +17,8 @@ export type {
   RequestsContext,
 } from './service.js';
 export { requestsRouter } from './router.js';
-export { deliveryOfferForRequest } from './deliveryOffer.js';
+export { deliveryOfferForRequest, otherAnsweredShops } from './deliveryOffer.js';
+export { ownsSavedAddress } from './deliveryAddress.js';
 export type { RequestDeliveryOffer } from './deliveryOffer.js';
 export { answerPing, catchUpShop, fanOutPings, listShopPings } from './pings.js';
 export type { PingClaims, FanOutResult, CatchUpResult } from './pings.js';
