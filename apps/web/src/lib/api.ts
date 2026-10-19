@@ -20,6 +20,8 @@ export interface ShopPing {
   item: { slug: string; nameEn: string; nameHi: string };
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
+  /** What this shop last said for the item, in paise; null when unknown. */
+  lastPricePaise: number | null;
   distanceBand: string;
   /** The customer's photo of what they want, if they added one. */
   photoId?: string;
@@ -50,11 +52,28 @@ export interface MyShop {
   defaultMinutes: number | null;
   /** How far the shop delivers, in km; null means no limit. */
   deliveryMaxKm?: number | null;
+  /** `/photos/<id>`, readable without a login; null when the shop has no logo. */
+  logoUrl: string | null;
+}
+
+/** What `PATCH /shops/me` accepts: only the fields that changed. `delivery: null` stops delivering. */
+export interface ShopPatch {
+  name?: string;
+  lat?: number;
+  lng?: number;
+  categories?: Category[];
+  delivery?: DeliveryDefaults | null;
+  /** null means no limit. */
+  deliveryMaxKm?: number | null;
 }
 
 /** "Aaj ki maang": today's numbers and aggregate demand. Never anything about a customer (ADR-0035). */
 export interface ShopDemand {
+  days: number;
+  /** Over the whole window asked for (today, or the last 7 days). */
   today: { received: number; answered: number; yes: number };
+  /** Average seconds to a YES or NO; null when there is none yet. */
+  avgReplySeconds: number | null;
   /** Asked of this shop today and said no to, or never answered. */
   asked: { item: { nameEn: string; nameHi: string }; count: number }[];
   /** Asked near the shop today by 3 or more different customers. */
@@ -100,12 +119,13 @@ export interface ShopApi extends PhotoApi, PushApi {
   cancelOrder(id: string, input: { reason: ShopCancelReason; text?: string }): Promise<ShopOrder>;
   /** Opens or closes the shop for the day ("Dukaan aaj band hai"). */
   setShopOpen(open: boolean): Promise<MyShop>;
-  /** The standing delivery offer, or null to stop offering it. */
-  updateDelivery(delivery: DeliveryDefaults | null): Promise<MyShop>;
-  /** How far the shop delivers in km, or null for no limit. */
-  setDeliveryLimit(maxKm: number | null): Promise<MyShop>;
-  /** Today's demand for the shop screen. */
-  shopDemand(): Promise<ShopDemand>;
+  /** Demand for today (1) or the last 7 days. */
+  shopDemand(days?: 1 | 7): Promise<ShopDemand>;
+  /** Changes only the fields given. */
+  updateShop(patch: ShopPatch): Promise<MyShop>;
+  /** Sends the logo as a raw image body; returns its `logoUrl`. */
+  uploadLogo(image: Blob): Promise<string>;
+  deleteLogo(): Promise<void>;
   /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
   eventTicket(): Promise<string>;
 }
@@ -136,12 +156,15 @@ export function createCaller({ getToken, onUnauthorized, fetchImpl = fetch }: Cl
     const headers = new Headers(extraHeaders);
     const token = getToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    if (body !== undefined) headers.set('Content-Type', 'application/json');
+    // A Blob goes as it is, with its own type (a logo); anything else is JSON.
+    const raw = body instanceof Blob;
+    if (body !== undefined)
+      headers.set('Content-Type', raw ? body.type || 'image/jpeg' : 'application/json');
 
     const res = await fetchImpl(path, {
       method,
       headers,
-      ...(body !== undefined && { body: JSON.stringify(body) }),
+      ...(body !== undefined && { body: raw ? body : JSON.stringify(body) }),
     });
 
     if (!res.ok) {
@@ -208,12 +231,17 @@ export function createApi(options: ClientOptions): ShopApi {
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
-    shopDemand: () => call<ShopDemand>('GET', '/shops/me/demand'),
+    shopDemand: (days = 1) => call<ShopDemand>('GET', `/shops/me/demand?days=${days}`),
+    updateShop: (patch) => call<MyShop>('PATCH', '/shops/me', patch),
+    async uploadLogo(image) {
+      return (await call<{ logoUrl: string }>('POST', '/shops/me/logo', image)).logoUrl;
+    },
+    async deleteLogo() {
+      await call('DELETE', '/shops/me/logo');
+    },
     listOrders: () => call<ShopOrder[]>('GET', '/shops/me/orders'),
     orderAction: (id, verb) => call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/${verb}`),
     setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),
-    updateDelivery: (delivery) => call<MyShop>('PATCH', '/shops/me', { delivery }),
-    setDeliveryLimit: (maxKm) => call<MyShop>('PATCH', '/shops/me', { deliveryMaxKm: maxKm }),
     cancelOrder: (id, input) =>
       call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/cancel`, input),
     async answerPing(id, body) {

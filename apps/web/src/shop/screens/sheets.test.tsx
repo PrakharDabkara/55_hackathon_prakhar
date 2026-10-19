@@ -11,7 +11,7 @@ const delivering = shop({ deliversDefault: true, defaultFeePaise: 2000, defaultM
 const quantity = { quantity: 5, unit: 'kg' };
 
 function renderD(over: Partial<Parameters<typeof AnswerSheet>[0]> = {}) {
-  const onSubmit = vi.fn(async (_body: AnswerBody) => undefined);
+  const onSubmit = vi.fn<(body: AnswerBody) => Promise<void>>(async () => undefined);
   const view = renderApp(
     <AnswerSheet
       ping={ping({ quantity, lastPricePaise: 4500 })}
@@ -168,7 +168,7 @@ describe('AnswerSheet (a normal question)', () => {
 });
 
 function renderE(over: Partial<Parameters<typeof WantsDeliverySheet>[0]> = {}) {
-  const onSubmit = vi.fn(async (_body: AnswerBody) => undefined);
+  const onSubmit = vi.fn<(body: AnswerBody) => Promise<void>>(async () => undefined);
   const view = renderApp(
     <WantsDeliverySheet
       ping={ping({ wantsDelivery: true, quantity, distanceBand: '1–2 km' })}
