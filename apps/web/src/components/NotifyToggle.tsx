@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import '../customer/orders.css';
 import { useT } from '../i18n/index.js';
 import { createPushClient, type PushClient, type PushStatus } from '../lib/push.js';
 import type { PushApi } from '../lib/pushApi.js';
+import { Switch } from '../ui/Switch.js';
 
 interface Props {
   api: PushApi;
@@ -10,11 +12,12 @@ interface Props {
 }
 
 /**
- * "Notification chalu karein" (ADR-0034). The browser's permission question appears only when this
- * is tapped, never on page load. Hidden where push cannot work or the server has it switched off.
+ * The Notifications switch (ADR-0034). The browser's permission question appears only when this is
+ * turned on, never on page load. Hidden where push cannot work or the server has it switched off.
  */
 export function NotifyToggle({ api, client }: Props) {
   const { t } = useT();
+  const c = t.c;
   const push = useMemo(() => client ?? createPushClient(api), [api, client]);
   const [status, setStatus] = useState<PushStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -60,33 +63,27 @@ export function NotifyToggle({ api, client }: Props) {
     }
   }
 
+  const help =
+    status === 'ios_install'
+      ? c.notifyIosHint
+      : status === 'blocked'
+        ? c.notifyBlocked
+        : status === 'on'
+          ? c.notifyOnHelp
+          : c.notifyOffHelp;
+
   return (
-    <div className="notify" data-notify>
-      {status === 'on' ? (
-        <button
-          type="button"
-          className="btn btn-quiet"
-          disabled={busy}
-          onClick={() => void turnOff()}
-        >
-          {t.notifyOff}
-        </button>
-      ) : status === 'blocked' ? (
-        <p className="hint">{t.notifyBlocked}</p>
-      ) : (
-        <button
-          type="button"
-          className="btn btn-quiet"
-          disabled={busy || status === 'ios_install'}
-          onClick={() => void turnOn()}
-        >
-          {t.notifyOn}
-        </button>
-      )}
-      {status === 'ios_install' && <p className="hint">{t.notifyIosHint}</p>}
+    <div className="cu-notify" data-notify>
+      <Switch
+        label={c.notifyTitle}
+        checked={status === 'on'}
+        disabled={busy || status === 'ios_install' || status === 'blocked'}
+        onChange={(next) => void (next ? turnOn() : turnOff())}
+      />
+      <p className="sh-helper">{help}</p>
       {failed && (
-        <p className="alert" role="alert">
-          {t.notifyFailed}
+        <p className="sh-alert" role="alert">
+          {c.notifyFailed}
         </p>
       )}
     </div>

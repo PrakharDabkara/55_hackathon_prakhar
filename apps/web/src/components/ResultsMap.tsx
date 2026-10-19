@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
 import { pinSvg, pinsKey } from '../lib/pins.js';
+import '../customer/replies.css';
 
 export interface Pin {
   id: string;
@@ -104,5 +105,5 @@ export function ResultsMap({ origin, pins, label, youAreHere }: Props) {
     }
   }, [pins, origin, youAreHere]);
 
-  return <div ref={container} className="results-map" role="region" aria-label={label} />;
+  return <div ref={container} className="cu-map" role="region" aria-label={label} />;
 }

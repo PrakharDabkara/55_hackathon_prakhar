@@ -52,9 +52,18 @@ export function directionsForRoute(
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-/** The server adds a trailing "Jawab ka intezaar…"; the screen shows its own waiting state. */
+/**
+ * The server's own markers are not shown as progress: the screen has its own waiting state and its
+ * own question box. (The older Hinglish markers are filtered too, for plans stored before.)
+ */
 export const shownProgress = (lines: string[]): string[] =>
-  lines.filter((line) => !line.startsWith('Jawab ka intezaar'));
+  lines.filter(
+    (line) =>
+      !line.startsWith('Waiting for shops') &&
+      !line.startsWith('Question for you') &&
+      !line.startsWith('Jawab ka intezaar') &&
+      !line.startsWith('Aapse ek sawaal'),
+  );
 
 export const isFinalState = (state: string): boolean =>
   state === 'PLAN_READY' || state === 'FAILED' || state === 'EXPIRED' || state === 'CANCELLED';
@@ -71,3 +80,38 @@ export function plansIdentical(a: PlanVariant, b: PlanVariant): boolean {
     });
   return key(a) === key(b);
 }
+
+const EARTH_M = 6_371_000;
+
+/** Straight-line distance in metres between two points on the globe. */
+export function haversineM(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const rad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
+ * The there-and-back distance: the route from the start through every stop, plus the straight line
+ * from the last stop back to the start. Null when there is no route to measure.
+ */
+export function roundTripM(
+  origin: { lat: number; lng: number },
+  route: PlanRoute | null,
+): number | null {
+  const last = route?.orderedStops.at(-1);
+  if (!route || !last) return null;
+  const back = haversineM(last, origin);
+  return Number.isFinite(back) ? route.totalM + back : null;
+}
+
+const totalOf = (v: PlanVariant) => v.grandTotalPaise ?? v.totalPricePaise;
+
+/** The other plan is worth showing only if it asks for another number of shops or another total. */
+export const plansDiffer = (a: PlanVariant, b: PlanVariant): boolean =>
+  a.shopCount !== b.shopCount || totalOf(a) !== totalOf(b);

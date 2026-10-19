@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import { Icon } from '../../ui/Icon.js';
-import { ShopLogo } from './ShopLogo.js';
+import { ShopLogo } from '../../ui/ShopLogo.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {

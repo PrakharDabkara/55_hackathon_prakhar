@@ -8,7 +8,7 @@ import { Button } from '../../ui/Button.js';
 import { CategoryPicker } from '../ui/CategoryPicker.js';
 import { Field } from '../../ui/Field.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
-import { ShopLogo } from '../ui/ShopLogo.js';
+import { ShopLogo } from '../../ui/ShopLogo.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {

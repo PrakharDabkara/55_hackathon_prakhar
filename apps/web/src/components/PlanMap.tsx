@@ -1,9 +1,9 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
+import '../customer/errand.css';
 import { mapPoints } from '../lib/errand.js';
 import type { MapStop } from '../lib/errand.js';
-import { pinSvg } from '../lib/pins.js';
 
 interface Props {
   /** Where the customer is: the start of the route. */
@@ -18,25 +18,34 @@ const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
+/** The route line takes the brand colour from the design tokens; the empty string means Leaflet's own. */
+export function routeColour(): string {
+  try {
+    return getComputedStyle(document.documentElement).getPropertyValue('--brand').trim();
+  } catch {
+    return '';
+  }
+}
+
 const startIcon = L.divIcon({
-  html: pinSvg('user'),
-  className: 'km-pin',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
+  html: '<span class="cu-errand-pin__you"></span>',
+  className: 'cu-errand-pin',
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
 });
 
 /** A numbered marker. No inline style: the page's Content-Security-Policy forbids it (ADR-0017). */
 const stopIcon = (n: number) =>
   L.divIcon({
-    html: `<span class="km-stop-num">${n}</span>`,
-    className: 'km-stop',
+    html: `<span class="cu-errand-pin__num">${n}</span>`,
+    className: 'cu-errand-pin',
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
 
 /**
- * The route of one plan: the customer's start, numbered shops and a line through them in order.
- * Like ResultsMap it is the only place that touches Leaflet, so screens test without a real map.
+ * The route of one plan: the customer's start, numbered shops and a straight line through them in
+ * order. Like ResultsMap it is the only place that touches Leaflet, so screens test without a map.
  */
 export function PlanMap({ origin, stops, label, youAreHere }: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -74,8 +83,12 @@ export function PlanMap({ origin, stops, label, youAreHere }: Props) {
     if (!group || !current || !frame) return;
     group.clearLayers();
     const { points, shown } = mapPoints(origin, stops);
-    if (shown.length > 0)
-      L.polyline(points, { color: '#0a6b35', weight: 4, opacity: 0.85 }).addTo(group);
+    if (shown.length > 0) {
+      const colour = routeColour();
+      L.polyline(points, { weight: 4, opacity: 0.85, ...(colour && { color: colour }) }).addTo(
+        group,
+      );
+    }
     L.marker([origin.lat, origin.lng], {
       icon: startIcon,
       title: youAreHere,
@@ -102,5 +115,5 @@ export function PlanMap({ origin, stops, label, youAreHere }: Props) {
     return () => watcher?.disconnect();
   }, [stops, origin, youAreHere]);
 
-  return <div ref={container} className="results-map" role="region" aria-label={label} />;
+  return <div ref={container} className="cu-errand-map" role="region" aria-label={label} />;
 }

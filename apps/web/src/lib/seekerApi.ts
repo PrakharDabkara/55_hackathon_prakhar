@@ -8,6 +8,8 @@ import { createPushApi, type PushApi } from './pushApi.js';
 export interface ShopResult {
   shopId: string;
   name: string;
+  /** The shop's published logo (a /photos path), or null: show initials. */
+  logoUrl?: string | null;
   distanceM: number;
   lat: number;
   lng: number;
@@ -231,7 +233,8 @@ export interface SeekerApi
   placeOrder(input: NewOrder): Promise<SeekerOrder>;
   /** The customer's orders for one request or errand, newest first. */
   listOrders(source: OrderSource): Promise<SeekerOrder[]>;
-  cancelOrder(id: string): Promise<SeekerOrder>;
+  /** Cancels while the shop has not set out; the reason is optional free text (≤140). */
+  cancelOrder(id: string, text?: string): Promise<SeekerOrder>;
   /** Every order of the customer (Mere orders). */
   myOrders(): Promise<SeekerOrder[]>;
   getOrder(id: string): Promise<SeekerOrder>;
@@ -316,7 +319,8 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
           ? `/orders?requestId=${id(source.requestId)}`
           : `/orders?errandId=${id(source.errandId)}`,
       ),
-    cancelOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`),
+    cancelOrder: (orderId, text) =>
+      call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`, text ? { text } : undefined),
     myOrders: () => call<SeekerOrder[]>('GET', '/orders'),
     getOrder: (orderId) => call<SeekerOrder>('GET', `/orders/${id(orderId)}`),
     forgetAddress: async () => {

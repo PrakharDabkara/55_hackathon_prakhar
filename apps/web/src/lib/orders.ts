@@ -35,6 +35,8 @@ export interface SeekerOrder {
   state: OrderState;
   shopId: string;
   shopName: string;
+  /** The shop's published logo, or null. */
+  logoUrl?: string | null;
   requestId: string | null;
   errandId: string | null;
   lines: OrderLine[];
@@ -42,6 +44,9 @@ export interface SeekerOrder {
   unknownPriceCount: number;
   feePaise: number | null;
   feeMinutes: number | null;
+  /** When the shop accepted, and when it set out. Null until then (and for orders from before). */
+  acceptedAt?: string | null;
+  outForDeliveryAt?: string | null;
   /** The customer's own words; kept on the order only, and gone 30 days after it ended. */
   addressText: string | null;
   customerName: string | null;

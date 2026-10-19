@@ -8,7 +8,7 @@ import { createSeekerApi } from './lib/seekerApi.js';
 import { localStorageSession, seekerSession } from './lib/session.js';
 import { isShopPath } from './routing.js';
 import { SEEKER_UNAUTHORIZED_EVENT, SeekerApp } from './SeekerApp.js';
-import './styles.css';
+import './ui/baseStyles.js';
 
 // /app/shop is the shop app (ADR-0017); every other address under /app/ is the customer app.
 function start() {

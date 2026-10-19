@@ -1,13 +1,33 @@
-import { useEffect, useState, type MouseEvent } from 'react';
-import { NotifyToggle } from '../components/NotifyToggle.js';
-import { PickupAsk } from '../components/PickupAsk.js';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { ActiveOrderStrip } from '../components/ActiveOrderStrip.js';
+import { FollowUpSheet, type FollowUp, type FollowUpOption } from '../components/FollowUpSheet.js';
+import { LangToggle } from '../components/LangToggle.js';
+import { LoginSheet } from '../components/LoginSheet.js';
+import { PhotoPicker } from '../components/PhotoPicker.js';
+import { BRAND_NAME } from '../brand.js';
+import '../customer/find.css';
 import { useT } from '../i18n/index.js';
-import { isActiveOrder } from '../lib/orders.js';
-import type { RecentItem, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
-import { Search } from './Search.js';
+import { ApiError } from '../lib/api.js';
+import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
+import { isActiveOrder, type SeekerOrder } from '../lib/orders.js';
+import type { NewRequest, SavedAddress, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
+import { BottomSheet } from '../ui/BottomSheet.js';
+import { Button } from '../ui/Button.js';
+import { Field } from '../ui/Field.js';
+import { Icon } from '../ui/Icon.js';
+import { Switch } from '../ui/Switch.js';
+
+const MIN_ADDRESS = 5;
+
+/** Indore, Rajwada: the demo works anywhere because the shops are simulated around here. */
+const DEMO = { lat: 22.7196, lng: 75.8577 };
 
 interface Props {
   api: SeekerApi;
+  /** Whether the customer is signed in. Find opens for anyone; sending needs a login. */
+  loggedIn: boolean;
+  /** The customer logged in from the sheet here: the app stores the token. */
+  onLoggedIn: (token: string) => void;
   onFound: (request: SeekerRequest, origin: { lat: number; lng: number }) => void;
   /** Goes to another address of the customer app without a page load. */
   navigate: (path: string) => void;
@@ -25,69 +45,480 @@ export function appLink(navigate: (path: string) => void, path: string) {
   };
 }
 
+function coordinate(text: string, limit: number): number | null {
+  if (text.trim() === '') return null;
+  const value = Number(text);
+  return Number.isFinite(value) && Math.abs(value) <= limit ? value : null;
+}
+
+const validOptions = (list: unknown): FollowUpOption[] =>
+  Array.isArray(list)
+    ? list.filter(
+        (o): o is FollowUpOption =>
+          typeof o?.itemId === 'string' &&
+          typeof o?.nameEn === 'string' &&
+          typeof o?.nameHi === 'string',
+      )
+    : [];
+
+/** item_ambiguous: two or more items it might be. The server's own question text is not shown. */
+function ambiguousFrom(error: ApiError): FollowUp | null {
+  const options = validOptions(error.details['options']);
+  return options.length >= 2 ? { options } : null;
+}
+
+/** item_confirm: the item the server understood and the other items it might be. */
+function confirmFrom(error: ApiError): FollowUp | null {
+  const [understood] = validOptions([error.details['item']]);
+  return understood
+    ? { understood, options: validOptions(error.details['alternatives']).slice(0, 2) }
+    : null;
+}
+
+interface SendOptions {
+  q?: string;
+  pick?: { itemId: string; understanding?: 'confirmed' | 'changed' };
+  changed?: boolean;
+}
+
 /**
- * Where a signed-in customer lands: the search, the whole-errand entry, "Mere orders" with a badge
- * for the orders still moving, and "Haal ke kaam", the last searches and errands. The two extras
- * are best effort: if they cannot be fetched the search still works.
+ * Find: one box, a place, optional delivery. Opens for anyone; pressing Find signed out opens the
+ * login sheet and, once logged in, sends the draft by itself. The orders and the active-order strip
+ * are best effort: if they cannot be fetched Find still works.
  */
-export function Home({ api, onFound, navigate }: Props) {
+export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const { t } = useT();
-  const [active, setActive] = useState(0);
-  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const c = t.c;
+  const draft = useRef(loadDraft()).current;
+  const [query, setQuery] = useState(draft.query);
+  const [wantsDelivery, setWantsDelivery] = useState(draft.wantsDelivery);
+  const [typedAddress, setTypedAddress] = useState(draft.address);
+  const [lat, setLat] = useState(draft.lat);
+  const [lng, setLng] = useState(draft.lng);
+  const [photoId, setPhotoId] = useState<string | null>(null);
+  const [saved, setSaved] = useState<SavedAddress | null>(null);
+  const [changingAddress, setChangingAddress] = useState(false);
+  const [orders, setOrders] = useState<SeekerOrder[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+  const [online, setOnline] = useState(() => navigator.onLine !== false);
+  /** Set by "Find nearby" or the photo button: whether the login should end in a send. */
+  const sendAfterLogin = useRef(false);
+  const sending = useRef(false);
+  /** The request went out and the draft is cleared: do not write it back while the screen closes. */
+  const sent = useRef(false);
+  /** The customer chose "Something else": their next search is a change of what we understood. */
+  const rewrote = useRef(false);
+
+  const hasSaved = saved?.id != null && saved.addressText != null;
+  const usingSaved = hasSaved && !changingAddress;
+  const addressOk = !wantsDelivery || usingSaved || typedAddress.trim().length >= MIN_ADDRESS;
+  const ready = query.trim() !== '' && addressOk;
 
   useEffect(() => {
+    if (sent.current) return;
+    saveDraft({ query, wantsDelivery, address: typedAddress, lat, lng });
+  }, [query, wantsDelivery, typedAddress, lat, lng]);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine !== false);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
+
+  // Signed in: the orders still moving (a dot on My orders, a strip at the bottom). Best effort.
+  useEffect(() => {
+    if (!loggedIn) {
+      setOrders([]);
+      return;
+    }
     let alive = true;
     api.myOrders().then(
-      (orders) => alive && setActive(orders.filter(isActiveOrder).length),
-      () => undefined,
-    );
-    api.recentWork().then(
-      (items) => alive && setRecent(items),
+      (found) => alive && setOrders(found.filter(isActiveOrder)),
       () => undefined,
     );
     return () => {
       alive = false;
     };
-  }, [api]);
+  }, [api, loggedIn]);
+
+  // Delivery asked for: look for the address the customer kept. A failure just means they type one.
+  useEffect(() => {
+    if (!wantsDelivery || !loggedIn) return;
+    let alive = true;
+    api.savedAddress().then(
+      (found) => alive && setSaved(found),
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, wantsDelivery, loggedIn]);
+
+  const newest = [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+
+  function useDemo() {
+    setLat(String(DEMO.lat));
+    setLng(String(DEMO.lng));
+    setLocationNote(c.findDemoOk);
+  }
+
+  /** Asks the phone where it is. Null when it cannot say (no support, refused, timed out). */
+  function locate(): Promise<{ lat: number; lng: number } | null> {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10_000 },
+      );
+    });
+  }
+
+  async function useMyLocation() {
+    setLocationNote(c.findLocating);
+    const found = await locate();
+    if (found) {
+      setLat(String(found.lat));
+      setLng(String(found.lng));
+      setLocationNote(c.findLocationOk);
+    } else setLocationNote(c.findLocationFailed);
+  }
+
+  async function send(options: SendOptions = {}) {
+    const q = (options.q ?? query).trim();
+    if (q === '' || sending.current) return;
+    if (wantsDelivery && !usingSaved && typedAddress.trim().length < MIN_ADDRESS) return;
+    sending.current = true;
+    setBusy(true);
+    setError(null);
+    setFollowUp(null);
+    try {
+      let latValue = coordinate(lat, 90);
+      let lngValue = coordinate(lng, 180);
+      if (latValue === null || lngValue === null) {
+        const found = await locate();
+        if (!found) {
+          setLocationNote(c.findLocationFailed);
+          setLocationOpen(true);
+          setBusy(false);
+          return;
+        }
+        latValue = found.lat;
+        lngValue = found.lng;
+        setLat(String(found.lat));
+        setLng(String(found.lng));
+      }
+      const input: NewRequest = { q, lat: latValue, lng: lngValue };
+      if (options.pick) input.itemId = options.pick.itemId;
+      if (options.pick?.understanding) input.understanding = options.pick.understanding;
+      else if (options.changed || (!options.pick && rewrote.current))
+        input.understanding = 'changed';
+      if (photoId) input.photoId = photoId;
+      if (wantsDelivery) {
+        const addressId = usingSaved
+          ? (saved?.id as string)
+          : (await api.keepAddress({ addressText: typedAddress.trim() })).id;
+        if (addressId) {
+          input.wantsDelivery = true;
+          input.deliveryAddressId = addressId;
+        }
+      }
+      const request = await api.createRequest(input);
+      rewrote.current = false;
+      sent.current = true;
+      clearDraft();
+      onFound(request, { lat: latValue, lng: lngValue });
+    } catch (e) {
+      const asked =
+        e instanceof ApiError && e.code === 'item_ambiguous'
+          ? ambiguousFrom(e)
+          : e instanceof ApiError && e.code === 'item_confirm'
+            ? confirmFrom(e)
+            : null;
+      if (asked) setFollowUp(asked);
+      else if (e instanceof ApiError && e.status === 401) {
+        sendAfterLogin.current = true;
+        setLoginOpen(true);
+      } else if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
+      else if (e instanceof ApiError && e.code === 'item_blocked') setError(t.errItemBlocked);
+      else if (e instanceof ApiError && e.code === 'item_unavailable')
+        setError(t.errItemUnavailable);
+      else if (e instanceof ApiError && e.code === 'new_item_limit')
+        setError(t.errNewItemLimit(String(e.details['scope'] ?? 'day')));
+      else if (e instanceof ApiError && e.status === 403) setError(t.errNotSeeker);
+      else setError(t.errGeneric);
+      setBusy(false);
+    } finally {
+      sending.current = false;
+    }
+  }
+
+  function pressFind() {
+    if (!ready) return;
+    if (!loggedIn) {
+      sendAfterLogin.current = true;
+      setLoginOpen(true);
+      return;
+    }
+    void send();
+  }
+
+  function loggedInFromSheet(token: string) {
+    // The app stores the token first (the api reads it through the session), then the draft goes.
+    onLoggedIn(token);
+    setLoginOpen(false);
+    if (sendAfterLogin.current) {
+      sendAfterLogin.current = false;
+      void send();
+    }
+  }
+
+  const activeLabel = c.findActiveDot;
 
   return (
     <>
-      <PickupAsk api={api} />
-      <Search api={api} onFound={onFound} />
-      <a className="btn btn-no errand-entry" {...appLink(navigate, '/app/errand')}>
-        {t.errandEntry}
-      </a>
-      <a className="btn btn-quiet errand-entry" {...appLink(navigate, '/app/orders')}>
-        {t.myOrdersEntry}
-        {active > 0 && (
-          <span className="count-badge" aria-label={t.ordersActive(active)}>
-            {active}
+      <header className="cu-bar cu-find__bar">
+        <span className="cu-find__brand">
+          <span className="cu-find__mark" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.500-6 10-6 10z" />
+              <circle cx="12" cy="11" r="2" />
+            </svg>
+          </span>
+          <span className="cu-find__brand-name sh-heading">{BRAND_NAME}</span>
+        </span>
+        <LangToggle />
+        <a
+          className="sh-icon-btn cu-find__orders"
+          aria-label={c.findMyOrders}
+          {...(newest && { 'aria-describedby': 'find-active' })}
+          {...appLink(navigate, '/app/orders')}
+        >
+          <Icon name="orders" />
+          {newest && <span className="cu-find__dot" aria-hidden="true" />}
+        </a>
+        {newest && (
+          <span id="find-active" className="cu-find__sr">
+            {activeLabel}
           </span>
         )}
-      </a>
-      <NotifyToggle api={api} />
-      {recent.length > 0 && (
-        <section className="recent" aria-labelledby="recent-title">
-          <h2 id="recent-title" className="section-title">
-            {t.recentTitle}
-          </h2>
-          <ul className="plain-list">
-            {recent.map((item) => (
-              <li key={`${item.kind}-${item.id}`}>
-                <a
-                  className="row-link"
-                  {...appLink(
-                    navigate,
-                    item.kind === 'errand' ? `/app/errand/${item.id}` : `/app/request/${item.id}`,
-                  )}
+      </header>
+
+      <main className="cu-main cu-find">
+        {!online && (
+          <p className="sh-banner sh-banner--warn" role="status">
+            {c.findOffline}
+          </p>
+        )}
+
+        <form
+          className="cu-find__form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            pressFind();
+          }}
+        >
+          <button type="button" className="cu-find__chip" onClick={() => setLocationOpen(true)}>
+            <Icon name="pin" size={18} />
+            {c.findNearYou}
+          </button>
+
+          <h1 className="sh-title">{c.findTitle}</h1>
+
+          <div className="cu-find__box">
+            <input
+              type="text"
+              className="cu-find__input"
+              aria-label={c.findTitle}
+              autoComplete="off"
+              placeholder={c.findHint}
+              value={query}
+              onChange={(event) => {
+                sent.current = false;
+                setQuery(event.target.value);
+                setFollowUp(null);
+              }}
+            />
+            <div className="cu-find__box-foot">
+              {loggedIn ? (
+                <PhotoPicker api={api} role="request" onChange={setPhotoId} />
+              ) : (
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    sendAfterLogin.current = false;
+                    setLoginOpen(true);
+                  }}
                 >
-                  {item.label}
-                </a>
-              </li>
+                  <Icon name="photo" size={20} />
+                  {c.findAddPhoto}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="cu-find__deliver">
+            <Switch checked={wantsDelivery} onChange={setWantsDelivery} label={c.findDeliver} />
+            <p className="sh-helper">{c.findDeliverHelp}</p>
+          </div>
+          {wantsDelivery &&
+            (usingSaved ? (
+              <div className="cu-find__saved">
+                <p className="sh-body">{c.findDeliverTo(saved?.addressText as string)}</p>
+                <Button variant="quiet" onClick={() => setChangingAddress(true)}>
+                  {c.findChangeAddress}
+                </Button>
+              </div>
+            ) : (
+              <div className="cu-find__form">
+                <div className="sh-field">
+                  <label htmlFor="find-address" className="sh-label">
+                    {c.findAddressLabel}
+                  </label>
+                  <textarea
+                    id="find-address"
+                    className="cu-find__textarea"
+                    rows={3}
+                    maxLength={300}
+                    autoComplete="street-address"
+                    value={typedAddress}
+                    onChange={(event) => setTypedAddress(event.target.value)}
+                  />
+                </div>
+                <p className="sh-helper">{c.findAddressNote}</p>
+              </div>
             ))}
-          </ul>
-        </section>
-      )}
+
+          {error && (
+            <p className="sh-alert" role="alert">
+              {error}
+            </p>
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            className="sh-btn--block"
+            disabled={!ready || busy}
+          >
+            {busy ? c.findSubmitting : c.findSubmit}
+          </Button>
+        </form>
+
+        <a className="cu-find__errand" {...appLink(navigate, '/app/errand')}>
+          <svg
+            className="cu-find__errand-icon"
+            viewBox="0 0 48 48"
+            width="40"
+            height="40"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M14 14V9M14 9h0M8 14h12a3 3 0 013 3v8a3 3 0 01-3 3H8a3 3 0 01-3-3v-8a3 3 0 013-3zM10.500 20h.01M17.500 20h.01M10 24h8" />
+            <path d="M27 12h16v28H27zM31 19h8M31 25h8M31 31h5" />
+          </svg>
+          <span className="cu-find__errand-text">
+            <span className="sh-heading">{c.findErrandTitle}</span>
+            <span className="sh-helper">{c.findErrandText}</span>
+          </span>
+        </a>
+
+        <a className="sh-btn sh-btn--quiet cu-find__shop" href="/app/shop">
+          {c.findShopkeepers}
+        </a>
+      </main>
+
+      {newest && <ActiveOrderStrip order={newest} navigate={navigate} />}
+
+      <LoginSheet
+        api={api}
+        open={loginOpen}
+        onClose={() => {
+          sendAfterLogin.current = false;
+          setLoginOpen(false);
+        }}
+        onLoggedIn={loggedInFromSheet}
+      />
+
+      <FollowUpSheet
+        followUp={followUp}
+        busy={busy}
+        onClose={() => setFollowUp(null)}
+        onPick={(itemId, understanding) =>
+          void send({ pick: { itemId, ...(understanding && { understanding }) } })
+        }
+        onRewrite={(text) => {
+          setQuery(text);
+          rewrote.current = true;
+          void send({ q: text, changed: true });
+        }}
+      />
+
+      <BottomSheet
+        open={locationOpen}
+        title={c.findLocationTitle}
+        onClose={() => setLocationOpen(false)}
+        footer={
+          <Button variant="solid" className="sh-btn--block" onClick={() => setLocationOpen(false)}>
+            {c.findDone}
+          </Button>
+        }
+      >
+        <div className="cu-find__form">
+          <Button variant="secondary" onClick={() => void useMyLocation()}>
+            <Icon name="pin" size={20} />
+            {c.findUseMyLocation}
+          </Button>
+          <Button variant="secondary" onClick={useDemo}>
+            {c.findUseDemo}
+          </Button>
+          {locationNote && (
+            <p className="sh-label" role="status">
+              {locationNote}
+            </p>
+          )}
+          <fieldset className="cu-find__manual">
+            <legend className="sh-label">{c.findManualTitle}</legend>
+            <Field
+              label={c.findLatitude}
+              inputMode="decimal"
+              value={lat}
+              onChange={(event) => setLat(event.target.value)}
+            />
+            <Field
+              label={c.findLongitude}
+              inputMode="decimal"
+              value={lng}
+              onChange={(event) => setLng(event.target.value)}
+            />
+          </fieldset>
+        </div>
+      </BottomSheet>
     </>
   );
 }
