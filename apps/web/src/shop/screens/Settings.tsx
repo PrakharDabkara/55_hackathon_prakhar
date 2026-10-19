@@ -4,12 +4,12 @@ import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi, ShopPatch } from '../../lib/api.js';
 import { shrinkPhoto } from '../../lib/photo.js';
 import type { LatLng } from '../lib/geo.js';
-import { Button } from '../ui/Button.js';
+import { Button } from '../../ui/Button.js';
 import { CategoryPicker } from '../ui/CategoryPicker.js';
-import { Field } from '../ui/Field.js';
+import { Field } from '../../ui/Field.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
 import { ShopLogo } from '../ui/ShopLogo.js';
-import { useToast } from '../ui/Toast.js';
+import { useToast } from '../../ui/Toast.js';
 
 interface Props {
   api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo'>;

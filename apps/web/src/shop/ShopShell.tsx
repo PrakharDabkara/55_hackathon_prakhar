@@ -13,7 +13,7 @@ import { Notifications } from './screens/Notifications.js';
 import { Orders } from './screens/Orders.js';
 import { Settings } from './screens/Settings.js';
 import { ShopHeader } from './ui/ShopHeader.js';
-import { useToast } from './ui/Toast.js';
+import { useToast } from '../ui/Toast.js';
 import { Sidebar } from './ui/Sidebar.js';
 
 interface Props {

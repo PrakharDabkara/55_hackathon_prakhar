@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import { currentPosition, DEFAULT_CENTRE, type LatLng } from '../lib/geo.js';
-import { Button } from './Button.js';
-import { Icon } from './Icon.js';
+import { Button } from '../../ui/Button.js';
+import { Icon } from '../../ui/Icon.js';
 import { PinMap } from './PinMap.js';
 
 interface Props {

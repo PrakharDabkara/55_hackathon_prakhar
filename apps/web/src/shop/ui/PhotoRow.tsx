@@ -2,8 +2,8 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { useT } from '../../i18n/index.js';
 import { blobToDataUrl, shrinkPhoto } from '../../lib/photo.js';
 import type { PhotoApi } from '../../lib/photoApi.js';
-import { Button } from './Button.js';
-import { Icon } from './Icon.js';
+import { Button } from '../../ui/Button.js';
+import { Icon } from '../../ui/Icon.js';
 
 interface Props {
   api: PhotoApi;

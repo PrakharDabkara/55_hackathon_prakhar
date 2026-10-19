@@ -1,4 +1,4 @@
-import { useT } from '../../i18n/index.js';
+import { useT } from '../i18n/index.js';
 
 /** ANSWERED or NOT AVAILABLE, rotated, double-bordered; it lands with a short scale-down. */
 export function Stamp({ variant }: { variant: 'yes' | 'no' }) {

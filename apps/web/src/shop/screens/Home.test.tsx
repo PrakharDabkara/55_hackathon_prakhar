@@ -6,7 +6,7 @@ import type { PushClient, PushStatus } from '../../lib/push.js';
 import { fakeApi, ping, shop, shopOrder } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
 import type { ShopData } from '../lib/useShopData.js';
-import { ToastProvider } from '../ui/Toast.js';
+import { ToastProvider } from '../../ui/Toast.js';
 import { Home } from './Home.js';
 
 beforeEach(() =>

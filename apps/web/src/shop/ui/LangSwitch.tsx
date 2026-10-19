@@ -1,5 +1,5 @@
 import { useT } from '../../i18n/index.js';
-import { Button } from './Button.js';
+import { Button } from '../../ui/Button.js';
 
 /** One button, always in the language you would switch to. */
 export function LangSwitch() {

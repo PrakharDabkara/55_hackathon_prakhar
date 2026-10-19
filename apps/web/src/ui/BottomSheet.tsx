@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from 'react';
-import { useT } from '../../i18n/index.js';
+import { useT } from '../i18n/index.js';
 import { Icon } from './Icon.js';
 import { useFocusTrap } from './useFocusTrap.js';
 

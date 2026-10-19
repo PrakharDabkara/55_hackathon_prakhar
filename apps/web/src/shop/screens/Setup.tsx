@@ -4,10 +4,10 @@ import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi } from '../../lib/api.js';
 import { blobToDataUrl, shrinkPhoto } from '../../lib/photo.js';
 import type { LatLng } from '../lib/geo.js';
-import { Button } from '../ui/Button.js';
+import { Button } from '../../ui/Button.js';
 import { CategoryPicker } from '../ui/CategoryPicker.js';
-import { Field } from '../ui/Field.js';
-import { Icon } from '../ui/Icon.js';
+import { Field } from '../../ui/Field.js';
+import { Icon } from '../../ui/Icon.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
 
 interface Props {

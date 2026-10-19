@@ -1,6 +1,6 @@
 import { CATEGORIES, type Category } from '@kahanmilega/shared';
 import { useT } from '../../i18n/index.js';
-import { Chip } from './Chip.js';
+import { Chip } from '../../ui/Chip.js';
 
 export const MAX_CATEGORIES = 3;
 

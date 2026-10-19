@@ -3,9 +3,9 @@ import { useT } from '../../i18n/index.js';
 import type { ShopApi, ShopDemand } from '../../lib/api.js';
 import { displayItemName, formatDuration } from '../lib/format.js';
 import { useDemand } from '../lib/hooks.js';
-import { Button } from '../ui/Button.js';
-import { SegmentedControl } from '../ui/SegmentedControl.js';
-import { Skeleton } from '../ui/Skeleton.js';
+import { Button } from '../../ui/Button.js';
+import { SegmentedControl } from '../../ui/SegmentedControl.js';
+import { Skeleton } from '../../ui/Skeleton.js';
 
 type Item = ShopDemand['asked'][number]['item'];
 

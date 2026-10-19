@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useT } from '../../i18n/index.js';
+import { useT } from '../i18n/index.js';
 
 interface Props {
   /** A delivery request: a marigold band with a DELIVERY stamp across the top. */

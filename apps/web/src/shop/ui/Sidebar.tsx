@@ -2,10 +2,10 @@ import { useRef } from 'react';
 import { BRAND_NAME } from '../../brand.js';
 import { useT } from '../../i18n/index.js';
 import { hrefFor, VIEWS, type ShopView } from '../lib/view.js';
-import { Icon, type IconName } from './Icon.js';
+import { Icon, type IconName } from '../../ui/Icon.js';
 import { LangSwitch } from './LangSwitch.js';
 import { ShopLogo } from './ShopLogo.js';
-import { useFocusTrap } from './useFocusTrap.js';
+import { useFocusTrap } from '../../ui/useFocusTrap.js';
 
 interface Props {
   open: boolean;

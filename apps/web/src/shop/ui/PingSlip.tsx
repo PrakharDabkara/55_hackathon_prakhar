@@ -3,9 +3,9 @@ import { useT } from '../../i18n/index.js';
 import type { ShopPing } from '../../lib/api.js';
 import type { PhotoApi } from '../../lib/photoApi.js';
 import { displayItemName, formatQuantity } from '../lib/format.js';
-import { Button } from './Button.js';
-import { Parchi } from './Parchi.js';
-import { Stamp } from './Stamp.js';
+import { Button } from '../../ui/Button.js';
+import { Parchi } from '../../ui/Parchi.js';
+import { Stamp } from '../../ui/Stamp.js';
 import { TimeRing } from './TimeRing.js';
 
 interface Props {
