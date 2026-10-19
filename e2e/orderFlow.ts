@@ -63,10 +63,13 @@ export async function setup(
   await login(customer, '/app/');
   await customer.getByRole('button', { name: 'Meri location' }).click();
   await customer.getByLabel('क्या चाहिए?').fill('haldi');
+  // "Deliver to me" with an address typed here (Delivery v2): the shop gets three answers.
+  await customer.getByRole('checkbox', { name: 'Ghar mangwao' }).check();
+  await customer.getByLabel('Ghar ka pata').fill(ADDRESS);
   await customer.getByRole('button', { name: 'Dhoondho' }).click();
 
-  // The shop says yes (the standing offer pre-fills the delivery), and the customer sees its card.
-  await shop.getByRole('button', { name: /Haan hai/ }).click({ timeout: 30_000 });
+  // The shop says "will deliver" (the standing offer pre-fills fee and time), and the customer sees its card.
+  await shop.getByRole('button', { name: /Haan, deliver karunga/ }).click({ timeout: 30_000 });
   await shop.locator('article.card').getByLabel('Aapka daam (₹)').fill('40');
   await shop.getByRole('button', { name: 'Bhejo' }).click();
   const card = customer.getByRole('listitem').filter({ hasText: name });
@@ -74,18 +77,20 @@ export async function setup(
   return { shop, shopContext, customer, customerContext, card };
 }
 
-/** "Ghar mangwao" → "Order bhejo" → the address step → "Pakka karo". */
+/**
+ * "Ghar mangwao" → "Order bhejo" → "Pakka karo". The address was chosen on Find, so there is none to
+ * type. The shop's yes is fresh, so the order starts ACCEPTED: no waiting for the shop (ADR-0039).
+ */
 export async function order(
   customer: Page,
   card: ReturnType<Page['locator']>,
-  { remember = false }: { remember?: boolean } = {},
+  { note }: { note?: string } = {},
 ) {
   await card.getByRole('button', { name: 'Ghar mangwao' }).click();
   await card.getByRole('button', { name: 'Order bhejo' }).click();
-  await card.getByLabel('Ghar ka pata').fill(ADDRESS);
-  if (remember) await card.getByRole('checkbox', { name: 'Is pate ko yaad rakhein' }).check();
+  if (note) await card.getByLabel('Dukaan ke liye note').fill(note);
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-address-step.png', fullPage: true });
   await card.getByRole('button', { name: 'Pakka karo' }).click();
-  await expect(card.getByText(/jawab ka intezaar/)).toBeVisible();
+  await expect(card.getByText('Dukaan ne order le liya')).toBeVisible({ timeout: 15_000 });
 }
