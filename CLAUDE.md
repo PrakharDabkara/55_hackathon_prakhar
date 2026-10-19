@@ -38,6 +38,20 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Never push to main. Every change goes through a PR: main deploys to production. Before any commit or push, run `git branch --show-current`; if it says main, switch to a branch first. A tracked pre-push hook (`.githooks/pre-push`, enabled by `npm install`) refuses pushes to main and master; never bypass it with `--no-verify`.
 - When unsure, ask instead of guessing.
 
+## UI rules
+
+- 360 px first; every screen also works at 1280 px (centered column, max-width 480 px for the shop app).
+- Colours, spacing, radius and type only via tokens in apps/web/src/design/tokens.css. No hex values in components.
+- One primary (marigold) button per screen. Marigold is never used for text.
+- Tap targets ≥ 48 px (44 px absolute floor). Visible focus ring (2 px --focus, 2 px offset) on every interactive element.
+- Text contrast AA (4.5:1; 3:1 at 24 px+), in both themes.
+- Every screen has designed empty, loading (skeletons, no spinners over content), error-with-retry and offline states.
+- Motion ≤ 200 ms; with prefers-reduced-motion, no movement (fade or instant).
+- English UI copy: plain, short, verbs on buttons, errors say what to do. No Hinglish in the en table. Keep the hi table in parity (strings.test.ts), but en is the default language.
+- The parchi (paper, handwriting, stamps) appears ONLY on request cards. Nothing else imitates paper.
+- The shop app never shows customer identity: no name, phone, raw query text, or address before an order is ACCEPTED.
+- Brand name only from BRAND_NAME (one constant). In the shop app it appears on login and as "Powered by" in the sidebar, nowhere else.
+
 ## Working style
 
 After every task, end your reply with a short section (max 12 lines):

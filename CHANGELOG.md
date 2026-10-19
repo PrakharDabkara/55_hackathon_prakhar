@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 18, PR L: Parchi shop UI)
+
+- New shop app UI ("Parchi", ADR-0041): design tokens with light and dark themes, request deck, answer sheets, orders, insights, delivery and settings.
+- UI rules section in CLAUDE.md.
+
 ### Added (Day 17, PR K: shop-screen data and logo)
 
 - `lastPricePaise` on a shop's ping card (its own last quoted price; `null` when unknown or called wrong).
