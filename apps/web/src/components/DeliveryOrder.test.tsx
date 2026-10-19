@@ -201,3 +201,59 @@ describe('following the order', () => {
     expect(document.body.textContent).not.toMatch(/\+91|\b[6-9]\d{9}\b/);
   });
 });
+
+describe('Delivery v2', () => {
+  it('OUT_FOR_DELIVERY has a Received button that tells the server', async () => {
+    const { user, api, onChange } = setup(
+      {},
+      { order: seekerOrder({ state: 'OUT_FOR_DELIVERY' }) },
+    );
+    await user.click(screen.getByRole('button', { name: 'Mil gaya' }));
+    expect(api.receiveOrder).toHaveBeenCalledWith('order-1');
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+  });
+
+  it('NOT_CONFIRMED says "Aapne delivery confirm nahi ki" and has no buttons', () => {
+    setup({}, { order: seekerOrder({ state: 'NOT_CONFIRMED' }) });
+    expect(screen.getByText('Aapne delivery confirm nahi ki')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('ACCEPTED straight away (a fresh offer) shows the accepted message', () => {
+    setup({}, { order: seekerOrder({ state: 'ACCEPTED' }) });
+    expect(screen.getByText(/accept/i)).toBeTruthy();
+  });
+
+  it('has a note box of at most 140 characters, sent with the order', async () => {
+    const { user, api } = setup();
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    const note = screen.getByLabelText('Dukaan ke liye note') as HTMLInputElement;
+    expect(note.maxLength).toBe(140);
+    await user.type(screen.getByLabelText('Ghar ka pata'), 'Flat 4B, Sapna Apartments');
+    await user.type(note, 'Gate 2');
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith(expect.objectContaining({ note: 'Gate 2' }));
+  });
+
+  it('with an address picked on Find there is no address box: only the note', async () => {
+    const { user, api } = setup({}, { hasAddress: true });
+    await user.click(screen.getByRole('button', { name: 'Order bhejo' }));
+    expect(screen.queryByLabelText('Ghar ka pata')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Pakka karo' }));
+    expect(api.placeOrder).toHaveBeenCalledWith({ shopId: 's1', requestId: 'req-1' });
+  });
+
+  it('a shop that cancelled says so', () => {
+    setup(
+      {},
+      {
+        order: seekerOrder({
+          state: 'CANCELLED',
+          cancelledBy: 'shop',
+          cancelReason: 'out_of_stock',
+        }),
+      },
+    );
+    expect(screen.getByText(/Dukaan ne order cancel kiya/)).toBeTruthy();
+  });
+});

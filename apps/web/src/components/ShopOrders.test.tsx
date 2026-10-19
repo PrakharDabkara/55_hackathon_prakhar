@@ -88,11 +88,43 @@ describe('after Accept', () => {
     expect(api.orderAction).toHaveBeenCalledWith('order-1', 'out');
   });
 
-  it('then "Pahuncha diya", which finishes it', async () => {
-    const { user, api } = setup([accepted({ state: 'OUT_FOR_DELIVERY' })]);
+  it('once out there is no button at all: only the customer’s Received finishes it', () => {
+    setup([accepted({ state: 'OUT_FOR_DELIVERY' })]);
     expect(screen.queryByRole('button', { name: 'Nikal gaye' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Pahuncha diya' }));
-    expect(api.orderAction).toHaveBeenCalledWith('order-1', 'delivered');
+    expect(screen.queryByRole('button', { name: 'Pahuncha diya' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
+  });
+
+  it('shows what the customer wrote for the shop', () => {
+    setup([accepted({ note: 'Gate 2, ring the bell' })]);
+    expect(screen.getByText(/Gate 2, ring the bell/)).toBeTruthy();
+  });
+
+  it('can cancel with a reason: pick one, add words, confirm', async () => {
+    const { user, api } = setup([accepted()]);
+    await user.click(screen.getByRole('button', { name: 'Cancel karo' }));
+    await user.click(screen.getByRole('button', { name: 'Maal khatam' }));
+    await user.click(screen.getByRole('button', { name: 'Pakka cancel' }));
+    expect(api.cancelOrder).toHaveBeenCalledWith('order-1', { reason: 'out_of_stock' });
+  });
+
+  it('"Kuch aur" sends the words typed, up to 140 characters', async () => {
+    const { user, api } = setup([accepted()]);
+    await user.click(screen.getByRole('button', { name: 'Cancel karo' }));
+    await user.click(screen.getByRole('button', { name: 'Kuch aur' }));
+    const box = screen.getByLabelText('Wajah likhiye') as HTMLInputElement;
+    expect(box.maxLength).toBe(140);
+    await user.type(box, 'Rider bimar hai');
+    await user.click(screen.getByRole('button', { name: 'Pakka cancel' }));
+    expect(api.cancelOrder).toHaveBeenCalledWith('order-1', {
+      reason: 'other',
+      text: 'Rider bimar hai',
+    });
+  });
+
+  it('a new order (not yet accepted) has no Cancel', () => {
+    setup([shopOrder()]);
+    expect(screen.queryByRole('button', { name: 'Cancel karo' })).toBeNull();
   });
 });
 
@@ -102,6 +134,7 @@ describe('finished orders', () => {
     ['DECLINED', /Aapne mana kiya/],
     ['EXPIRED', /Samay nikal gaya/],
     ['CANCELLED', /Grahak ne order cancel kiya/],
+    ['NOT_CONFIRMED', /Grahak ne confirm nahi kiya/],
   ] as const)('%s says so and has no buttons', (state, text) => {
     setup([shopOrder({ state, final: true })]);
     expect(screen.getByText(text)).toBeTruthy();

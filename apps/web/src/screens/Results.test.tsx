@@ -502,3 +502,43 @@ describe('Results: ordering a delivery (ADR-0031)', () => {
     expect(screen.getByRole('button', { name: 'Ghar mangwao' })).toBeTruthy();
   });
 });
+
+describe('Results: a customer who asked for delivery (Delivery v2)', () => {
+  const show = (results: ReturnType<typeof result>[], wantsDelivery: boolean) =>
+    renderApp(
+      <Results
+        api={fakeSeekerApi()}
+        initial={seekerRequest({
+          id: 'req-1',
+          state: 'ANSWERED',
+          wantsDelivery,
+          pingStats: { sent: results.length, yes: results.length, no: 0, pending: 0 },
+          results,
+        })}
+        origin={origin}
+        onDone={vi.fn()}
+        live={live}
+      />,
+    );
+
+  it('each offer says "Deliver karenge · ₹fee · ~N min" or "Sirf pick-up"', () => {
+    show(
+      [
+        result({ shopId: 'a', name: 'A', delivery: { feePaise: 3000, minutes: 45 } }),
+        result({ shopId: 'b', name: 'B', delivery: { feePaise: 0, minutes: null } }),
+        result({ shopId: 'c', name: 'C' }),
+      ],
+      true,
+    );
+    expect(screen.getByText('Deliver karenge · ₹30 · ~45 min')).toBeTruthy();
+    expect(screen.getByText('Deliver karenge · muft')).toBeTruthy();
+    expect(screen.getByText('Sirf pick-up')).toBeTruthy();
+    // The older chip is not shown a second time.
+    expect(screen.queryByText(/Ghar bhej denge/)).toBeNull();
+  });
+
+  it('a search that did not ask for delivery keeps the older look', () => {
+    show([result({ shopId: 'c', name: 'C' })], false);
+    expect(screen.queryByText('Sirf pick-up')).toBeNull();
+  });
+});

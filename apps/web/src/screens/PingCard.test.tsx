@@ -302,3 +302,76 @@ describe('PingCard: exact quantity and delivery with a yes (ADR-0031)', () => {
     expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes' });
   });
 });
+
+describe('PingCard: a customer who wants delivery (Delivery v2)', () => {
+  const defaults = { deliversDefault: true, defaultFeePaise: 2000, defaultMinutes: 30 };
+
+  it('offers three answers: will deliver, have it but cannot deliver, not available', () => {
+    renderApp(
+      <PingCard ping={ping({ wantsDelivery: true, canDeliver: true })} onAnswer={vi.fn()} />,
+    );
+    expect(screen.getByRole('button', { name: /Haan, deliver karunga/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Haan hai, deliver nahi/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Nahi hai/ })).toBeTruthy();
+  });
+
+  it('"will deliver" opens the details with the fee and minutes from the shop defaults', async () => {
+    const onAnswer = vi.fn();
+    const { user } = renderApp(
+      <PingCard
+        ping={ping({ wantsDelivery: true, canDeliver: true })}
+        defaults={defaults}
+        onAnswer={onAnswer}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Haan, deliver karunga/ }));
+    expect((screen.getByLabelText('Delivery ka daam (₹)') as HTMLInputElement).value).toBe('20');
+    expect((screen.getByLabelText('Kitne minute mein?') as HTMLInputElement).value).toBe('30');
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({
+      answer: 'yes',
+      delivery: { feePaise: 2000, minutes: 30 },
+    });
+  });
+
+  it('works for a shop with no standing offer: the fields start empty', async () => {
+    const onAnswer = vi.fn();
+    const { user } = renderApp(
+      <PingCard ping={ping({ wantsDelivery: true, canDeliver: true })} onAnswer={onAnswer} />,
+    );
+    await user.click(screen.getByRole('button', { name: /Haan, deliver karunga/ }));
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes', delivery: {} });
+  });
+
+  it('"have it, cannot deliver" is a yes with no delivery, even with a standing offer', async () => {
+    const onAnswer = vi.fn();
+    const { user } = renderApp(
+      <PingCard
+        ping={ping({ wantsDelivery: true, canDeliver: true })}
+        defaults={defaults}
+        onAnswer={onAnswer}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /Haan hai, deliver nahi/ }));
+    await user.click(screen.getByRole('button', { name: 'Bhejo' }));
+    expect(onAnswer).toHaveBeenCalledWith({ answer: 'yes' });
+  });
+
+  it('hides "will deliver" when the customer is beyond the shop’s limit', () => {
+    renderApp(
+      <PingCard ping={ping({ wantsDelivery: true, canDeliver: false })} onAnswer={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: /Haan, deliver karunga/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /Haan hai, deliver nahi/ })).toBeTruthy();
+  });
+
+  it('a plain ping keeps the two big buttons, and drops the delivery switch when out of range', async () => {
+    const { user } = renderApp(
+      <PingCard ping={ping({ canDeliver: false })} defaults={defaults} onAnswer={vi.fn()} />,
+    );
+    expect(screen.queryByRole('button', { name: /deliver karunga/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /Haan hai/ }));
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+});
