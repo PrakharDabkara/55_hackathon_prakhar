@@ -36,8 +36,8 @@ async function expectNoOverlap(page: Page) {
 
 test('the seeker login: the shopkeeper link is clear of the OTP button', async ({ page }) => {
   await page.goto('/app/');
-  const send = page.getByRole('button', { name: 'OTP bhejo' });
-  const link = page.getByRole('link', { name: 'Dukaandaar hain? Yahan jaayein' });
+  const send = page.getByRole('button', { name: 'Send OTP' });
+  const link = page.getByRole('link', { name: 'Own a shop? Go here' });
   await expect(link).toBeVisible();
   await expectNoOverlap(page);
   const [b, l] = await Promise.all([send.boundingBox(), link.boundingBox()]);
@@ -46,7 +46,7 @@ test('the seeker login: the shopkeeper link is clear of the OTP button', async (
 
   await page.getByLabel(/mobile number/i).fill('9810000502');
   await send.click();
-  await expect(page.getByRole('button', { name: 'Demo OTP bharein' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fill demo OTP' })).toBeVisible();
   await expectNoOverlap(page);
 });
 
@@ -55,7 +55,7 @@ test('the shop login fits too', async ({ page }) => {
   await expect(page.getByLabel(/mobile number/i)).toBeVisible();
   await expectNoOverlap(page);
   await page.getByLabel(/mobile number/i).fill('9810000503');
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await expect(page.getByRole('button', { name: 'Demo OTP bharein' })).toBeVisible();
+  await page.getByRole('button', { name: 'Send OTP' }).click();
+  await expect(page.getByRole('button', { name: 'Fill demo OTP' })).toBeVisible();
   await expectNoOverlap(page);
 });

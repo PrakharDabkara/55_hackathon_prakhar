@@ -19,9 +19,9 @@ export const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padSt
 export async function login(page: Page, path: string) {
   await page.goto(path);
   await page.getByLabel(/mobile number/i).fill(newPhone());
-  await page.getByRole('button', { name: 'OTP bhejo' }).click();
-  await page.getByRole('button', { name: 'Demo OTP bharein' }).click();
-  await page.getByRole('button', { name: 'Login karein' }).click();
+  await page.getByRole('button', { name: 'Send OTP' }).click();
+  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Log in' }).click();
 }
 
 export const noSidewaysScroll = async (page: Page) =>
@@ -42,15 +42,15 @@ export async function setup(
   await login(shop, '/app/shop');
   // A name nobody else has: shops from earlier runs may remember this item in the same corner.
   const name = `${label} ${Date.now().toString(36)}`;
-  await shop.getByLabel('Dukaan ka naam').fill(name);
-  await shop.getByRole('button', { name: /किराना/ }).click();
-  await shop.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }).check();
-  await shop.getByLabel('Delivery ka daam (₹)').fill('20');
-  await shop.getByText('Haath se likhein').click();
+  await shop.getByLabel('Shop name').fill(name);
+  await shop.getByRole('button', { name: /Grocery/ }).click();
+  await shop.getByRole('checkbox', { name: 'We deliver to homes' }).check();
+  await shop.getByLabel('Delivery fee (₹)').fill('20');
+  await shop.getByText('Enter it by hand').click();
   await shop.getByLabel('Latitude').fill(String(corner.latitude));
   await shop.getByLabel('Longitude').fill(String(corner.longitude));
-  await shop.getByRole('button', { name: 'Dukaan shuru karein' }).click();
-  await expect(shop.getByRole('switch', { name: 'Dukaan khuli hai' })).toBeVisible({
+  await shop.getByRole('button', { name: 'Start my shop' }).click();
+  await expect(shop.getByRole('switch', { name: 'Shop is open' })).toBeVisible({
     timeout: 15_000,
   });
 
@@ -61,17 +61,17 @@ export async function setup(
   });
   const customer = await customerContext.newPage();
   await login(customer, '/app/');
-  await customer.getByRole('button', { name: 'Meri location' }).click();
+  await customer.getByRole('button', { name: 'Use my location' }).click();
   await customer.getByLabel('क्या चाहिए?').fill('haldi');
   // "Deliver to me" with an address typed here (Delivery v2): the shop gets three answers.
-  await customer.getByRole('checkbox', { name: 'Ghar mangwao' }).check();
-  await customer.getByLabel('Ghar ka pata').fill(ADDRESS);
-  await customer.getByRole('button', { name: 'Dhoondho' }).click();
+  await customer.getByRole('checkbox', { name: 'Deliver to me' }).check();
+  await customer.getByLabel('Home address').fill(ADDRESS);
+  await customer.getByRole('button', { name: 'Search' }).click();
 
   // The shop says "will deliver" (the standing offer pre-fills fee and time), and the customer sees its card.
-  await shop.getByRole('button', { name: /Haan, deliver karunga/ }).click({ timeout: 30_000 });
-  await shop.locator('article.card').getByLabel('Aapka daam (₹)').fill('40');
-  await shop.getByRole('button', { name: 'Bhejo' }).click();
+  await shop.getByRole('button', { name: /Yes, I will deliver/ }).click({ timeout: 30_000 });
+  await shop.locator('article.card').getByLabel('Your price (₹)').fill('40');
+  await shop.getByRole('button', { name: 'Send', exact: true }).click();
   const card = customer.getByRole('listitem').filter({ hasText: name });
   await expect(card).toBeVisible({ timeout: 30_000 });
   return { shop, shopContext, customer, customerContext, card };
@@ -86,11 +86,11 @@ export async function order(
   card: ReturnType<Page['locator']>,
   { note }: { note?: string } = {},
 ) {
-  await card.getByRole('button', { name: 'Ghar mangwao' }).click();
-  await card.getByRole('button', { name: 'Order bhejo' }).click();
-  if (note) await card.getByLabel('Dukaan ke liye note').fill(note);
+  await card.getByRole('button', { name: 'Deliver to me' }).click();
+  await card.getByRole('button', { name: 'Send order' }).click();
+  if (note) await card.getByLabel('Note for the shop').fill(note);
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-address-step.png', fullPage: true });
-  await card.getByRole('button', { name: 'Pakka karo' }).click();
-  await expect(card.getByText('Dukaan ne order le liya')).toBeVisible({ timeout: 15_000 });
+  await card.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await expect(card.getByText('The shop accepted your order')).toBeVisible({ timeout: 15_000 });
 }
