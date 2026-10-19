@@ -124,6 +124,8 @@ export interface ShopStrings {
   hour1: string;
   customerPaysCash: (total: string) => string;
   committed: string;
+  enterPrice: string;
+  pricePlaceholder: string;
   confirm: string;
   answerChoices: string;
   pingGone: string;
@@ -325,6 +327,8 @@ export const shopEn: ShopStrings = {
   hour1: '1 hour',
   customerPaysCash: (total) => `Customer pays cash · ${total}`,
   committed: "If the customer picks you, you're committed to deliver.",
+  enterPrice: 'Enter your price to confirm',
+  pricePlaceholder: 'e.g. 45',
   confirm: 'Confirm',
   answerChoices: 'Your answer',
   pingGone: 'The customer already has an answer. Thanks for being quick.',
@@ -526,6 +530,8 @@ export const shopHi: ShopStrings = {
   hour1: '1 ghanta',
   customerPaysCash: (total) => `Grahak cash dega · ${total}`,
   committed: 'Agar grahak aapko chune, to delivery karni hogi.',
+  enterPrice: 'Pakka karne ke liye apna daam daalein',
+  pricePlaceholder: 'jaise 45',
   confirm: 'Pakka karein',
   answerChoices: 'Aapka jawab',
   pingGone: 'Grahak ko jawab mil chuka hai. Jaldi karne ke liye shukriya.',

@@ -120,9 +120,7 @@ describe('OrderSlip', () => {
       <OrderSlip order={order} now={NOW} onAccept={onAccept} onDecline={onDecline} />,
       'en',
     );
-    expect(screen.getByRole('button', { name: 'Decline' }).className).toContain(
-      'sh-btn--secondary',
-    );
+    expect(screen.getByRole('button', { name: 'Decline' }).className).toContain('sh-btn--neutral');
     expect(screen.getByRole('button', { name: 'Accept' }).className).toContain('sh-btn--ink');
     await user.click(screen.getByRole('button', { name: 'Decline' }));
     await user.click(screen.getByRole('button', { name: 'Accept' }));

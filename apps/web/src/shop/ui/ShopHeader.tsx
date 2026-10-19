@@ -47,7 +47,8 @@ export function ShopHeader({ name, logoUrl, open, onMenu, onToggleOpen }: Props)
         className={`sh-pill ${open ? 'sh-pill--open' : 'sh-pill--closed'}`}
         onClick={() => void toggle()}
       >
-        {open ? t.shop.open : t.shop.closed}
+        <span className="sh-pill__label">{open ? t.shop.open : t.shop.closed}</span>
+        <span className="sh-pill__knob" aria-hidden="true" />
       </button>
     </header>
   );

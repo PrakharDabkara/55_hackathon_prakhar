@@ -3,7 +3,7 @@ import { useT } from '../../i18n/index.js';
 import { ApiError, type ShopApi } from '../../lib/api.js';
 import { formatRupees } from '../../lib/money.js';
 import type { ShopCancelReason, ShopOrder } from '../../lib/orders.js';
-import { formatClock, isToday } from '../lib/format.js';
+import { displayItemName, formatClock, isToday } from '../lib/format.js';
 import type { ShopData } from '../lib/useShopData.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button, LinkButton } from '../ui/Button.js';
@@ -109,7 +109,7 @@ export function Orders({ api, data, now }: Props) {
         <ul className="sh-order__lines">
           {order.lines.map((line, i) => (
             <li key={`${line.name}-${i}`} className="sh-body">
-              {line.count} × {line.name}
+              {line.count} × {displayItemName(line.name)}
             </li>
           ))}
         </ul>

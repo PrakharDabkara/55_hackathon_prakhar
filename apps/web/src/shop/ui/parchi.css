@@ -5,7 +5,10 @@
 }
 .sh-parchi__paper {
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* A tall slip scrolls inside itself, so the deck never needs the page to scroll. */
+  max-height: calc(100dvh - 300px);
   background: var(--paper);
   color: var(--paper-ink);
   /* A torn top edge: teeth cut into the top 6 px, a square bottom. */
@@ -43,9 +46,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-height: 280px;
+  min-height: 240px;
   padding: var(--space-6) var(--space-4) var(--space-4);
+}
+/* Rules only behind the handwriting, one every 34 px from the block's own top. */
+.sh-parchi__ruled {
   background: repeating-linear-gradient(to bottom, transparent 0 33px, var(--paper-edge) 33px 34px);
+}
+div.sh-parchi__ruled {
+  min-height: 102px;
+}
+.sh-parchi__ruled .sh-parchi__note {
+  line-height: 34px;
 }
 .sh-paper-muted {
   color: var(--paper-ink-muted);

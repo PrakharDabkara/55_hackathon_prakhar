@@ -2,7 +2,7 @@ import { AuthPhoto } from '../../components/AuthPhoto.js';
 import { useT } from '../../i18n/index.js';
 import type { ShopPing } from '../../lib/api.js';
 import type { PhotoApi } from '../../lib/photoApi.js';
-import { formatQuantity } from '../lib/format.js';
+import { displayItemName, formatQuantity } from '../lib/format.js';
 import { Button } from './Button.js';
 import { Parchi } from './Parchi.js';
 import { Stamp } from './Stamp.js';
@@ -33,9 +33,13 @@ export function PingSlip({ ping, now, photos, stamp = null, onAnswer }: Props) {
           <TimeRing startedAt={ping.sentAt} expiresAt={ping.expiresAt} now={now} />
         </span>
       </div>
-      <h2 className="sh-parchi__item">{lang === 'hi' ? ping.item.nameHi : ping.item.nameEn}</h2>
-      {quantity && <p className="sh-parchi__note">{quantity}</p>}
-      {ping.wantsDelivery && <p className="sh-parchi__note">{t.shop.wantsDeliveryLine}</p>}
+      <div className="sh-parchi__ruled">
+        <h2 className="sh-parchi__item">
+          {lang === 'hi' ? ping.item.nameHi : displayItemName(ping.item.nameEn)}
+        </h2>
+        {quantity && <p className="sh-parchi__note">{quantity}</p>}
+        {ping.wantsDelivery && <p className="sh-parchi__note">{t.shop.wantsDeliveryLine}</p>}
+      </div>
       {photos && ping.photoId && (
         <div className="sh-photo">
           <span className="sh-photo__tape" aria-hidden="true" />

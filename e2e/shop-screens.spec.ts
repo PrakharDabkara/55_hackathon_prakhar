@@ -193,7 +193,12 @@ test('every shop screen is readable and passes the accessibility scan', async ({
   await shop.getByRole('button', { name: 'Close' }).click();
   await shop.locator('.sh-deck__slide').nth(3).getByRole('button', { name: 'Answer' }).click();
   await shop.getByRole('radio', { name: 'Have it, will deliver' }).check();
+  await expect(shop.getByRole('button', { name: 'Confirm' })).toBeDisabled();
   await look(shop, 'E-answer-sheet-delivery');
+  await shop.getByLabel('Price', { exact: true }).fill('45');
+  await expect(shop.getByText('Customer pays cash · ₹65')).toBeVisible();
+  await expect(shop.getByRole('button', { name: 'Confirm' })).toBeEnabled();
+  await look(shop, 'E2-answer-sheet-delivery-priced');
   await shop.getByRole('button', { name: 'Close' }).click();
 
   // The menu.

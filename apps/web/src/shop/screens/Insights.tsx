@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import type { ShopApi, ShopDemand } from '../../lib/api.js';
-import { formatDuration } from '../lib/format.js';
+import { displayItemName, formatDuration } from '../lib/format.js';
 import { useDemand } from '../lib/hooks.js';
 import { Button } from '../ui/Button.js';
 import { SegmentedControl } from '../ui/SegmentedControl.js';
@@ -15,7 +15,7 @@ export function Insights({ api }: { api: Pick<ShopApi, 'shopDemand'> }) {
   const s = t.shop;
   const [days, setDays] = useState<1 | 7>(1);
   const { demand, failed, reload } = useDemand(api, days);
-  const name = (item: Item) => (lang === 'hi' ? item.nameHi : item.nameEn);
+  const name = (item: Item) => (lang === 'hi' ? item.nameHi : displayItemName(item.nameEn));
 
   const biggest = Math.max(1, ...(demand?.nearby.map((row) => row.customers) ?? [1]));
 

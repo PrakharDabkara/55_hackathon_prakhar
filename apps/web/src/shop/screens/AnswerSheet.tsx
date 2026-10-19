@@ -5,7 +5,7 @@ import { formatRupees } from '../../lib/money.js';
 import { parseAmount, type QuantityUnit } from '../../lib/offer.js';
 import type { PhotoApi } from '../../lib/photoApi.js';
 import { defaultOffer, parsePrice, priceInput } from '../lib/answer.js';
-import { formatQuantity } from '../lib/format.js';
+import { displayItemName, formatQuantity } from '../lib/format.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
@@ -75,7 +75,7 @@ export function AnswerSheet({ ping, shop, photos, preparePhoto, onSubmit, onClos
   return (
     <BottomSheet
       open
-      title={s.sheetTitle(ping.item.nameEn, asked)}
+      title={s.sheetTitle(displayItemName(ping.item.nameEn), asked)}
       onClose={onClose}
       footer={
         <Button variant="primary" className="sh-btn--block" disabled={busy} onClick={sendYes}>

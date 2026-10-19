@@ -4,7 +4,7 @@ import type { AnswerBody } from '../../lib/api.js';
 import { formatRupees } from '../../lib/money.js';
 import { parseFee } from '../../lib/offer.js';
 import { parsePrice, priceInput } from '../lib/answer.js';
-import { formatQuantity } from '../lib/format.js';
+import { displayItemName, formatQuantity } from '../lib/format.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Chip } from '../ui/Chip.js';
@@ -26,7 +26,7 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
   const [minutes, setMinutes] = useState<number>(
     MINUTES.find((m) => m === shop.defaultMinutes) ?? 30,
   );
-  const [errors, setErrors] = useState<{ price?: string; fee?: string }>({});
+  const [feeError, setFeeError] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -34,15 +34,14 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
   const feePaise = parseFee(fee);
   const total =
     typeof paise === 'number' && feePaise !== null ? formatRupees(paise + feePaise) : null;
+  // Promising a delivery needs a price the customer can see: no price, no Confirm.
+  const needsPrice = choice === 'deliver' && typeof paise !== 'number';
 
   async function confirm() {
     let body: AnswerBody;
     if (choice === 'deliver') {
-      const next: typeof errors = {};
-      if (typeof paise !== 'number') next.price = s.priceInvalid;
-      if (feePaise === null) next.fee = s.errFee;
-      setErrors(next);
-      if (next.price || next.fee || typeof paise !== 'number' || feePaise === null) return;
+      setFeeError(feePaise === null ? s.errFee : null);
+      if (typeof paise !== 'number' || feePaise === null) return;
       body = { answer: 'yes', pricePaise: paise, delivery: { feePaise, minutes } };
     } else if (choice === 'nodeliver') {
       body = { answer: 'yes' };
@@ -75,17 +74,22 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
   return (
     <BottomSheet
       open
-      title={s.sheetTitle(ping.item.nameEn, asked)}
+      title={s.sheetTitle(displayItemName(ping.item.nameEn), asked)}
       onClose={onClose}
       footer={
-        <Button
-          variant="primary"
-          className="sh-btn--block"
-          disabled={busy || choice === null}
-          onClick={() => void confirm()}
-        >
-          {s.confirm}
-        </Button>
+        <div className="sh-sheet__confirm">
+          {choice === 'deliver' && total && (
+            <p className="sh-heading sh-total">{s.customerPaysCash(total)}</p>
+          )}
+          <Button
+            variant="primary"
+            className="sh-btn--block"
+            disabled={busy || choice === null || needsPrice}
+            onClick={() => void confirm()}
+          >
+            {s.confirm}
+          </Button>
+        </div>
       }
     >
       <p className="sh-caption">{s.wantsDeliveryCaption(band)}</p>
@@ -106,8 +110,10 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
             inputMode="decimal"
             autoComplete="off"
             prefix="₹"
+            placeholder={s.pricePlaceholder}
             value={price}
-            error={errors.price ?? null}
+            {...(price.trim() === '' && { helper: s.enterPrice })}
+            error={paise === null ? s.priceInvalid : null}
             onChange={(event) => setPrice(event.target.value)}
           />
           <Field
@@ -117,7 +123,7 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
             prefix="₹"
             value={fee}
             helper={s.fromDeliverySettings}
-            error={errors.fee ?? null}
+            error={feeError}
             onChange={(event) => setFee(event.target.value)}
           />
           <div className="sh-field">
@@ -130,7 +136,6 @@ export function WantsDeliverySheet({ ping, shop, onSubmit, onClose }: SheetProps
               ))}
             </div>
           </div>
-          {total && <p className="sh-heading">{s.customerPaysCash(total)}</p>}
           <p className="sh-helper">{s.committed}</p>
         </>
       )}

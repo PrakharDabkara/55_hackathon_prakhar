@@ -117,6 +117,11 @@
   background: var(--paper-ink);
   color: var(--paper);
 }
+.sh-btn--neutral {
+  background: transparent;
+  border-color: var(--paper-edge);
+  color: var(--paper-ink);
+}
 .sh-btn--danger {
   background: var(--danger);
   color: var(--on-brand);
@@ -325,9 +330,12 @@
   font: 700 18px/24px var(--font-ui);
 }
 .sh-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   flex: none;
   min-height: var(--tap);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-2) 0 var(--space-4);
   border: 0;
   border-radius: var(--r-pill);
   font: 700 14px/20px var(--font-ui);
@@ -341,8 +349,21 @@
   color: var(--on-brand);
 }
 .sh-pill--closed {
+  flex-direction: row-reverse;
+  padding: 0 var(--space-4) 0 var(--space-2);
   background: var(--danger-soft);
   color: var(--danger);
+}
+/* The round knob that makes it read as a switch: on the right when open, on the left when closed. */
+.sh-pill__knob {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: var(--on-brand);
+}
+.sh-pill--closed .sh-pill__knob {
+  background: var(--danger);
 }
 
 /* Overlays */
@@ -480,6 +501,14 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-4) var(--space-4);
+}
+.sh-sheet__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sh-total {
+  text-align: center;
 }
 .sh-sheet__foot {
   flex: none;

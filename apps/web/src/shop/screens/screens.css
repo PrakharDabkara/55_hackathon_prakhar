@@ -229,10 +229,29 @@
   font-weight: 700;
   text-decoration: underline;
 }
+.sh-home {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sh-home__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+/* The two numbers stay at the bottom of the screen, above the phone's own bar. */
 .sh-strip {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
+  margin: auto calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--bg);
 }
 .sh-tiles {
   display: grid;
