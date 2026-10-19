@@ -164,5 +164,28 @@ describe('the shop stylesheets', () => {
     it('gives the header switch a round knob', () => {
       expect(rule('.sh-pill__knob')).toMatch(/border-radius:\s*var\(--r-pill\)/);
     });
+
+    it('draws everything on the paper with paper-locked tokens, since the paper stays light in dark mode', () => {
+      const parchi = shopCss.find((f) => f.path.endsWith('parchi.css'))?.text ?? '';
+      const onPaper =
+        /^(?:\.sh-parchi|\.sh-ring|\.sh-photo|\.sh-delivery-stamp|\.sh-peek|div\.sh-parchi)/;
+      // Tokens that change with the theme: on light paper they would turn pale or dark.
+      const themed =
+        /var\(--(?:brand|brand-soft|danger|danger-soft|ink|ink-muted|line|surface|surface-sunk|bg|on-brand)\)/;
+      const rules = [...parchi.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({
+        selector: (m[1] ?? '').trim(),
+        body: m[2] ?? '',
+      }));
+      const bad = rules
+        .filter((r) => r.selector.split(',').some((sel) => onPaper.test(sel.trim())))
+        .filter((r) => themed.test(r.body))
+        .map((r) => r.selector);
+      expect(bad).toEqual([]);
+    });
+
+    it('colours the time ring with the stamp colours: green normally, red under two minutes', () => {
+      expect(rule('.sh-ring')).toMatch(/var\(--stamp-yes\)/);
+      expect(rule('.sh-ring--urgent')).toMatch(/var\(--stamp-no\)/);
+    });
   });
 });
