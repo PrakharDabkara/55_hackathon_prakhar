@@ -6,10 +6,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 17, PR I, continued)
+
+- Catch-up pings: a shop that opens, finishes onboarding or is created by the simulator is asked about the live nearby requests in its categories that it never saw (not those ending within 2 minutes, answered, or at their maximum of pings). ADR-0038.
+- `docs/scenarios.md`: 15 cross-feature scenarios with the expected behaviour, each with an integration test.
+- Plan cards show the shop's "thoda/bahut hai".
+
+### Changed (Day 17, PR I, continued)
+
+- The agent prompt preselects what the customer named plus extras necessary for the stated goal (replaces "always tick glue and scissors").
+- A closed shop is not pushed a new question.
+
 ### Changed (Day 17, PR I: clean-up before the UI overhaul)
 
 - Errand agent: an identical tool call within one errand is answered from the first result, without running again or counting against a cap (ADR-0037). The agent eval report names the missing items and the plan's items.
-- "colours" means colour pencils; for a school project glue and scissors are ticked. Text that is no product (a profession, a vehicle, a place) never reaches the model; the model only asks about short generic words; a brand is not its generic item (catalog version 7, resolve prompt).
+- "colours" means colour pencils; for a school project the checklist rule is general. Text that is no product (a profession, a vehicle, a place) never reaches the model; the model only asks about short generic words; a brand is not its generic item (catalog version 7, resolve prompt).
 - The "Dukaan ne jawab diya" push is held back only for requests an errand opened itself, not for the customer's separate searches.
 
 ### Fixed (Day 17, PR I)

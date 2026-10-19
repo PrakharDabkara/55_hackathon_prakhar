@@ -155,6 +155,21 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(to(seekerSub)).toHaveLength(0);
     });
 
+    it('a shop that is closed when the question arrives is not pushed (the card waits in its list)', async () => {
+      await search();
+      await notifier.idle();
+      const ping = (await pool.query<{ id: string }>(`SELECT id FROM pings LIMIT 1`)).rows[0];
+      queued = [];
+      await pool.query(`UPDATE shops SET closed_until = now() + interval '5 hours'`);
+      realtime.events.publish({
+        to: { userId: shop.userId },
+        type: 'ping.created',
+        data: { pingId: ping?.id },
+      });
+      await notifier.idle();
+      expect(to(shopSub)).toHaveLength(0);
+    });
+
     it('is never told when the shop is a simulated one', async () => {
       await pool.query(`UPDATE shops SET is_simulated = true`);
       await search();

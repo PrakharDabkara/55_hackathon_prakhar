@@ -105,3 +105,14 @@ describe('"Grahak ne confirm kiya" on plan cards (PR H)', () => {
     expect(screen.getByText('Confirmed by a customer')).toBeTruthy();
   });
 });
+
+describe('quantity on plan cards (PR I, scenario S13)', () => {
+  it('shows what the shop said about how much it has', () => {
+    setup([
+      planItem({ itemId: 'i-tea', status: 'likely', quantityHint: 'few' }),
+      planItem({ itemId: 'i-sugar', shopId: 's2', status: 'likely', quantityHint: 'plenty' }),
+    ]);
+    expect(screen.getByText('थोड़ा बचा है')).toBeTruthy();
+    expect(screen.getByText('काफ़ी है')).toBeTruthy();
+  });
+});

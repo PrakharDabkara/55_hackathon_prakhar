@@ -50,6 +50,8 @@ export interface PlanItem {
   delivery: { feePaise: number | null; minutes: number | null } | null;
   /** The exact quantity the shop said (a yes) or last said (learned stock: remembered, never a promise). */
   offeredQuantity: ExactQuantity | null;
+  /** What the shop said about how much it has, if it only said "thoda" or "bahut" (learned stock). */
+  quantityHint: 'few' | 'plenty' | null;
   /** Enough for what the customer asked? Only when both are in units that compare (ADR-0031). */
   quantityCheck: 'enough' | 'short' | 'unknown' | null;
   /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Pichhla jawab: kal" for learned stock. */
@@ -273,6 +275,7 @@ export async function buildPlan(
         freshness: previousAnswerLabel(stock.lastConfirmedAt, now),
         delivery: stock.delivery,
         offeredQuantity: stock.quantity,
+        quantityHint: stock.quantityHint,
         ...(stock.doubtful && { doubtful: true }),
         ...(stock.customerVerified && { customerVerified: true }),
       });
@@ -309,6 +312,7 @@ export async function buildPlan(
         refused: refused.get(refusalKey(claim.text)) ?? null,
         delivery: null,
         offeredQuantity: null,
+        quantityHint: null,
         quantityCheck: null,
       };
       const offer = bought.get(String(index));
@@ -323,6 +327,7 @@ export async function buildPlan(
           photoId: offer.status === 'confirmed' ? (offer.photoId ?? null) : null,
           delivery: offer.delivery ?? null,
           offeredQuantity: offer.offeredQuantity ?? null,
+          quantityHint: offer.status === 'likely' ? (offer.quantityHint ?? null) : null,
           quantityCheck: quantityCheckFor(claim.quantity ?? 1, offer.offeredQuantity ?? null),
           freshness: offer.freshness,
           ...(offer.status === 'likely' &&

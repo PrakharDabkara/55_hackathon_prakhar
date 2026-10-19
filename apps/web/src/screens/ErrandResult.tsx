@@ -308,6 +308,9 @@ function PlanRow({
         {item.quantity > 1 && <span className="qty"> × {item.quantity}</span>}
       </p>
       {item.freshness && <p className="meta">{item.freshness}</p>}
+      {item.quantityHint && (
+        <p className="meta">{item.quantityHint === 'few' ? t.few : t.plenty}</p>
+      )}
       <OfferLines
         quantity={item.offeredQuantity}
         check={item.quantityCheck}

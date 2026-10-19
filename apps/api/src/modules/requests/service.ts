@@ -35,6 +35,8 @@ export interface RequestHooks {
   scheduleExpiry?: (requestId: string, expiresAt: Date) => Promise<void>;
   /** Queue the job that picks shops and sends the pings (a request just went PINGING). */
   enqueueFanout?: (requestId: string) => Promise<void>;
+  /** Queue the catch-up for a shop that opened or just joined (ADR-0038). */
+  enqueueShopCatchUp?: (shopId: string) => Promise<void>;
 }
 
 export interface RequestsContext {

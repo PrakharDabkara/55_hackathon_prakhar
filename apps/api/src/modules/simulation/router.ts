@@ -26,6 +26,8 @@ interface Deps {
   logger: Logger;
   realtime: Realtime;
   adminPhones: readonly string[];
+  /** Queues the catch-up for each new shop (ADR-0038). */
+  hooks?: { enqueueShopCatchUp?: ((shopId: string) => Promise<void>) | undefined };
 }
 
 const hidden = () => new ApiError(404, 'not_found', 'No such route');
@@ -34,13 +36,14 @@ const hidden = () => new ApiError(404, 'not_found', 'No such route');
  * Admin-only simulator endpoints. Every refusal is the same 404 as an unknown route, so nobody
  * can tell they exist; with no ADMIN_PHONES nobody can use them at all.
  */
-export function simulationRouter({ db, logger, realtime, adminPhones }: Deps): Router {
+export function simulationRouter({ db, logger, realtime, adminPhones, hooks }: Deps): Router {
   const router = Router();
   const requireAdmin = createRequireAdmin(db, adminPhones);
 
   router.post('/admin/sim/shops', requireAdmin, async (req, res) => {
     const input = parse(createBody, req.body);
     const shops = await createSimulatedShops(db, input);
+    for (const shop of shops) void hooks?.enqueueShopCatchUp?.(shop.shopId).catch(() => undefined);
     (req.log ?? logger).info(
       { adminId: authOf(req).user.id, count: shops.length, seed: input.seed },
       'simulated shops created',

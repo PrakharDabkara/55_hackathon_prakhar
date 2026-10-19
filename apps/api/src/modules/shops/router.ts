@@ -45,8 +45,16 @@ const patchBody = z
   .refine((b) => (b.lat === undefined) === (b.lng === undefined), 'lat and lng go together')
   .refine((b) => Object.values(b).some((v) => v !== undefined), 'nothing to update');
 
-export function shopsRouter({ db }: { db: Queryable }): Router {
+/** What the shops module may ask of the rest: queue the catch-up for a shop (ADR-0038). */
+export interface ShopHooks {
+  enqueueShopCatchUp?: ((shopId: string) => Promise<void>) | undefined;
+}
+
+export function shopsRouter({ db, hooks }: { db: Queryable; hooks?: ShopHooks }): Router {
   const router = Router();
+  /** Best effort: a shop that cannot be caught up still works; requests expire on time. */
+  const catchUp = (shopId: string) =>
+    void hooks?.enqueueShopCatchUp?.(shopId).catch(() => undefined);
   const shopOnly = [createRequireAuth(db), requireRole('shop')];
 
   router.post('/shops', ...shopOnly, async (req, res) => {
@@ -56,6 +64,7 @@ export function shopsRouter({ db }: { db: Queryable }): Router {
       categories: body.categories ?? DEFAULT_CATEGORIES,
     });
     if (!shop) throw new ApiError(409, 'shop_exists', 'You already have a shop');
+    catchUp(shop.id);
     res.status(201).json(shop);
   });
 
@@ -83,6 +92,7 @@ export function shopsRouter({ db }: { db: Queryable }): Router {
     const { open } = parse(z.object({ open: z.boolean() }), req.body);
     const shop = await setShopOpen(db, authOf(req).user.id, open);
     if (!shop) throw new ApiError(404, 'not_found', 'You have not created a shop yet');
+    if (open) catchUp(shop.id);
     res.json(shop);
   });
 

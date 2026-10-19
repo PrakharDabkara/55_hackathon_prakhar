@@ -80,14 +80,20 @@ export function createNotifier(deps: Deps): Notifier {
   }
 
   async function onPing(userId: string, pingId: string) {
-    const { rows } = await db.query<{ name_en: string; is_simulated: boolean }>(
-      `SELECT i.name_en, s.is_simulated
+    const { rows } = await db.query<{
+      name_en: string;
+      is_simulated: boolean;
+      closed: boolean;
+    }>(
+      `SELECT i.name_en, s.is_simulated,
+              (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed
          FROM pings p JOIN shops s ON s.id = p.shop_id JOIN items i ON i.id = p.item_id
         WHERE p.id = $1 AND s.owner_user_id = $2`,
       [pingId, userId],
     );
     const row = rows[0];
-    if (!row || row.is_simulated) return;
+    // A closed shop is not nagged: its card waits in the list (scenario S9).
+    if (!row || row.is_simulated || row.closed) return;
     await notify(userId, 'new_ping', { item: row.name_en });
   }
 

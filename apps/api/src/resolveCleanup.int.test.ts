@@ -95,9 +95,17 @@ describe('resolve: things that are not products never reach the model, and a mod
   });
 });
 
-describe('errand prompt for a school project', () => {
-  it('ticks the usual extras glue and scissors', () => {
-    const system = buildSystemPrompt({ maxItems: 10 });
-    expect(system).toMatch(/school project[^.]*always tick[^.]*glue[^.]*scissors/i);
+describe('errand prompt: what is ticked in a checklist', () => {
+  const system = buildSystemPrompt({ maxItems: 10 });
+
+  it('preselects what the customer named, plus extras the stated goal cannot do without', () => {
+    expect(system).toMatch(/preselect[^.]*(everything|every item)[^.]*named/i);
+    expect(system).toMatch(/necessary for the (stated )?goal/i);
+    expect(system).toMatch(/nice[- ]to[- ]have/i);
+  });
+
+  it("is a general rule: no one project's items are listed as always ticked", () => {
+    expect(system).not.toMatch(/always tick/i);
+    expect(system).not.toMatch(/glue \(glue stick\)/i);
   });
 });

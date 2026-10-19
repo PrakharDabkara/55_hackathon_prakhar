@@ -111,6 +111,7 @@ describe('catch-up pings for a shop that opens late', () => {
     await fan(id);
     expect(await pingCount(id)).toBe(0); // closed: nobody was asked
 
+    wanted.length = 0;
     expect((await reopen(shop)).status).toBe(200);
     expect(wanted).toEqual([shop.shopId]); // the open tap queues the catch-up
     expect(await catchUp(shop.shopId)).toMatchObject({ sent: 1 });

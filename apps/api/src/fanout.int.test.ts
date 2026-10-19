@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import { createRequest, fanOutPings, type RequestsContext } from './modules/requests/index.js';
@@ -49,6 +49,11 @@ describe('fan-out, ping answers and the price check', () => {
     seeker = await loginAs(app, 'seeker', String(phone++));
     seeker2 = await loginAs(app, 'seeker', String(phone++));
   }, 300_000);
+
+  // A shop made now is caught up on every live request (ADR-0038): every test starts with none.
+  beforeEach(async () => {
+    await pool.query(`UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING')`);
+  });
 
   afterAll(async () => {
     await workers?.close();
@@ -389,6 +394,10 @@ describe('fan-out, ping answers and the price check', () => {
       await request(app).put('/shops/me/open').set(auth(shop)).send({ open: true });
       await new Promise((r) => setTimeout(r, 500));
       expect(await ours()).toHaveLength(1);
+      // Leave the street as the other tests expect it.
+      await pool.query('DELETE FROM pings WHERE request_id = $1', [created.body.id]);
+      await request(app).post(`/requests/${created.body.id}/close`).set(auth(seeker));
+      await pool.query('DELETE FROM shops WHERE id = $1', [shop.shopId]);
     });
   });
 
