@@ -1,0 +1,71 @@
+/*
+ * Design tokens (ADR-0041). Components use these only: no hex values elsewhere.
+ * Scoped to the shop app, not :root: the customer app's stylesheet still defines --ink, --line,
+ * --paper, --danger and --tap with other values until it is restyled.
+ */
+.shop-app {
+  --bg: #f3f6f4;
+  --surface: #ffffff;
+  --surface-sunk: #e8eeeb;
+  --line: #d3ddd8;
+  --ink: #18223b;
+  --ink-muted: #566173;
+  --brand: #0d5a43;
+  --brand-soft: #d9ede4;
+  --on-brand: #ffffff;
+  --marigold: #f2a516;
+  --on-marigold: #18223b;
+  --paper: #fbf5e6;
+  --paper-edge: #eadfc4;
+  --paper-ink: #1c2a52;
+  --paper-ink-muted: #5a5e6b;
+  --stamp-yes: #0d5a43;
+  --stamp-no: #a3261d;
+  --stamp-delivery: #8a4b00;
+  --danger: #b3261e;
+  --danger-soft: #fbe3e1;
+  --focus: #1f6feb;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --tap: 48px;
+
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 24px;
+  --r-pill: 999px;
+
+  --shadow-slip: 0 8px 20px rgba(24, 34, 59, 0.12);
+  --shadow-sheet: 0 -8px 32px rgba(24, 34, 59, 0.18);
+
+  --font-ui: Mukta, 'Noto Sans', system-ui, sans-serif;
+  --font-hand: Kalam, 'Segoe Print', cursive;
+
+  --motion: 160ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shop-app {
+    --bg: #0e1412;
+    --surface: #17201d;
+    --surface-sunk: #0a0f0d;
+    --line: #2b3833;
+    --ink: #e9edf5;
+    --ink-muted: #9ba7b5;
+    --brand: #4fbf93;
+    --brand-soft: #163a2e;
+    --on-brand: #06140f;
+    --marigold: #f5b334;
+    --paper: #efe6cf;
+    --paper-edge: #d9cdae;
+    --paper-ink-muted: #55596a;
+    --danger: #f2857d;
+    --danger-soft: #3a1a18;
+    --focus: #79b0ff;
+  }
+}
