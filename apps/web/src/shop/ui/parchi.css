@@ -135,10 +135,10 @@ div.sh-parchi__ruled {
   width: 44px;
   height: 44px;
   border-radius: var(--r-pill);
-  background: conic-gradient(var(--brand) var(--ring, 100%), var(--paper-edge) 0);
+  background: conic-gradient(var(--stamp-yes) var(--ring, 100%), var(--paper-edge) 0);
 }
 .sh-ring--urgent {
-  background: conic-gradient(var(--danger) var(--ring, 100%), var(--paper-edge) 0);
+  background: conic-gradient(var(--stamp-no) var(--ring, 100%), var(--paper-edge) 0);
 }
 .sh-ring__label {
   display: grid;
@@ -158,7 +158,7 @@ div.sh-parchi__ruled {
   align-self: flex-start;
   margin: var(--space-2) 0;
   padding: var(--space-2);
-  background: var(--surface);
+  background: var(--paper);
   transform: rotate(-2deg);
 }
 .sh-photo__tape {

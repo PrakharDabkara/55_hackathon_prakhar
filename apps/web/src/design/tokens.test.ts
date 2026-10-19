@@ -166,7 +166,10 @@ describe('the shop stylesheets', () => {
     });
 
     it('draws everything on the paper with paper-locked tokens, since the paper stays light in dark mode', () => {
-      const parchi = shopCss.find((f) => f.path.endsWith('parchi.css'))?.text ?? '';
+      const parchi = (shopCss.find((f) => f.path.endsWith('parchi.css'))?.text ?? '').replace(
+        /\/\*[\s\S]*?\*\//g,
+        '',
+      );
       const onPaper =
         /^(?:\.sh-parchi|\.sh-ring|\.sh-photo|\.sh-delivery-stamp|\.sh-peek|div\.sh-parchi)/;
       // Tokens that change with the theme: on light paper they would turn pale or dark.
