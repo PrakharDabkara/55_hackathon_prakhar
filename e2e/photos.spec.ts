@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
+import { newCorner } from './orderFlow.js';
+import { uniqueName } from './unique.js';
 
 // Photos on both sides, in two real browsers at 360 px against the real API and Postgres: a
 // customer attaches a photo to a search, the shopkeeper sees it on the request card and answers
@@ -8,7 +10,7 @@ import sharp from 'sharp';
 const VIEWPORT = { width: 360, height: 740 };
 // Far from the simulated shops (around the demo location, 12 km away), so only the real shop below
 // is asked and nobody answers before it can.
-const ELSEWHERE = { latitude: 22.8, longitude: 75.95 };
+const ELSEWHERE = newCorner();
 test.use({ geolocation: ELSEWHERE, permissions: ['geolocation'] });
 
 /** A 3000 x 2000 photo with a GPS position and a camera name, as a phone makes it. */
@@ -70,7 +72,7 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
   const shopContext = await browser.newContext({ viewport: VIEWPORT });
   const shop = await shopContext.newPage();
   await login(shop, '/app/shop');
-  await shop.getByLabel('Dukaan ka naam').fill('Photo Test Kirana');
+  await shop.getByLabel('Dukaan ka naam').fill(uniqueName('Photo Test Kirana'));
   await shop.getByRole('button', { name: /किराना/ }).click();
   await shop.getByText('Haath se likhein').click();
   await shop.getByLabel('Latitude').fill(String(ELSEWHERE.latitude));

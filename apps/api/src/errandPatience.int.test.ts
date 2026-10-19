@@ -486,7 +486,8 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         ),
       );
       expect(results[2]).toMatchObject({ error: true });
-      expect(results[3]).toMatchObject({ reused: true });
+      // The same call again is answered from the first result (PR I), free of the cap.
+      expect(results[3]).toMatchObject({ replayed: true });
       // The turn only asked shops (one refused), so the errand waits; the refusal is in the log.
       expect((await row(id)).state).toBe('WAITING_FOR_SHOPS');
     });

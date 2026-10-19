@@ -133,11 +133,13 @@ describe('named captures of matchTask fill {{name}} in the script (PR I: a new i
   const task = (text: string): ChatMessage => ({ role: 'user', text: `<<<TASK\n${text}\nTASK>>>` });
 
   it('puts the captured words into the arguments', async () => {
-    const turn = await scenarioHandler(scripted)(
+    const turn = (await scenarioHandler(scripted)(
       request([task('project ke liye bead dazzling kit zephyr, chart paper')]),
-    );
+    )) as { toolCalls?: { args: unknown }[] };
     expect(turn.toolCalls?.[0]?.args).toEqual({ text: 'bead dazzling kit zephyr' });
-    const plain = await scenarioHandler(scripted)(request([task('bead dazzling kit')]));
+    const plain = (await scenarioHandler(scripted)(request([task('bead dazzling kit')]))) as {
+      toolCalls?: { args: unknown }[];
+    };
     expect(plain.toolCalls?.[0]?.args).toEqual({ text: 'bead dazzling kit' });
   });
 

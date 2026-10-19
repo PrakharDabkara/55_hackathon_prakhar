@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 17, PR I: clean-up before the UI overhaul)
+
+- Errand agent: an identical tool call within one errand is answered from the first result, without running again or counting against a cap (ADR-0037). The agent eval report names the missing items and the plan's items.
+- "colours" means colour pencils; for a school project glue and scissors are ticked. Text that is no product (a profession, a vehicle, a place) never reaches the model; the model only asks about short generic words; a brand is not its generic item (catalog version 7, resolve prompt).
+- The "Dukaan ne jawab diya" push is held back only for requests an errand opened itself, not for the customer's separate searches.
+
+### Fixed (Day 17, PR I)
+
+- e2e specs use their own corner, shop name and new-item name per run, so the suite passes on a used database.
+- A race in the errandPatience integration test.
+
 ### Added (Day 17, PR H: understanding follow-ups)
 
 - "Kya aapka matlab…?": a plain search that is not an exact catalog name or synonym is confirmed before any shop is asked (`422 item_confirm` with the item and up to two alternatives; "Haan, yahi", the alternatives, "Kuch aur likhein"). Shown, confirmed and changed counts are log events (`understanding_*`). ADR-0036.

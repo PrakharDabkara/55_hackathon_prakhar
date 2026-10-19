@@ -1,5 +1,5 @@
 {
-  "note": "The scripted model for e2e/errand.spec.ts (LLM_PROVIDER=fake, FAKE_LLM_SCENARIO). Turn n is played when the conversation holds n model messages. '$item:<words>' becomes the item id that resolve_item returned for those words. See docs/runbook.md, 'Scripted fake model'. 'scripts' holds one script per task (the first whose matchTask matches); 'classify' scripts the safety classifier for new items (ADR-0028).",
+  "note": "The scripted model for e2e/errand.spec.ts (LLM_PROVIDER=fake, FAKE_LLM_SCENARIO). Turn n is played when the conversation holds n model messages. '$item:<words>' becomes the item id that resolve_item returned for those words. See docs/runbook.md, 'Scripted fake model'. 'scripts' holds one script per task (the first whose matchTask matches); 'classify' scripts the safety classifier for new items (ADR-0028). The school-project script takes its new item's name from the task ({{kit}}), so every run makes a new item (e2e/unique.ts).",
   "turns": [
     {
       "toolCalls": [
@@ -16,68 +16,23 @@
     },
     {
       "toolCalls": [
-        {
-          "name": "resolve_item",
-          "args": {
-            "text": "chai patti"
-          }
-        },
-        {
-          "name": "resolve_item",
-          "args": {
-            "text": "adrak"
-          }
-        },
-        {
-          "name": "resolve_item",
-          "args": {
-            "text": "doodh"
-          }
-        }
+        { "name": "resolve_item", "args": { "text": "chai patti" } },
+        { "name": "resolve_item", "args": { "text": "adrak" } },
+        { "name": "resolve_item", "args": { "text": "doodh" } }
       ]
     },
     {
       "toolCalls": [
-        {
-          "name": "find_item_nearby",
-          "args": {
-            "itemId": "$item:chai patti"
-          }
-        },
-        {
-          "name": "find_item_nearby",
-          "args": {
-            "itemId": "$item:adrak"
-          }
-        },
-        {
-          "name": "find_item_nearby",
-          "args": {
-            "itemId": "$item:doodh"
-          }
-        }
+        { "name": "find_item_nearby", "args": { "itemId": "$item:chai patti" } },
+        { "name": "find_item_nearby", "args": { "itemId": "$item:adrak" } },
+        { "name": "find_item_nearby", "args": { "itemId": "$item:doodh" } }
       ]
     },
     {
       "toolCalls": [
-        {
-          "name": "ask_shops",
-          "args": {
-            "itemId": "$item:chai patti"
-          }
-        },
-        {
-          "name": "ask_shops",
-          "args": {
-            "itemId": "$item:adrak"
-          }
-        },
-        {
-          "name": "ask_shops",
-          "args": {
-            "itemId": "$item:doodh"
-          }
-        }
+        { "name": "ask_shops", "args": { "itemId": "$item:chai patti" } },
+        { "name": "ask_shops", "args": { "itemId": "$item:adrak" } },
+        { "name": "ask_shops", "args": { "itemId": "$item:doodh" } }
       ]
     },
     {
@@ -86,21 +41,9 @@
           "name": "submit_plan",
           "args": {
             "items": [
-              {
-                "text": "chai patti",
-                "itemId": "$item:chai patti",
-                "status": "confirmed"
-              },
-              {
-                "text": "adrak",
-                "itemId": "$item:adrak",
-                "status": "confirmed"
-              },
-              {
-                "text": "doodh",
-                "itemId": "$item:doodh",
-                "status": "confirmed"
-              }
+              { "text": "chai patti", "itemId": "$item:chai patti", "status": "confirmed" },
+              { "text": "adrak", "itemId": "$item:adrak", "status": "confirmed" },
+              { "text": "doodh", "itemId": "$item:doodh", "status": "confirmed" }
             ],
             "notes": "Chai ka saaman mil gaya."
           }
@@ -110,7 +53,7 @@
   ],
   "scripts": [
     {
-      "matchTask": "bead dazzling kit",
+      "matchTask": "(?<kit>bead dazzling kit( [a-z]+)?)",
       "turns": [
         {
           "toolCalls": [
@@ -119,7 +62,7 @@
               "args": {
                 "question": "Project ke liye ye cheezein?",
                 "options": [
-                  "bead dazzling kit",
+                  "{{kit}}",
                   "chart paper",
                   "crayons",
                   "sketch pens",
@@ -134,104 +77,29 @@
         },
         {
           "toolCalls": [
-            {
-              "name": "resolve_item",
-              "args": {
-                "text": "bead dazzling kit"
-              }
-            },
-            {
-              "name": "resolve_item",
-              "args": {
-                "text": "chart paper"
-              }
-            },
-            {
-              "name": "resolve_item",
-              "args": {
-                "text": "crayons"
-              }
-            },
-            {
-              "name": "resolve_item",
-              "args": {
-                "text": "sketch pens"
-              }
-            },
-            {
-              "name": "resolve_item",
-              "args": {
-                "text": "glue stick"
-              }
-            }
+            { "name": "resolve_item", "args": { "text": "{{kit}}" } },
+            { "name": "resolve_item", "args": { "text": "chart paper" } },
+            { "name": "resolve_item", "args": { "text": "crayons" } },
+            { "name": "resolve_item", "args": { "text": "sketch pens" } },
+            { "name": "resolve_item", "args": { "text": "glue stick" } }
           ]
         },
         {
           "toolCalls": [
-            {
-              "name": "find_item_nearby",
-              "args": {
-                "itemId": "$item:bead dazzling kit"
-              }
-            },
-            {
-              "name": "find_item_nearby",
-              "args": {
-                "itemId": "$item:chart paper"
-              }
-            },
-            {
-              "name": "find_item_nearby",
-              "args": {
-                "itemId": "$item:crayons"
-              }
-            },
-            {
-              "name": "find_item_nearby",
-              "args": {
-                "itemId": "$item:sketch pens"
-              }
-            },
-            {
-              "name": "find_item_nearby",
-              "args": {
-                "itemId": "$item:glue stick"
-              }
-            }
+            { "name": "find_item_nearby", "args": { "itemId": "$item:{{kit}}" } },
+            { "name": "find_item_nearby", "args": { "itemId": "$item:chart paper" } },
+            { "name": "find_item_nearby", "args": { "itemId": "$item:crayons" } },
+            { "name": "find_item_nearby", "args": { "itemId": "$item:sketch pens" } },
+            { "name": "find_item_nearby", "args": { "itemId": "$item:glue stick" } }
           ]
         },
         {
           "toolCalls": [
-            {
-              "name": "ask_shops",
-              "args": {
-                "itemId": "$item:bead dazzling kit"
-              }
-            },
-            {
-              "name": "ask_shops",
-              "args": {
-                "itemId": "$item:chart paper"
-              }
-            },
-            {
-              "name": "ask_shops",
-              "args": {
-                "itemId": "$item:crayons"
-              }
-            },
-            {
-              "name": "ask_shops",
-              "args": {
-                "itemId": "$item:sketch pens"
-              }
-            },
-            {
-              "name": "ask_shops",
-              "args": {
-                "itemId": "$item:glue stick"
-              }
-            }
+            { "name": "ask_shops", "args": { "itemId": "$item:{{kit}}" } },
+            { "name": "ask_shops", "args": { "itemId": "$item:chart paper" } },
+            { "name": "ask_shops", "args": { "itemId": "$item:crayons" } },
+            { "name": "ask_shops", "args": { "itemId": "$item:sketch pens" } },
+            { "name": "ask_shops", "args": { "itemId": "$item:glue stick" } }
           ]
         },
         {
@@ -240,31 +108,11 @@
               "name": "submit_plan",
               "args": {
                 "items": [
-                  {
-                    "text": "bead dazzling kit",
-                    "itemId": "$item:bead dazzling kit",
-                    "status": "confirmed"
-                  },
-                  {
-                    "text": "chart paper",
-                    "itemId": "$item:chart paper",
-                    "status": "confirmed"
-                  },
-                  {
-                    "text": "crayons",
-                    "itemId": "$item:crayons",
-                    "status": "confirmed"
-                  },
-                  {
-                    "text": "sketch pens",
-                    "itemId": "$item:sketch pens",
-                    "status": "confirmed"
-                  },
-                  {
-                    "text": "glue stick",
-                    "itemId": "$item:glue stick",
-                    "status": "confirmed"
-                  }
+                  { "text": "{{kit}}", "itemId": "$item:{{kit}}", "status": "confirmed" },
+                  { "text": "chart paper", "itemId": "$item:chart paper", "status": "confirmed" },
+                  { "text": "crayons", "itemId": "$item:crayons", "status": "confirmed" },
+                  { "text": "sketch pens", "itemId": "$item:sketch pens", "status": "confirmed" },
+                  { "text": "glue stick", "itemId": "$item:glue stick", "status": "confirmed" }
                 ],
                 "notes": "School project ka saaman."
               }
@@ -274,11 +122,5 @@
       ]
     }
   ],
-  "classify": [
-    {
-      "match": "bead dazzling",
-      "verdict": "allowed",
-      "category": "stationery"
-    }
-  ]
+  "classify": [{ "match": "bead dazzling", "verdict": "allowed", "category": "stationery" }]
 }
