@@ -177,13 +177,13 @@ describe('Deck', () => {
     expect(onIndexChange).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves a peek of the next slip only when there is one', () => {
+  it('leaves a peek of the next slip behind the current one, and none behind the last', () => {
     const { rerender } = renderApp(
-      <Deck slides={slides(2)} index={0} onIndexChange={vi.fn()} />,
+      <Deck slides={slides(3)} index={0} onIndexChange={vi.fn()} />,
       'en',
     );
-    expect(document.querySelector('.sh-peek')).toBeTruthy();
-    rerender(<Deck slides={slides(2)} index={1} onIndexChange={vi.fn()} />);
-    expect(document.querySelector('.sh-peek')).toBeNull();
+    expect(document.querySelectorAll('.sh-peek')).toHaveLength(1);
+    rerender(<Deck slides={slides(3)} index={2} onIndexChange={vi.fn()} />);
+    expect(document.querySelectorAll('.sh-peek')).toHaveLength(0);
   });
 });

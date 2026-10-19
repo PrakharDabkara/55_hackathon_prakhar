@@ -19,7 +19,11 @@ export function Deck({ slides, index, onIndexChange }: Props) {
   const settled = useRef(index);
 
   /** How far one slip is from the next: the width of a slide. */
-  const step = () => (track.current?.firstElementChild as HTMLElement | null)?.offsetWidth ?? 0;
+  const step = () => {
+    const [first, second] = Array.from(track.current?.children ?? []) as HTMLElement[];
+    if (!first) return 0;
+    return second ? second.offsetLeft - first.offsetLeft : first.offsetWidth;
+  };
 
   // Follow the index when something else (the arrow buttons, an answered slip leaving) changes it.
   useEffect(() => {
@@ -53,11 +57,9 @@ export function Deck({ slides, index, onIndexChange }: Props) {
 
   const dots = Math.min(slides.length, MAX_DOTS);
   const extra = slides.length - dots;
-  const hasNext = index < slides.length - 1;
 
   return (
     <div className="sh-deck">
-      {hasNext && <div className="sh-peek" aria-hidden="true" />}
       <div
         ref={track}
         className="sh-deck__track"
@@ -67,9 +69,13 @@ export function Deck({ slides, index, onIndexChange }: Props) {
         onScroll={onScroll}
         onKeyDown={onKeyDown}
       >
-        {slides.map(({ key, node }) => (
+        {slides.map(({ key, node }, i) => (
           <div key={key} className="sh-deck__slide">
-            {node}
+            {/* The next slip, 8 px out from behind the one in front and turned 2 degrees. */}
+            {i === index && i < slides.length - 1 && (
+              <span className="sh-peek" aria-hidden="true" />
+            )}
+            <div className="sh-deck__front">{node}</div>
           </div>
         ))}
       </div>
