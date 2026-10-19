@@ -226,7 +226,7 @@ describe('delivery orders', () => {
       expect(list.body[0]).toMatchObject({
         id: placed.body.id,
         state: 'REQUESTED',
-        contactName: 'Grahak',
+        contactName: 'Customer',
         feePaise: 3000,
         itemsTotalPaise: 4500,
       });

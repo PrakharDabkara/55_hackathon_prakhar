@@ -61,7 +61,7 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   await expect(page.locator('.plan-item')).toHaveCount(3);
   // The summary is built from the plan, not the model's sentence.
   await expect(page.getByRole('status', { name: 'Summary' })).toContainText('3 of 3 items found');
-  await expect(page.getByText(/Confirmed|Pichhla jawab/).first()).toBeVisible();
+  await expect(page.getByText(/Confirmed|Last answer/).first()).toBeVisible();
   await expect(page.getByRole('group', { name: 'Totals' })).toContainText('₹');
 
   // Numbered stops on the map, in route order, and a link that opens Google Maps with them.

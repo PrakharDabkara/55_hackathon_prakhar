@@ -7,14 +7,14 @@ const ago = (ms: number) => new Date(now.getTime() - ms);
 
 describe('previousAnswerLabel (learned stock is a remembered answer, never "Confirmed")', () => {
   it('says aaj within a day, kal for the next, then N din pehle', () => {
-    expect(previousAnswerLabel(ago(5 * 60_000), now)).toBe('Pichhla jawab: aaj');
-    expect(previousAnswerLabel(ago(23 * HOUR), now)).toBe('Pichhla jawab: aaj');
-    expect(previousAnswerLabel(ago(25 * HOUR), now)).toBe('Pichhla jawab: kal');
-    expect(previousAnswerLabel(ago(49 * HOUR), now)).toBe('Pichhla jawab: 2 din pehle');
-    expect(previousAnswerLabel(ago(6 * 24 * HOUR), now)).toBe('Pichhla jawab: 6 din pehle');
+    expect(previousAnswerLabel(ago(5 * 60_000), now)).toBe('Last answer: today');
+    expect(previousAnswerLabel(ago(23 * HOUR), now)).toBe('Last answer: today');
+    expect(previousAnswerLabel(ago(25 * HOUR), now)).toBe('Last answer: yesterday');
+    expect(previousAnswerLabel(ago(49 * HOUR), now)).toBe('Last answer: 2 days ago');
+    expect(previousAnswerLabel(ago(6 * 24 * HOUR), now)).toBe('Last answer: 6 days ago');
   });
 
   it('treats a timestamp slightly in the future as today', () => {
-    expect(previousAnswerLabel(new Date(now.getTime() + 60_000), now)).toBe('Pichhla jawab: aaj');
+    expect(previousAnswerLabel(new Date(now.getTime() + 60_000), now)).toBe('Last answer: today');
   });
 });

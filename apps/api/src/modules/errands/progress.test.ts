@@ -20,14 +20,14 @@ describe('buildProgress', () => {
     expect(buildProgress([model], 'PLANNING', null)).toEqual([]);
   });
 
-  it('counts the items understood, once: "Samjha: 4 cheezein"', () => {
+  it('counts the items understood, once: "Understood: 4 items"', () => {
     const steps = Array.from({ length: 4 }, (_, i) =>
       tool('resolve_item', { text: `t${i}` }, { status: 'resolved' }),
     );
-    expect(buildProgress(steps, 'PLANNING', null)).toEqual(['Samjha: 4 cheezein']);
+    expect(buildProgress(steps, 'PLANNING', null)).toEqual(['Understood: 4 items']);
   });
 
-  describe('"Samjha" counts every item in the task (Day 14a bug)', () => {
+  describe('"Understood" counts every item in the task (Day 14a bug)', () => {
     it('counts an item that could not be resolved and one whose lookup failed', () => {
       const steps = [
         tool('resolve_item', { text: 'chai patti' }, { status: 'resolved' }),
@@ -35,7 +35,7 @@ describe('buildProgress', () => {
         tool('resolve_item', { text: 'doodh' }, { error: true }),
         tool('resolve_item', { text: 'chini' }, { status: 'clarification' }),
       ];
-      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Samjha: 4 cheezein');
+      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Understood: 4 items');
     });
 
     it('does not count the same word twice', () => {
@@ -43,7 +43,7 @@ describe('buildProgress', () => {
         tool('resolve_item', { text: 'Phenyl' }, { status: 'clarification' }),
         tool('resolve_item', { text: 'phenyl ' }, { status: 'resolved' }),
       ];
-      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Samjha: 1 cheez');
+      expect(buildProgress(steps, 'PLANNING', null)[0]).toBe('Understood: 1 item');
     });
 
     it('uses the number of items in the submitted plan when it is larger', () => {
@@ -51,7 +51,7 @@ describe('buildProgress', () => {
         tool('resolve_item', { text: 'a' }, { status: 'resolved' }),
         tool('submit_plan', {}, { confirmed: 0, likely: 1, notFound: 2, items: 3 }),
       ];
-      expect(buildProgress(steps, 'PLAN_READY', null)[0]).toBe('Samjha: 3 cheezein');
+      expect(buildProgress(steps, 'PLAN_READY', null)[0]).toBe('Understood: 3 items');
     });
   });
 
@@ -65,7 +65,7 @@ describe('buildProgress', () => {
         'PLAN_READY',
         null,
       );
-      expect(lines).toContain("Aapne 'diya' kaha tha — dukaan ne 'candle' confirm kiya");
+      expect(lines).toContain("You said 'diya': the shop confirmed 'candle'");
     });
 
     it('does not claim a shop confirmed something it only has in learned stock', () => {
@@ -74,7 +74,7 @@ describe('buildProgress', () => {
         'PLAN_READY',
         null,
       );
-      expect(lines).toContain("Aapne 'diya' kaha tha — dukaan ke paas 'candle' hai");
+      expect(lines).toContain("You said 'diya': the shop has 'candle'");
       expect(lines.join('\n')).not.toMatch(/confirm kiya/);
     });
 
@@ -91,7 +91,7 @@ describe('buildProgress', () => {
         'PLANNING',
         null,
       ),
-    ).toEqual(['Samjha: 1 cheez']);
+    ).toEqual(['Understood: 1 item']);
   });
 
   it("reports the shops found for each item by the customer's own word", () => {
@@ -102,10 +102,10 @@ describe('buildProgress', () => {
       tool('find_item_nearby', { itemId: 'k' }, { label: 'glue', count: 0, freshCount: 0 }),
     ];
     expect(buildProgress(steps, 'PLANNING', null)).toEqual([
-      'Samjha: 1 cheez',
-      'Chini: 7 dukaanon mein mili',
-      'Tape: 1 dukaan mein mili',
-      'Glue: pichhle jawabon mein nahi mili',
+      'Understood: 1 item',
+      'Chini: found at 7 shops',
+      'Tape: found at 1 shop',
+      'Glue: not in past answers',
     ]);
   });
 
@@ -118,26 +118,26 @@ describe('buildProgress', () => {
 
     it('before any shop is asked it only says there are no past answers', () => {
       expect(buildProgress([none('chandan itr')], 'PLANNING', null)).toEqual([
-        'Chandan itr: pichhle jawabon mein nahi mili',
+        'Chandan itr: not in past answers',
       ]);
     });
 
     it('while the shops are being asked it says so', () => {
       const steps = [none('chandan itr'), ask('chandan itr', 'r1')];
       expect(buildProgress(steps, 'WAITING_FOR_SHOPS', null, sent)).toEqual([
-        'Chandan itr: pichhle jawabon mein nahi mili, dukaanon se pooch rahe hain',
-        '4 dukaanon se pooch raha hoon: chandan itr',
-        'Jawab ka intezaar…',
+        'Chandan itr: not in past answers, asking shops',
+        'Asking 4 shops: chandan itr',
+        'Waiting for shops…',
       ]);
     });
 
-    it('after the wait, with no shop having it, it is final: "kisi dukaan mein nahi mili"', () => {
+    it('after the wait, with no shop having it, it is final: "no shop has it"', () => {
       const steps = [none('chandan itr'), ask('chandan itr', 'r1')];
       expect(buildProgress(steps, 'PLAN_READY', null, sent)).toContain(
-        'Chandan itr: kisi dukaan mein nahi mili',
+        'Chandan itr: no shop has it',
       );
       expect(buildProgress(steps, 'EXPIRED', null, sent)).toContain(
-        'Chandan itr: kisi dukaan mein nahi mili',
+        'Chandan itr: no shop has it',
       );
     });
 
@@ -147,20 +147,20 @@ describe('buildProgress', () => {
         ...sent,
         answers: [{ shopName: 'Mishra', pricePaise: 5000, at: new Date(), requestId: 'r1' }],
       });
-      expect(lines).toContain('Chandan itr: pichhle jawabon mein nahi mili');
-      expect(lines.join('\n')).not.toMatch(/kisi dukaan mein nahi mili/);
+      expect(lines).toContain('Chandan itr: not in past answers');
+      expect(lines.join('\n')).not.toMatch(/no shop has it/);
     });
 
     it('an item nobody was asked about is never final either', () => {
       expect(buildProgress([none('glue')], 'PLAN_READY', null)).toEqual([
-        'Glue: pichhle jawabon mein nahi mili',
+        'Glue: not in past answers',
       ]);
     });
   });
 
   it('says when a word was not understood', () => {
     const steps = [tool('resolve_item', { text: 'xyzzy' }, { status: 'unresolved' })];
-    expect(buildProgress(steps, 'PLANNING', null).join('\n')).toMatch(/xyzzy.*samajh nahi aaya/);
+    expect(buildProgress(steps, 'PLANNING', null).join('\n')).toMatch(/Could not understand "xyzzy"/);
   });
 
   it('reports the route and the finished plan', () => {
@@ -169,14 +169,14 @@ describe('buildProgress', () => {
       tool('submit_plan', {}, { likely: 3, notFound: 1 }),
     ];
     expect(buildProgress(steps, 'PLAN_READY', null)).toEqual([
-      'Raasta bana: 3 dukaanein, 2.4 km',
-      'Plan taiyaar: 3 cheezein mil gayi, 1 nahi mili',
+      'Route ready: 3 stops, 2.4 km',
+      'Plan ready: 3 items found, 1 not found',
     ]);
   });
 
   it('ends with a plain line when the errand failed', () => {
     const lines = buildProgress([], 'FAILED', 'step_limit');
-    expect(lines.at(-1)).toMatch(/plan nahi ban paya/i);
+    expect(lines.at(-1)).toMatch(/could not make a plan/i);
   });
 
   describe('waiting, answers and questions (Day 13)', () => {
@@ -186,17 +186,17 @@ describe('buildProgress', () => {
       at: at(sec),
     });
 
-    it('says how many shops were asked, per item: "6 dukaanon se pooch raha hoon: phenyl"', () => {
+    it('says how many shops were asked, per item: "Asking 6 shops: phenyl"', () => {
       const lines = buildProgress([ask('phenyl', 'r1', 1)], 'PLANNING', null, {
         pingsSent: { r1: 6 },
       });
-      expect(lines).toEqual(['6 dukaanon se pooch raha hoon: phenyl']);
+      expect(lines).toEqual(['Asking 6 shops: phenyl']);
     });
 
     it('uses the singular for one shop', () => {
       expect(
         buildProgress([ask('jhaadu', 'r1', 1)], 'PLANNING', null, { pingsSent: { r1: 1 } }),
-      ).toEqual(['1 dukaan se pooch raha hoon: jhaadu']);
+      ).toEqual(['Asking 1 shop: jhaadu']);
     });
 
     describe('every asking line has its count (Day 14b)', () => {
@@ -214,25 +214,25 @@ describe('buildProgress', () => {
 
       it('shows the count as soon as there is one', () => {
         expect(buildProgress([ask('diya', 'r1', 1)], 'PLANNING', null, facts(4, 3))).toEqual([
-          '4 dukaanon se pooch raha hoon: diya',
+          'Asking 4 shops: diya',
         ]);
       });
 
       it('says so when nobody could be asked, once the fan-out has had time to run', () => {
         expect(
           buildProgress([ask('diya', 'r1', 1)], 'WAITING_FOR_SHOPS', null, facts(0, 40)),
-        ).toEqual(['Poochne ke liye koi dukaan nahi mili: diya', 'Jawab ka intezaar…']);
+        ).toEqual(['No shop to ask: diya', 'Waiting for shops…']);
       });
     });
 
-    it('ends with "Jawab ka intezaar…" while the errand waits for shops', () => {
+    it('ends with "Waiting for shops…" while the errand waits for shops', () => {
       const lines = buildProgress([ask('phenyl', 'r1', 1)], 'WAITING_FOR_SHOPS', null, {
         pingsSent: { r1: 3 },
       });
-      expect(lines).toEqual(['3 dukaanon se pooch raha hoon: phenyl', 'Jawab ka intezaar…']);
+      expect(lines).toEqual(['Asking 3 shops: phenyl', 'Waiting for shops…']);
     });
 
-    it('reports each yes in time order with its price: "Mishra Kirana ne haan kaha ₹42"', () => {
+    it('reports each yes in time order with its price: "Mishra Kirana has it ₹42"', () => {
       const lines = buildProgress(
         [
           ask('phenyl', 'r1', 1),
@@ -249,11 +249,11 @@ describe('buildProgress', () => {
         },
       );
       expect(lines).toEqual([
-        '2 dukaanon se pooch raha hoon: phenyl',
-        'Mishra Kirana ne haan kaha ₹42',
-        'Gupta Store ne haan kaha',
-        'X: pichhle jawabon mein nahi mili',
-        'Jawab ka intezaar…',
+        'Asking 2 shops: phenyl',
+        'Mishra Kirana has it ₹42',
+        'Gupta Store has it',
+        'X: not in past answers',
+        'Waiting for shops…',
       ]);
     });
 
@@ -261,7 +261,7 @@ describe('buildProgress', () => {
       const lines = buildProgress([], 'WAITING_FOR_SHOPS', null, {
         answers: [{ shopName: 'A', pricePaise: 4250, at: at(1) }],
       });
-      expect(lines[0]).toBe('A ne haan kaha ₹42.50');
+      expect(lines[0]).toBe('A has it ₹42.50');
     });
 
     describe('answers that arrive after the plan is ready (Day 14b)', () => {
@@ -277,15 +277,15 @@ describe('buildProgress', () => {
 
       it('keeps them out of the main timeline', () => {
         const lines = buildProgress([plan], 'PLAN_READY', null, { answers });
-        expect(lines.join('\n')).toContain('Early Shop ne haan kaha ₹42');
+        expect(lines.join('\n')).toContain('Early Shop has it ₹42');
         expect(lines.join('\n')).not.toContain('Late Shop');
         expect(lines.join('\n')).not.toContain('Later Shop');
       });
 
       it('lists them on their own, in time order', () => {
         expect(lateAnswerLines([plan], { answers })).toEqual([
-          'Late Shop ne haan kaha ₹39',
-          'Later Shop ne haan kaha',
+          'Late Shop has it ₹39',
+          'Later Shop has it',
         ]);
       });
 
@@ -297,7 +297,7 @@ describe('buildProgress', () => {
       });
     });
 
-    it('shows the question the agent asked: "Aapse ek sawaal: …"', () => {
+    it('shows the question the agent asked: "Question for you: …"', () => {
       const lines = buildProgress(
         [
           {
@@ -308,7 +308,7 @@ describe('buildProgress', () => {
         'NEEDS_INPUT',
         null,
       );
-      expect(lines).toEqual(['Aapse ek sawaal: Kaunsa phenyl chahiye?']);
+      expect(lines).toEqual(['Question for you: Kaunsa phenyl chahiye?']);
     });
 
     it('ends with plain lines for an expired or a cancelled errand', () => {

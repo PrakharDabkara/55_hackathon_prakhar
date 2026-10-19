@@ -470,7 +470,7 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
     const name = await itemName(itemIds[0] as string);
     expect(queued).toHaveLength(1);
     expect((queued[0] as Queued).payload).toEqual({
-      title: `Kya aapko ${name} mila?`,
+      title: `Did you get ${name}?`,
       item: name,
       url: '/app/',
     });
