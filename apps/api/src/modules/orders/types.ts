@@ -38,6 +38,8 @@ export interface OrderRecord {
   lng: number | null;
   /** The customer's note to the shop (≤140, phone numbers removed). */
   note: string | null;
+  /** Set when the order becomes ACCEPTED (by the shop, or at once for a binding offer). */
+  acceptedAt: Date | null;
   outForDeliveryAt: Date | null;
   /** The customer has until then to tap Received; after it the order is NOT_CONFIRMED. */
   receiveBy: Date | null;

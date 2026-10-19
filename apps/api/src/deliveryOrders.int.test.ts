@@ -236,6 +236,28 @@ describe('delivery orders', () => {
       expect(JSON.stringify(list.body)).not.toContain(String(ORIGIN.lat));
     });
 
+    it('records accepted_at on REQUESTED → ACCEPTED, and not before', async () => {
+      const placed = await place(await answeredRequest());
+      const acceptedAt = async () =>
+        (
+          await pool.query('SELECT accepted_at FROM delivery_orders WHERE id = $1', [
+            placed.body.id,
+          ])
+        ).rows[0].accepted_at;
+      expect(placed.body.acceptedAt).toBeNull();
+      expect(await acceptedAt()).toBeNull();
+      const res = await act(shop, placed.body.id, 'accept');
+      expect(res.status).toBe(200);
+      expect(await acceptedAt()).not.toBeNull();
+      const seen = await request(app).get(`/orders/${placed.body.id}`).set(auth(seeker));
+      expect(typeof seen.body.acceptedAt).toBe('string');
+      expect(seen.body.outForDeliveryAt).toBeNull();
+      // A double tap does not move the time.
+      const first = await acceptedAt();
+      await act(shop, placed.body.id, 'accept');
+      expect(await acceptedAt()).toEqual(first);
+    });
+
     it('sees the address and a map link only after accepting', async () => {
       const placed = await place(await answeredRequest());
       const res = await act(shop, placed.body.id, 'accept');

@@ -23,26 +23,27 @@ export interface ProgressFacts {
 }
 
 const FAILURE_TEXT: Record<string, string> = {
-  step_limit: 'bahut zyada steps lag gaye',
-  token_budget: 'is kaam ka budget khatam ho gaya',
-  wait_limit: 'dukaanon ka intezaar bahut lamba ho gaya',
-  ai_unavailable: 'AI abhi available nahi hai',
-  queue_unavailable: 'kaam shuru nahi ho paya',
-  internal_error: 'kuch gadbad ho gayi',
+  step_limit: 'it needed too many steps',
+  token_budget: 'this job used up its budget',
+  wait_limit: 'the shops took too long to answer',
+  ai_unavailable: 'AI is not available right now',
+  queue_unavailable: 'the job could not start',
+  internal_error: 'something went wrong',
 };
 
 /** The fan-out runs within moments of the request; after this long, zero pings means no shop. */
 const FANOUT_GRACE_MS = 20_000;
 
 const cap = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-const things = (n: number) => `${n} ${n === 1 ? 'cheez' : 'cheezein'}`;
+const things = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`;
+const shops = (n: number) => `${n} ${n === 1 ? 'shop' : 'shops'}`;
 const num = (value: unknown): number => (typeof value === 'number' ? value : 0);
 const rupees = (paise: number) =>
   `₹${Number.isInteger(paise / 100) ? paise / 100 : (paise / 100).toFixed(2)}`;
 
 type Answer = NonNullable<ProgressFacts['answers']>[number];
 const answerLine = (a: Answer) =>
-  `${a.shopName} ne haan kaha${a.pricePaise !== null ? ` ${rupees(a.pricePaise)}` : ''}`;
+  `${a.shopName} has it${a.pricePaise !== null ? ` ${rupees(a.pricePaise)}` : ''}`;
 
 /** When the plan was handed in, if it was. */
 const planReadyAt = (steps: StepView[]): number | null => {
@@ -64,8 +65,8 @@ export function lateAnswerLines(steps: StepView[], facts: ProgressFacts = {}): s
 }
 
 /**
- * The steps as short Hinglish lines for the person waiting ("Samjha: 4 cheezein", "Chini: 7
- * dukaanon mein mili"). Built on read from errand_steps, so the log stays the one record.
+ * The steps as short English lines for the person waiting ("Understood: 4 items", "Chini: found
+ * at 7 shops"). Built on read from errand_steps, so the log stays the one record.
  */
 export function buildProgress(
   steps: StepView[],
@@ -109,40 +110,41 @@ export function buildProgress(
     switch (step.toolName) {
       case 'resolve_item':
         if (!understoodSaid) {
-          line(`Samjha: ${things(understood)}`);
+          line(`Understood: ${things(understood)}`);
           understoodSaid = true;
         }
-        if (s['status'] === 'unresolved') line(`"${String(step.args['text'])}" samajh nahi aaya`);
+        if (s['status'] === 'unresolved')
+          line(`Could not understand "${String(step.args['text'])}"`);
         // One line for each kind, not one per item: the screen would repeat itself.
         else if (s['status'] === 'new' && !told.has('new')) {
           told.add('new');
-          line('Nayi cheez: dukaanon se pooch rahe hain');
+          line('New item: asking shops');
         } else if (s['status'] === 'blocked' && !told.has('blocked')) {
           told.add('blocked');
-          line('Ye cheez hum dukaanon ko nahi bhej sakte');
+          line('We cannot send this item to shops');
         } else if (s['status'] === 'unavailable' && !told.has('unavailable')) {
           told.add('unavailable');
-          line('Abhi ye cheez dukaanon ko nahi bhej sakte');
+          line('We cannot send this item to shops right now');
         } else if (s['status'] === 'limit' && !told.has('limit')) {
           told.add('limit');
-          line('Ek kaam mein 5 se zyada nayi cheezein nahi pooch sakte');
+          line('We cannot ask about more than 5 new items in one job');
         }
         break;
       case 'find_item_nearby': {
         const label = cap(String(s['label'] ?? 'Item'));
         const count = num(s['count']);
         if (count > 0) {
-          line(`${label}: ${count} ${count === 1 ? 'dukaan' : 'dukaanon'} mein mili`);
+          line(`${label}: found at ${shops(count)}`);
           break;
         }
         // No past answers is not "nobody has it": the final wording waits until the shops that
         // were asked have had their say and none said yes.
         const requestId = askedAbout.get(label.trim().toLowerCase());
         const anyYes = (facts.answers ?? []).some((a) => a.requestId === requestId);
-        if (requestId && !waiting && !anyYes) line(`${label}: kisi dukaan mein nahi mili`);
+        if (requestId && !waiting && !anyYes) line(`${label}: no shop has it`);
         else if (requestId && waiting && !anyYes)
-          line(`${label}: pichhle jawabon mein nahi mili, dukaanon se pooch rahe hain`);
-        else line(`${label}: pichhle jawabon mein nahi mili`);
+          line(`${label}: not in past answers, asking shops`);
+        else line(`${label}: not in past answers`);
         break;
       }
       case 'ask_shops': {
@@ -151,24 +153,23 @@ export function buildProgress(
         const sent = num(facts.pingsSent?.[requestId]);
         const label = String(s['label'] ?? 'item');
         if (sent > 0) {
-          line(`${sent} ${sent === 1 ? 'dukaan' : 'dukaanon'} se pooch raha hoon: ${label}`);
+          line(`Asking ${shops(sent)}: ${label}`);
         } else {
           // Every asking line carries its count. While the pings are still going out there is no
           // count yet, so the line waits; if none ever go out, say that instead.
           const opened = facts.requestCreated?.[requestId];
           const now = (facts.now ?? new Date()).getTime();
-          if (opened && now - opened.getTime() >= FANOUT_GRACE_MS)
-            line(`Poochne ke liye koi dukaan nahi mili: ${label}`);
+          if (opened && now - opened.getTime() >= FANOUT_GRACE_MS) line(`No shop to ask: ${label}`);
         }
         break;
       }
       case 'ask_user':
-        line(`Aapse ek sawaal: ${String(s['question'] ?? step.args['question'] ?? '')}`);
+        line(`Question for you: ${String(s['question'] ?? step.args['question'] ?? '')}`);
         break;
       case 'plan_route': {
         const stops = num(s['stops']);
         line(
-          `Raasta bana: ${stops} ${stops === 1 ? 'dukaan' : 'dukaanein'}, ${(num(s['totalM']) / 1000).toFixed(1)} km`,
+          `Route ready: ${stops} ${stops === 1 ? 'stop' : 'stops'}, ${(num(s['totalM']) / 1000).toFixed(1)} km`,
         );
         break;
       }
@@ -179,11 +180,11 @@ export function buildProgress(
           for (const m of matched as { text?: unknown; itemName?: unknown; status?: unknown }[])
             line(
               m.status === 'confirmed'
-                ? `Aapne '${String(m.text)}' kaha tha — dukaan ne '${String(m.itemName)}' confirm kiya`
-                : `Aapne '${String(m.text)}' kaha tha — dukaan ke paas '${String(m.itemName)}' hai`,
+                ? `You said '${String(m.text)}': the shop confirmed '${String(m.itemName)}'`
+                : `You said '${String(m.text)}': the shop has '${String(m.itemName)}'`,
             );
           line(
-            `Plan taiyaar: ${things(num(s['likely']) + num(s['confirmed']))} mil gayi, ${num(s['notFound'])} nahi mili`,
+            `Plan ready: ${things(num(s['likely']) + num(s['confirmed']))} found, ${num(s['notFound'])} not found`,
           );
         }
         break;
@@ -195,12 +196,12 @@ export function buildProgress(
     if (!readyAt || a.at.getTime() <= readyAt) add(a.at, 0, answerLine(a));
 
   const lines = dated.sort((x, y) => x.at - y.at || x.seq - y.seq).map((d) => d.text);
-  if (state === 'WAITING_FOR_SHOPS') lines.push('Jawab ka intezaar…');
-  if (state === 'EXPIRED') lines.push('Plan nahi ban paya: time khatam ho gaya');
-  if (state === 'CANCELLED') lines.push('Errand cancel kar diya');
+  if (state === 'WAITING_FOR_SHOPS') lines.push('Waiting for shops…');
+  if (state === 'EXPIRED') lines.push('Could not make a plan: time ran out');
+  if (state === 'CANCELLED') lines.push('Errand cancelled');
   if (state === 'FAILED') {
     const why = failureReason ? FAILURE_TEXT[failureReason] : undefined;
-    lines.push(`Plan nahi ban paya${why ? `: ${why}` : ''}`);
+    lines.push(`Could not make a plan${why ? `: ${why}` : ''}`);
   }
   return lines;
 }

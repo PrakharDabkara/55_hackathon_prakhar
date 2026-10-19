@@ -42,17 +42,17 @@ export function cleanItem(raw: string | undefined): string {
 const TITLES: Record<PushKind, (item: string) => string> = {
   new_ping: (item) => `Naya sawaal: ${item}`,
   new_order: (item) => `Naya order: ${item}`,
-  shop_answered: (item) => `Dukaan ne jawab diya: ${item}`,
-  plan_ready: () => 'Plan taiyaar',
-  order_accepted: (item) => `Order accept ho gaya: ${item}`,
-  order_declined: (item) => `Dukaan ne order mana kiya: ${item}`,
-  order_out: (item) => `Order raaste mein hai: ${item}`,
-  order_delivered: (item) => `Order pahunch gaya: ${item}`,
+  shop_answered: (item) => `A shop replied: ${item}`,
+  plan_ready: () => 'Your plan is ready',
+  order_accepted: (item) => `Order accepted: ${item}`,
+  order_declined: (item) => `Shop declined your order: ${item}`,
+  order_out: (item) => `Order is on its way: ${item}`,
+  order_delivered: (item) => `Order delivered: ${item}`,
   order_chosen: (item) => `Grahak ne aapko chuna: ${item}`,
   // The customer tapped Received: the shop hears the same words the customer used to.
   order_received: (item) => `Order pahunch gaya: ${item}`,
-  order_cancelled_by_shop: (item) => `Dukaan ne order cancel kiya: ${item}`,
-  pickup_ask: (item) => `Kya aapko ${item} mila?`,
+  order_cancelled_by_shop: (item) => `Shop cancelled your order: ${item}`,
+  pickup_ask: (item) => `Did you get ${item}?`,
 };
 
 /** The link for each kind; the id is the request, errand or order it is about. */

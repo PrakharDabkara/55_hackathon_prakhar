@@ -330,7 +330,7 @@ describe('push notifications for the events of a search, an errand and an order'
       queued = [];
       for (const [verb, title] of [
         ['accept', /accept/i],
-        ['out', /nikla|raaste|out/i],
+        ['out', /on its way/i],
       ] as const) {
         await act(orderId, verb);
         await notifier.idle();

@@ -83,7 +83,6 @@ describe('what the customer sees of an order', () => {
     expect(view.outForDeliveryAt).toBe('2026-10-18T10:20:00.000Z');
   });
 
-
   it('has their own address, the cash-on-delivery line and the shop name', () => {
     const view = seekerOrderView(order());
     expect(view).toMatchObject({

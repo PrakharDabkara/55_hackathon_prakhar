@@ -136,9 +136,7 @@ describe('buildProgress', () => {
       expect(buildProgress(steps, 'PLAN_READY', null, sent)).toContain(
         'Chandan itr: no shop has it',
       );
-      expect(buildProgress(steps, 'EXPIRED', null, sent)).toContain(
-        'Chandan itr: no shop has it',
-      );
+      expect(buildProgress(steps, 'EXPIRED', null, sent)).toContain('Chandan itr: no shop has it');
     });
 
     it('if a shop did say yes, it is never called final', () => {
@@ -160,7 +158,9 @@ describe('buildProgress', () => {
 
   it('says when a word was not understood', () => {
     const steps = [tool('resolve_item', { text: 'xyzzy' }, { status: 'unresolved' })];
-    expect(buildProgress(steps, 'PLANNING', null).join('\n')).toMatch(/Could not understand "xyzzy"/);
+    expect(buildProgress(steps, 'PLANNING', null).join('\n')).toMatch(
+      /Could not understand "xyzzy"/,
+    );
   });
 
   it('reports the route and the finished plan', () => {
@@ -312,12 +312,12 @@ describe('buildProgress', () => {
     });
 
     it('ends with plain lines for an expired or a cancelled errand', () => {
-      expect(buildProgress([], 'EXPIRED', null).at(-1)).toMatch(/time khatam/i);
+      expect(buildProgress([], 'EXPIRED', null).at(-1)).toMatch(/time ran out/i);
       expect(buildProgress([], 'CANCELLED', null).at(-1)).toMatch(/cancel/i);
     });
 
     it('explains the new failure reason wait_limit', () => {
-      expect(buildProgress([], 'FAILED', 'wait_limit').at(-1)).toMatch(/intezaar/i);
+      expect(buildProgress([], 'FAILED', 'wait_limit').at(-1)).toMatch(/too long/i);
     });
 
     it('does not repeat a line for a failed ask_shops (error) step', () => {

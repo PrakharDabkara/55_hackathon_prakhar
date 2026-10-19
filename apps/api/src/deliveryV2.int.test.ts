@@ -223,6 +223,17 @@ describe('Delivery v2', () => {
 
   // ---- the binding offer ---------------------------------------------------------------------
   describe('S17: a fresh offer is binding', () => {
+    it('records accepted_at at once when a fresh offer starts the order ACCEPTED', async () => {
+      const requestId = await offered();
+      const res = await order(seeker, shopA, requestId);
+      expect(res.body.state).toBe('ACCEPTED');
+      expect(typeof res.body.acceptedAt).toBe('string');
+      const row = (
+        await pool.query('SELECT accepted_at FROM delivery_orders WHERE id = $1', [res.body.id])
+      ).rows[0];
+      expect(row.accepted_at).not.toBeNull();
+    });
+
     it('starts the order ACCEPTED and tells the shop the customer chose it', async () => {
       const requestId = await offered();
       const res = await order(seeker, shopA, requestId);
@@ -489,9 +500,10 @@ describe('Delivery v2', () => {
     it('records accepted_at when the shop accepts and shows it with the dispatch time', async () => {
       const id = await outForDelivery();
       const row = (
-        await pool.query('SELECT accepted_at, out_for_delivery_at FROM delivery_orders WHERE id = $1', [
-          id,
-        ])
+        await pool.query(
+          'SELECT accepted_at, out_for_delivery_at FROM delivery_orders WHERE id = $1',
+          [id],
+        )
       ).rows[0];
       expect(row.accepted_at).not.toBeNull();
       const view = (await act(seeker, id, 'received')).body;

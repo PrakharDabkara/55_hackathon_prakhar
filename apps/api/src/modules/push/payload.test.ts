@@ -17,9 +17,7 @@ describe('buildPayload', () => {
     expect(buildPayload('order_accepted', { item: 'atta', id: ID }).title).toMatch(/accept/i);
     expect(buildPayload('order_declined', { item: 'atta', id: ID }).title).toMatch(/declined/i);
     expect(buildPayload('order_out', { item: 'atta', id: ID }).title).toMatch(/on its way/i);
-    expect(buildPayload('order_delivered', { item: 'atta', id: ID }).title).toMatch(
-      /delivered/i,
-    );
+    expect(buildPayload('order_delivered', { item: 'atta', id: ID }).title).toMatch(/delivered/i);
   });
 
   it('writes the Delivery v2 titles and links', () => {
