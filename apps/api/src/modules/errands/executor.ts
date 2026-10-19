@@ -49,6 +49,14 @@ export interface RunState {
   questionsAsked: number;
   /** The customer's word (see `refusalKey`) → why it was never sent to shops (ADR-0029). */
   refused: Map<string, Refused>;
+  /**
+   * Calls already answered in this errand: tool + arguments → what was returned. An identical call
+   * gets that answer back instead of running again (PR I). `get_request_status` and `find_item_nearby` are only
+   * repeated within one stretch of the conversation: after a resume (shops answered) they may differ.
+   */
+  calls: Map<string, { result: unknown; summary: Record<string, unknown> }>;
+  /** How many resume notes the conversation holds: the stretch `get_request_status` repeats within. */
+  epoch: number;
   /** Items the customer ticked in a checklist, or typed under it (see `refusalKey`): a person confirmed them. */
   ticked: Set<string>;
 }
@@ -65,6 +73,8 @@ export const newRunState = (): RunState => ({
   questionsAsked: 0,
   refused: new Map(),
   ticked: new Set(),
+  calls: new Map(),
+  epoch: 0,
 });
 
 export interface ToolEnv {
@@ -113,7 +123,49 @@ const invalid = (issues: { path: PropertyKey[]; message: string }[]) =>
  * uses, no HTTP in between. A tool that is not in the agent's list, or is given bad arguments,
  * answers with an error the model can read; nothing here throws for the model's mistakes.
  */
+/** Tools whose identical repeat is answered from the first result: no side effect to run twice. */
+const REPEATABLE = new Set([
+  'resolve_item',
+  'find_item_nearby',
+  'ask_shops',
+  'get_request_status',
+  'plan_route',
+]);
+
+/** A stable text for a call: same tool, same arguments (key order does not matter). */
+export function callKey(name: string, args: unknown, epoch: number): string {
+  const sort = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(sort)
+      : v && typeof v === 'object'
+        ? Object.fromEntries(
+            Object.entries(v as Record<string, unknown>)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([k, x]) => [k, sort(x)]),
+          )
+        : v;
+  return `${name}:${JSON.stringify(sort(args))}${name === 'get_request_status' || name === 'find_item_nearby' ? `@${epoch}` : ''}`;
+}
+
 export async function executeTool(env: ToolEnv, call: ToolCall): Promise<ToolOutcome> {
+  if (!REPEATABLE.has(call.name)) return runTool(env, call);
+  const key = callKey(call.name, call.args, env.state.epoch);
+  const earlier = env.state.calls.get(key);
+  if (earlier) {
+    env.logger.info(
+      { tool: call.name },
+      'errand tool call repeated: answered from the first result',
+    );
+    return { result: earlier.result, summary: { replayed: true } };
+  }
+  const outcome = await runTool(env, call);
+  // Only an answer worth giving again: a failed call may be tried again.
+  if (!outcome.summary['error'])
+    env.state.calls.set(key, { result: outcome.result, summary: outcome.summary });
+  return outcome;
+}
+
+async function runTool(env: ToolEnv, call: ToolCall): Promise<ToolOutcome> {
   switch (call.name) {
     case 'resolve_item':
       return resolveItem(env, call.args);

@@ -306,3 +306,7 @@ Nothing to set up. Migration 021 runs on deploy and only adds; run `npm run seed
 - **A word that should ask which one:** add it to `ambiguous` in `catalog.seed.json` (the word must not already be a name, synonym or default), bump the version, seed. **A word that should never match an item through half a term:** nothing to list; it follows from the terms ("jhadu" is a term of the broom, so "phool" is not).
 - **A shop was not asked again after "Wahan nahi tha":** `SELECT shop_id, invalidated_at, last_confirmed_at FROM shop_stock WHERE invalidated_at IS NOT NULL;`. It is asked on the next search until it has been pinged once after `invalidated_at`.
 - The labels: this PR changes resolve and the errand agent, so it needs `evals` and `agent-evals`.
+
+## Catch-up pings (Day 17, PR I, ADR-0038)
+
+Nothing to set up; it runs on the ping fan-out queue (so it needs Redis, like the fan-out). A shop that opens late is asked once about requests it missed. To check: `SELECT p.request_id, p.sent_at FROM pings p WHERE p.shop_id = '<shop>' ORDER BY sent_at DESC;` and the log line `catch-up pings sent to a shop that opened`. No line and no pings: the shop was still closed, the requests were over, answered or inside 2 minutes of ending, or in another category. The expected behaviour of the other interactions is in `docs/scenarios.md`.

@@ -1,7 +1,7 @@
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import { createRequest, fanOutPings, type RequestsContext } from './modules/requests/index.js';
@@ -49,6 +49,11 @@ describe('fan-out, ping answers and the price check', () => {
     seeker = await loginAs(app, 'seeker', String(phone++));
     seeker2 = await loginAs(app, 'seeker', String(phone++));
   }, 300_000);
+
+  // A shop made now is caught up on every live request (ADR-0038): every test starts with none.
+  beforeEach(async () => {
+    await pool.query(`UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING')`);
+  });
 
   afterAll(async () => {
     await workers?.close();
@@ -370,6 +375,49 @@ describe('fan-out, ping answers and the price check', () => {
         const res = await ask({ q: 'tamatar', targetPricePaise });
         expect(res.status, String(targetPricePaise)).toBe(400);
       }
+    });
+  });
+
+  describe('catch-up through the worker queue (PR I)', () => {
+    it('a shop that opens late is asked about a live request by the worker, once', async () => {
+      const shop = await makeShop('Late Opener', 0.2, ['grocery']);
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: false });
+      const created = await ask({ q: 'namak' });
+      expect(created.status).toBe(201);
+      const ours = async () =>
+        (await pingsOf(created.body.id)).filter((r) => r.shop_id === shop.shopId);
+      expect(await ours()).toEqual([]); // closed: not asked
+
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: true });
+      await waitFor(ours, (r) => r.length >= 1);
+      // Opening again changes nothing: no second ping.
+      await request(app).put('/shops/me/open').set(auth(shop)).send({ open: true });
+      await new Promise((r) => setTimeout(r, 500));
+      expect(await ours()).toHaveLength(1);
+      // Leave the street as the other tests expect it.
+      await pool.query('DELETE FROM pings WHERE request_id = $1', [created.body.id]);
+      await request(app).post(`/requests/${created.body.id}/close`).set(auth(seeker));
+      await pool.query('DELETE FROM shops WHERE id = $1', [shop.shopId]);
+    });
+  });
+
+  describe('a burst of catch-up jobs (PR I)', () => {
+    it('never holds back a customer’s fan-out', async () => {
+      const shop = await makeShop('Burst Kirana', 0.2, ['grocery']);
+      const ghosts = Array.from(
+        { length: 300 },
+        (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      );
+      await Promise.all(ghosts.map((id) => workers.fanout.enqueueCatchUp(id)));
+      const created = await ask({ q: 'namak' });
+      expect(created.status).toBe(201);
+      const ours = async () =>
+        (await pingsOf(created.body.id)).filter((r) => r.shop_id === shop.shopId);
+      await waitFor(ours, (r) => r.length >= 1, 10_000);
+      expect(await ours()).toHaveLength(1);
+      await pool.query('DELETE FROM pings WHERE request_id = $1', [created.body.id]);
+      await request(app).post(`/requests/${created.body.id}/close`).set(auth(seeker));
+      await pool.query('DELETE FROM shops WHERE id = $1', [shop.shopId]);
     });
   });
 

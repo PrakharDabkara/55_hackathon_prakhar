@@ -163,7 +163,25 @@ export async function fanOutPings(
     { requestId, considered: asked, deduped: asked - claimed.length, sent: sent.length },
     'ping fan-out',
   );
-  // After the commit: a shop told about a ping must be able to fetch it.
+  await announcePings(deps, item, sent);
+  return { targets: targets.length, sent: sent.length };
+}
+
+interface SentPing {
+  id: string;
+  shopId: string;
+  ownerUserId: string | null;
+  simulated: boolean;
+  categories: string[];
+}
+
+/** After the commit: tell each shop (and the simulator) about its new ping so it can fetch it. */
+async function announcePings(
+  deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
+  item: { id: string; slug: string; nameEn: string; category: string; categories: string[] },
+  sent: SentPing[],
+): Promise<void> {
+  const { db, logger } = deps;
   const refPricePaise = sent.some((p) => p.simulated) ? await getRefPricePaise(db, item.id) : null;
   for (const ping of sent) {
     if (ping.ownerUserId) {
@@ -193,7 +211,104 @@ export async function fanOutPings(
       );
     }
   }
-  return { targets: targets.length, sent: sent.length };
+}
+
+export interface CatchUpResult {
+  sent: number;
+}
+
+/** A request ending sooner than this is not worth a shop's tap. */
+const CATCH_UP_MIN_LIFE = '2 minutes';
+/** The most requests one opening shop is told about at once. */
+const CATCH_UP_MAX_REQUESTS = 5;
+
+/**
+ * A shop that has just opened (or finished onboarding) is asked about the live requests nearby
+ * that it was never asked (ADR-0038): still PINGING (no yes yet), more than 2 minutes left, inside
+ * the request's radius, an item of one of the shop's categories, fewer than the maximum pings
+ * already sent, and no fresh learned stock of its own. Same dedupe window and same announcements
+ * as the fan-out, simulated shops included. Never twice for one request: the ping row is unique.
+ */
+export async function catchUpShop(
+  deps: {
+    db: Database;
+    logger: Logger;
+    config: { maxPings: number };
+    events?: EventPublisher | undefined;
+  },
+  shopId: string,
+  claims: PingClaims,
+): Promise<CatchUpResult> {
+  const { db, logger } = deps;
+  if (!UUID.test(shopId)) return { sent: 0 };
+  const { rows: due } = await db.query<{ request_id: string; item_id: string }>(
+    `SELECT r.id AS request_id, r.item_id
+       FROM shops s
+       JOIN requests r ON r.state = 'PINGING'
+        AND r.expires_at > now() + interval '${CATCH_UP_MIN_LIFE}'
+        AND ST_DWithin(r.location, s.location, r.radius_m)
+       JOIN items i ON i.id = r.item_id AND i.categories && s.categories
+      WHERE s.id = $1
+        AND (s.closed_until IS NULL OR s.closed_until <= now())
+        AND NOT EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id AND p.shop_id = s.id)
+        AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id) < $2
+        AND NOT EXISTS (SELECT 1 FROM shop_stock st
+                         WHERE st.shop_id = s.id AND st.item_id = r.item_id AND st.expires_at > now())
+      ORDER BY r.created_at DESC
+      LIMIT ${CATCH_UP_MAX_REQUESTS}`,
+    [shopId, deps.config.maxPings],
+  );
+  let total = 0;
+  for (const { request_id: requestId, item_id: itemId } of due) {
+    if (!(await claims.claim(shopId, itemId))) continue;
+    let sent: SentPing[] | null;
+    try {
+      sent = await withTransaction(db, async (tx) => {
+        const live = await tx.query<{ ok: boolean }>(
+          `SELECT (state = 'PINGING' AND expires_at > now() + interval '${CATCH_UP_MIN_LIFE}') AS ok
+             FROM requests WHERE id = $1 FOR SHARE`,
+          [requestId],
+        );
+        if (!live.rows[0]?.ok) return null;
+        const inserted = await tx.query<{
+          id: string;
+          shop_id: string;
+          owner_user_id: string | null;
+          is_simulated: boolean;
+          categories: string[];
+        }>(
+          `WITH ins AS (
+             INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
+             VALUES ($1, $2, $3, 'SENT', now())
+             ON CONFLICT (request_id, shop_id) DO NOTHING
+             RETURNING id, shop_id
+           )
+           SELECT ins.id, ins.shop_id, s.owner_user_id, s.is_simulated, s.categories
+             FROM ins JOIN shops s ON s.id = ins.shop_id`,
+          [requestId, shopId, itemId],
+        );
+        return inserted.rows.map((r) => ({
+          id: r.id,
+          shopId: r.shop_id,
+          ownerUserId: r.owner_user_id,
+          simulated: r.is_simulated,
+          categories: r.categories,
+        }));
+      });
+    } catch (err) {
+      await claims.release(shopId, itemId);
+      throw err;
+    }
+    if (!sent || sent.length === 0) {
+      await claims.release(shopId, itemId);
+      continue;
+    }
+    const item = await getItem(db, itemId);
+    if (item) await announcePings(deps, item, sent);
+    total += sent.length;
+  }
+  if (total > 0) logger.info({ shopId, sent: total }, 'catch-up pings sent to a shop that opened');
+  return { sent: total };
 }
 
 export interface ShopPing {

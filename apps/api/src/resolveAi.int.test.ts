@@ -165,7 +165,7 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       await setEmbeddings(pool, { 'ball-pen': vec({ 1: 1 }), 'gel-pen': vec({ 1: 0.98, 2: 0.2 }) });
       provider.onEmbed((texts) => texts.map(() => vec({ 1: 1 })));
       provider.onGenerate(() => ({ itemId: null, needsClarification: false }));
-      await resolve(ai, 'zzq xqj');
+      await resolve(ai, 'zonkal mivro');
       expect(provider.calls.map((c) => c.kind)).toEqual(['embed', 'generate']);
     });
 
@@ -296,10 +296,10 @@ describe('item resolution pipeline: cache → synonyms → trigram → embedding
       const { provider, ai } = setup();
       await near(provider);
       provider.onGenerate(() => ({ itemId: null, needsClarification: false }));
-      expect((await resolve(ai, 'zzq asdf qwerty')).item).toBeNull();
-      expect(await cached('zzq asdf qwerty')).toMatchObject({ item_id: null, method: 'llm' });
+      expect((await resolve(ai, 'zonkal mivro qanti')).item).toBeNull();
+      expect(await cached('zonkal mivro qanti')).toMatchObject({ item_id: null, method: 'llm' });
       provider.calls.length = 0;
-      await resolve(ai, 'zzq asdf qwerty');
+      await resolve(ai, 'zonkal mivro qanti');
       expect(provider.calls).toEqual([]);
     });
 

@@ -2,16 +2,21 @@ import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import type { Database } from '../db/queryable.js';
 import type { EventPublisher } from '../modules/realtime/index.js';
-import { fanOutPings } from '../modules/requests/index.js';
+import { catchUpShop, fanOutPings } from '../modules/requests/index.js';
 import { createPingDedupe, type RedisLike } from './pingDedupe.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const FANOUT_QUEUE = 'ping-fanout';
 
+/** BullMQ serves a lower number first; fan-out jobs have none, so they go before any catch-up. */
+const CATCH_UP_PRIORITY = 100;
+
 export interface PingFanout {
   queue: Queue;
   /** Queue the fan-out for a request that just went PINGING. Job id `fanout-<requestId>`. */
   enqueue(requestId: string): Promise<void>;
+  /** Queue the catch-up for a shop that opened or just joined (ADR-0038). */
+  enqueueCatchUp(shopId: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -56,11 +61,12 @@ export function startPingFanout({
   const worker = new Worker(
     queueName,
     async (job) => {
-      await fanOutPings(
-        { db, logger, config: { maxPings: config.maxPings }, events },
-        (job.data as { requestId: string }).requestId,
-        dedupe,
-      );
+      const deps = { db, logger, config: { maxPings: config.maxPings }, events };
+      if (job.name === 'catchup') {
+        await catchUpShop(deps, (job.data as { shopId: string }).shopId, dedupe);
+        return;
+      }
+      await fanOutPings(deps, (job.data as { requestId: string }).requestId, dedupe);
     },
     { connection: workerConnection },
   );
@@ -88,6 +94,28 @@ export function startPingFanout({
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,
         'queueing the ping fan-out',
+      ),
+    enqueueCatchUp: (shopId) =>
+      withTimeout(
+        queue
+          .add(
+            'catchup',
+            { shopId },
+            {
+              // Behind every normal fan-out: a burst of new shops (the simulator makes hundreds)
+              // must never delay a customer's request. One waiting job per shop, and each job
+              // looks at 5 requests at most (catchUpShop).
+              priority: CATCH_UP_PRIORITY,
+              jobId: `catchup-${shopId}`,
+              attempts: 3,
+              backoff: { type: 'exponential', delay: 1000 },
+              removeOnComplete: true,
+              removeOnFail: 100,
+            },
+          )
+          .then(() => undefined),
+        QUEUE_TIMEOUT_MS,
+        'queueing the shop catch-up',
       ),
     close: () =>
       closeWithin(5000, [

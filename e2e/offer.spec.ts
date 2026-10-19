@@ -1,9 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
+import { newCorner } from './orderFlow.js';
+import { uniqueName } from './unique.js';
 
 // Exact quantity, a delivery offer and the open switch, in two real browsers at 360 px (ADR-0031).
 // A real shop in a quiet corner far from the simulated shops is the only one asked.
 const VIEWPORT = { width: 360, height: 740 };
-const CORNER = { latitude: 22.9, longitude: 76.1 };
+const CORNER = newCorner();
 test.use({ geolocation: CORNER, permissions: ['geolocation'] });
 
 const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
@@ -30,7 +32,7 @@ test('a shop answers with a quantity and a delivery offer, closes for the day, a
   const shopContext = await browser.newContext({ viewport: VIEWPORT });
   const shop = await shopContext.newPage();
   await login(shop, '/app/shop');
-  await shop.getByLabel('Dukaan ka naam').fill('Offer Test Kirana');
+  await shop.getByLabel('Dukaan ka naam').fill(uniqueName('Offer Test Kirana'));
   await shop.getByRole('button', { name: /किराना/ }).click();
   await shop.getByRole('checkbox', { name: 'Hum ghar bhejte hain' }).check();
   await shop.getByLabel('Delivery ka daam (₹)').fill('20');

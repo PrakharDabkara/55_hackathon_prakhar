@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { uniqueWord } from './unique.js';
 
 // The school-project errand, in a real browser at 360 px, against the real API, Postgres, Redis and
 // twelve simulated shops (grocery and stationery). The model is scripted, so the run is the same
@@ -6,6 +7,9 @@ import { expect, test } from '@playwright/test';
 // catalog does not know ("bead dazzling kit") becomes a new item and is asked of the shops, and the
 // plan comes back. The simulated shops answer a new item at random, so the test holds only what is
 // true whatever they say (ADR-0028).
+// A new item name for every run: the item made last time is no longer new.
+const KIT = `bead dazzling kit ${uniqueWord(4)}`;
+
 test('a school-project errand: checklist with extras, a new item, stationery shops, the plan at 360 px', async ({
   page,
 }) => {
@@ -19,15 +23,15 @@ test('a school-project errand: checklist with extras, a new item, stationery sho
   await page.getByRole('link', { name: 'Poora kaam batao' }).click();
   await page
     .getByLabel('Kya kaam hai?')
-    .fill('bachche ke project ke liye bead dazzling kit, chart paper, colours, sketch pens');
+    .fill(`bachche ke project ke liye ${KIT}, chart paper, colours, sketch pens`);
   await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
   await page.getByRole('button', { name: 'Plan banao' }).click();
 
   // The checklist: the named items ticked, the usual extras offered; the customer adds glue.
-  await expect(page.getByRole('checkbox', { name: 'bead dazzling kit' })).toBeVisible({
+  await expect(page.getByRole('checkbox', { name: KIT })).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByRole('checkbox', { name: 'bead dazzling kit' })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: KIT })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'chart paper' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'glue stick' })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'scissors' })).not.toBeChecked();
@@ -40,14 +44,14 @@ test('a school-project errand: checklist with extras, a new item, stationery sho
   await expect(page.getByText('Nayi cheez: dukaanon se pooch rahe hain')).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText(/dukaanon se pooch raha hoon: bead dazzling kit/)).toBeVisible({
+  await expect(page.getByText(new RegExp(`dukaanon se pooch raha hoon: ${KIT}`))).toBeVisible({
     timeout: 30_000,
   });
 
   // The plan, whatever the shops said about the new item.
   await expect(page.getByText('Plan taiyaar', { exact: true })).toBeVisible({ timeout: 90_000 });
   await expect(page.locator('.plan-item')).toHaveCount(5);
-  await expect(page.getByText('bead dazzling kit', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText(KIT, { exact: false }).first()).toBeVisible();
   await expect(page.getByRole('status', { name: 'Saaransh' })).toContainText('5 mein se');
   // Nothing is blocked here, so no refusal wording and no dead end.
   await expect(page.getByText('Ye cheez hum dukaanon ko nahi bhej sakte')).toHaveCount(0);

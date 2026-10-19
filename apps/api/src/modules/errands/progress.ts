@@ -102,7 +102,8 @@ export function buildProgress(
   const told = new Set<string>();
 
   for (const step of steps) {
-    if (step.kind !== 'tool' || step.resultSummary['error']) continue;
+    if (step.kind !== 'tool' || step.resultSummary['error'] || step.resultSummary['replayed'])
+      continue;
     const s = step.resultSummary;
     const line = (text: string) => add(step.at, step.n, text);
     switch (step.toolName) {

@@ -136,6 +136,7 @@ export function startWorkers({
   });
   requestHooks.scheduleExpiry = expiry.schedule;
   requestHooks.enqueueFanout = fanout.enqueue;
+  requestHooks.enqueueShopCatchUp = fanout.enqueueCatchUp;
 
   /** How the agent opens and closes requests: with the real fan-out and expiry hooks. */
   function requestsContext() {

@@ -117,7 +117,7 @@
 {"q": "dentist", "kind": "nonsense", "expected": null}
 {"q": "kal subah kaun aayega", "kind": "nonsense", "expected": null}
 {"q": "ice cream scoop holder", "kind": "newitem", "expected": null}
-{"q": "phone cover", "kind": "newitem", "expected": null}
+{"q": "phone cover", "kind": "hinglish", "expected": "phone-cover"}
 {"q": "phool", "kind": "newitem", "expected": null}
 {"q": "phool jhadu", "kind": "hinglish", "expected": "broom"}
 {"q": "mirchi", "kind": "ambiguous", "expected": "ambiguous"}

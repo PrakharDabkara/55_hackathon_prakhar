@@ -27,6 +27,8 @@ export interface Offer {
   delivery?: { feePaise: number | null; minutes: number | null } | null;
   /** The exact quantity the shop said it has, if it said one. */
   offeredQuantity?: ExactQuantity | null;
+  /** "Thoda hai" / "Bahut hai": what the shop said about how much it has (learned stock). */
+  quantityHint?: 'few' | 'plenty' | null;
   /** Customers reported this shop's answer for this item wrong more than once (ADR-0035): last choice. */
   doubtful?: boolean;
   /** A customer went there and found the item (learned stock only). */

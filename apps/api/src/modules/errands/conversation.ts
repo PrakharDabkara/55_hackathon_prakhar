@@ -1,5 +1,5 @@
 import type { ChatMessage, ToolCall } from '../ai/index.js';
-import { refusalKey, type FoundItem, type Refused, type RunState } from './executor.js';
+import { callKey, refusalKey, type FoundItem, type Refused, type RunState } from './executor.js';
 import type { StepRecord } from './persistence.js';
 
 /**
@@ -82,8 +82,11 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
   const resolved = new Map<string, string>();
   const refused = new Map<string, Refused>();
   const ticked = new Set<string>();
+  const calls: RunState['calls'] = new Map();
+  let epoch = 0;
   for (const step of steps) {
     if (step.kind === 'note') {
+      epoch++;
       const said = (step.payload as { ticked?: unknown } | null)?.ticked;
       if (Array.isArray(said))
         for (const word of said) if (typeof word === 'string') ticked.add(refusalKey(word));
@@ -92,6 +95,11 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
     const result = (step.payload as ToolPayload | null)?.result as
       Record<string, unknown> | undefined;
     if (!result || result['error']) continue;
+    if (step.toolName && !step.resultSummary['replayed'] && !step.resultSummary['error'])
+      calls.set(callKey(step.toolName, step.args, epoch), {
+        result,
+        summary: step.resultSummary,
+      });
     if (step.toolName === 'resolve_item') {
       const text = String(step.args['text'] ?? '');
       const item = result['item'] as { id?: string } | undefined;
@@ -114,7 +122,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
       });
     }
   }
-  return { labels, found, resolved, questionsAsked, refused, ticked };
+  return { labels, found, resolved, questionsAsked, refused, ticked, calls, epoch };
 }
 
 /** What a failed or expired errand keeps: what the agent had found so far. */

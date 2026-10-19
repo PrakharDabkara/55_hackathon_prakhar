@@ -80,14 +80,22 @@ export function createApp({
   app.use(realtimeRouter({ db, realtime }));
   // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
   if (config.adminPhones.length > 0) {
-    app.use(simulationRouter({ db, logger, realtime, adminPhones: config.adminPhones }));
+    app.use(
+      simulationRouter({
+        db,
+        logger,
+        realtime,
+        adminPhones: config.adminPhones,
+        ...(requestHooks && { hooks: requestHooks }),
+      }),
+    );
     app.use(aiAdminRouter({ db, adminPhones: config.adminPhones, ai }));
     app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
     app.use(errandsAdminRouter({ db, adminPhones: config.adminPhones }));
   }
   app.use(pushRouter({ db, vapidPublicKey: config.vapid?.publicKey ?? null }));
   app.use(photosRouter({ db, logger, capMb: config.photoStorageCapMb }));
-  app.use(shopsRouter({ db }));
+  app.use(shopsRouter({ db, ...(requestHooks && { hooks: requestHooks }) }));
   app.use(demandRouter({ db }));
   app.use(pickupsRouter({ db, logger, askAfterMinutes: config.pickupAskAfterMinutes }));
   app.use(routingRouter({ db }));

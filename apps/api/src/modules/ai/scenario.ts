@@ -90,15 +90,23 @@ function itemIdFor(messages: ChatMessage[], words: string): string | undefined {
   return undefined;
 }
 
-function fill(value: unknown, messages: ChatMessage[]): unknown {
+function fill(value: unknown, messages: ChatMessage[], vars: Record<string, string> = {}): unknown {
+  if (typeof value === 'string') {
+    // {{name}}: what the named group of matchTask captured in the task.
+    value = value.replace(/\{\{(\w+)\}\}/g, (_all, name: string) => {
+      const said = vars[name];
+      if (said === undefined) throw new Error(`scenario: the task captured no "${name}"`);
+      return said;
+    });
+  }
   if (typeof value === 'string' && value.startsWith('$item:')) {
     const id = itemIdFor(messages, value.slice('$item:'.length));
     if (!id) throw new Error(`scenario: no resolve_item result for "${value}" yet`);
     return id;
   }
-  if (Array.isArray(value)) return value.map((v) => fill(v, messages));
+  if (Array.isArray(value)) return value.map((v) => fill(v, messages, vars));
   if (value && typeof value === 'object')
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v, messages)]));
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v, messages, vars)]));
   return value;
 }
 
@@ -106,25 +114,33 @@ function fill(value: unknown, messages: ChatMessage[]): unknown {
 function turnsFor(scenario: Scenario, messages: ChatMessage[]) {
   const first = messages.find((m) => m.role === 'user');
   const task = first && first.role === 'user' ? first.text : '';
-  const script = (scenario.scripts ?? []).find((s) => new RegExp(s.matchTask, 'i').test(task));
+  let vars: Record<string, string> = {};
+  const script = (scenario.scripts ?? []).find((s) => {
+    const found = new RegExp(s.matchTask, 'i').exec(task);
+    if (found)
+      vars = Object.fromEntries(
+        Object.entries(found.groups ?? {}).flatMap(([k, v]) => (v === undefined ? [] : [[k, v]])),
+      );
+    return found !== null;
+  });
   const turns = script?.turns ?? scenario.turns;
   if (!turns)
     throw new Error('scenario: no script matches this task and there are no default turns');
-  return turns;
+  return { turns, vars };
 }
 
 /** The handler for FakeProvider.onChat. */
 export function scenarioHandler(scenario: Scenario) {
   return async (request: ChatWithToolsOptions): Promise<FakeChatTurn> => {
     const n = request.messages.filter((m) => m.role === 'model').length;
-    const turns = turnsFor(scenario, request.messages);
+    const { turns, vars } = turnsFor(scenario, request.messages);
     const turn = turns[n];
     if (!turn) throw new Error(`scenario ran out of turns (turn ${n + 1} of ${turns.length})`);
     return {
       ...(turn.toolCalls && {
         toolCalls: turn.toolCalls.map((c) => ({
           name: c.name,
-          args: fill(c.args, request.messages) as Record<string, unknown>,
+          args: fill(c.args, request.messages, vars) as Record<string, unknown>,
         })),
       }),
       ...(turn.text !== undefined && { text: turn.text }),

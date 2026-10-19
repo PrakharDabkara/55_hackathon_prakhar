@@ -103,6 +103,8 @@ export interface PlanItem {
   /** The delivery the shop offered, with its yes or last time. */
   delivery?: { feePaise: number | null; minutes: number | null } | null;
   offeredQuantity?: { amount: number; unit: QuantityUnit } | null;
+  /** "Thoda hai" or "Bahut hai", from the shop's earlier answer. */
+  quantityHint?: 'few' | 'plenty' | null;
   quantityCheck?: 'enough' | 'short' | 'unknown' | null;
   /** A customer went to this shop and found the item ("Grahak ne confirm kiya"). */
   customerVerified?: true;

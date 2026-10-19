@@ -19,8 +19,8 @@ export type {
 export { requestsRouter } from './router.js';
 export { deliveryOfferForRequest } from './deliveryOffer.js';
 export type { RequestDeliveryOffer } from './deliveryOffer.js';
-export { answerPing, fanOutPings, listShopPings } from './pings.js';
-export type { PingClaims, FanOutResult } from './pings.js';
+export { answerPing, catchUpShop, fanOutPings, listShopPings } from './pings.js';
+export type { PingClaims, FanOutResult, CatchUpResult } from './pings.js';
 export { onRequestPinging } from './pinging.js';
 export { selectPingTargets } from './targets.js';
 export { EVENTS, STATES, transition } from './stateMachine.js';

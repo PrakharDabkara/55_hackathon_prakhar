@@ -11,5 +11,6 @@ export {
 export { DOUBTFUL_AFTER_REPORTS, freshnessLabel, rankResults, stockExpiry } from './stock.js';
 export type { DeliveryOffer, LearnedStockResult, QuantityHint } from './stock.js';
 export { shopsRouter } from './router.js';
+export type { ShopHooks } from './router.js';
 export { deleteSimulatedShops, findShopByOwner, insertSimulatedShops } from './service.js';
 export type { Shop, SimulatedShop } from './service.js';

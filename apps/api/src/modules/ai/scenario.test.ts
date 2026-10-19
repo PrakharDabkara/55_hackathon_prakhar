@@ -121,6 +121,40 @@ describe('several scripts in one scenario file, chosen by the task', () => {
   });
 });
 
+describe('named captures of matchTask fill {{name}} in the script (PR I: a new item name per run)', () => {
+  const scripted = parseScenario({
+    scripts: [
+      {
+        matchTask: '(?<kit>bead dazzling kit( [a-z]+)?)',
+        turns: [{ toolCalls: [{ name: 'resolve_item', args: { text: '{{kit}}' } }] }],
+      },
+    ],
+  });
+  const task = (text: string): ChatMessage => ({ role: 'user', text: `<<<TASK\n${text}\nTASK>>>` });
+
+  it('puts the captured words into the arguments', async () => {
+    const turn = (await scenarioHandler(scripted)(
+      request([task('project ke liye bead dazzling kit zephyr, chart paper')]),
+    )) as { toolCalls?: { args: unknown }[] };
+    expect(turn.toolCalls?.[0]?.args).toEqual({ text: 'bead dazzling kit zephyr' });
+    const plain = (await scenarioHandler(scripted)(request([task('bead dazzling kit')]))) as {
+      toolCalls?: { args: unknown }[];
+    };
+    expect(plain.toolCalls?.[0]?.args).toEqual({ text: 'bead dazzling kit' });
+  });
+
+  it('a placeholder the task did not capture fails clearly', async () => {
+    const bad = scenarioHandler(
+      parseScenario({
+        scripts: [
+          { matchTask: 'x', turns: [{ toolCalls: [{ name: 'a', args: { text: '{{nope}}' } }] }] },
+        ],
+      }),
+    );
+    await expect(bad(request([task('x')]))).rejects.toThrow(/nope/);
+  });
+});
+
 describe('the scripted safety classifier', () => {
   const scenario = parseScenario({
     turns: [{ text: 'x' }],

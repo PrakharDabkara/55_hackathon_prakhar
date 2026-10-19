@@ -188,6 +188,7 @@ async function loop(
   /** A user-role message the server adds. It is logged too, so a later run sees the same thing. */
   const note = async (text: string, ticked?: string[]) => {
     messages.push({ role: 'user', text });
+    state.epoch++;
     await recordStep(db, errand.id, {
       kind: 'note',
       payload: { text, ...(ticked && ticked.length > 0 && { ticked }) },
