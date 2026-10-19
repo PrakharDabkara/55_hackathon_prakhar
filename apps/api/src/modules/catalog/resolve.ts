@@ -10,6 +10,7 @@ import {
   type Candidate,
 } from '../ai/index.js';
 import { isTypoOf } from './editDistance.js';
+import { checkProductName } from './itemSanity.js';
 import { termsOfItems } from './itemTerms.js';
 import { isModifierOnlyMatch } from './modifierOnly.js';
 import { createUserItem, type Refusal } from './openCatalog.js';
@@ -53,6 +54,9 @@ const coverage = (term: string, text: string): number =>
 
 /** Everyday words the catalog file says mean several items ("mirchi"): the customer is asked. */
 const AMBIGUOUS_WORDS = ambiguousTerms(loadSeedCatalog());
+
+/** The most words of a text the model may ask the customer about. */
+const MAX_QUESTION_WORDS = 3;
 
 /** How many other candidates the customer is shown next to the understood item. */
 const MAX_ALTERNATIVES = 2;
@@ -380,6 +384,10 @@ async function findItem(
   const ai = opts.ai;
   if (!ai) return none;
 
+  // A person, a profession, a place, a vehicle or random text is no product: the model is never
+  // asked about it (free, and it cannot be talked into a question or an item).
+  if (!checkProductName(text).ok) return none;
+
   // Text that reads like an order to a model gets the free steps only (ADR-0021).
   if (looksLikeInstruction(query.toLowerCase())) {
     opts.logger?.warn(
@@ -489,6 +497,18 @@ async function askLlm(
       similarity: 0,
       alternatives: firstAlternatives(row.id, shortlist),
     };
+  }
+  // A question is for a short generic word ("clip"). A long, specific text is a product the
+  // catalog lacks, not something to ask about.
+  if (verdict.kind === 'ambiguous' && text.split(' ').length > MAX_QUESTION_WORDS) {
+    await writeCache(
+      db,
+      text,
+      'llm',
+      { itemId: null, question: null, optionIds: null },
+      CATALOG_VERSION,
+    );
+    return none;
   }
   if (verdict.kind === 'none') {
     await writeCache(

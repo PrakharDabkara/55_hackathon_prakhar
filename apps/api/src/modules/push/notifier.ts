@@ -128,14 +128,16 @@ export function createNotifier(deps: Deps): Notifier {
     const { rows } = await db.query<{ name_en: string | null; yes: boolean; errand: boolean }>(
       `SELECT i.name_en,
               EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) AS yes,
-              EXISTS (SELECT 1 FROM errands e WHERE e.user_id = r.user_id
-                        AND e.state IN ('PLANNING', 'WAITING_FOR_SHOPS', 'NEEDS_INPUT')) AS errand
+              EXISTS (SELECT 1 FROM errand_requests er JOIN errands e ON e.id = er.errand_id
+                       WHERE er.request_id = r.id
+                         AND e.state IN ('PLANNING', 'WAITING_FOR_SHOPS', 'NEEDS_INPUT')) AS errand
          FROM requests r JOIN items i ON i.id = r.item_id
         WHERE r.id = $1 AND r.user_id = $2`,
       [requestId, userId],
     );
     const row = rows[0];
-    // While an errand is planning its searches are its own; "Plan taiyaar" is the one push for it.
+    // The searches an errand opened itself (errand_requests) are its own while it is planning:
+    // "Plan taiyaar" is the one push for them. The customer's separate searches still get theirs.
     if (!row || !row.yes || row.errand) return;
     await notify(
       userId,

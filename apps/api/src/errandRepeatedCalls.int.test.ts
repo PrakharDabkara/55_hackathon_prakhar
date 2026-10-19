@@ -87,14 +87,14 @@ describe('an identical tool call within one errand returns the earlier result', 
         [id],
       )
     ).rows;
-  const toolResults = () =>
-    provider.calls
-      .filter((c) => c.kind === 'chat')
-      .flatMap(
-        (c) => (c as unknown as { messages: { role: string; results?: unknown[] }[] }).messages,
+  const toolResults = async (id: string) =>
+    (
+      await pool.query<{ name: string; result: unknown }>(
+        `SELECT tool_name AS name, payload->'result' AS result FROM errand_steps
+          WHERE errand_id = $1 AND kind = 'tool' ORDER BY n`,
+        [id],
       )
-      .filter((m) => m.role === 'tool')
-      .flatMap((m) => m.results ?? []) as { id: string; name: string; result: unknown }[];
+    ).rows;
 
   it('answers a repeated resolve_item (same turn or later) from the first result and runs it once', async () => {
     const id = await start();
@@ -118,7 +118,7 @@ describe('an identical tool call within one errand returns the earlier result', 
       await pool.query(`SELECT 1 FROM search_queries WHERE raw_text IN ('chini', 'namak')`)
     ).rowCount;
     expect(asked).toBe(2); // chini once, namak once
-    const chini = toolResults().filter(
+    const chini = (await toolResults(id)).filter(
       (r) => r.name === 'resolve_item' && JSON.stringify(r.result).includes('sugar'),
     );
     expect(chini).toHaveLength(3);
@@ -154,7 +154,7 @@ describe('an identical tool call within one errand returns the earlier result', 
     ]);
     await runErrand(deps({ maxAskShops: 1 }), id);
     expect((await pool.query('SELECT 1 FROM requests')).rowCount).toBe(1);
-    const results = toolResults().filter((r) => r.name === 'ask_shops');
+    const results = (await toolResults(id)).filter((r) => r.name === 'ask_shops');
     expect(results).toHaveLength(2);
     expect(JSON.stringify(results[1]?.result)).not.toMatch(/limit|cap|too many/i);
   });

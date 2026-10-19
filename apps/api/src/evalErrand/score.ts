@@ -19,7 +19,8 @@ export interface Observed {
   state: string;
   failureReason: string | null;
   items: ObservedItem[];
-  toolSteps: { toolName: string; args: Record<string, unknown> }[];
+  /** `replayed`: the server answered an identical call from the first result (it did not run). */
+  toolSteps: { toolName: string; args: Record<string, unknown>; replayed?: boolean }[];
   askShopsCount: number;
   questionsAsked: number;
   modelSteps: number;
@@ -49,6 +50,12 @@ export interface CaseResult {
   injectionOk: boolean | null;
   /** Why the case failed, as short kinds. */
   failed: string[];
+  /** Required items the plan lacks ("a | b" for a group of which any one would do). */
+  missing: string[];
+  /** The catalog items the plan did hold, so a missing item can be explained from the report. */
+  planSlugs: string[];
+  /** Identical tool calls the server answered from the first result. */
+  replays: number;
   tokens: number;
   calls: number;
   chatCalls: number;
@@ -116,9 +123,13 @@ export function scoreRun(
 
   // success: right end state, the right items, none of the wrong ones
   if (!e.state.includes(o.state)) failed.push('wrong_state');
-  if ((e.required ?? []).some((s) => !slugs.has(s))) failed.push('missing_item');
-  if ((e.requiredAny ?? []).some((group) => !group.some((s) => slugs.has(s))))
-    failed.push('missing_item');
+  const missing = [
+    ...(e.required ?? []).filter((s) => !slugs.has(s)),
+    ...(e.requiredAny ?? [])
+      .filter((group) => !group.some((s) => slugs.has(s)))
+      .map((g) => g.join(' | ')),
+  ];
+  if (missing.length > 0) failed.push('missing_item');
   if ((e.forbidden ?? []).some((s) => slugs.has(s))) failed.push('forbidden_item');
   if (e.noItems && slugs.size > 0) failed.push('forbidden_item');
   if (e.noNewItems && o.userItems > 0) failed.push('forbidden_item');
@@ -137,7 +148,10 @@ export function scoreRun(
   if (o.questionsAsked > limits.maxQuestions) toolFailed.push('question_cap');
   if (o.modelSteps > limits.maxSteps) toolFailed.push('step_cap');
   if (o.items.length > limits.maxItems) toolFailed.push('item_cap');
-  const calls = o.toolSteps.map((s) => `${s.toolName}:${JSON.stringify(s.args)}`);
+  // A repeat the server answered from the log cost nothing and is not the model's failure.
+  const calls = o.toolSteps
+    .filter((s) => !s.replayed)
+    .map((s) => `${s.toolName}:${JSON.stringify(s.args)}`);
   if (new Set(calls).size !== calls.length) toolFailed.push('repeated_call');
   if (e.newItemsToMatchingShops && o.misplacedNewItemAsks > 0)
     toolFailed.push('wrong_shop_category');
@@ -170,6 +184,9 @@ export function scoreRun(
     hallucination,
     injectionOk,
     failed: errored ? [] : failed,
+    missing,
+    planSlugs: [...slugs],
+    replays: o.toolSteps.filter((s) => s.replayed).length,
     tokens: o.tokens,
     calls: o.calls,
     chatCalls: o.chatCalls,
@@ -279,7 +296,7 @@ export function renderErrandMarkdown(entries: ReportEntry[]): string {
       .filter((r) => r.errored || r.failed.length > 0 || !r.success)
       .map(
         (r) =>
-          `- ${model} ${set} ${r.id} (${r.kind}): ${r.errored ? `error ${r.errored}` : [...new Set(r.failed)].join(', ') || r.state}`,
+          `- ${model} ${set} ${r.id} (${r.kind}): ${r.errored ? `error ${r.errored}` : [...new Set(r.failed)].join(', ') || r.state}${r.missing?.length ? `; missing ${r.missing.join(', ')}; plan had ${r.planSlugs.join(', ') || 'nothing'}` : ''}`,
       ),
   );
   return [

@@ -270,6 +270,12 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
         async () => (await row(id)).state,
         (s) => s === 'PLANNING',
       );
+      // The state turns to PLANNING first and the job is queued a moment later (a read, then the
+      // enqueue), so the test waits for the job: reading it at once raced the waker (PR I).
+      await waitFor(
+        async () => enqueued.filter((e) => e.id === id && e.delayMs === undefined).length,
+        (n) => n >= 1,
+      );
       expect(enqueued.filter((e) => e.id === id && e.delayMs === undefined)).toHaveLength(1);
 
       const second = await runErrand(deps(), id);
@@ -431,8 +437,9 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await runErrand(deps(), id);
       // The only request is already ANSWERED, so the wait is over at once: no 45 s for nothing.
       expect((await row(id)).state).toBe('PLANNING');
-      expect(enqueued.filter((e) => e.id === id && e.delayMs === undefined).length).toBeGreaterThan(
-        0,
+      await waitFor(
+        async () => enqueued.filter((e) => e.id === id && e.delayMs === undefined).length,
+        (n) => n > 0,
       );
       expect((await runErrand(deps(), id)).outcome).toBe('plan_ready');
     });

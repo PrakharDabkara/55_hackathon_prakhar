@@ -464,7 +464,11 @@ async function observe(
     items,
     toolSteps: steps
       .filter((s) => s.kind === 'tool')
-      .map((s) => ({ toolName: s.toolName ?? '', args: s.args })),
+      .map((s) => ({
+        toolName: s.toolName ?? '',
+        args: s.args,
+        ...(s.resultSummary['replayed'] === true ? { replayed: true } : {}),
+      })),
     askShopsCount: links.rows[0]?.n ?? 0,
     questionsAsked: errand?.questionsAsked ?? 0,
     modelSteps: steps.filter((s) => s.kind === 'model').length,
