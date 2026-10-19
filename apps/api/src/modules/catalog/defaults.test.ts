@@ -37,6 +37,8 @@ describe('defaultFor: generic words that mean one usual item', () => {
     const defaults = new Map(seed.items.map((i) => [i.slug, i.defaultFor ?? []]));
     expect(defaults.get('ball-pen')).toContain('pen');
     expect(defaults.get('water-bottle')).toContain('bottle');
+    // A child's "colours" (dev case d18) means colour pencils; it is not a question to ask twice.
+    expect(defaults.get('colour-pencils')).toEqual(expect.arrayContaining(['colours', 'colors']));
     expect(() => checkCatalog(seed)).not.toThrow();
   });
 

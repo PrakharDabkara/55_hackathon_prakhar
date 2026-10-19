@@ -242,16 +242,53 @@ describe('push notifications for the events of a search, an errand and an order'
       });
     });
 
-    it('leaves the answers of an errand\'s own searches to "Plan taiyaar"', async () => {
-      await pool.query(
-        `INSERT INTO errands (user_id, task, location, state)
-         VALUES ($1, 'school things', ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 'WAITING_FOR_SHOPS')`,
-        [seeker.userId, ORIGIN.lng, ORIGIN.lat],
-      );
-      await search();
-      await answer('yes');
-      await notifier.idle();
-      expect(to(seekerSub)).toHaveLength(0);
+    describe('while an errand is running (PR I)', () => {
+      const runningErrand = async () =>
+        (
+          await pool.query<{ id: string }>(
+            `INSERT INTO errands (user_id, task, location, state)
+             VALUES ($1, 'school things', ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 'WAITING_FOR_SHOPS')
+             RETURNING id`,
+            [seeker.userId, ORIGIN.lng, ORIGIN.lat],
+          )
+        ).rows[0]?.id as string;
+
+      it('leaves the answers of the errand\'s own searches to "Plan taiyaar"', async () => {
+        const errandId = await runningErrand();
+        const requestId = await search();
+        await pool.query(
+          `INSERT INTO errand_requests (errand_id, request_id, item_id)
+           SELECT $1, id, item_id FROM requests WHERE id = $2`,
+          [errandId, requestId],
+        );
+        await answer('yes');
+        await notifier.idle();
+        expect(to(seekerSub)).toHaveLength(0);
+      });
+
+      it('still tells the customer about a separate plain search of theirs', async () => {
+        await runningErrand();
+        const requestId = await search();
+        await answer('yes');
+        await notifier.idle();
+        const heard = to(seekerSub);
+        expect(heard).toHaveLength(1);
+        expect(heard[0]?.payload.url).toBe(`/app/request/${requestId}`);
+      });
+
+      it('is not silenced by an errand that has finished', async () => {
+        const errandId = await runningErrand();
+        const requestId = await search();
+        await pool.query(
+          `INSERT INTO errand_requests (errand_id, request_id, item_id)
+           SELECT $1, id, item_id FROM requests WHERE id = $2`,
+          [errandId, requestId],
+        );
+        await pool.query(`UPDATE errands SET state = 'PLAN_READY' WHERE id = $1`, [errandId]);
+        await answer('yes');
+        await notifier.idle();
+        expect(to(seekerSub)).toHaveLength(1);
+      });
     });
 
     it('hears about an order as the shop accepts, sends it out and delivers it', async () => {

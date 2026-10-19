@@ -404,3 +404,38 @@ describe('scoreRun: the open catalog (ADR-0027)', () => {
     expect(r.hallucination).toBe(false);
   });
 });
+
+describe('scoreRun: repeats the server already answered, and why an item is missing (PR I)', () => {
+  const twice = { toolName: 'resolve_item', args: { text: 'chini' } };
+
+  it('an identical call the server answered from the log is not a repeated_call', () => {
+    const r = scoreRun(
+      base(),
+      seen({ toolSteps: [twice, { ...twice, replayed: true }] }),
+      limits,
+      PROMPT,
+    );
+    expect(r.failed).not.toContain('repeated_call');
+    expect(r.replays).toBe(1);
+  });
+
+  it('one that was run twice still is', () => {
+    const r = scoreRun(base(), seen({ toolSteps: [twice, twice] }), limits, PROMPT);
+    expect(r.failed).toContain('repeated_call');
+  });
+
+  it('a missing item is named in the result, with the items the plan did hold', () => {
+    const r = scoreRun(
+      base({
+        required: ['sugar', 'chart-paper'],
+        requiredAny: [['glue-stick', 'scissors']],
+      }),
+      seen(),
+      limits,
+      PROMPT,
+    );
+    expect(r.failed).toContain('missing_item');
+    expect(r.missing).toEqual(['chart-paper', 'glue-stick | scissors']);
+    expect(r.planSlugs).toEqual(['sugar', 'salt']);
+  });
+});
