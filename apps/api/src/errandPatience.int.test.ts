@@ -35,6 +35,7 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 import { startRedis } from './testing/startRedis.js';
 import { waitFor } from './testing/waitFor.js';
 import { startErrandWorker, type ErrandWorker } from './workers/errandWorker.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const call = (name: string, args: Record<string, unknown>, signature?: string) => ({
@@ -106,7 +107,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
 
   beforeEach(async () => {
     (waker as ErrandWaker | null)?.close?.();
-    await pool.query('TRUNCATE errands, requests, ai_calls CASCADE');
+    await truncateKeepingShops(pool, 'errands, requests, ai_calls');
     await pool.query(`DELETE FROM shop_stock WHERE item_id = ANY($1::uuid[])`, [
       [ids['floor-cleaner'], ids['broom'], ids['agarbatti'], ids['floor-mop']],
     ]);

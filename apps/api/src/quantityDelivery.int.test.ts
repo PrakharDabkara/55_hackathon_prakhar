@@ -9,6 +9,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
@@ -41,7 +42,7 @@ describe('exact quantity, delivery offer, open switch', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE requests, pings, shop_stock CASCADE');
+    await truncateKeepingShops(pool, 'requests, pings, shop_stock');
     await pool.query(`UPDATE shops SET closed_until = NULL`);
   });
 
@@ -157,7 +158,7 @@ describe('exact quantity, delivery offer, open switch', () => {
         ['chini', { amount: 5, unit: 'kg' }, undefined],
       ];
       for (const [q, quantity, check] of cases) {
-        await pool.query('TRUNCATE requests, pings, shop_stock CASCADE');
+        await truncateKeepingShops(pool, 'requests, pings, shop_stock');
         const made = await ask(q);
         const ping = await pingFor(made.body.id);
         await answer(ping.id, { answer: 'yes', ...(quantity && { quantity }) });
@@ -360,7 +361,7 @@ describe('exact quantity, delivery offer, open switch', () => {
     const A = '00000000-0000-4000-8000-00000000000a';
     let errandId: string;
     beforeEach(async () => {
-      await pool.query('TRUNCATE errands CASCADE');
+      await truncateKeepingShops(pool, 'errands');
       const plan = {
         items: variant().items,
         route: variant().route,

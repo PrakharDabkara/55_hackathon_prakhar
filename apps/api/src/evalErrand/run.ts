@@ -12,6 +12,7 @@ import { answerErrand, getErrand } from '../modules/errands/service.js';
 import { answerPing, selectPingTargets } from '../modules/requests/index.js';
 import { DEMO_LOCATION, type Answer, type ErrandCase } from './cases.js';
 import { scoreRun, type CaseResult, type Observed, type ObservedItem } from './score.js';
+import { truncateKeepingShops } from '../testing/truncate.js';
 
 /**
  * The shops of the eval world: name, kinds, km north and km east of the demo location. The first
@@ -117,7 +118,7 @@ export async function seedEvalWorld(pool: Pool): Promise<string> {
 
 /** A clean slate for one case: no earlier errands or requests, and the case's learned stock. */
 async function resetWorld(pool: Pool, stock: ErrandCase['stock']): Promise<void> {
-  await pool.query('TRUNCATE errands, requests, new_item_attempts CASCADE');
+  await truncateKeepingShops(pool, 'errands, requests, new_item_attempts');
   // Items a customer added in an earlier case are forgotten: each case starts from the same catalog.
   await pool.query(`DELETE FROM items WHERE source = 'user'`);
   await pool.query(`DELETE FROM shop_stock`);

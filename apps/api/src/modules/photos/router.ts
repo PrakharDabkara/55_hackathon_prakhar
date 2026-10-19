@@ -1,10 +1,11 @@
 import express, { Router, type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import type { Logger } from 'pino';
-import type { Queryable } from '../../db/queryable.js';
+import type { Database } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
-import { authOf, createRequireAuth } from '../identity/index.js';
-import { MAX_UPLOAD_BYTES, readPhotoFor, storePhoto } from './service.js';
+import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
+import { logoUrl, readLogo, removeLogo, replaceLogo } from './logo.js';
+import { isPhotoId, MAX_UPLOAD_BYTES, readPhotoFor, storePhoto } from './service.js';
 
 const uploadQuery = z.object({
   role: z.enum(['request', 'answer']),
@@ -27,7 +28,7 @@ export function photosRouter({
   logger,
   capMb,
 }: {
-  db: Queryable;
+  db: Database;
   logger: Logger;
   capMb: number;
 }): Router {
@@ -57,6 +58,48 @@ export function photosRouter({
       },
     );
     res.status(201).json(stored);
+  });
+
+  // A shop's logo: the owner chose to publish it, so anyone may read it, signed in or not.
+  router.post(
+    '/shops/me/logo',
+    requireAuth,
+    requireRole('shop'),
+    rawBody,
+    tooLarge,
+    async (req: Request, res: Response) => {
+      const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      const id = await replaceLogo(
+        { db, logger: req.log ?? logger, capBytes: Math.floor(capMb * 1024 * 1024) },
+        authOf(req).user.id,
+        body,
+      );
+      if (!id) throw new ApiError(404, 'not_found', 'You have not created a shop yet');
+      res.status(201).json({ logoUrl: logoUrl(id) });
+    },
+  );
+
+  router.delete('/shops/me/logo', requireAuth, requireRole('shop'), async (req, res) => {
+    if (!(await removeLogo(db, authOf(req).user.id)))
+      throw new ApiError(404, 'not_found', 'You have not created a shop yet');
+    res.status(204).end();
+  });
+
+  router.get('/photos/:id', async (req, res, next) => {
+    const id = String(req.params['id']);
+    const logo = isPhotoId(id) ? await readLogo(db, id) : null;
+    if (!logo) return next();
+    res
+      .status(200)
+      .set({
+        'Content-Type': logo.mime,
+        // A new logo is a new id, so this one never changes: any cache may keep it.
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Disposition': 'inline',
+        'Content-Length': String(logo.data.length),
+      })
+      .send(logo.data);
   });
 
   router.get('/photos/:id', requireAuth, async (req, res) => {

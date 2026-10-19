@@ -10,6 +10,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
@@ -44,7 +45,7 @@ describe('open catalog over HTTP', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE requests, pings, new_item_attempts, query_cache CASCADE');
+    await truncateKeepingShops(pool, 'requests, pings, new_item_attempts, query_cache');
     await pool.query(`DELETE FROM shops`);
     await pool.query(`DELETE FROM items WHERE source = 'user'`);
     provider.calls.length = 0;

@@ -17,6 +17,8 @@ export interface Shop {
   defaultMinutes: number | null;
   /** How far the shop delivers, in km; null means no limit (ADR-0039). */
   deliveryMaxKm: number | null;
+  /** The shop's published logo, or null (ADR-0040). */
+  logoUrl: string | null;
 }
 
 /** A delivery offer: both parts optional. */
@@ -48,7 +50,8 @@ const COLUMNS = `id, name, phone, categories,
   (closed_until IS NULL OR closed_until <= now()) AS open,
   CASE WHEN closed_until > now() THEN closed_until END AS "closedUntil",
   delivers_default AS "deliversDefault", default_fee_paise AS "defaultFeePaise",
-  default_minutes AS "defaultMinutes", delivery_max_km::float8 AS "deliveryMaxKm"`;
+  default_minutes AS "defaultMinutes", delivery_max_km::float8 AS "deliveryMaxKm",
+  CASE WHEN logo_photo_id IS NOT NULL THEN '/photos/' || logo_photo_id END AS "logoUrl"`;
 
 /** Creates the owner's shop, or returns null if they already have one. */
 export async function createShop(

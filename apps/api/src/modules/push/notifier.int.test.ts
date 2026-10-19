@@ -14,6 +14,7 @@ import { createNotifier, type EnqueuePush } from './notifier.js';
 import type { PushPayload } from './payload.js';
 import { createRateLimiter, type CounterStore } from './rateLimit.js';
 import { saveSubscription } from './subscriptions.js';
+import { truncateKeepingShops } from '../../testing/truncate.js';
 
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
 const ADDRESS = 'Flat 4B, Sapna Apartments, Vijay Nagar, Indore';
@@ -87,8 +88,9 @@ describe('push notifications for the events of a search, an errand and an order'
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE requests, pings, shop_stock, delivery_orders, errands, push_subscriptions CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'requests, pings, shop_stock, delivery_orders, errands, push_subscriptions',
     );
     await pool.query(`UPDATE shops SET closed_until = NULL, is_simulated = false`);
     queued = [];

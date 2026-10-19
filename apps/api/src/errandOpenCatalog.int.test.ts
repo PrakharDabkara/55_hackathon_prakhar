@@ -18,6 +18,7 @@ import {
 import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const logger = pino({ level: 'silent' });
 const call = (name: string, args: Record<string, unknown>) => ({ name, args });
@@ -47,7 +48,7 @@ describe('errand agent with the open catalog', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query('TRUNCATE errands, ai_calls, requests, pings, new_item_attempts CASCADE');
+    await truncateKeepingShops(pool, 'errands, ai_calls, requests, pings, new_item_attempts');
     await pool.query(`DELETE FROM shops`);
     await pool.query(`DELETE FROM items WHERE source = 'user'`);
     await pool.query('TRUNCATE query_cache');

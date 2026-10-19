@@ -344,6 +344,8 @@ export interface ShopPing {
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
   distanceBand: string;
+  /** What this shop last said it charged for the item; null if never, or the answer was called wrong. */
+  lastPricePaise: number | null;
   /** The customer's photo of what they want, if they added one. Fetch it from GET /photos/:id. */
   photoId?: string;
   /** The customer ticked "Deliver to me". The address is not here: a shop learns it once ACCEPTED. */
@@ -362,6 +364,7 @@ interface ShopPingRow {
   quantity: { quantity: number; unit: string } | null;
   target_price_paise: number | null;
   distance_m: number;
+  last_price_paise: number | null;
   sent_at: Date;
   expires_at: Date;
   photo_id: string | null;
@@ -377,6 +380,10 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
   const { rows } = await db.query<ShopPingRow>(
     `SELECT p.id, i.slug, i.name_en, i.name_hi, r.quantity, r.target_price_paise,
             ST_Distance(s.location, r.location) AS distance_m, p.sent_at, r.expires_at,
+            (SELECT st.price_paise FROM shop_stock st
+              WHERE st.shop_id = p.shop_id AND st.item_id = p.item_id
+                -- a wrong report hides it until the shop answers again
+                AND (st.invalidated_at IS NULL OR st.last_confirmed_at >= st.invalidated_at)) AS last_price_paise,
             (SELECT ph.id FROM photos ph WHERE ph.request_id = r.id) AS photo_id,
             r.wants_delivery, ${CAN_DELIVER} AS can_deliver
        FROM pings p
@@ -393,6 +400,7 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
     ...(r.quantity && { quantity: r.quantity }),
     ...(r.target_price_paise !== null && { targetPricePaise: r.target_price_paise }),
     distanceBand: distanceBand(r.distance_m),
+    lastPricePaise: r.last_price_paise,
     ...(r.photo_id && { photoId: r.photo_id }),
     wantsDelivery: r.wants_delivery,
     canDeliver: r.can_deliver,

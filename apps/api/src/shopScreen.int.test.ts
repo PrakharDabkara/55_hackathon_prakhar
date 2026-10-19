@@ -11,6 +11,7 @@ import { testConfig } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { truncateKeepingShops } from './testing/truncate.js';
 
 const claimsAll: PingClaims = { claim: async () => true, release: async () => undefined };
 const quiet = pino({ level: 'silent' });
@@ -79,8 +80,9 @@ describe('shop screen data and the shop logo', () => {
     await testDb?.stop();
   });
   beforeEach(async () => {
-    await pool.query(
-      'TRUNCATE photos, requests, pings, shop_stock, delivery_orders, saved_addresses CASCADE',
+    await truncateKeepingShops(
+      pool,
+      'photos, requests, pings, shop_stock, delivery_orders, saved_addresses',
     );
   });
 
@@ -357,7 +359,7 @@ describe('shop screen data and the shop logo', () => {
       const second = (await upload(owner, await jpeg(300, 300))).body.logoUrl as string;
       expect(second).not.toBe(first);
       expect(await rows()).toHaveLength(1);
-      expect((await fetchLogo(first)).status).toBe(404);
+      expect((await fetchLogo(first, seeker)).status).toBe(404);
       expect((await fetchLogo(second)).status).toBe(200);
       expect((await me(owner)).body.logoUrl).toBe(second);
     });
@@ -435,10 +437,17 @@ describe('shop screen data and the shop logo', () => {
         return logoUrl as string;
       }
       async function offer(): Promise<string> {
-        const made = await request(app)
-          .post('/requests')
+        const saved = await request(app)
+          .put('/orders/saved-address')
           .set(auth(seeker))
-          .send({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng });
+          .send({ addressText: ADDRESS, customerName: 'Asha Verma' });
+        const made = await request(app).post('/requests').set(auth(seeker)).send({
+          q: 'chini',
+          lat: ORIGIN.lat,
+          lng: ORIGIN.lng,
+          wantsDelivery: true,
+          deliveryAddressId: saved.body.id,
+        });
         await fanOutPings(
           { db: pool, logger: quiet, config: { maxPings: 10 } },
           made.body.id,
@@ -472,11 +481,6 @@ describe('shop screen data and the shop logo', () => {
       it('is on the order page and in Mere orders', async () => {
         const logoUrl = await withLogo();
         const requestId = await offer();
-        const address = await request(app)
-          .put('/orders/saved-address')
-          .set(auth(seeker))
-          .send({ addressText: ADDRESS, customerName: 'Asha Verma' });
-        expect(address.status).toBeLessThan(300);
         const placed = await request(app)
           .post('/orders')
           .set(auth(seeker))
