@@ -191,18 +191,18 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
 
         {moving ? (
           <>
-            <div className="cu-status" role="status">
-              <p className="cu-status__caption">{orderCaption(c, order.state)}</p>
+            <div className="cu-order-status" role="status">
+              <p className="cu-order-status__caption">{orderCaption(c, order.state)}</p>
               {order.state === 'OUT_FOR_DELIVERY' && (
                 <>
                   {arrival ? (
-                    <p className="cu-status__time">{c.reachingBy(arrival)}</p>
+                    <p className="cu-order-status__time">{c.reachingBy(arrival)}</p>
                   ) : order.outForDeliveryAt ? (
-                    <p className="cu-status__time">
+                    <p className="cu-order-status__time">
                       {c.outSince(timeOfDay(order.outForDeliveryAt))}
                     </p>
                   ) : null}
-                  <p className="cu-status__note">{c.ownPerson}</p>
+                  <p className="cu-order-status__note">{c.ownPerson}</p>
                 </>
               )}
             </div>

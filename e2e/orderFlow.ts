@@ -1,4 +1,5 @@
 import { expect, type Browser, type Page } from '@playwright/test';
+import { uniquePhone } from './unique.js';
 
 // Shared by the delivery specs: a real shop in a quiet corner far from the simulated shops, a
 // customer standing there, and the "Ghar mangwao" steps. Two real browsers at 360 px.
@@ -14,16 +15,53 @@ export const newCorner = () => ({
   longitude: Number((77 + Math.random() * 2).toFixed(4)),
 });
 
-export const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
+export const newPhone = uniquePhone;
 
-/** Logs in with a fresh phone number: the shop app and the customer app word their buttons differently. */
+/** The customer app's login sheet is open: a fresh phone, the demo code, Log in. */
+export async function sheetLogin(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Log in to send your request' });
+  await dialog.getByLabel('Mobile number').fill(newPhone());
+  await dialog.getByRole('button', { name: 'Send code' }).click();
+  await dialog.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await dialog.getByRole('button', { name: 'Log in' }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
+/** Logs in with a fresh phone number. The customer app has no login page: My orders asks for one. */
 export async function login(page: Page, path: string) {
-  const shop = path.startsWith('/app/shop');
+  if (!path.startsWith('/app/shop')) {
+    await page.goto('/app/orders');
+    await sheetLogin(page);
+    await expect(page.getByRole('heading', { name: 'My orders' })).toBeVisible();
+    await page.goto(path);
+    return;
+  }
   await page.goto(path);
   await page.getByLabel(/mobile number/i).fill(newPhone());
-  await page.getByRole('button', { name: shop ? 'Send code' : 'Send OTP' }).click();
-  await page.getByRole('button', { name: shop ? 'Fill the code' : 'Fill demo OTP' }).click();
+  await page.getByRole('button', { name: 'Send code' }).click();
+  await page.getByRole('button', { name: 'Fill the code' }).click();
   await page.getByRole('button', { name: 'Log in' }).click();
+}
+
+/** Find, as a customer: type the item, optionally ask for delivery, press Find nearby. */
+export async function ask(
+  page: Page,
+  what: string,
+  { delivery = false, address = ADDRESS }: { delivery?: boolean; address?: string } = {},
+) {
+  await page.getByLabel('What do you need?').fill(what);
+  if (delivery) {
+    await page.getByRole('switch', { name: 'Deliver to me' }).click();
+    await page.getByLabel('Delivery address').fill(address);
+  }
+  await page.getByRole('button', { name: 'Find nearby' }).click();
+}
+
+/** The demo place in Indore, through the "Near you" chip, for a browser with no location of its own. */
+export async function useDemoLocation(page: Page) {
+  await page.getByRole('button', { name: /Near you/ }).click();
+  await page.getByRole('button', { name: 'Use demo location (Indore)' }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
 }
 
 /** A browser for a shop standing at `corner`, so "Use my current location" finds it there. */
@@ -84,12 +122,8 @@ export async function setup(
   });
   const customer = await customerContext.newPage();
   await login(customer, '/app/');
-  await customer.getByRole('button', { name: 'Use my location' }).click();
-  await customer.getByLabel('क्या चाहिए?').fill('haldi');
   // "Deliver to me" with an address typed here (Delivery v2): the shop gets three answers.
-  await customer.getByRole('checkbox', { name: 'Deliver to me' }).check();
-  await customer.getByLabel('Home address').fill(ADDRESS);
-  await customer.getByRole('button', { name: 'Search' }).click();
+  await ask(customer, 'haldi', { delivery: true });
 
   // The shop says "will deliver" (the fee and time start from its delivery settings), and the customer sees its card.
   await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
@@ -102,19 +136,48 @@ export async function setup(
 }
 
 /**
- * "Ghar mangwao" → "Order bhejo" → "Pakka karo". The address was chosen on Find, so there is none to
- * type. The shop's yes is fresh, so the order starts ACCEPTED: no waiting for the shop (ADR-0039).
+ * "Choose this shop" → "Get it delivered" → "Place order". The address was chosen on Find, so there
+ * is none to type. The shop's yes is fresh, so the order starts ACCEPTED: no waiting for the shop
+ * (ADR-0039). The customer lands on the order page.
  */
 export async function order(
   customer: Page,
   card: ReturnType<Page['locator']>,
   { note }: { note?: string } = {},
 ) {
-  await card.getByRole('button', { name: 'Deliver to me' }).click();
-  await card.getByRole('button', { name: 'Send order' }).click();
-  if (note) await card.getByLabel('Note for the shop').fill(note);
+  await card.getByRole('button', { name: 'Choose this shop' }).click();
+  const sheet = customer.getByRole('dialog', { name: 'Choose this shop' });
+  await sheet.getByRole('radio', { name: /Get it delivered/ }).check();
+  // A search made without "Deliver to me" has no address yet: the sheet asks for one.
+  const address = sheet.getByLabel('Delivery address');
+  if (await address.count()) await address.fill(ADDRESS);
+  if (note) await sheet.getByLabel('Note for the shop').fill(note);
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-address-step.png', fullPage: true });
-  await card.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(card.getByText('The shop accepted your order')).toBeVisible({ timeout: 15_000 });
+  await sheet.getByRole('button', { name: 'Place order' }).click();
+  await expect(customer).toHaveURL(/\/app\/order\/[\w-]+$/);
+  await expect(customer.getByText('Shop accepted').first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** A customer standing at `corner` (the browser's own location), logged in on Find. */
+export async function customerAt(
+  browser: Browser,
+  corner: { latitude: number; longitude: number },
+) {
+  const context = await browser.newContext({
+    viewport: VIEWPORT,
+    geolocation: corner,
+    permissions: ['geolocation'],
+  });
+  const page = await context.newPage();
+  await login(page, '/app/');
+  await expect(page.getByRole('heading', { name: 'What do you need?' })).toBeVisible();
+  return { context, page };
+}
+
+/** On the replies screen: opens the shop's reply, asks for delivery and places the order. */
+export async function orderFromReply(customer: Page, shopName: string) {
+  const reply = customer.getByRole('listitem').filter({ hasText: shopName });
+  await expect(reply).toBeVisible({ timeout: 30_000 });
+  await order(customer, reply);
 }

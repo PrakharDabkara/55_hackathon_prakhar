@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
-import { pinSvg, pinsKey } from '../lib/pins.js';
+import { pinHtml, pinsKey } from '../lib/pins.js';
 import '../customer/replies.css';
 
 export interface Pin {
@@ -32,11 +32,10 @@ const ATTRIBUTION =
 
 const icon = (kind: 'user' | 'live' | 'learned') =>
   L.divIcon({
-    html: pinSvg(kind),
-    className: 'km-pin', // replaces Leaflet's default white box
-    ...(kind === 'user'
-      ? { iconSize: [22, 22] as [number, number], iconAnchor: [11, 11] as [number, number] }
-      : { iconSize: [30, 40] as [number, number], iconAnchor: [15, 40] as [number, number] }),
+    html: pinHtml(kind),
+    className: 'cu-map-marker', // replaces Leaflet's default white box
+    iconSize: kind === 'user' ? [22, 22] : [30, 30],
+    iconAnchor: kind === 'user' ? [11, 11] : [15, 15],
   });
 
 /**

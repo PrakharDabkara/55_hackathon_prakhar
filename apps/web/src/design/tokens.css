@@ -24,6 +24,9 @@
   --danger: #b3261e;
   --danger-soft: #fbe3e1;
   --focus: #1f6feb;
+  /* The dark status card on order tracking: dark in both themes. */
+  --panel-dark: #18223b;
+  --on-panel-dark: #f3f6f4;
 
   --space-1: 4px;
   --space-2: 8px;

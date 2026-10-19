@@ -1,4 +1,4 @@
-import { ApiFailure, createClient } from './client.ts';
+import { ApiFailure, createClient, type Client } from './client.ts';
 import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.ts';
 import { createRng, hashSeed } from './rng.ts';
 import { readSse } from './sse.ts';
@@ -20,6 +20,8 @@ export interface SimulatorOptions {
   categories?: string[];
   /** Every shop answers every ping with a yes: for tests and demos that must not depend on luck. */
   eager?: boolean;
+  /** A session token from an earlier run: used instead of an OTP login while it still works. */
+  adminToken?: string;
   log?: (line: string) => void;
 }
 
@@ -35,6 +37,8 @@ export interface Stats {
 }
 
 export interface Simulator {
+  /** The admin session this run used, to keep for the next one. */
+  adminToken: string;
   stats(): Stats;
   /** Stops listening, cancels answers not yet sent and waits for the stream to close. Safe to repeat. */
   stop(): Promise<void>;
@@ -56,6 +60,17 @@ const short = (id: string) => id.slice(0, 8);
 const clock = () => new Date().toTimeString().slice(0, 8);
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
 
+/** True when a kept session token is still accepted by the server (any signed-in call will do). */
+export async function tokenWorks(client: Client, token: string | undefined): Promise<boolean> {
+  if (!token) return false;
+  try {
+    await client.ticket(token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fake shops that answer real pings. It logs in as the admin, makes (or reuses) the shops on the
  * server, opens ONE admin stream that carries every simulated shop's pings, and answers each as
@@ -73,7 +88,9 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
 
   let admin: { token: string; role: string };
   try {
-    admin = await client.login(options.adminPhone, abort.signal);
+    admin = (await tokenWorks(client, options.adminToken))
+      ? { token: options.adminToken as string, role: 'admin' }
+      : await client.login(options.adminPhone, abort.signal);
   } catch (error) {
     if (error instanceof ApiFailure && error.code === 'rate_limited') {
       throw new Error('Too many OTP requests for this phone. Wait about 10 minutes and try again.');
@@ -342,5 +359,5 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     await stop();
     throw error;
   }
-  return { stats: () => ({ ...stats }), stop };
+  return { adminToken: admin.token, stats: () => ({ ...stats }), stop };
 }

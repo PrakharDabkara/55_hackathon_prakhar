@@ -141,9 +141,32 @@
   border-radius: var(--r-md);
   overflow: hidden;
 }
-.km-pin {
+.cu-map-marker {
   background: none;
   border: 0;
+}
+.cu-map-pin {
+  display: block;
+  box-sizing: border-box;
+  border: 3px solid var(--surface);
+  border-radius: var(--r-pill);
+}
+/* A shop that said yes now: solid brand. Remembered stock: hollow. You: ink. */
+.cu-map-pin--live {
+  width: 30px;
+  height: 30px;
+  background: var(--brand);
+}
+.cu-map-pin--learned {
+  width: 30px;
+  height: 30px;
+  border-color: var(--brand);
+  background: var(--surface);
+}
+.cu-map-pin--user {
+  width: 22px;
+  height: 22px;
+  background: var(--ink);
 }
 
 /* The choose-a-shop sheet */

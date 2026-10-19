@@ -147,26 +147,28 @@ export function ErrandResult({
         </p>
       ) : (
         <>
-          <dl className="cu-errand-tiles" role="group" aria-label={c.planTilesLabel}>
-            <div className="cu-errand-tile">
-              <dt>{c.tileShops}</dt>
-              <dd>{variant.shopCount}</dd>
-            </div>
-            <div className="cu-errand-tile">
-              <dt>{roundTrip === null ? c.tileStops : c.tileRoundTrip}</dt>
-              <dd>{roundTrip === null ? stops.length : formatDistance(roundTrip)}</dd>
-            </div>
-            <div className="cu-errand-tile">
-              <dt>{c.tileTotal}</dt>
-              <dd>{formatRupees(total)}</dd>
-              {unknownPrices > 0 && (
-                <dd className="cu-errand-tile__note">{c.tileUnknownPrices(unknownPrices)}</dd>
-              )}
-              {unknownFees > 0 && (
-                <dd className="cu-errand-tile__note">{c.tileUnknownFees(unknownFees)}</dd>
-              )}
-            </div>
-          </dl>
+          <section aria-label={c.planTilesLabel}>
+            <dl className="cu-errand-tiles">
+              <div className="cu-errand-tile">
+                <dt>{c.tileShops}</dt>
+                <dd>{variant.shopCount}</dd>
+              </div>
+              <div className="cu-errand-tile">
+                <dt>{roundTrip === null ? c.tileStops : c.tileRoundTrip}</dt>
+                <dd>{roundTrip === null ? stops.length : formatDistance(roundTrip)}</dd>
+              </div>
+              <div className="cu-errand-tile">
+                <dt>{c.tileTotal}</dt>
+                <dd>{formatRupees(total)}</dd>
+                {unknownPrices > 0 && (
+                  <dd className="cu-errand-tile__note">{c.tileUnknownPrices(unknownPrices)}</dd>
+                )}
+                {unknownFees > 0 && (
+                  <dd className="cu-errand-tile__note">{c.tileUnknownFees(unknownFees)}</dd>
+                )}
+              </div>
+            </dl>
+          </section>
 
           <div className="cu-errand-ai">
             <Icon name="robot" size={20} />

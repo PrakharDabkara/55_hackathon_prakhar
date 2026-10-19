@@ -8,22 +8,23 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.cu-status {
+.cu-order-status {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-4);
   border-radius: var(--r-md);
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--panel-dark);
+  color: var(--on-panel-dark);
+  border: 1px solid var(--line);
 }
-.cu-status__caption {
+.cu-order-status__caption {
   font: 700 22px/28px var(--font-ui);
 }
-.cu-status__time {
+.cu-order-status__time {
   font: 600 16px/24px var(--font-ui);
 }
-.cu-status__note {
+.cu-order-status__note {
   font: 400 14px/20px var(--font-ui);
 }
 .cu-plain {
