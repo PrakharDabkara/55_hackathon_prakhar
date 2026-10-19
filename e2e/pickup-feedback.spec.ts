@@ -84,7 +84,7 @@ test('"Wahan nahi tha" takes the shop\'s answer off the map at once, and the sho
 
   // Nothing on the shop's screen says anyone reported anything.
   await shop.reload();
-  await expect(shop.getByRole('switch', { name: 'Shop is open' })).toBeVisible();
+  await expect(shop.getByRole('switch', { name: 'Open' })).toBeVisible();
   await expect(shop.getByText(/Not there|report|shikayat/i)).toHaveCount(0);
   await noSidewaysScroll(shop);
 

@@ -55,7 +55,7 @@ test('the shop login fits too', async ({ page }) => {
   await expect(page.getByLabel(/mobile number/i)).toBeVisible();
   await expectNoOverlap(page);
   await page.getByLabel(/mobile number/i).fill('9810000503');
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await expect(page.getByRole('button', { name: 'Fill demo OTP' })).toBeVisible();
+  await page.getByRole('button', { name: 'Send code' }).click();
+  await expect(page.getByRole('button', { name: 'Fill the code' })).toBeVisible();
   await expectNoOverlap(page);
 });

@@ -38,9 +38,11 @@ test('an order is found again after "Ho gaya": Mere orders, the order page, a re
   await expect(customer.getByRole('button', { name: 'Cancel order' })).toBeVisible();
 
   // The shop moves it; the page follows without a reload.
-  const shopCard = shop.locator('article.order-card');
-  await expect(shopCard).toBeVisible({ timeout: 30_000 });
-  await shopCard.getByRole('button', { name: 'On my way' }).click();
+  await expect(shop.getByText(/Customer chose you · /)).toBeVisible({ timeout: 30_000 });
+  await shop.getByRole('link', { name: 'View order' }).click();
+  const shopCard = shop.locator('article.sh-order');
+  await expect(shopCard).toBeVisible();
+  await shopCard.getByRole('button', { name: 'Out for delivery' }).click();
   await expect(customer.getByText('On its way')).toBeVisible({ timeout: 15_000 });
   await expect(customer.getByRole('button', { name: 'Cancel order' })).toHaveCount(0);
 
@@ -61,10 +63,9 @@ test('an order is found again after "Ho gaya": Mere orders, the order page, a re
   await customer.reload();
   await expect(customer.getByText('Delivered — order complete')).toBeVisible();
 
-  // The shop: this order is now below the active ones, under "Pichhle orders".
-  await expect(shop.getByRole('heading', { name: 'Past orders' })).toBeVisible({
-    timeout: 15_000,
-  });
+  // The shop: this order has moved from Active to Done today.
+  await shop.getByRole('button', { name: /Done today · 1/ }).click({ timeout: 15_000 });
+  await expect(shop.getByText('Delivered', { exact: true })).toBeVisible();
   await noSidewaysScroll(shop);
   await shop.screenshot({ path: 'e2e/artifacts/shop-past-orders.png', fullPage: true });
 

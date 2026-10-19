@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
-import { newCorner } from './orderFlow.js';
+import { login, newCorner, onboardShop, shopContextAt } from './orderFlow.js';
 import { uniqueName } from './unique.js';
 
 // Photos on both sides, in two real browsers at 360 px against the real API and Postgres: a
@@ -32,16 +32,6 @@ const phonePhoto = (name: string) =>
     })
     .toBuffer();
 
-const newPhone = () => `98${String(Math.floor(Math.random() * 1e8)).padStart(8, '0')}`;
-
-async function login(page: Page, path: string) {
-  await page.goto(path);
-  await page.getByLabel(/mobile number/i).fill(newPhone());
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
-  await page.getByRole('button', { name: 'Log in' }).click();
-}
-
 const noSidewaysScroll = async (page: Page) =>
   expect(
     await page.evaluate(
@@ -69,18 +59,10 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
   browser,
 }) => {
   // The shop: a kirana in that quiet corner, the only shop near the customer.
-  const shopContext = await browser.newContext({ viewport: VIEWPORT });
+  const shopContext = await shopContextAt(browser, ELSEWHERE);
   const shop = await shopContext.newPage();
-  await login(shop, '/app/shop');
-  await shop.getByLabel('Shop name').fill(uniqueName('Photo Test Kirana'));
-  await shop.getByRole('button', { name: /Grocery/ }).click();
-  await shop.getByText('Enter it by hand').click();
-  await shop.getByLabel('Latitude').fill(String(ELSEWHERE.latitude));
-  await shop.getByLabel('Longitude').fill(String(ELSEWHERE.longitude));
-  await shop.getByRole('button', { name: 'Start my shop' }).click();
-  await expect(shop.getByText(/No questions right now|question/i).first()).toBeVisible({
-    timeout: 15_000,
-  });
+  await onboardShop(shop, uniqueName('Photo Test Kirana'));
+  await expect(shop.getByText('No requests right now')).toBeVisible();
 
   // The customer asks for turmeric with a photo.
   await login(page, '/app/');
@@ -98,9 +80,9 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
   await page.getByRole('button', { name: 'Search' }).click();
 
   // The shop sees the customer's photo on the request card: small, clean, tap to enlarge.
-  const theirs = shop.getByRole('button', { name: "Customer's photo: enlarge" });
+  const theirs = shop.getByRole('button', { name: 'Photo of what the customer wants: enlarge' });
   await expect(theirs).toBeVisible({ timeout: 30_000 });
-  await expectClean(await pictureBytes(shop, 'Customer ki photo'));
+  await expectClean(await pictureBytes(shop, 'Photo of what the customer wants'));
   await noSidewaysScroll(shop);
   await theirs.click();
   const big = shop.getByRole('dialog');
@@ -111,22 +93,23 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
   await shop.getByRole('button', { name: 'Close' }).click();
 
   // The shop says yes with a photo of what it has.
-  await shop.getByRole('button', { name: 'Yes, I have it' }).click();
-  await shop
+  await shop.getByRole('button', { name: 'Answer' }).click();
+  const sheet = shop.getByRole('dialog');
+  await sheet
     .locator('input[type="file"]')
     .setInputFiles({ name: 'IMG_2.jpg', mimeType: 'image/jpeg', buffer: await phonePhoto('shop') });
-  await expect(shop.getByRole('button', { name: 'Photo hatayein' })).toBeVisible({
+  await expect(sheet.getByRole('button', { name: 'Remove photo' })).toBeVisible({
     timeout: 20_000,
   });
   await noSidewaysScroll(shop);
   await shop.screenshot({ path: 'e2e/artifacts/photo-shop-attached.png', fullPage: true });
-  await shop.getByRole('button', { name: 'Send', exact: true }).click();
+  await sheet.getByRole('button', { name: 'Send', exact: true }).click();
 
   // The customer sees the shop's photo on that shop's result card.
   const shops = page.getByRole('button', { name: "Shop's photo: enlarge" });
   await expect(shops.first()).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.result', { hasText: 'Photo Test Kirana' })).toBeVisible();
-  await expectClean(await pictureBytes(page, 'Dukaan ki photo'));
+  await expectClean(await pictureBytes(page, "Shop's photo"));
   await noSidewaysScroll(page);
   await shops.first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
