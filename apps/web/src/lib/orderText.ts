@@ -11,5 +11,6 @@ export function orderStatusText(t: Strings, state: OrderState): string {
     DECLINED: t.orderDeclined,
     EXPIRED: t.orderExpired,
     CANCELLED: t.orderCancelled,
+    NOT_CONFIRMED: t.orderNotConfirmed,
   }[state];
 }

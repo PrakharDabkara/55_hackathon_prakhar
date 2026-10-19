@@ -31,6 +31,12 @@ export interface ShopResult {
   customerVerified?: true;
 }
 
+export interface SavedAddress {
+  id: string | null;
+  addressText: string | null;
+  customerName: string | null;
+}
+
 export interface PingStats {
   sent: number;
   yes: number;
@@ -54,6 +60,8 @@ export interface SeekerRequest {
   targetPricePaise?: number;
   results: ShopResult[];
   pingStats: PingStats;
+  /** The customer ticked "Deliver to me" on Find. */
+  wantsDelivery?: boolean;
   expiresAt: string;
   createdAt: string;
 }
@@ -69,6 +77,9 @@ export interface NewRequest {
   understanding?: 'confirmed' | 'changed';
   /** A photo of what is wanted, uploaded first with POST /photos (optional). */
   photoId?: string;
+  /** "Deliver to me": with the id of one of the customer's saved addresses. */
+  wantsDelivery?: true;
+  deliveryAddressId?: string;
 }
 
 export type ErrandState =
@@ -225,7 +236,11 @@ export interface SeekerApi
   myOrders(): Promise<SeekerOrder[]>;
   getOrder(id: string): Promise<SeekerOrder>;
   /** The address the customer chose to keep ("Is pate ko yaad rakhein"), if any. */
-  savedAddress(): Promise<{ addressText: string | null; customerName: string | null }>;
+  savedAddress(): Promise<SavedAddress>;
+  /** Keeps the customer's address (one per customer) so Find can point a request at it. */
+  keepAddress(input: { addressText: string; customerName?: string }): Promise<SavedAddress>;
+  /** The customer confirms the delivery arrived. */
+  receiveOrder(id: string): Promise<SeekerOrder>;
   forgetAddress(): Promise<void>;
   /** The last 10 searches and errands, newest first ("Haal ke kaam"). */
   recentWork(): Promise<RecentItem[]>;
@@ -338,10 +353,8 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, RECENT_COUNT);
     },
-    savedAddress: () =>
-      call<{ addressText: string | null; customerName: string | null }>(
-        'GET',
-        '/orders/saved-address',
-      ),
+    savedAddress: () => call<SavedAddress>('GET', '/orders/saved-address'),
+    keepAddress: (input) => call<SavedAddress>('PUT', '/orders/saved-address', input),
+    receiveOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/received`),
   };
 }

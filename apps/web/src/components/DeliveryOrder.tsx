@@ -6,13 +6,15 @@ import type { OrderSource, SeekerOrder } from '../lib/orders.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 
 interface Props {
-  api: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress'>;
+  api: Pick<SeekerApi, 'placeOrder' | 'cancelOrder' | 'savedAddress' | 'receiveOrder'>;
   shop: { id: string; name: string };
   source: OrderSource;
   /** What the shop offered: shown before the order is placed. */
   offer: { feePaise: number | null; minutes: number | null };
   /** The newest order for this shop on this screen, if any. */
   order: SeekerOrder | undefined;
+  /** The customer already picked an address on Find: only a note is asked for (ADR-0039). */
+  hasAddress?: boolean;
   /** The order changed on the server: fetch the screen's orders again. */
   onChange: () => void;
 }
@@ -24,11 +26,23 @@ const MIN_ADDRESS = 5;
  * then the address step (typed text; the pin is the request's own location, never dragged), and
  * after that the order's status, live. No money moves in the app.
  */
-export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Props) {
+export function DeliveryOrder({
+  api,
+  shop,
+  source,
+  offer,
+  order,
+  hasAddress: addressFromFind = false,
+  onChange,
+}: Props) {
   const { t } = useT();
   const [step, setStep] = useState<'summary' | 'address'>('summary');
   const [address, setAddress] = useState('');
   const [name, setName] = useState('');
+  const [note, setNote] = useState('');
+  /** The address picked on Find is gone (forgotten): ask for one here instead. */
+  const [addressLost, setAddressLost] = useState(false);
+  const hasAddress = addressFromFind && !addressLost;
   /** Unticked unless the customer ticks it: no tick, nothing is kept after the order (ADR-0033). */
   const [remember, setRemember] = useState(false);
   const [saved, setSaved] = useState<{ addressText: string; customerName: string | null } | null>(
@@ -72,7 +86,7 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
 
   async function place(event: FormEvent) {
     event.preventDefault();
-    if (sending.current || placed || address.trim().length < MIN_ADDRESS) return;
+    if (sending.current || placed || (!hasAddress && address.trim().length < MIN_ADDRESS)) return;
     sending.current = true;
     setBusy(true);
     setError(null);
@@ -80,20 +94,38 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
       await api.placeOrder({
         shopId: shop.id,
         ...source,
-        addressText: address.trim(),
+        ...(!hasAddress && { addressText: address.trim() }),
         ...(name.trim() !== '' && { customerName: name.trim() }),
-        ...(remember && { saveAddress: true }),
+        ...(note.trim() !== '' && { note: note.trim() }),
+        ...(!hasAddress && remember && { saveAddress: true }),
       });
       setPlaced(true);
       onChange();
     } catch (e) {
-      if (alive.current)
+      if (alive.current && e instanceof ApiError && e.code === 'address_required')
+        setAddressLost(true);
+      else if (alive.current)
         setError(
           e instanceof ApiError && e.code === 'shop_closed' ? t.orderErrClosed : t.orderErrGeneric,
         );
     } finally {
       sending.current = false;
       if (alive.current) setBusy(false);
+    }
+  }
+
+  async function receive() {
+    if (!order || sending.current) return;
+    sending.current = true;
+    setBusy(true);
+    try {
+      await api.receiveOrder(order.id);
+    } catch {
+      // It may have run out of time meanwhile; the refresh below shows where it is.
+    } finally {
+      sending.current = false;
+      if (alive.current) setBusy(false);
+      onChange();
     }
   }
 
@@ -121,6 +153,7 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
       DELIVERED: t.orderDelivered,
       DECLINED: t.orderDeclined,
       EXPIRED: t.orderExpired,
+      NOT_CONFIRMED: t.orderNotConfirmed,
     }[order.state as Exclude<SeekerOrder['state'], 'CANCELLED'>];
     const open = order.state === 'REQUESTED' || order.state === 'ACCEPTED';
     const going = open || order.state === 'OUT_FOR_DELIVERY' || order.state === 'DELIVERED';
@@ -131,6 +164,16 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
           <p className="meta">{t.orderYourAddress(order.addressText)}</p>
         )}
         {going && <p className="meta">{t.orderCod}</p>}
+        {order.state === 'OUT_FOR_DELIVERY' && (
+          <button
+            type="button"
+            className="btn btn-yes"
+            disabled={busy}
+            onClick={() => void receive()}
+          >
+            {t.orderReceived}
+          </button>
+        )}
         {open && (
           <button
             type="button"
@@ -147,7 +190,11 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
 
   return (
     <div className="order-box">
-      {order?.state === 'CANCELLED' && <p className="meta">{t.orderCancelled}</p>}
+      {order?.state === 'CANCELLED' && (
+        <p className="meta">
+          {order.cancelledBy === 'shop' ? t.orderCancelledByShop : t.orderCancelled}
+        </p>
+      )}
       {step === 'summary' ? (
         <>
           <p className="meta">{shop.name}</p>
@@ -159,7 +206,7 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
         </>
       ) : (
         <form className="stack-tight" onSubmit={(event) => void place(event)}>
-          {saved && (
+          {saved && !hasAddress && (
             <button
               type="button"
               className="btn btn-quiet"
@@ -171,14 +218,25 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
               {t.orderSaved(saved.addressText)}
             </button>
           )}
+          {!hasAddress && (
+            <label className="field">
+              <span>{t.orderAddressLabel}</span>
+              <textarea
+                rows={3}
+                maxLength={300}
+                autoComplete="street-address"
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+              />
+            </label>
+          )}
           <label className="field">
-            <span>{t.orderAddressLabel}</span>
-            <textarea
-              rows={3}
-              maxLength={300}
-              autoComplete="street-address"
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
+            <span>{t.orderNoteLabel}</span>
+            <input
+              type="text"
+              maxLength={140}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
             />
           </label>
           <label className="field">
@@ -191,14 +249,16 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
               onChange={(event) => setName(event.target.value)}
             />
           </label>
-          <label className="check-option">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => setRemember(event.target.checked)}
-            />
-            <span>{t.orderRemember}</span>
-          </label>
+          {!hasAddress && (
+            <label className="check-option">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => setRemember(event.target.checked)}
+              />
+              <span>{t.orderRemember}</span>
+            </label>
+          )}
           <p className="meta">{t.orderPinNote}</p>
           <p className="meta">{t.orderCod}</p>
           {error && (
@@ -209,7 +269,7 @@ export function DeliveryOrder({ api, shop, source, offer, order, onChange }: Pro
           <button
             type="submit"
             className="btn btn-yes"
-            disabled={busy || placed || address.trim().length < MIN_ADDRESS}
+            disabled={busy || placed || (!hasAddress && address.trim().length < MIN_ADDRESS)}
           >
             {t.orderConfirm}
           </button>

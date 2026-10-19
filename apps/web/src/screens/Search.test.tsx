@@ -425,7 +425,10 @@ describe('Search: "Deliver to me" (Delivery v2)', () => {
     expect(screen.queryByLabelText('Ghar ka pata')).toBeNull();
     await searchFor(user);
     await user.click(screen.getByRole('button', { name: 'Dhoondho' }));
-    const sent = vi.mocked(api.createRequest).mock.calls[0]?.[0] as Record<string, unknown>;
+    const sent = vi.mocked(api.createRequest).mock.calls[0]?.[0] as unknown as Record<
+      string,
+      unknown
+    >;
     expect(sent).not.toHaveProperty('wantsDelivery');
     expect(sent).not.toHaveProperty('deliveryAddressId');
   });

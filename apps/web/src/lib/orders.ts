@@ -24,7 +24,10 @@ export type OrderState =
   | 'EXPIRED'
   | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'NOT_CONFIRMED';
+
+export type ShopCancelReason = 'out_of_stock' | 'cannot_deliver_now' | 'other';
 
 /** A delivery order as its customer sees it (ADR-0031). Cash on delivery: no money moves in the app. */
 export interface SeekerOrder {
@@ -45,6 +48,13 @@ export interface SeekerOrder {
   payment: 'cash_on_delivery';
   /** The shop said no or did not answer: the customer picks it up instead. */
   pickupFallback: boolean;
+  /** What the customer wrote for the shop (≤140). */
+  note: string | null;
+  /** While OUT_FOR_DELIVERY: tap Received before this, or it ends as NOT_CONFIRMED. */
+  receiveBy: string | null;
+  cancelledBy: 'customer' | 'shop' | null;
+  cancelReason: ShopCancelReason | null;
+  cancelText: string | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -63,6 +73,8 @@ export interface ShopOrder {
   feePaise: number | null;
   contactName: string;
   final: boolean;
+  note: string | null;
+  cancelReason: ShopCancelReason | null;
   expiresAt: string;
   createdAt: string;
   updatedAt: string;
@@ -74,15 +86,18 @@ export interface NewOrder {
   shopId: string;
   requestId?: string;
   errandId?: string;
-  addressText: string;
+  /** Left out when the address was picked on Find. */
+  addressText?: string;
   customerName?: string;
+  /** For the shop, up to 140 characters. */
+  note?: string;
   /** The customer ticked "Is pate ko yaad rakhein". */
   saveAddress?: boolean;
 }
 
 export type OrderSource = { requestId: string } | { errandId: string };
 
-export type ShopOrderVerb = 'accept' | 'decline' | 'out' | 'delivered';
+export type ShopOrderVerb = 'accept' | 'decline' | 'out';
 
 /** The order for a shop on this screen: the newest one is the one that counts. */
 export function orderForShop(

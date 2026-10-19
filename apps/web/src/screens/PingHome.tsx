@@ -100,6 +100,8 @@ export function PingHome({ api, pollMs = 30_000, live }: Props) {
           data['pingId'] === shownId.current
         )
           sayThanks();
+        // The customer picked another shop: the same thanks, whichever card is on screen (ADR-0039).
+        else if (type === 'ping.closed' && data?.['reason'] === 'customer_chose') sayThanks();
         void refresh();
       },
       onStatus: (up) => {

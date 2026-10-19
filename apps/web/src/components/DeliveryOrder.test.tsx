@@ -81,6 +81,7 @@ describe('placing a delivery order (ADR-0031)', () => {
 
   it('offers the address the customer chose to keep, and one tap fills the boxes', async () => {
     const savedAddress = vi.fn(async () => ({
+      id: 'addr-1',
       addressText: 'Flat 4B, Sapna Apartments',
       customerName: 'Asha',
     }));
@@ -221,7 +222,7 @@ describe('Delivery v2', () => {
 
   it('ACCEPTED straight away (a fresh offer) shows the accepted message', () => {
     setup({}, { order: seekerOrder({ state: 'ACCEPTED' }) });
-    expect(screen.getByText(/accept/i)).toBeTruthy();
+    expect(screen.getByText('Dukaan ne order le liya')).toBeTruthy();
   });
 
   it('has a note box of at most 140 characters, sent with the order', async () => {

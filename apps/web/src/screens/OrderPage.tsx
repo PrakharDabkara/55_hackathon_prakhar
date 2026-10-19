@@ -10,7 +10,7 @@ import { useLive } from '../lib/useLive.js';
 import { appLink } from './Home.js';
 
 interface Props {
-  api: Pick<SeekerApi, 'getOrder' | 'cancelOrder' | 'eventTicket'>;
+  api: Pick<SeekerApi, 'getOrder' | 'cancelOrder' | 'receiveOrder' | 'eventTicket'>;
   orderId: string;
   onBack: () => void;
   /** Goes to the search or plan the order came from. Without it the link is a plain link. */
@@ -74,6 +74,21 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
     }
   }
 
+  async function receive() {
+    if (sending.current) return;
+    sending.current = true;
+    setBusy(true);
+    try {
+      await api.receiveOrder(orderId);
+    } catch {
+      // It may have run out of time meanwhile; the refresh below shows where it is.
+    } finally {
+      sending.current = false;
+      if (alive.current) setBusy(false);
+      refresh();
+    }
+  }
+
   const back = (
     <button type="button" className="btn btn-quiet" onClick={onBack}>
       {t.homeBack}
@@ -107,7 +122,9 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
       {back}
       <h1 className="screen-title">{order.shopName}</h1>
       <p className={`order-state order-${order.state}`} role="status">
-        {orderStatusText(t, order.state)}
+        {order.state === 'CANCELLED' && order.cancelledBy === 'shop'
+          ? t.orderCancelledByShop
+          : orderStatusText(t, order.state)}
       </p>
       <ul className="order-lines">
         {order.lines.map((line, i) => (
@@ -124,7 +141,18 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
       ) : (
         <p className="meta">{t.orderAddressGone}</p>
       )}
+      {order.note && <p className="meta">{order.note}</p>}
       {!noMoneyDue && <p className="meta">{t.orderCod}</p>}
+      {order.state === 'OUT_FOR_DELIVERY' && (
+        <button
+          type="button"
+          className="btn btn-yes"
+          disabled={busy}
+          onClick={() => void receive()}
+        >
+          {t.orderReceived}
+        </button>
+      )}
       {open && (
         <button
           type="button"

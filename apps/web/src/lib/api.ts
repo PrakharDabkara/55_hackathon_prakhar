@@ -1,5 +1,5 @@
 import type { Category } from '@kahanmilega/shared';
-import type { ShopOrder, ShopOrderVerb } from './orders.js';
+import type { ShopCancelReason, ShopOrder, ShopOrderVerb } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 import { createPushApi, type PushApi } from './pushApi.js';
 
@@ -23,6 +23,10 @@ export interface ShopPing {
   distanceBand: string;
   /** The customer's photo of what they want, if they added one. */
   photoId?: string;
+  /** The customer wants it delivered (Delivery v2). Their address is not here. */
+  wantsDelivery: boolean;
+  /** This shop delivers that far; false hides "will deliver". */
+  canDeliver: boolean;
   sentAt: string;
   expiresAt: string;
 }
@@ -44,6 +48,8 @@ export interface MyShop {
   deliversDefault: boolean;
   defaultFeePaise: number | null;
   defaultMinutes: number | null;
+  /** How far the shop delivers, in km; null means no limit. */
+  deliveryMaxKm?: number | null;
 }
 
 /** "Aaj ki maang": today's numbers and aggregate demand. Never anything about a customer (ADR-0035). */
@@ -88,12 +94,16 @@ export interface ShopApi extends PhotoApi, PushApi {
   answerPing(id: string, body: AnswerBody): Promise<void>;
   /** The shop's delivery orders: open ones, and finished ones from the last two hours. */
   listOrders(): Promise<ShopOrder[]>;
-  /** Accepts or declines an order, sets it out, or marks it delivered. */
+  /** Accepts or declines an order, or sets it out. Only the customer marks it delivered. */
   orderAction(id: string, verb: ShopOrderVerb): Promise<ShopOrder>;
+  /** Cancels an ACCEPTED order, with a reason (and up to 140 characters of words). */
+  cancelOrder(id: string, input: { reason: ShopCancelReason; text?: string }): Promise<ShopOrder>;
   /** Opens or closes the shop for the day ("Dukaan aaj band hai"). */
   setShopOpen(open: boolean): Promise<MyShop>;
   /** The standing delivery offer, or null to stop offering it. */
   updateDelivery(delivery: DeliveryDefaults | null): Promise<MyShop>;
+  /** How far the shop delivers in km, or null for no limit. */
+  setDeliveryLimit(maxKm: number | null): Promise<MyShop>;
   /** Today's demand for the shop screen. */
   shopDemand(): Promise<ShopDemand>;
   /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
@@ -203,6 +213,9 @@ export function createApi(options: ClientOptions): ShopApi {
     orderAction: (id, verb) => call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/${verb}`),
     setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),
     updateDelivery: (delivery) => call<MyShop>('PATCH', '/shops/me', { delivery }),
+    setDeliveryLimit: (maxKm) => call<MyShop>('PATCH', '/shops/me', { deliveryMaxKm: maxKm }),
+    cancelOrder: (id, input) =>
+      call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/cancel`, input),
     async answerPing(id, body) {
       await call('POST', `/pings/${encodeURIComponent(id)}/answer`, body);
     },

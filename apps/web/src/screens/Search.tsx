@@ -1,11 +1,13 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { PhotoPicker } from '../components/PhotoPicker.js';
 import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { itemWords } from '../lib/itemLabel.js';
 import { rupeesToPaise } from '../lib/money.js';
-import type { NewRequest, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
+import type { NewRequest, SavedAddress, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
+
+const MIN_ADDRESS = 5;
 
 interface Option {
   itemId: string;
@@ -77,10 +79,31 @@ export function Search({ api, onFound }: Props) {
   /** The customer chose "Kuch aur likhein": their next search is a change of what we understood. */
   const [rewrote, setRewrote] = useState(false);
   const box = useRef<HTMLInputElement>(null);
+  /** "Deliver to me" (ADR-0039): needs the customer's own address, saved or typed here. */
+  const [wantsDelivery, setWantsDelivery] = useState(false);
+  const [saved, setSaved] = useState<SavedAddress | null>(null);
+  const [typedAddress, setTypedAddress] = useState('');
 
   const latValue = coordinate(lat, 90);
   const lngValue = coordinate(lng, 180);
-  const ready = query.trim() !== '' && latValue !== null && lngValue !== null;
+  const hasSaved = saved?.id != null && saved.addressText != null;
+  const addressOk = !wantsDelivery || hasSaved || typedAddress.trim().length >= MIN_ADDRESS;
+  const ready = query.trim() !== '' && latValue !== null && lngValue !== null && addressOk;
+
+  // Ticked: look for the address the customer kept. A failure just means they type one.
+  useEffect(() => {
+    if (!wantsDelivery) return;
+    let alive = true;
+    api.savedAddress().then(
+      (found) => {
+        if (alive) setSaved(found);
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, wantsDelivery]);
 
   function useDemo() {
     setLat(String(DEMO.lat));
@@ -134,6 +157,15 @@ export function Search({ api, onFound }: Props) {
     setError(null);
     setChoice(null);
     try {
+      if (wantsDelivery) {
+        const addressId = hasSaved
+          ? (saved?.id as string)
+          : (await api.keepAddress({ addressText: typedAddress.trim() })).id;
+        if (addressId) {
+          input.wantsDelivery = true;
+          input.deliveryAddressId = addressId;
+        }
+      }
       onFound(await api.createRequest(input), { lat: latValue, lng: lngValue });
       setRewrote(false);
     } catch (e) {
@@ -186,6 +218,30 @@ export function Search({ api, onFound }: Props) {
           onChange={(event) => setPrice(event.target.value)}
         />
       </label>
+
+      <label className="check-option">
+        <input
+          type="checkbox"
+          checked={wantsDelivery}
+          onChange={(event) => setWantsDelivery(event.target.checked)}
+        />
+        <span>{t.modeDelivery}</span>
+      </label>
+      {wantsDelivery &&
+        (hasSaved ? (
+          <p className="meta">{t.findAddressLine(saved?.addressText as string)}</p>
+        ) : (
+          <label className="field">
+            <span>{t.orderAddressLabel}</span>
+            <textarea
+              rows={3}
+              maxLength={300}
+              autoComplete="street-address"
+              value={typedAddress}
+              onChange={(event) => setTypedAddress(event.target.value)}
+            />
+          </label>
+        ))}
 
       <div className="actions">
         <button type="button" className="btn btn-quiet" onClick={useMyLocation}>
