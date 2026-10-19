@@ -401,6 +401,26 @@ describe('fan-out, ping answers and the price check', () => {
     });
   });
 
+  describe('a burst of catch-up jobs (PR I)', () => {
+    it('never holds back a customer’s fan-out', async () => {
+      const shop = await makeShop('Burst Kirana', 0.2, ['grocery']);
+      const ghosts = Array.from(
+        { length: 300 },
+        (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+      );
+      await Promise.all(ghosts.map((id) => workers.fanout.enqueueCatchUp(id)));
+      const created = await ask({ q: 'namak' });
+      expect(created.status).toBe(201);
+      const ours = async () =>
+        (await pingsOf(created.body.id)).filter((r) => r.shop_id === shop.shopId);
+      await waitFor(ours, (r) => r.length >= 1, 10_000);
+      expect(await ours()).toHaveLength(1);
+      await pool.query('DELETE FROM pings WHERE request_id = $1', [created.body.id]);
+      await request(app).post(`/requests/${created.body.id}/close`).set(auth(seeker));
+      await pool.query('DELETE FROM shops WHERE id = $1', [shop.shopId]);
+    });
+  });
+
   describe('fan-out', () => {
     const claims = (allow: (shopId: string) => boolean) => {
       const released: string[] = [];

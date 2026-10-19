@@ -69,6 +69,13 @@ describe('the simulator against a real API', () => {
     await redis?.stop();
   });
 
+  /**
+   * New shops are caught up on every live request (ADR-0038), so requests that earlier tests left
+   * running would be asked of them and answered, and counted in the simulator's totals.
+   */
+  const endLeftoverRequests = () =>
+    testDb.pool.query(`UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING')`);
+
   const options = (lines: string[]) => ({
     target: base,
     adminPhone: ADMIN_PHONE,
@@ -188,6 +195,7 @@ describe('the simulator against a real API', () => {
 
   it('can be told to make grocery shops only and to answer every ping with a yes', async () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
+    await endLeftoverRequests();
     const sim = await runSimulator({
       ...options([]),
       adminPhone: '9810000202',
@@ -208,12 +216,19 @@ describe('the simulator against a real API', () => {
       .set({ Authorization: `Bearer ${seeker.token}` })
       .send({ q: 'namak', lat: ORIGIN.lat, lng: ORIGIN.lng });
     expect(asked.body.state).toBe('PINGING');
-    await waitFor(
-      async () => sim.stats().answered,
-      (n) => n >= 5,
-      15_000,
+    // This request's own pings, not the simulator's running totals: catch-up pings for other
+    // requests (and their answers) count in `stats()` too.
+    const mine = () =>
+      testDb.pool
+        .query<{ state: string }>(`SELECT state FROM pings WHERE request_id = $1`, [asked.body.id])
+        .then((r) => r.rows.map((p) => p.state));
+    const states = await waitFor(
+      mine,
+      (rows) => rows.length >= 5 && rows.every((state) => state === 'YES'),
+      30_000,
     );
-    expect(sim.stats()).toMatchObject({ yes: 5, no: 0, skipped: 0 });
+    expect(states).toEqual(['YES', 'YES', 'YES', 'YES', 'YES']);
+    expect(sim.stats()).toMatchObject({ no: 0, skipped: 0 });
   }, 60_000);
 
   it('explains itself when the phone is not an admin', async () => {
@@ -228,6 +243,7 @@ describe('the simulator against a real API', () => {
 
   it("a shop outside the item's category says no, a shop inside it says yes (every shop answers)", async () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
+    await endLeftoverRequests();
     const lines: string[] = [];
     const sim = await runSimulator({
       ...options(lines),
@@ -287,6 +303,7 @@ describe('the simulator against a real API', () => {
   }, 60_000);
   it('accepts an order for a simulated shop, sets out and delivers it, step by step', async () => {
     await Promise.all(running.splice(0).map((s) => s.stop()));
+    await endLeftoverRequests();
     const lines: string[] = [];
     const sim = await runSimulator({
       ...options(lines),

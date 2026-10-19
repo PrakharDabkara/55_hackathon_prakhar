@@ -8,6 +8,9 @@ import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js'
 
 export const FANOUT_QUEUE = 'ping-fanout';
 
+/** BullMQ serves a lower number first; fan-out jobs have none, so they go before any catch-up. */
+const CATCH_UP_PRIORITY = 100;
+
 export interface PingFanout {
   queue: Queue;
   /** Queue the fan-out for a request that just went PINGING. Job id `fanout-<requestId>`. */
@@ -99,6 +102,11 @@ export function startPingFanout({
             'catchup',
             { shopId },
             {
+              // Behind every normal fan-out: a burst of new shops (the simulator makes hundreds)
+              // must never delay a customer's request. One waiting job per shop, and each job
+              // looks at 5 requests at most (catchUpShop).
+              priority: CATCH_UP_PRIORITY,
+              jobId: `catchup-${shopId}`,
               attempts: 3,
               backoff: { type: 'exponential', delay: 1000 },
               removeOnComplete: true,
