@@ -461,6 +461,7 @@ describe('Search: "Deliver to me" (Delivery v2)', () => {
     });
     const { user } = renderApp(<Search api={api} onFound={vi.fn()} />);
     await user.click(screen.getByLabelText('Ghar mangwao'));
+    expect(screen.getByText(/save kar lenge/)).toBeTruthy();
     await searchFor(user);
     // Required once ticked: the search does not go without an address.
     expect(screen.getByRole('button', { name: 'Dhoondho' }).hasAttribute('disabled')).toBe(true);

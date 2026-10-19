@@ -271,6 +271,7 @@ export interface Strings {
   pingGone: string;
   // Delivery v2 (ADR-0039)
   findAddressLine: (address: string) => string;
+  findAddressSaveNote: string;
   willDeliverLine: (fee: string | null, free: boolean, minutes: number | null) => string;
   pickupOnly: string;
   orderReceived: string;
@@ -523,7 +524,7 @@ export const hi: Strings = {
   orderDeclined: 'Dukaan ne mana kiya. Aap khud jaakar le lein.',
   orderExpired: 'Dukaan ne jawab nahi diya. Aap khud jaakar le lein.',
   orderCancelled: 'Order cancel ho gaya.',
-  orderErrClosed: 'Ye dukaan abhi band hai.',
+  orderErrClosed: 'Ye dukaan abhi band ho gayi.',
   orderErrGeneric: 'Order nahi bhej paaye. Dobara try karein.',
   orderYourAddress: (address) => `Pata: ${address}`,
   notifyOn: 'Notification chalu karein',
@@ -582,6 +583,8 @@ export const hi: Strings = {
   shopOrderOutNow: 'Raste mein hai',
   pingGone: 'Grahak ko jawab mil gaya — shukriya',
   findAddressLine: (address) => `Delivery ka pata: ${address}`,
+  findAddressSaveNote:
+    'Hum ye pata agli baar ke liye save kar lenge. Aap ise Mere orders mein delete kar sakte hain.',
   willDeliverLine: (fee, free, minutes) =>
     ['Deliver karenge', free ? 'muft' : fee, minutes === null ? null : `~${minutes} min`]
       .filter((part) => part !== null)
@@ -866,7 +869,7 @@ export const en: Strings = {
   orderDeclined: 'The shop said no. Please pick it up yourself.',
   orderExpired: 'The shop did not answer. Please pick it up yourself.',
   orderCancelled: 'Order cancelled.',
-  orderErrClosed: 'That shop is closed right now.',
+  orderErrClosed: 'This shop just closed.',
   orderErrGeneric: 'Could not send the order. Please try again.',
   orderYourAddress: (address) => `Address: ${address}`,
   notifyOn: 'Turn on notifications',
@@ -925,6 +928,7 @@ export const en: Strings = {
   shopOrderOutNow: 'On its way',
   pingGone: 'The customer already got an answer — thank you',
   findAddressLine: (address) => `Deliver to: ${address}`,
+  findAddressSaveNote: "We'll save this address for next time. You can delete it in My orders.",
   willDeliverLine: (fee, free, minutes) =>
     ['Will deliver', free ? 'free' : fee, minutes === null ? null : `~${minutes} min`]
       .filter((part) => part !== null)

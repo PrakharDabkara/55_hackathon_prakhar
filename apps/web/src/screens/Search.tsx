@@ -231,16 +231,19 @@ export function Search({ api, onFound }: Props) {
         (hasSaved ? (
           <p className="meta">{t.findAddressLine(saved?.addressText as string)}</p>
         ) : (
-          <label className="field">
-            <span>{t.orderAddressLabel}</span>
-            <textarea
-              rows={3}
-              maxLength={300}
-              autoComplete="street-address"
-              value={typedAddress}
-              onChange={(event) => setTypedAddress(event.target.value)}
-            />
-          </label>
+          <>
+            <label className="field">
+              <span>{t.orderAddressLabel}</span>
+              <textarea
+                rows={3}
+                maxLength={300}
+                autoComplete="street-address"
+                value={typedAddress}
+                onChange={(event) => setTypedAddress(event.target.value)}
+              />
+            </label>
+            <p className="meta">{t.findAddressSaveNote}</p>
+          </>
         ))}
 
       <div className="actions">
