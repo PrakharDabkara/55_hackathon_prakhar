@@ -92,6 +92,17 @@ export async function itemsByIds(db: Queryable, ids: string[]): Promise<ItemRow[
   return ids.flatMap((id) => byId.get(id) ?? []);
 }
 
+/** The items with these slugs, in the order asked; a slug nobody has is left out. */
+export async function itemsBySlugs(db: Queryable, slugs: string[]): Promise<ItemRow[]> {
+  if (slugs.length === 0) return [];
+  const { rows } = await db.query<ItemRow>(
+    `SELECT id, slug, name_en, name_hi, category, categories, unverified FROM items WHERE slug = ANY($1::text[])`,
+    [slugs],
+  );
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  return slugs.flatMap((slug) => bySlug.get(slug) ?? []);
+}
+
 export const hasEmbeddings = async (db: Queryable): Promise<boolean> =>
   ((await db.query(`SELECT 1 FROM items WHERE embedding IS NOT NULL LIMIT 1`)).rowCount ?? 0) > 0;
 

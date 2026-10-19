@@ -81,7 +81,13 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
   const found = new Map<string, FoundItem>();
   const resolved = new Map<string, string>();
   const refused = new Map<string, Refused>();
+  const ticked = new Set<string>();
   for (const step of steps) {
+    if (step.kind === 'note') {
+      const said = (step.payload as { ticked?: unknown } | null)?.ticked;
+      if (Array.isArray(said))
+        for (const word of said) if (typeof word === 'string') ticked.add(refusalKey(word));
+    }
     if (step.kind !== 'tool') continue;
     const result = (step.payload as ToolPayload | null)?.result as
       Record<string, unknown> | undefined;
@@ -108,7 +114,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
       });
     }
   }
-  return { labels, found, resolved, questionsAsked, refused };
+  return { labels, found, resolved, questionsAsked, refused, ticked };
 }
 
 /** What a failed or expired errand keeps: what the agent had found so far. */

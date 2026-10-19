@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 17, PR H: understanding follow-ups)
+
+- "Kya aapka matlab…?": a plain search that is not an exact catalog name or synonym is confirmed before any shop is asked (`422 item_confirm` with the item and up to two alternatives; "Haan, yahi", the alternatives, "Kuch aur likhein"). Shown, confirmed and changed counts are log events (`understanding_*`). ADR-0036.
+- Everyday words with several meanings (mirchi, daal, tel) are listed in the catalog file (`ambiguous`, version 6) and always ask which one, with no model call.
+- A shop whose answer a customer called wrong ("Wahan nahi tha") is asked again on the next search, even inside the ping dedupe window (`shop_stock.invalidated_at`, migration 021).
+- The errand plan ranks a shop with 2 or more wrong reports last for that item and shows "Grahak ne confirm kiya" on plan cards.
+- Items ticked in an errand checklist can be created as new items at "medium" classifier confidence; plain search still needs "high".
+- Order lines keep the customer's own word and the Hindi name; the Hindi screen shows those.
+- 11 new dev eval cases (phool, phool jhadu, mirch and daal family, तेल, brand names); `e2e/understanding.spec.ts`.
+
+### Fixed (Day 17, PR H)
+
+- "phool" no longer resolves to the broom: a word that only names a modifier of a longer term ("phool" in "phool jhadu") is not a match, at the trigram, embedding and cache steps.
+- `ask_user` uses multi-select when the options are not mutually exclusive (kaunse colours).
+- "Aaj ki maang" no longer shows "Kesar Kesar" for an item with no Devanagari name.
+
 ### Added (Day 16, PR G: Le liya? and Aaj ki maang)
 
 - "Le liya?": tapping "Raasta" on a result or plan card for a pickup shop is noted (`POST /pickups`, `pickup_visits`, migration 020). The home screen later asks "Kya aapko <item> <shop> par mila?" (`GET /pickups/pending`, after `PICKUP_ASK_AFTER_MINUTES`, default 15) with "Mil gaya", "Wahan nahi tha" and "Gaya nahi"; an hour after the tap, if it was not asked, one push through the existing push module and rate limit. Once per customer, shop and item; never for delivery orders. ADR-0035.

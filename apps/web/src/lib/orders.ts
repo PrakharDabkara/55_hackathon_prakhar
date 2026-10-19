@@ -1,8 +1,20 @@
 /** One thing to bring: what the shop said yes to, and its price (null: the shop did not say). */
 export interface OrderLine {
   name: string;
+  /** The Hindi catalog name, when the item has one. */
+  nameHi?: string;
+  /** The customer's own word for it (never sent to the shop). */
+  text?: string;
   count: number;
   pricePaise: number | null;
+}
+
+/**
+ * What to call the line on the customer's screen: their own word, or the Hindi name, on a Hindi
+ * screen; the English name on an English one. Lines saved before these fields exist show `name`.
+ */
+export function lineName(line: OrderLine, lang: 'hi' | 'en'): string {
+  return lang === 'hi' ? (line.text ?? line.nameHi ?? line.name) : line.name;
 }
 
 export type OrderState =

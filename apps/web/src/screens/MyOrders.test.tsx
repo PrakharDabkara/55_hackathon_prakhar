@@ -110,3 +110,19 @@ describe('Mere orders', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/nahi/);
   });
 });
+
+describe('Mere orders: names follow the language (PR H)', () => {
+  it('shows the customer’s own word on a Hindi screen, not the English catalog name', async () => {
+    setup({
+      myOrders: vi.fn(async () => [
+        seekerOrder({
+          lines: [
+            { name: 'cinnamon', nameHi: 'दालचीनी', text: 'dalchini', count: 1, pricePaise: 3000 },
+          ],
+        }),
+      ]),
+    });
+    expect(await screen.findByText(/1 × dalchini/)).toBeTruthy();
+    expect(screen.queryByText(/cinnamon/)).toBeNull();
+  });
+});

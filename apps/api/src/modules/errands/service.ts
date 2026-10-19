@@ -322,7 +322,7 @@ export async function chooseDeliveryMode(
 export interface ErrandDeliveryOffer {
   lat: number;
   lng: number;
-  lines: { name: string; count: number; pricePaise: number | null }[];
+  lines: { name: string; text?: string; count: number; pricePaise: number | null }[];
   feePaise: number | null;
   minutes: number | null;
 }
@@ -365,6 +365,7 @@ export async function deliveryOfferForErrand(
     ...origin,
     lines: mine.map((i) => ({
       name: String(i['itemName'] ?? i['text']),
+      ...(typeof i['text'] === 'string' && { text: i['text'] }),
       count: Number(i['quantity']) || 1,
       pricePaise: typeof i['pricePaise'] === 'number' ? i['pricePaise'] : null,
     })),
@@ -441,6 +442,7 @@ export async function answerErrand(
   };
 
   let text: string;
+  let ticked: string[] | undefined;
   if (hasSelected) {
     const picks = [...new Set(input.selected)].sort((a, b) => a - b);
     const chosen = picks.map((i) => options[i]);
@@ -449,6 +451,7 @@ export async function answerErrand(
     const extra = hasText && String(input.text).trim() !== '' ? typed() : null;
     if (chosen.length === 0 && extra === null)
       throw new ApiError(400, 'invalid_request', 'Pick at least one option or type something');
+    ticked = [...(chosen as string[]), ...(extra !== null ? [extra] : [])];
     text = [
       chosen.length > 0 ? chosen.join(', ') : null,
       extra !== null ? (chosen.length > 0 ? `also: ${extra}` : extra) : null,
@@ -464,7 +467,7 @@ export async function answerErrand(
     text = typed();
   }
 
-  const resumed = await resumeAnswered(ctx.db, id, { text }, ctx.events);
+  const resumed = await resumeAnswered(ctx.db, id, { text, ...(ticked && { ticked }) }, ctx.events);
   if (resumed !== 'resumed')
     throw new ApiError(
       409,

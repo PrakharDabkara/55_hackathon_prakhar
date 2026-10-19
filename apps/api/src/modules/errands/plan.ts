@@ -56,6 +56,8 @@ export interface PlanItem {
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
   downgraded: Downgrade | null;
+  /** A customer went to this shop and found the item ("Grahak ne confirm kiya"); learned stock only. */
+  customerVerified?: true;
   /** True when the item is not what the customer's words would lead them to expect ("diya" → candle). */
   matchedAs: boolean;
   /** A customer-made item no shop has confirmed yet (ADR-0028). */
@@ -271,6 +273,8 @@ export async function buildPlan(
         freshness: previousAnswerLabel(stock.lastConfirmedAt, now),
         delivery: stock.delivery,
         offeredQuantity: stock.quantity,
+        ...(stock.doubtful && { doubtful: true }),
+        ...(stock.customerVerified && { customerVerified: true }),
       });
   }
 
@@ -321,6 +325,8 @@ export async function buildPlan(
           offeredQuantity: offer.offeredQuantity ?? null,
           quantityCheck: quantityCheckFor(claim.quantity ?? 1, offer.offeredQuantity ?? null),
           freshness: offer.freshness,
+          ...(offer.status === 'likely' &&
+            offer.customerVerified && { customerVerified: true as const }),
           downgraded:
             claim.status === 'confirmed' && offer.status === 'likely' ? 'not_confirmed' : null,
           matchedAs: !isExpectedMatch(claim.text, terms.get(offer.itemId) ?? []),

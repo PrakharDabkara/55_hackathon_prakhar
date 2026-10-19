@@ -65,6 +65,8 @@ export interface NewRequest {
   targetPricePaise?: number;
   /** The item the customer picked after a question: skips matching the text. */
   itemId?: string;
+  /** What they did with "Kya aapka matlab…?": said yes, or changed it. Counted by the server. */
+  understanding?: 'confirmed' | 'changed';
   /** A photo of what is wanted, uploaded first with POST /photos (optional). */
   photoId?: string;
 }
@@ -102,6 +104,8 @@ export interface PlanItem {
   delivery?: { feePaise: number | null; minutes: number | null } | null;
   offeredQuantity?: { amount: number; unit: QuantityUnit } | null;
   quantityCheck?: 'enough' | 'short' | 'unknown' | null;
+  /** A customer went to this shop and found the item ("Grahak ne confirm kiya"). */
+  customerVerified?: true;
   /** The customer's choice for this item's shop. */
   mode?: 'pickup' | 'delivery';
   downgraded: string | null;

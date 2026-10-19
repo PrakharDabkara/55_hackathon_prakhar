@@ -296,7 +296,8 @@ function PlanRow({
           <span className="status-badge ok">{t.errandConfirmed}</span>
         ) : (
           <span className="status-badge warn">{t.errandLikely}</span>
-        )}
+        )}{' '}
+        {item.customerVerified && <span className="status-badge ok">{t.verifiedByCustomer}</span>}
       </p>
       <p className="meta">
         {item.shopName}

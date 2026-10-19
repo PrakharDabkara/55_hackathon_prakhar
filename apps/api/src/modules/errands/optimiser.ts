@@ -27,6 +27,10 @@ export interface Offer {
   delivery?: { feePaise: number | null; minutes: number | null } | null;
   /** The exact quantity the shop said it has, if it said one. */
   offeredQuantity?: ExactQuantity | null;
+  /** Customers reported this shop's answer for this item wrong more than once (ADR-0035): last choice. */
+  doubtful?: boolean;
+  /** A customer went there and found the item (learned stock only). */
+  customerVerified?: boolean;
 }
 
 /** One thing the customer wants. `key` tells two entries apart (the same item may appear twice). */
@@ -78,8 +82,9 @@ function byPrice(a: Offer, b: Offer): number {
 
 /**
  * The offers worth considering for one item. One per shop, a yes in this errand winning over
- * learned stock. Confirmed offers only if there are any, else likely ones. Offers with a price
- * only if there are any, else the ones without.
+ * learned stock. Confirmed offers only if there are any, else likely ones. Shops customers
+ * reported wrong (doubtful) only if no other shop has the item. Offers with a price only if there
+ * are any, else the ones without.
  */
 export function usableOffers(offers: Offer[]): Offer[] {
   const perShop = new Map<string, Offer>();
@@ -91,6 +96,7 @@ export function usableOffers(offers: Offer[]): Offer[] {
   let list = [...perShop.values()];
   if (list.some((o) => o.status === 'confirmed'))
     list = list.filter((o) => o.status === 'confirmed');
+  if (list.some((o) => !o.doubtful)) list = list.filter((o) => !o.doubtful);
   if (list.some((o) => o.pricePaise !== null)) list = list.filter((o) => o.pricePaise !== null);
   return list.sort(byPrice);
 }

@@ -35,6 +35,38 @@ describe('one order, opened by its address', () => {
     expect(screen.getByText(/Cash on delivery/)).toBeTruthy();
   });
 
+  describe('item names follow the screen language (PR H)', () => {
+    const cinnamon = seekerOrder({
+      lines: [
+        { name: 'cinnamon', nameHi: 'दालचीनी', text: 'dalchini', count: 1, pricePaise: 3000 },
+      ],
+    });
+
+    it('a Hindi screen shows the customer’s own word, never the English catalog name', async () => {
+      setup(cinnamon);
+      expect(await screen.findByText(/1 × dalchini/)).toBeTruthy();
+      expect(screen.queryByText(/cinnamon/)).toBeNull();
+    });
+
+    it('falls back to the Hindi name when there is no own word', async () => {
+      setup(
+        seekerOrder({ lines: [{ name: 'cinnamon', nameHi: 'दालचीनी', count: 1, pricePaise: 1 }] }),
+      );
+      expect(await screen.findByText(/1 × दालचीनी/)).toBeTruthy();
+    });
+
+    it('an English screen shows the English name', async () => {
+      const api = fakeSeekerApi({ getOrder: vi.fn(async () => cinnamon) });
+      renderApp(<OrderPage api={api} orderId="order-1" onBack={vi.fn()} live={live} />, 'en');
+      expect(await screen.findByText(/1 × cinnamon/)).toBeTruthy();
+    });
+
+    it('an order saved before these fields existed still shows its name', async () => {
+      setup(seekerOrder());
+      expect(await screen.findByText(/2 × sugar/)).toBeTruthy();
+    });
+  });
+
   it('refetches on order.updated and shows the new state', async () => {
     const getOrder = vi
       .fn()

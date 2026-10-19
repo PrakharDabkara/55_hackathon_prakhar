@@ -1,27 +1,49 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { PhotoPicker } from '../components/PhotoPicker.js';
 import { Words } from '../components/Words.js';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
+import { itemWords } from '../lib/itemLabel.js';
 import { rupeesToPaise } from '../lib/money.js';
 import type { NewRequest, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
 
+interface Option {
+  itemId: string;
+  nameEn: string;
+  nameHi: string;
+}
+
 interface Choice {
   question: string;
-  options: { itemId: string; nameEn: string; nameHi: string }[];
+  options: Option[];
+  /** "Kya aapka matlab…?": the item the app understood, offered first as "Haan, yahi". */
+  understood?: Option;
 }
+
+const validOptions = (list: unknown): Option[] =>
+  Array.isArray(list)
+    ? list.filter(
+        (o): o is Option =>
+          typeof o?.itemId === 'string' &&
+          typeof o?.nameEn === 'string' &&
+          typeof o?.nameHi === 'string',
+      )
+    : [];
 
 /** The server's question, if the error really carries one we can show. */
 function choiceFrom(error: ApiError): Choice | null {
   const { question, options } = error.details;
   if (typeof question !== 'string' || question === '' || !Array.isArray(options)) return null;
-  const valid = options.filter(
-    (o): o is Choice['options'][number] =>
-      typeof o?.itemId === 'string' &&
-      typeof o?.nameEn === 'string' &&
-      typeof o?.nameHi === 'string',
-  );
+  const valid = validOptions(options);
   return valid.length >= 2 ? { question, options: valid } : null;
+}
+
+/** The item the server understood and the other items it might be (item_confirm). */
+function understoodFrom(error: ApiError, question: string): Choice | null {
+  const [understood] = validOptions([error.details['item']]);
+  return understood
+    ? { question, understood, options: validOptions(error.details['alternatives']).slice(0, 2) }
+    : null;
 }
 
 interface Props {
@@ -52,6 +74,9 @@ export function Search({ api, onFound }: Props) {
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<Choice | null>(null);
   const [photoId, setPhotoId] = useState<string | null>(null);
+  /** The customer chose "Kuch aur likhein": their next search is a change of what we understood. */
+  const [rewrote, setRewrote] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
 
   const latValue = coordinate(lat, 90);
   const lngValue = coordinate(lng, 180);
@@ -86,11 +111,16 @@ export function Search({ api, onFound }: Props) {
     );
   }
 
-  async function submit(event: FormEvent | null, itemId?: string) {
+  async function submit(
+    event: FormEvent | null,
+    pick?: { itemId: string; understanding?: 'confirmed' | 'changed' },
+  ) {
     event?.preventDefault();
     if (!ready || latValue === null || lngValue === null) return;
     const input: NewRequest = { q: query.trim(), lat: latValue, lng: lngValue };
-    if (itemId) input.itemId = itemId;
+    if (pick) input.itemId = pick.itemId;
+    if (pick?.understanding) input.understanding = pick.understanding;
+    else if (!pick && rewrote) input.understanding = 'changed';
     if (photoId) input.photoId = photoId;
     if (price.trim() !== '') {
       const parsed = rupeesToPaise(price);
@@ -105,8 +135,14 @@ export function Search({ api, onFound }: Props) {
     setChoice(null);
     try {
       onFound(await api.createRequest(input), { lat: latValue, lng: lngValue });
+      setRewrote(false);
     } catch (e) {
-      const asked = e instanceof ApiError && e.code === 'item_ambiguous' ? choiceFrom(e) : null;
+      const asked =
+        e instanceof ApiError && e.code === 'item_ambiguous'
+          ? choiceFrom(e)
+          : e instanceof ApiError && e.code === 'item_confirm'
+            ? understoodFrom(e, t.understoodTitle)
+            : null;
       if (asked) setChoice(asked);
       else if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
       else if (e instanceof ApiError && e.code === 'item_blocked') setError(t.errItemBlocked);
@@ -130,6 +166,7 @@ export function Search({ api, onFound }: Props) {
           autoComplete="off"
           placeholder={t.queryHint}
           value={query}
+          ref={box}
           onChange={(event) => {
             setQuery(event.target.value);
             setChoice(null);
@@ -189,17 +226,53 @@ export function Search({ api, onFound }: Props) {
       {choice && (
         <section className="choice" aria-label={choice.question}>
           <p className="choice-question">{choice.question}</p>
+          {choice.understood && (
+            <button
+              type="button"
+              className="btn btn-yes choice-option"
+              disabled={busy}
+              onClick={() =>
+                void submit(null, {
+                  itemId: (choice.understood as Option).itemId,
+                  understanding: 'confirmed',
+                })
+              }
+            >
+              <span className="label-sub">{t.understoodYes}</span>
+              <Words label={itemWords(choice.understood)} />
+            </button>
+          )}
           {choice.options.map((o) => (
             <button
               key={o.itemId}
               type="button"
               className="btn btn-no choice-option"
               disabled={busy}
-              onClick={() => void submit(null, o.itemId)}
+              onClick={() =>
+                void submit(
+                  null,
+                  choice.understood
+                    ? { itemId: o.itemId, understanding: 'changed' }
+                    : { itemId: o.itemId },
+                )
+              }
             >
-              <Words label={{ main: o.nameHi, sub: o.nameEn }} />
+              <Words label={itemWords(o)} />
             </button>
           ))}
+          <button
+            type="button"
+            className="btn btn-quiet choice-option"
+            disabled={busy}
+            onClick={() => {
+              setChoice(null);
+              setQuery('');
+              setRewrote(true);
+              box.current?.focus();
+            }}
+          >
+            {t.writeSomethingElse}
+          </button>
         </section>
       )}
 

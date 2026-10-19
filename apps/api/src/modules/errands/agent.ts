@@ -16,7 +16,7 @@ import {
   rebuildMessages,
   rebuildRunState,
 } from './conversation.js';
-import { executeTool, type RunState } from './executor.js';
+import { executeTool, refusalKey, type RunState } from './executor.js';
 import {
   claimErrand,
   clearResume,
@@ -186,9 +186,12 @@ async function loop(
   let forced: Forced | null = null;
 
   /** A user-role message the server adds. It is logged too, so a later run sees the same thing. */
-  const note = async (text: string) => {
+  const note = async (text: string, ticked?: string[]) => {
     messages.push({ role: 'user', text });
-    await recordStep(db, errand.id, { kind: 'note', payload: { text } });
+    await recordStep(db, errand.id, {
+      kind: 'note',
+      payload: { text, ...(ticked && ticked.length > 0 && { ticked }) },
+    });
   };
   /** Results go into one tool message per model turn, in call order. */
   const toolResults = (results: { id: string; name: string; result: unknown }[]) => {
@@ -216,8 +219,11 @@ async function loop(
     const statuses = await linkedStatuses(requests, errand.userId, links);
     const waitOver = errand.waitedMs >= limits.maxWaitMs;
     let text: string;
+    let ticked: string[] | undefined;
     if (errand.resumeReason === 'answered') {
       const answer = errand.answer && 'text' in errand.answer ? errand.answer.text : '';
+      ticked = errand.answer && 'text' in errand.answer ? errand.answer.ticked : undefined;
+      for (const word of ticked ?? []) state.ticked.add(refusalKey(word));
       text = buildStatusNote(buildAnswerNote(answer), statuses);
     } else if (errand.resumeReason === 'answer_timeout') {
       text = buildStatusNote(NO_ANSWER_NOTE, statuses);
@@ -232,7 +238,7 @@ async function loop(
       forced = 'wait_limit';
       text += `\n${WAIT_NUDGE}`;
     }
-    await note(text);
+    await note(text, ticked);
     await clearResume(db, errand.id);
     log.info({ reason: errand.resumeReason, waitedMs: errand.waitedMs }, 'errand resumed');
   }

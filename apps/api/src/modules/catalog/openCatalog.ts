@@ -52,6 +52,8 @@ export interface CreateOptions {
   errandId?: string | null | undefined;
   requestId?: string | undefined;
   logger?: Logger | undefined;
+  /** How sure the classifier must be that it is a real product; "medium" when a person confirmed it. */
+  minConfidence?: 'high' | 'medium';
 }
 
 /**
@@ -89,7 +91,9 @@ export async function createUserItem(
 
   let verdict;
   try {
-    verdict = await classifyNewItem(ai, text, opts.requestId);
+    verdict = await classifyNewItem(ai, text, opts.requestId, {
+      minConfidence: opts.minConfidence ?? 'high',
+    });
   } catch (error) {
     if (error instanceof AiUnavailableError) return unavailable();
     throw error;

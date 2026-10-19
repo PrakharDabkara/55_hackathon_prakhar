@@ -8,7 +8,7 @@ Three labelled files in `evals/`, one query per line: `{"q", "kind", "expected"}
 
 | File                            | Role                    | Rule                                                                                                                                            |
 | ------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve.dev.jsonl` (81)        | Tuning set              | We may tune thresholds, prompt and catalog against it. Reported, never gated.                                                                   |
+| `resolve.dev.jsonl` (131)       | Tuning set              | We may tune thresholds, prompt and catalog against it. Reported, never gated.                                                                   |
 | `resolve.holdout.jsonl` (62)    | Holdout v1, **retired** | Its runs informed fixes, so it no longer measures anything unseen. Kept for history.                                                            |
 | `resolve.holdout.v2.jsonl` (61) | **The gate**            | Written fresh and committed before any run against it. **Never edited after its results are seen**; a change means a new versioned file (`v3`). |
 

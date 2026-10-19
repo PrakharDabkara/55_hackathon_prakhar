@@ -57,6 +57,12 @@ export interface CreateRequestInput {
   targetPricePaise?: number | undefined;
   /** The item the customer picked after a question; skips resolution. */
   itemId?: string | undefined;
+  /**
+   * What the customer did with the "Kya aapka matlab…?" question that came before this search:
+   * said yes to the understood item, or changed it (another item, or new words). Counted in the
+   * logs (ADR-0036); it changes nothing else.
+   */
+  understanding?: 'confirmed' | 'changed' | undefined;
   /** An unused photo of the customer's to attach (ADR-0030). */
   photoId?: string | undefined;
   /** The HTTP request id, so AI calls can be traced to it. */
@@ -201,7 +207,15 @@ export async function createRequest(
     if (existing) return { created: false, request: await toView(ctx, existing) };
   }
 
+  if (input.understanding)
+    ctx.logger.info(
+      { event: `understanding_${input.understanding}`, requestId: input.requestId },
+      'customer answered what we understood',
+    );
   const resolution = await resolveForCustomer(ctx.db, input.q, {
+    // A plain search is confirmed before any shop is asked; a picked item (itemId) and an errand's
+    // own requests are not.
+    confirm: !input.itemId && !input.errandId,
     userId,
     threshold: ctx.config.trigramThreshold,
     itemId: input.itemId,

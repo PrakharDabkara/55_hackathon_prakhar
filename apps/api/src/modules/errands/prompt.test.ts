@@ -42,6 +42,14 @@ describe('prompts', () => {
     expect(system).toMatch(/never ask either\/or|either\/or/i);
   });
 
+  it('options that are not mutually exclusive (which colours, which sizes) use multiSelect', () => {
+    const system = buildSystemPrompt({ maxItems: 10 });
+    expect(system).toMatch(/not mutually exclusive|can be more than one|any number of/i);
+    expect(system).toMatch(/kaunse colours/);
+    expect(system).toMatch(/multiSelect true/);
+    expect(system).toMatch(/either\/or|one of/i);
+  });
+
   it('never looks up or asks shops for anything illegal, dangerous or abusive (Day 14c)', () => {
     const system = buildSystemPrompt({ maxItems: 10 });
     expect(system).toMatch(/illegal|dangerous|abusive/i);

@@ -8,7 +8,13 @@ import { findRequest } from './persistence.js';
 export interface RequestDeliveryOffer {
   lat: number;
   lng: number;
-  lines: { name: string; count: number; pricePaise: number | null }[];
+  lines: {
+    name: string;
+    nameHi?: string;
+    text?: string;
+    count: number;
+    pricePaise: number | null;
+  }[];
   feePaise: number | null;
   minutes: number | null;
 }
@@ -66,6 +72,8 @@ export async function deliveryOfferForRequest(
     lines: [
       {
         name: asked ? `${name} (${asked.quantity} ${asked.unit})` : name,
+        ...(item && { nameHi: item.nameHi }),
+        text: request.rawQuery,
         count: 1,
         pricePaise: offer.pricePaise,
       },

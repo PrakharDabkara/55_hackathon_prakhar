@@ -18,10 +18,19 @@ const item = z.object({
   defaultFor: z.array(z.string().min(1)).max(4).optional(),
 });
 
+/** Everyday words that mean several items ("mirchi"): the customer is asked, never given a guess. */
+const ambiguousEntry = z.object({
+  terms: z.array(z.string().min(1)).min(1),
+  /** Slugs of the main items the word can mean, in the order they are offered. */
+  items: z.array(z.string()).min(2).max(6),
+  question: z.string().min(1),
+});
+
 const catalogSchema = z.object({
   version: z.number().int().min(1),
   note: z.string(),
   items: z.array(item).min(1),
+  ambiguous: z.array(ambiguousEntry).optional(),
 });
 
 export type SeedCatalog = z.infer<typeof catalogSchema>;
@@ -47,7 +56,24 @@ export const defaultsFor = (i: SeedItem): string[] => [
   ...new Set((i.defaultFor ?? []).map((t) => normaliseQuery(t).text).filter(Boolean)),
 ];
 
-/** Throws on a duplicate slug, a term that is empty or a quantity, or a term two items share. */
+/** The ambiguous words, normalised: word → the question and the slugs to choose from. */
+export function ambiguousTerms(
+  catalog: SeedCatalog,
+): Map<string, { question: string; slugs: string[] }> {
+  const out = new Map<string, { question: string; slugs: string[] }>();
+  for (const entry of catalog.ambiguous ?? [])
+    for (const raw of entry.terms) {
+      const term = normaliseQuery(raw).text;
+      if (term) out.set(term, { question: entry.question, slugs: entry.items });
+    }
+  return out;
+}
+
+/**
+ * Throws on a duplicate slug, a term that is empty or a quantity, or a term two items share. Also
+ * on an ambiguous word that is already a name, synonym or default (it would not be ambiguous), is
+ * listed twice, or names an item that is not in the file.
+ */
 export function checkCatalog(catalog: SeedCatalog): void {
   const slugs = new Set<string>();
   const owner = new Map<string, string>();
@@ -75,6 +101,19 @@ export function checkCatalog(catalog: SeedCatalog): void {
       const other = defaultOwner.get(term);
       if (other) throw new Error(`default "${term}" is claimed by both ${other} and ${i.slug}`);
       defaultOwner.set(term, i.slug);
+    }
+  }
+  const asked = new Set<string>();
+  for (const entry of catalog.ambiguous ?? []) {
+    for (const slug of entry.items)
+      if (!slugs.has(slug)) throw new Error(`ambiguous "${entry.terms[0]}": no item ${slug}`);
+    for (const raw of entry.terms) {
+      const term = normaliseQuery(raw).text;
+      if (!term) throw new Error(`ambiguous term "${raw}" is empty or a quantity`);
+      if (owner.has(term) || defaultOwner.has(term))
+        throw new Error(`ambiguous term "${term}" is already a name, synonym or default`);
+      if (asked.has(term)) throw new Error(`ambiguous term "${term}" is listed twice`);
+      asked.add(term);
     }
   }
 }

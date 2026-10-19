@@ -6,6 +6,7 @@ import {
   findLearnedStock,
   findShopsWithinRadius,
   recordStockYes,
+  shopsToAskAgain,
   type QuantityHint,
 } from '../shops/index.js';
 import type { EventPublisher } from '../realtime/index.js';
@@ -93,11 +94,15 @@ export async function fanOutPings(
 
   // Nearest first; a shop pinged recently is skipped and the next one takes its place, until the
   // cap is reached or the candidates run out.
+  // A shop whose answer a customer called wrong is asked again even inside the dedupe window: the
+  // window was spent on the answer that turned out wrong (ADR-0036). Asked once, it applies again.
+  const askAgain = new Set(await shopsToAskAgain(db, request.itemId));
   const claimed: string[] = [];
   let asked = 0;
   for (const t of targets) {
     if (claimed.length >= deps.config.maxPings) break;
     asked++;
+    if (askAgain.has(t.shopId)) await claims.release(t.shopId, request.itemId);
     if (await claims.claim(t.shopId, request.itemId)) claimed.push(t.shopId);
   }
   const giveBack = () =>

@@ -11,8 +11,8 @@ export type NewItemVerdict =
 
 const answerSchema = z.object({
   verdict: z.enum(['allowed', 'blocked', 'nonsense', 'unsure']),
-  /** Only "high" counts: a missing or low confidence is treated as unsure. */
-  confidence: z.enum(['high', 'low']).optional(),
+  /** Only "high" counts ("medium" too when a person confirmed the item): a missing or low confidence is treated as unsure. */
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
   category: z.string().optional(),
 });
 
@@ -26,8 +26,8 @@ Answer with one verdict:
 - "nonsense": not a product a neighbourhood shop sells: random letters or numbers, keyboard mash, a sentence or question, a person, a place, a feeling or an idea, an instruction or an order to you, a service, a brand-new phone, laptop, vehicle or property itself, or anything you cannot tell is a product.
 - "unsure": it might be a product but you are not certain what it is.
 
-Also give a "confidence": "high" only when you are certain it is a real, ordinary product a shop could sell; otherwise "low". When unsure between "allowed" and "nonsense", choose "nonsense" or "unsure", never "allowed". When unsure between "allowed" and "blocked", choose "blocked".
-Reply with JSON only: {"verdict": "allowed"|"blocked"|"nonsense"|"unsure", "confidence": "high"|"low", "category": "<one of the list, only when allowed>"}.`;
+Also give a "confidence": "high" only when you are certain it is a real, ordinary product a shop could sell; "medium" when it is probably an ordinary product but you cannot be certain; otherwise "low". When unsure between "allowed" and "nonsense", choose "nonsense" or "unsure", never "allowed". When unsure between "allowed" and "blocked", choose "blocked".
+Reply with JSON only: {"verdict": "allowed"|"blocked"|"nonsense"|"unsure", "confidence": "high"|"medium"|"low", "category": "<one of the list, only when allowed>"}.`;
 
 /** The classifier prompt for one item name. The name is the only variable part. */
 export function buildClassifyPrompt(name: string): { system: string; user: string } {
@@ -50,6 +50,7 @@ export async function classifyNewItem(
   ai: Pick<AiContext, 'client'>,
   name: string,
   requestId?: string,
+  options: { minConfidence?: 'high' | 'medium' } = {},
 ): Promise<NewItemVerdict> {
   const { system, user } = buildClassifyPrompt(name);
   const result = await ai.client.generateJson({
@@ -62,8 +63,10 @@ export async function classifyNewItem(
   });
   const { verdict, category, confidence } = result.data;
   if (verdict === 'blocked' || verdict === 'nonsense') return { verdict };
-  // Real AND confident, else not created.
-  if (verdict === 'unsure' || confidence !== 'high') return { verdict: 'unsure' };
+  // Real AND confident, else not created. A person who ticked the item lowers the bar to "medium".
+  const enough =
+    confidence === 'high' || (options.minConfidence === 'medium' && confidence === 'medium');
+  if (verdict === 'unsure' || !enough) return { verdict: 'unsure' };
   if (category && (CATEGORIES as readonly string[]).includes(category)) {
     return { verdict: 'allowed', category: category as Category };
   }

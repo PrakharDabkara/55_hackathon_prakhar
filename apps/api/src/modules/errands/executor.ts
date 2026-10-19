@@ -49,6 +49,8 @@ export interface RunState {
   questionsAsked: number;
   /** The customer's word (see `refusalKey`) → why it was never sent to shops (ADR-0029). */
   refused: Map<string, Refused>;
+  /** Items the customer ticked in a checklist, or typed under it (see `refusalKey`): a person confirmed them. */
+  ticked: Set<string>;
 }
 
 export type Refused = 'blocked' | 'unavailable' | 'limit';
@@ -62,6 +64,7 @@ export const newRunState = (): RunState => ({
   resolved: new Map(),
   questionsAsked: 0,
   refused: new Map(),
+  ticked: new Set(),
 });
 
 export interface ToolEnv {
@@ -145,7 +148,11 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       ...(env.ai && { ai: env.ai }),
       logger: env.logger,
       // A real product the catalog does not know becomes a new item (ADR-0028).
-      openCatalog: { errandId: env.errandId },
+      // An item the customer ticked in the checklist was confirmed by a person (ADR-0036).
+      openCatalog: {
+        errandId: env.errandId,
+        confirmedByCustomer: env.state.ticked.has(refusalKey(text)),
+      },
     });
     if (resolution.refused) return refusedOutcome(env, text, resolution.refused);
     if (!resolution.item) {
