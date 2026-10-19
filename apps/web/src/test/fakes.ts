@@ -17,6 +17,7 @@ import type {
 export const ping = (overrides: Partial<ShopPing> = {}): ShopPing => ({
   id: 'ping-1',
   item: { slug: 'wheat-flour', nameEn: 'wheat flour', nameHi: 'आटा' },
+  lastPricePaise: null,
   distanceBand: 'under 1 km',
   wantsDelivery: false,
   canDeliver: true,
@@ -35,6 +36,7 @@ export const shop = (overrides: Partial<MyShop> = {}): MyShop => ({
   lat: 22.7196,
   lng: 75.8577,
   categories: ['grocery'],
+  logoUrl: null,
   ...overrides,
 });
 
@@ -75,20 +77,26 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     listOrders: vi.fn(async () => []),
     orderAction: vi.fn(async () => shopOrder()),
     cancelOrder: vi.fn(async () => shopOrder({ state: 'CANCELLED', final: true })),
-    setDeliveryLimit: vi.fn(async (maxKm) => shop({ deliveryMaxKm: maxKm })),
-    updateDelivery: vi.fn(async (delivery) =>
-      shop({
-        deliversDefault: delivery !== null,
-        defaultFeePaise: delivery?.feePaise ?? null,
-        defaultMinutes: delivery?.minutes ?? null,
-      }),
-    ),
     eventTicket: vi.fn(async () => 'ticket-1'),
-    shopDemand: vi.fn(async () => ({
+    shopDemand: vi.fn(async (days = 1) => ({
+      days,
       today: { received: 0, answered: 0, yes: 0 },
+      avgReplySeconds: null,
       asked: [],
       nearby: [],
     })),
+    updateShop: vi.fn(async (patch) =>
+      shop({
+        ...patch,
+        ...(patch.delivery !== undefined && {
+          deliversDefault: patch.delivery !== null,
+          defaultFeePaise: patch.delivery?.feePaise ?? null,
+          defaultMinutes: patch.delivery?.minutes ?? null,
+        }),
+      } as Partial<MyShop>),
+    ),
+    uploadLogo: vi.fn(async () => '/photos/logo-1'),
+    deleteLogo: vi.fn(async () => undefined),
     ...fakePhotos(),
     ...fakePush(),
     ...overrides,

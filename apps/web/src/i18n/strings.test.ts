@@ -9,6 +9,30 @@ describe('the two dictionaries', () => {
     expect(Object.keys(en.bands).sort()).toEqual(Object.keys(hi.bands).sort());
   });
 
+  it('have the same shop keys, none empty', () => {
+    expect(Object.keys(en.shop).sort()).toEqual(Object.keys(hi.shop).sort());
+    for (const dict of [en.shop, hi.shop]) {
+      for (const [key, value] of Object.entries(dict)) {
+        if (typeof value === 'string') expect(value.trim(), key).not.toBe('');
+        else expect(typeof value, key).toBe('function');
+      }
+    }
+  });
+
+  it('use the English copy the shop UI promises', () => {
+    const s = en.shop;
+    expect(s.toastClosed).toBe("You're closed. You won't get new requests.");
+    expect(s.toastOpen).toBe("You're open.");
+    expect(s.sendFailed).toBe("Couldn't send. Check your connection and try again.");
+    expect(s.priceInvalid).toBe('Price must be a number, like 45.');
+    expect(s.offline).toBe("You're offline. Reconnect to answer.");
+    expect(s.emptyTitle).toBe('No requests right now');
+    expect(s.startReceiving).toBe('Start getting requests');
+    expect(s.sheetTitle('Atta', '5 kg')).toBe('Atta · 5 kg');
+    expect(s.orderBanner('Atta')).toBe('Customer chose you · Atta');
+    expect(s.inclFee('₹120', '₹20')).toBe('₹120 incl. ₹20 delivery · collect cash');
+  });
+
   it('have no empty text', () => {
     for (const dict of [en, hi]) {
       for (const [key, value] of Object.entries(dict)) {
@@ -18,11 +42,11 @@ describe('the two dictionaries', () => {
   });
 
   it('show the big answer words in Devanagari and the Latin spelling only in Hindi', () => {
-    for (const label of [hi.yes, hi.no, hi.quantityTitle]) {
+    for (const label of [hi.yes]) {
       expect(label.main).toMatch(/[ऀ-ॿ]/);
       expect(label.sub).toMatch(/^[A-Za-z? ]+$/);
     }
-    for (const label of [en.yes, en.no, en.quantityTitle]) {
+    for (const label of [en.yes]) {
       expect(label.main).toMatch(/^[A-Za-z?, ]+$/);
       expect(label.sub).toBeUndefined();
     }
@@ -35,28 +59,12 @@ describe('the two dictionaries', () => {
     }
   });
 
-  it('give every category a Devanagari name with a Hinglish name under it, and an English name', () => {
-    for (const c of CATEGORIES) {
-      expect(hi.categoryLabels[c].main, c).toMatch(/[ऀ-ॿ]/);
-      expect(hi.categoryLabels[c].sub, c).toMatch(/^[A-Za-z ]+$/);
-      expect(en.categoryLabels[c].main, c).toMatch(/^[A-Za-z ,&]+$/);
-      expect(en.categoryLabels[c].sub, c).toBeUndefined();
-    }
-  });
-
-  it('use the wording the shopkeeper flow promises', () => {
+  it('keep the wording the customer flow still shows', () => {
     expect(hi.yes).toEqual({ main: 'हाँ है', sub: 'Haan hai' });
-    expect(hi.no).toEqual({ main: 'नहीं है', sub: 'Nahi hai' });
-    expect(hi.quantityTitle).toEqual({ main: 'कितना है?', sub: 'Kitna hai?' });
     expect(hi.few).toBe('थोड़ा बचा है');
     expect(hi.plenty).toBe('काफ़ी है');
     expect(hi.send).toBe('Bhejo');
-    expect(hi.skip).toBe('Skip');
     expect(hi.useMyLocation).toBe('Meri location use karein');
-    expect(hi.emptyHome).toBe('Abhi koi sawaal nahi. Naye sawaal yahan apne aap aayenge.');
-    expect(hi.targetLine('₹60')).toBe(
-      'Customer ne ₹60 mein dekha hai — kya aapke paas isse kam mein hai?',
-    );
   });
 
   it('give four examples: a vague goal and an explicit list among them', () => {

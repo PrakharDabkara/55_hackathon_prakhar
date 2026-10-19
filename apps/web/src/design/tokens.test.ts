@@ -1,0 +1,134 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+// The UI rules in CLAUDE.md that a stylesheet can break, checked where they are written.
+const here = fileURLToPath(new URL('.', import.meta.url));
+const src = join(here, '..');
+const tokens = readFileSync(join(here, 'tokens.css'), 'utf8');
+
+function cssFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) return cssFiles(path);
+    return path.endsWith('.css') ? [path] : [];
+  });
+}
+const shopCss = cssFiles(join(src, 'shop')).map((path) => ({
+  path: path.replace(src, 'src'),
+  text: readFileSync(path, 'utf8'),
+}));
+
+describe('tokens.css', () => {
+  const light = /\.shop-app\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
+  const dark =
+    /prefers-color-scheme:\s*dark\)\s*\{\s*\.shop-app\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ??
+    '';
+  const names = (block: string) => [...block.matchAll(/(--[\w-]+):/g)].map((m) => m[1]);
+
+  it('has the colour, space, radius and type tokens the rules name', () => {
+    for (const name of [
+      '--bg',
+      '--surface',
+      '--surface-sunk',
+      '--line',
+      '--ink',
+      '--ink-muted',
+      '--brand',
+      '--brand-soft',
+      '--on-brand',
+      '--marigold',
+      '--on-marigold',
+      '--paper',
+      '--paper-edge',
+      '--paper-ink',
+      '--paper-ink-muted',
+      '--stamp-yes',
+      '--stamp-no',
+      '--stamp-delivery',
+      '--danger',
+      '--danger-soft',
+      '--focus',
+      '--space-1',
+      '--space-12',
+      '--tap',
+      '--r-sm',
+      '--r-md',
+      '--r-lg',
+      '--r-pill',
+      '--shadow-slip',
+      '--shadow-sheet',
+      '--font-ui',
+      '--font-hand',
+    ])
+      expect(names(light), name).toContain(name);
+  });
+
+  it('has a dark value for every colour that changes, and the paper stays light', () => {
+    for (const name of [
+      '--bg',
+      '--surface',
+      '--ink',
+      '--brand',
+      '--marigold',
+      '--danger',
+      '--focus',
+    ])
+      expect(names(dark), name).toContain(name);
+    for (const name of [
+      '--paper-ink',
+      '--stamp-yes',
+      '--stamp-no',
+      '--stamp-delivery',
+      '--on-marigold',
+    ])
+      expect(names(dark), name).not.toContain(name);
+  });
+
+  it('makes the tap target 48 px', () => {
+    expect(/--tap:\s*(\d+)px/.exec(light)?.[1]).toBe('48');
+  });
+});
+
+describe('the shop stylesheets', () => {
+  it('exist', () => expect(shopCss.length).toBeGreaterThan(0));
+
+  it.each(shopCss)('$path: no hex colours, no @import, no outside urls', ({ text }) => {
+    expect(text).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+    expect(text).not.toMatch(/@import|url\(\s*['"]?https?:/);
+  });
+
+  it.each(shopCss)('$path: motion stays at 200 ms or less', ({ text }) => {
+    const times = [...text.matchAll(/(?:transition|animation)[^;{]*?(\d*\.?\d+)(ms|s)\b/g)];
+    for (const [, amount, unit] of times) {
+      const ms = Number(amount) * (unit === 's' ? 1000 : 1);
+      // The skeleton shimmer is a loop, not a transition of movement the eye has to wait for.
+      if (ms > 200) expect(text).toMatch(/sh-skeleton[\s\S]*?animation:\s*sh-shimmer/);
+    }
+    expect(text).not.toMatch(/--motion:\s*(?!1[0-9]{2}ms|\d{1,2}ms)/);
+  });
+
+  it('keeps a 2 px focus ring, 48 px targets and a reduced-motion rule', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    expect(all).toMatch(
+      /:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus\)[^}]*outline-offset:\s*2px/,
+    );
+    expect(all).toMatch(/min-height:\s*var\(--tap\)/);
+    expect(all).toMatch(/prefers-reduced-motion:\s*reduce/);
+  });
+
+  it('never uses marigold as a text colour', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    expect(all).not.toMatch(/(?<![-\w])color:\s*var\(--marigold\)/);
+  });
+
+  it('lays the page out as a centred column of at most 480 px, never a fixed page width', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const column = /\.sh-column\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(column).toMatch(/max-width:\s*480px/);
+    expect(column).toMatch(/margin:\s*0 auto/);
+    expect(column).not.toMatch(/(?<![-\w])width:/);
+    expect(all).not.toMatch(/(?<![-\w])min-width:\s*\d{3,}px/);
+  });
+});

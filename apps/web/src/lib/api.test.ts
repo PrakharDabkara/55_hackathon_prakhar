@@ -134,16 +134,64 @@ describe('createApi: delivery orders (ADR-0031)', () => {
     expect(JSON.parse(String(init.body))).toEqual({ reason: 'other', text: 'Rider bimar' });
   });
 
-  it('sets the delivery limit in km, or null for none', async () => {
+  it('sets the delivery limit in km, or null for none, as a top-level field', async () => {
     const { api, fetchImpl } = setup(() => json(200, {}));
-    await api.setDeliveryLimit(2.5);
+    await api.updateShop({ deliveryMaxKm: 2.5 });
     expect(fetchImpl.mock.calls[0]?.[0]).toBe('/shops/me');
     const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('PATCH');
     expect(JSON.parse(String(init.body))).toEqual({ deliveryMaxKm: 2.5 });
-    await api.setDeliveryLimit(null);
+    await api.updateShop({ deliveryMaxKm: null });
     expect(JSON.parse(String((fetchImpl.mock.calls[1]?.[1] as RequestInit).body))).toEqual({
       deliveryMaxKm: null,
+    });
+  });
+
+  it('reads the demand for one day or seven', async () => {
+    const { api, fetchImpl } = setup(() => json(200, { days: 7 }));
+    await api.shopDemand(7);
+    await api.shopDemand();
+    const urls = fetchImpl.mock.calls.map((c) => String(c[0]));
+    expect(urls).toEqual(['/shops/me/demand?days=7', '/shops/me/demand?days=1']);
+  });
+
+  it('patches the shop with only what changed', async () => {
+    const { api, fetchImpl } = setup(() => json(200, { id: 's1' }));
+    await api.updateShop({ delivery: { feePaise: 2000, minutes: 30 }, deliveryMaxKm: null });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/shops/me');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({
+      delivery: { feePaise: 2000, minutes: 30 },
+      deliveryMaxKm: null,
+    });
+  });
+
+  it('uploads a logo as a raw image body, not JSON or multipart', async () => {
+    const { api, fetchImpl } = setup(() => json(201, { logoUrl: '/photos/abc' }));
+    const image = new Blob(['x'], { type: 'image/webp' });
+    expect(await api.uploadLogo(image)).toBe('/photos/abc');
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/shops/me/logo');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(image);
+    expect(headersOf(init).get('content-type')).toBe('image/webp');
+    expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
+  });
+
+  it('removes the logo', async () => {
+    const { api, fetchImpl } = setup(() => json(204));
+    await api.deleteLogo();
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/shops/me/logo');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('turns a too-large logo into a typed error', async () => {
+    const { api } = setup(() => json(413, { error: { code: 'photo_too_large', message: 'big' } }));
+    await expect(api.uploadLogo(new Blob(['x'], { type: 'image/jpeg' }))).rejects.toMatchObject({
+      status: 413,
+      code: 'photo_too_large',
     });
   });
 });
