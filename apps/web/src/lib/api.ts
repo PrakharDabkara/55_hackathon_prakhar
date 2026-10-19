@@ -46,6 +46,15 @@ export interface MyShop {
   defaultMinutes: number | null;
 }
 
+/** "Aaj ki maang": today's numbers and aggregate demand. Never anything about a customer (ADR-0035). */
+export interface ShopDemand {
+  today: { received: number; answered: number; yes: number };
+  /** Asked of this shop today and said no to, or never answered. */
+  asked: { item: { nameEn: string; nameHi: string }; count: number }[];
+  /** Asked near the shop today by 3 or more different customers. */
+  nearby: { item: { nameEn: string; nameHi: string }; customers: number }[];
+}
+
 export interface NewShop {
   name: string;
   lat: number;
@@ -85,6 +94,8 @@ export interface ShopApi extends PhotoApi, PushApi {
   setShopOpen(open: boolean): Promise<MyShop>;
   /** The standing delivery offer, or null to stop offering it. */
   updateDelivery(delivery: DeliveryDefaults | null): Promise<MyShop>;
+  /** Today's demand for the shop screen. */
+  shopDemand(): Promise<ShopDemand>;
   /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
   eventTicket(): Promise<string>;
 }
@@ -187,6 +198,7 @@ export function createApi(options: ClientOptions): ShopApi {
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
+    shopDemand: () => call<ShopDemand>('GET', '/shops/me/demand'),
     listOrders: () => call<ShopOrder[]>('GET', '/shops/me/orders'),
     orderAction: (id, verb) => call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/${verb}`),
     setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),

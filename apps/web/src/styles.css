@@ -1036,3 +1036,69 @@ details[open] > summary {
   color: var(--muted);
   font-size: 0.9rem;
 }
+
+/* "Le liya?" and "Aaj ki maang" (ADR-0035) */
+.pickup-ask {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+  padding: 12px;
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+}
+.pickup-question {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pickup-answers {
+  display: grid;
+  gap: 0.5rem;
+}
+.demand {
+  margin-top: 1.5rem;
+}
+.demand-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.demand-stat {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 10px 4px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.demand-stat .meta {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.demand-number {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.demand-heading {
+  margin: 1rem 0 0.35rem;
+  font-size: 1rem;
+}
+.demand-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+.demand-item .item-en {
+  color: var(--muted, inherit);
+  font-size: 0.9rem;
+}
+.demand-count {
+  flex: none;
+  font-weight: 700;
+}

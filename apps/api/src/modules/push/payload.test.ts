@@ -22,6 +22,11 @@ describe('buildPayload', () => {
     );
   });
 
+  it('asks "Le liya?" with the item only, and opens the home screen', () => {
+    const payload = buildPayload('pickup_ask', { item: 'atta' });
+    expect(payload).toEqual({ title: 'Kya aapko atta mila?', item: 'atta', url: '/app/' });
+  });
+
   it('links to the right screen', () => {
     expect(buildPayload('new_ping', { item: 'atta' }).url).toBe('/app/shop');
     expect(buildPayload('new_order', { item: 'atta' }).url).toBe('/app/shop');
@@ -47,6 +52,7 @@ describe('buildPayload', () => {
       'order_declined',
       'order_out',
       'order_delivered',
+      'pickup_ask',
     ];
 
     it('has exactly a title, the item name and a deep link, and nothing else', () => {
@@ -54,7 +60,7 @@ describe('buildPayload', () => {
         const payload = buildPayload(kind, { item: 'atta', id: ID });
         expect(Object.keys(payload).sort(), kind).toEqual(['item', 'title', 'url']);
         expect(payload.url, kind).toMatch(
-          /^\/app\/(shop|request\/[\w-]+|errand\/[\w-]+|order\/[\w-]+)$/,
+          /^\/app\/(shop|request\/[\w-]+|errand\/[\w-]+|order\/[\w-]+)?$/,
         );
       }
     });

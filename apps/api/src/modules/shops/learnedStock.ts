@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db/queryable.js';
 import type { ExactQuantity } from '@kahanmilega/shared';
 import {
+  DOUBTFUL_AFTER_REPORTS,
   freshnessLabel,
   rankResults,
   type LearnedStockResult,
@@ -21,6 +22,8 @@ interface Row {
   delivery_fee_paise: number | null;
   delivery_minutes: number | null;
   last_confirmed_at: Date;
+  verified: boolean;
+  wrong_reports: number;
 }
 
 /**
@@ -42,7 +45,8 @@ export async function findLearnedStock(
             ST_Y(s.location::geometry) AS lat, ST_X(s.location::geometry) AS lng,
             st.price_paise, st.quantity_hint, st.last_confirmed_at,
             st.qty_amount::float8 AS qty_amount, st.qty_unit, st.delivers,
-            st.delivery_fee_paise, st.delivery_minutes
+            st.delivery_fee_paise, st.delivery_minutes,
+            st.customer_verified_at IS NOT NULL AS verified, st.wrong_reports
        FROM shop_stock st
        JOIN shops s ON s.id = st.shop_id, origin
       WHERE st.item_id = $1
@@ -68,6 +72,8 @@ export async function findLearnedStock(
       delivery: r.delivers ? { feePaise: r.delivery_fee_paise, minutes: r.delivery_minutes } : null,
       lastConfirmedAt: r.last_confirmed_at,
       freshness: freshnessLabel(r.last_confirmed_at, now),
+      ...(r.verified && { customerVerified: true }),
+      ...(r.wrong_reports >= DOUBTFUL_AFTER_REPORTS && { doubtful: true }),
     })),
     now,
   );

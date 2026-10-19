@@ -1,5 +1,6 @@
 import type { Logger } from 'pino';
 import type { Database } from '../../db/queryable.js';
+import { claimPickupReminders } from '../pickups/index.js';
 import type { RealtimeEvent } from '../realtime/index.js';
 import { buildPayload, type PushKind } from './payload.js';
 import type { RateLimiter } from './rateLimit.js';
@@ -16,6 +17,11 @@ export type EnqueuePush = (job: PushJob, options?: EnqueueOptions) => Promise<vo
 export interface Notifier {
   /** Reacts to an event the app has just published (so, after its commit). Never throws. */
   handle(event: RealtimeEvent): void;
+  /**
+   * "Le liya?" reminders (ADR-0035): one push per customer for the pickups an hour old that the
+   * home screen has not asked about. Returns how many customers were pushed.
+   */
+  remindPickups(now?: Date): Promise<number>;
   /** Resolves when every event handed in so far has been dealt with (tests). */
   idle(): Promise<void>;
 }
@@ -58,18 +64,19 @@ export function createNotifier(deps: Deps): Notifier {
     kind: PushKind,
     args: { item?: string; id?: string },
     options?: EnqueueOptions,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const subscriptions = await listSubscriptionIds(db, userId);
-    if (subscriptions.length === 0) return;
+    if (subscriptions.length === 0) return false;
     if (!(await limiter.allow(userId))) {
       logger.info({ kind }, 'push dropped: too many for this person in a minute');
-      return;
+      return false;
     }
     const payload = buildPayload(kind, args);
     for (const subscriptionId of subscriptions) {
       await enqueue({ subscriptionId, payload }, options);
     }
     logger.info({ kind, devices: subscriptions.length }, 'push queued');
+    return true;
   }
 
   async function onPing(userId: string, pingId: string) {
@@ -189,6 +196,15 @@ export function createNotifier(deps: Deps): Notifier {
         )
         .finally(() => inFlight.delete(run));
       inFlight.add(run);
+    },
+    async remindPickups(now = new Date()) {
+      let pushed = 0;
+      for (const { userId, items } of await claimPickupReminders(db, now)) {
+        const first = items[0] ?? '';
+        const item = items.length > 1 ? `${first} +${items.length - 1}` : first;
+        if (await notify(userId, 'pickup_ask', { item })) pushed += 1;
+      }
+      return pushed;
     },
     async idle() {
       while (inFlight.size > 0) await Promise.all([...inFlight]);

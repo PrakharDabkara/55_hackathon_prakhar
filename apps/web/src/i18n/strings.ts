@@ -213,6 +213,23 @@ export interface Strings {
   notifyIosHint: string;
   notifyBlocked: string;
   notifyFailed: string;
+  // "Le liya?" and "Aaj ki maang" (ADR-0035)
+  pickupQuestion: (item: string, shop: string) => string;
+  pickupFound: string;
+  pickupNotThere: string;
+  pickupNotGone: string;
+  pickupError: string;
+  verifiedByCustomer: string;
+  demandTitle: string;
+  demandReceived: string;
+  demandAnswered: string;
+  demandYes: string;
+  demandAskedTitle: string;
+  demandNearbyTitle: string;
+  demandAskedCount: (count: number) => string;
+  demandNearbyCount: (count: number) => string;
+  demandAskedNone: string;
+  demandNearbyNone: string;
   // Finding an order again (ADR-0033, PR E)
   myOrdersEntry: string;
   myOrdersEmpty: string;
@@ -487,6 +504,22 @@ export const hi: Strings = {
   notifyIosHint: "Pehle 'Add to Home Screen' karein",
   notifyBlocked: 'Notification band hain. Browser ki settings mein allow karein.',
   notifyFailed: 'Notification chalu nahi ho paaye. Dobara try karein.',
+  pickupQuestion: (item, shop) => `Kya aapko ${item} ${shop} par mila?`,
+  pickupFound: 'Mil gaya',
+  pickupNotThere: 'Wahan nahi tha',
+  pickupNotGone: 'Gaya nahi',
+  pickupError: 'Jawab nahi bhej paaye. Dobara try karein.',
+  verifiedByCustomer: 'Grahak ne confirm kiya',
+  demandTitle: 'Aaj ki maang',
+  demandReceived: 'Aaye sawaal',
+  demandAnswered: 'Jawab diye',
+  demandYes: 'Haan kaha',
+  demandAskedTitle: 'Log ye pooch rahe the',
+  demandNearbyTitle: 'Aas-paas ki maang',
+  demandAskedCount: (count) => `${count} baar`,
+  demandNearbyCount: (count) => `${count} grahak`,
+  demandAskedNone: 'Aaj koi nahi: jo poocha, aapne de diya.',
+  demandNearbyNone: 'Abhi koi nahi. 3 ya zyada logon ke maangne par yahan dikhega.',
   myOrdersEntry: 'Mere orders',
   myOrdersEmpty: 'Abhi koi order nahi.',
   myOrdersError: 'Orders nahi dikh paaye. Dobara try karein.',
@@ -789,6 +822,22 @@ export const en: Strings = {
   notifyIosHint: "First tap 'Add to Home Screen'",
   notifyBlocked: 'Notifications are blocked. Allow them in your browser settings.',
   notifyFailed: 'Could not turn on notifications. Please try again.',
+  pickupQuestion: (item, shop) => `Did you find ${item} at ${shop}?`,
+  pickupFound: 'Found it',
+  pickupNotThere: 'Not there',
+  pickupNotGone: "Didn't go",
+  pickupError: 'Could not send your answer. Please try again.',
+  verifiedByCustomer: 'Confirmed by a customer',
+  demandTitle: "Today's demand",
+  demandReceived: 'Questions received',
+  demandAnswered: 'Answered',
+  demandYes: 'Said yes',
+  demandAskedTitle: 'People were asking for',
+  demandNearbyTitle: 'Demand nearby',
+  demandAskedCount: (count) => `${count} ${count === 1 ? 'time' : 'times'}`,
+  demandNearbyCount: (count) => `${count} customers`,
+  demandAskedNone: 'None today: you had everything that was asked.',
+  demandNearbyNone: 'Nothing yet. It shows here once 3 or more people ask for the same thing.',
   myOrdersEntry: 'My orders',
   myOrdersEmpty: 'No orders yet.',
   myOrdersError: 'Could not load your orders. Please try again.',

@@ -7,6 +7,8 @@ import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
+import { demandRouter } from './modules/demand/index.js';
+import { pickupsRouter } from './modules/pickups/index.js';
 import { routingRouter } from './modules/routing/index.js';
 import { photosRouter } from './modules/photos/index.js';
 import { pushRouter } from './modules/push/index.js';
@@ -86,6 +88,8 @@ export function createApp({
   app.use(pushRouter({ db, vapidPublicKey: config.vapid?.publicKey ?? null }));
   app.use(photosRouter({ db, logger, capMb: config.photoStorageCapMb }));
   app.use(shopsRouter({ db }));
+  app.use(demandRouter({ db }));
+  app.use(pickupsRouter({ db, logger, askAfterMinutes: config.pickupAskAfterMinutes }));
   app.use(routingRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
   const requestsContext = {

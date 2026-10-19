@@ -29,7 +29,9 @@ export async function recordStockYes(
            expires_at = EXCLUDED.expires_at, qty_amount = EXCLUDED.qty_amount,
            qty_unit = EXCLUDED.qty_unit, delivers = EXCLUDED.delivers,
            delivery_fee_paise = EXCLUDED.delivery_fee_paise,
-           delivery_minutes = EXCLUDED.delivery_minutes`,
+           delivery_minutes = EXCLUDED.delivery_minutes,
+           -- A new answer from the shop stands on its own: an earlier customer's word is not it.
+           customer_verified_at = NULL`,
     [
       stock.shopId,
       stock.itemId,

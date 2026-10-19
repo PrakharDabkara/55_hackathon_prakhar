@@ -36,6 +36,8 @@ export default defineConfig({
       ADMIN_PHONES: ADMIN_PHONE,
       LOG_LEVEL: 'warn',
       WORKERS_ENABLED: 'true',
+      // "Le liya?" asks at once in tests; in life it waits 15 minutes (ADR-0035).
+      PICKUP_ASK_AFTER_MINUTES: '0',
       // The same run every time: a scripted model, never a real one (e2e/errand-scenario.json).
       LLM_PROVIDER: 'fake',
       FAKE_LLM_SCENARIO: 'e2e/errand-scenario.json',
