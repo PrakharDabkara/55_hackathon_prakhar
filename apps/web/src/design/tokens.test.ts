@@ -131,4 +131,38 @@ describe('the shop stylesheets', () => {
     expect(column).not.toMatch(/(?<![-\w])width:/);
     expect(all).not.toMatch(/(?<![-\w])min-width:\s*\d{3,}px/);
   });
+
+  describe('the parchi and the home layout', () => {
+    const all = () => shopCss.map((f) => f.text).join('\n');
+    const rule = (selector: string) =>
+      new RegExp(`${selector.replace(/[.]/g, '\\.')}\\s*\\{([^}]*)\\}`).exec(all())?.[1] ?? '';
+
+    it('draws the ruled lines only on the handwritten block, every 34 px, not on the whole slip', () => {
+      expect(rule('.sh-parchi__ruled')).toMatch(/repeating-linear-gradient/);
+      expect(rule('.sh-parchi__ruled')).toMatch(/33px/);
+      expect(rule('.sh-parchi__body')).not.toMatch(/repeating-linear-gradient/);
+    });
+
+    it('makes Decline neutral: a paper edge border and paper ink text, no green', () => {
+      const neutral = rule('.sh-btn--neutral');
+      expect(neutral).toMatch(/var\(--paper-edge\)/);
+      expect(neutral).toMatch(/var\(--paper-ink\)/);
+      expect(neutral).not.toMatch(/--brand/);
+    });
+
+    it('pins the strip to the bottom of the screen, above the safe area', () => {
+      const strip = rule('.sh-strip');
+      expect(strip).toMatch(/position:\s*sticky/);
+      expect(strip).toMatch(/bottom:\s*0/);
+      expect(strip).toMatch(/env\(safe-area-inset-bottom/);
+    });
+
+    it('caps the height of a slip so the deck never needs a page scroll', () => {
+      expect(rule('.sh-parchi__paper')).toMatch(/max-height:\s*calc\(100dvh/);
+    });
+
+    it('gives the header switch a round knob', () => {
+      expect(rule('.sh-pill__knob')).toMatch(/border-radius:\s*var\(--r-pill\)/);
+    });
+  });
 });

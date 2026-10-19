@@ -37,7 +37,7 @@ describe('PingSlip', () => {
 
   it('shows the item, quantity, distance and time left, and nothing about the customer', () => {
     renderApp(<PingSlip ping={ping({ quantity })} now={NOW} onAnswer={vi.fn()} />, 'en');
-    expect(screen.getByText('wheat flour')).toBeTruthy();
+    expect(screen.getByText('Wheat flour')).toBeTruthy();
     expect(screen.getByText('5 kg')).toBeTruthy();
     expect(screen.getByText('under 1 km')).toBeTruthy();
     expect(screen.getByText('Reply in')).toBeTruthy();
@@ -98,7 +98,7 @@ describe('OrderSlip', () => {
 
   it('lists the items with prices, the fee, a dashed rule, the total and the note', () => {
     renderApp(<OrderSlip order={order} now={NOW} onAccept={vi.fn()} onDecline={vi.fn()} />, 'en');
-    expect(screen.getByText(/2 × sugar/)).toBeTruthy();
+    expect(screen.getByText(/2 × Sugar/)).toBeTruthy();
     expect(screen.getByText('₹90')).toBeTruthy();
     expect(screen.getByText('Price not set')).toBeTruthy();
     expect(screen.getAllByText('Delivery')).toHaveLength(2);
@@ -141,6 +141,35 @@ describe('OrderSlip', () => {
     expect((screen.getByRole('button', { name: 'Decline' }) as HTMLButtonElement).disabled).toBe(
       true,
     );
+  });
+});
+
+describe('ruled lines', () => {
+  it('rule only the handwritten block of a question: the item and the quantity, not the caption or the button', () => {
+    renderApp(
+      <PingSlip
+        ping={ping({ quantity: { quantity: 5, unit: 'kg' } })}
+        now={NOW}
+        onAnswer={vi.fn()}
+      />,
+      'en',
+    );
+    const ruled = document.querySelector('.sh-parchi__ruled') as HTMLElement;
+    expect(ruled.textContent).toContain('Wheat flour');
+    expect(ruled.textContent).toContain('5 kg');
+    expect(ruled.querySelector('button')).toBeNull();
+    expect(ruled.textContent).not.toContain('under 1 km');
+  });
+
+  it('rule the items of an order, and leave the total row and the buttons bare', () => {
+    renderApp(
+      <OrderSlip order={shopOrder()} now={NOW} onAccept={vi.fn()} onDecline={vi.fn()} />,
+      'en',
+    );
+    const ruled = document.querySelector('.sh-parchi__ruled') as HTMLElement;
+    expect(ruled.textContent).toContain('2 × Sugar');
+    expect(ruled.textContent).not.toContain('Total');
+    expect(ruled.querySelector('button')).toBeNull();
   });
 });
 

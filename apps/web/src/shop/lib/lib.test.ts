@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ping, shopOrder } from '../../test/fakes.js';
 import { buildDeck, newlyAccepted } from './deck.js';
 import {
+  displayItemName,
   formatClock,
   formatDuration,
   formatQuantity,
@@ -89,6 +90,17 @@ describe('formatting', () => {
 
   it('writes a clock time like 6:12 pm', () => {
     expect(formatClock('2026-10-19T18:12:00')).toMatch(/6:12\s?pm/i);
+  });
+});
+
+describe('displayItemName', () => {
+  it('capitalises the first letter and leaves the rest as it is', () => {
+    expect(displayItemName('cumin seeds')).toBe('Cumin seeds');
+    expect(displayItemName('turmeric powder')).toBe('Turmeric powder');
+    expect(displayItemName('iPhone charger')).toBe('IPhone charger');
+    expect(displayItemName('Already Fine')).toBe('Already Fine');
+    expect(displayItemName('आटा')).toBe('आटा');
+    expect(displayItemName('')).toBe('');
   });
 });
 

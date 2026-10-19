@@ -94,7 +94,7 @@ describe('Orders', () => {
     const card = screen.getByRole('article');
     expect(within(card).getByText('Delivery')).toBeTruthy();
     expect(within(card).getByText(/Customer chose you · 6:12\s?pm/i)).toBeTruthy();
-    expect(within(card).getByText('2 × sugar')).toBeTruthy();
+    expect(within(card).getByText('2 × Sugar')).toBeTruthy();
     expect(within(card).getByText('₹110 incl. ₹20 delivery · collect cash')).toBeTruthy();
     expect(within(card).getByText('“Ring twice”')).toBeTruthy();
   });

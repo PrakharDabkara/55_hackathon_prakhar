@@ -68,7 +68,7 @@ describe('Insights', () => {
     setup();
     const list = await screen.findByRole('list', { name: 'Most asked near you' });
     const rows = within(list).getAllByRole('listitem');
-    expect(rows[0]?.textContent).toContain('atta');
+    expect(rows[0]?.textContent).toContain('Atta');
     expect(rows[0]?.textContent).toContain('8');
     const bars = [...list.querySelectorAll<HTMLElement>('.sh-bar__fill')].map((b) => b.style.width);
     expect(bars).toEqual(['100%', '50%']);
@@ -82,7 +82,7 @@ describe('Insights', () => {
   it('lists what the shop said no to', async () => {
     setup();
     const list = await screen.findByRole('list', { name: 'You said no to' });
-    expect(within(list).getByText('cumin')).toBeTruthy();
+    expect(within(list).getByText('Cumin')).toBeTruthy();
     expect(within(list).getByText('4')).toBeTruthy();
   });
 

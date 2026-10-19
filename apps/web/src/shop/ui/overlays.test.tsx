@@ -123,6 +123,15 @@ describe('ShopHeader', () => {
     expect(screen.getByRole('switch', { name: 'Open' }).getAttribute('aria-checked')).toBe('true');
   });
 
+  it('shows a round knob on the switch, on the right when open and on the left when closed', () => {
+    const { rerender } = renderApp(header(), 'en');
+    const pill = screen.getByRole('switch', { name: 'Open' });
+    expect(pill.querySelector('.sh-pill__knob')).toBeTruthy();
+    expect(pill.className).toContain('sh-pill--open');
+    rerender(header({ open: false }));
+    expect(screen.getByRole('switch', { name: 'Closed' }).className).toContain('sh-pill--closed');
+  });
+
   it('opens the menu', async () => {
     const onMenu = vi.fn();
     const { user } = renderApp(header({ onMenu }), 'en');

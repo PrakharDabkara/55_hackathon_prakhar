@@ -29,7 +29,7 @@ function renderD(over: Partial<Parameters<typeof AnswerSheet>[0]> = {}) {
 describe('AnswerSheet (a normal question)', () => {
   it('titles the sheet with the item and quantity and starts on In stock', () => {
     renderD();
-    expect(screen.getByRole('dialog', { name: 'wheat flour · 5 kg' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Wheat flour · 5 kg' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'In stock' }).getAttribute('aria-pressed')).toBe(
       'true',
     );
@@ -185,7 +185,7 @@ function renderE(over: Partial<Parameters<typeof WantsDeliverySheet>[0]> = {}) {
 describe('WantsDeliverySheet (the customer wants it delivered)', () => {
   it('shows the distance caption, the title and three choices', () => {
     renderE();
-    const dialog = screen.getByRole('dialog', { name: 'wheat flour · 5 kg' });
+    const dialog = screen.getByRole('dialog', { name: 'Wheat flour · 5 kg' });
     expect(within(dialog).getByText('Wants delivery · 1–2 km')).toBeTruthy();
     expect(within(dialog).getByRole('radio', { name: 'Have it, will deliver' })).toBeTruthy();
     expect(within(dialog).getByRole('radio', { name: "Have it, can't deliver" })).toBeTruthy();
@@ -235,12 +235,35 @@ describe('WantsDeliverySheet (the customer wants it delivered)', () => {
     });
   });
 
-  it('needs a price before it promises delivery', async () => {
+  it('keeps Confirm off until a price is typed, and says what to do', async () => {
     const { user, onSubmit } = renderE();
     await user.click(screen.getByRole('radio', { name: 'Have it, will deliver' }));
-    await user.click(screen.getByRole('button', { name: 'Confirm' }));
-    expect(screen.getByText('Price must be a number, like 45.')).toBeTruthy();
+    const confirm = screen.getByRole('button', { name: 'Confirm' }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    expect(screen.getByText('Enter your price to confirm')).toBeTruthy();
+    expect(screen.getByLabelText('Price').getAttribute('placeholder')).toBe('e.g. 45');
+    await user.type(screen.getByLabelText('Price'), 'abc');
+    expect(confirm.disabled).toBe(true);
+    await user.clear(screen.getByLabelText('Price'));
+    await user.type(screen.getByLabelText('Price'), '45');
+    expect(confirm.disabled).toBe(false);
+    expect(screen.queryByText('Enter your price to confirm')).toBeNull();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows what the customer pays as soon as a price is typed, right above Confirm', async () => {
+    const { user } = renderE();
+    await user.click(screen.getByRole('radio', { name: 'Have it, will deliver' }));
+    expect(screen.queryByText(/Customer pays cash/)).toBeNull();
+    await user.type(screen.getByLabelText('Price'), '40');
+    const total = screen.getByText('Customer pays cash · ₹60');
+    const dialog = screen.getByRole('dialog');
+    const footer = dialog.querySelector('.sh-sheet__foot') as HTMLElement;
+    expect(footer.contains(total)).toBe(true);
+    expect(
+      total.compareDocumentPosition(screen.getByRole('button', { name: 'Confirm' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('needs a fee when the shop has no standing offer, so free delivery is never an accident', async () => {

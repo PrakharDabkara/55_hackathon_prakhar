@@ -42,7 +42,7 @@ describe('App: getting in', () => {
 
   it('goes straight to the deck for a shop that is set up', async () => {
     app(fakeApi({ listPings: vi.fn(async () => [ping()]) }));
-    expect(await screen.findByText('wheat flour')).toBeTruthy();
+    expect(await screen.findByText('Wheat flour')).toBeTruthy();
     expect(screen.getByText('Sharma Kirana')).toBeTruthy();
   });
 
@@ -101,7 +101,7 @@ describe('App: the shell', () => {
       listOrders: vi.fn(async () => [shopOrder({ state: 'ACCEPTED', final: false, id: 'a' })]),
     });
     const { user } = app(api);
-    await screen.findByText('wheat flour');
+    await screen.findByText('Wheat flour');
     await user.click(screen.getByRole('button', { name: 'Menu' }));
     const menu = screen.getByRole('dialog', { name: 'Main menu' });
     expect(within(menu).getByRole('link', { name: /Requests/ }).textContent).toContain('1');

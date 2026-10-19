@@ -100,7 +100,7 @@ describe('Home: states', () => {
   it('shows the closed state with one primary button that opens the shop', async () => {
     const { user, d } = setup({ shop: shop({ open: false }), pings: [flour] });
     expect(screen.getByText("You're closed")).toBeTruthy();
-    expect(screen.queryByText('wheat flour')).toBeNull();
+    expect(screen.queryByText('Wheat flour')).toBeNull();
     const button = screen.getByRole('button', { name: 'Open shop' });
     expect(button.className).toContain('sh-btn--primary');
     await user.click(button);
@@ -119,10 +119,10 @@ describe('Home: the deck', () => {
     const slips = [...document.querySelectorAll('.sh-deck__slide')].map(
       (el) => el.textContent ?? '',
     );
-    expect(slips[0]).toContain('sugar');
-    expect(slips[1]).toContain('rice');
-    expect(slips[2]).toContain('wheat flour');
-    expect(slips[3]).toContain('sugar');
+    expect(slips[0]).toContain('Sugar');
+    expect(slips[1]).toContain('Rice');
+    expect(slips[2]).toContain('Wheat flour');
+    expect(slips[3]).toContain('Sugar');
   });
 
   it('moves with the arrow buttons, and disables them at the ends', async () => {
@@ -135,6 +135,14 @@ describe('Home: the deck', () => {
     expect(next.disabled).toBe(true);
     await user.click(prev);
     expect(screen.getByText('1 of 2')).toBeTruthy();
+  });
+
+  it('keeps the deck and the strip in one column, the strip last so it can sit at the bottom', () => {
+    setup({ pings: [flour] });
+    const home = document.querySelector('.sh-home') as HTMLElement;
+    expect(home).toBeTruthy();
+    expect(home.lastElementChild?.className).toContain('sh-strip');
+    expect(home.querySelector('.sh-deck')).toBeTruthy();
   });
 
   it('shows the strip: active orders and answered today, each a link', async () => {
@@ -174,7 +182,7 @@ describe('Home: the deck', () => {
         lines: [{ name: 'sugar', count: 1, pricePaise: 4500 }],
       }),
     });
-    expect(screen.getByText('Customer chose you · sugar')).toBeTruthy();
+    expect(screen.getByText('Customer chose you · Sugar')).toBeTruthy();
     const link = screen.getByRole('link', { name: 'View order' });
     expect(link.getAttribute('href')).toBe('#/orders');
     await user.click(link);
