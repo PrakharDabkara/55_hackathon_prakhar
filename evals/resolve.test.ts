@@ -49,7 +49,7 @@ describe('evals/resolve.dev.jsonl', () => {
     expect(nonsense.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('has the PR H understanding cases: phool, phool jhadu, the mirch/daal/tel family and brand names', () => {
+  it('has the PR H understanding cases: phool, phool jhadu, the mirch/daal/tel family (tel is in holdout v2, so dev has तेल) and brand names', () => {
     const expectedFor = (q: string) => cases.find((c) => c.q === q)?.expected;
     expect(expectedFor('phool')).toBeNull(); // flowers: never the broom
     expect(expectedFor('phool jhadu')).toBe('broom');
@@ -57,7 +57,7 @@ describe('evals/resolve.dev.jsonl', () => {
     expect(expectedFor('hari mirchi')).toBe('green-chilli');
     expect(expectedFor('lal mirch powder')).toBe('red-chilli-powder');
     expect(expectedFor('daal')).toBe('ambiguous');
-    expect(expectedFor('tel')).toBe('ambiguous');
+    expect(expectedFor('तेल')).toBe('ambiguous');
     // Brand names: never a similar-spelled generic item.
     expect(expectedFor('mentos')).toBeNull();
     expect(expectedFor('harpic')).toBe('toilet-cleaner');

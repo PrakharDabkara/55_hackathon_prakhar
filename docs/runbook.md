@@ -297,3 +297,12 @@ Nothing to set up. Migration 020 runs on deploy and only adds.
 - `PICKUP_ASK_AFTER_MINUTES` (default 15): how long after a tap on "Raasta" the home screen asks. The reminder push an hour after the tap needs push keys (see above); without them only the home screen asks.
 - A shop says customers did not find its item: nothing to do, that is the point. To look, `SELECT shop_id, item_id, wrong_reports, customer_verified_at FROM shop_stock WHERE wrong_reports > 0;`. A shop's next real yes clears nothing in the counter, but "Mil gaya" lowers it by one.
 - Visits (`pickup_visits`) hold a customer, a shop and an item for 30 days, then an hourly sweep deletes them. Do not export them.
+
+## "Kya aapka matlab…?" and the follow-ups (Day 17, PR H)
+
+Nothing to set up. Migration 021 runs on deploy and only adds; run `npm run seed:catalog` so catalog version 6 (the `ambiguous` words) is in the database.
+
+- **How often are we asked wrong?** Count the log events `understanding_shown`, `understanding_confirmed` and `understanding_changed` (each carries the request id; `understanding_shown` has `kind`: `confirm` or `ambiguous`). A high changed share for `confirm` means the guesses are poor; look at the queries in `search_queries` with `matched_by` other than `synonym`.
+- **A word that should ask which one:** add it to `ambiguous` in `catalog.seed.json` (the word must not already be a name, synonym or default), bump the version, seed. **A word that should never match an item through half a term:** nothing to list; it follows from the terms ("jhadu" is a term of the broom, so "phool" is not).
+- **A shop was not asked again after "Wahan nahi tha":** `SELECT shop_id, invalidated_at, last_confirmed_at FROM shop_stock WHERE invalidated_at IS NOT NULL;`. It is asked on the next search until it has been pinged once after `invalidated_at`.
+- The labels: this PR changes resolve and the errand agent, so it needs `evals` and `agent-evals`.

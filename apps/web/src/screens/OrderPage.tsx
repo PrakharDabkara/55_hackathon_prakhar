@@ -3,7 +3,7 @@ import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import type { LiveOptions } from '../lib/live.js';
 import { formatRupees } from '../lib/money.js';
-import { orderSourcePath, orderTotalPaise, type SeekerOrder } from '../lib/orders.js';
+import { lineName, orderSourcePath, orderTotalPaise, type SeekerOrder } from '../lib/orders.js';
 import { orderStatusText } from '../lib/orderText.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
@@ -25,7 +25,7 @@ interface Props {
  * directly. Declined, expired and cancelled orders say what to do next.
  */
 export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, live }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [order, setOrder] = useState<SeekerOrder | null>(null);
   const [problem, setProblem] = useState<'missing' | 'failed' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -112,7 +112,7 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
       <ul className="order-lines">
         {order.lines.map((line, i) => (
           <li key={`${line.name}-${i}`}>
-            {line.count} × {line.name}
+            {line.count} × {lineName(line, lang)}
           </li>
         ))}
       </ul>

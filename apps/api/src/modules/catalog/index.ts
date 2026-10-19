@@ -11,7 +11,7 @@ export {
 } from './embedCatalog.js';
 export type { SafeEmbedResult } from './embedCatalog.js';
 export { resolveForCustomer } from './resolveForCustomer.js';
-export { getItem, getRefPricePaise, resolveItem } from './resolve.js';
+export { getItem, getRefPricePaise, resolveItem, similarItems } from './resolve.js';
 export type {
   AmbiguousChoice,
   CatalogItem,

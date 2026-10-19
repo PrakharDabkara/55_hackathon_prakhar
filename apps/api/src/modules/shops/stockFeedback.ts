@@ -42,6 +42,24 @@ export async function confirmStockByCustomer(
 }
 
 /**
+ * Shops whose answer for this item a customer called wrong and that have not been asked since
+ * (no ping sent after the report) and have not answered since. They are asked on the next search
+ * even inside the ping dedupe window (ADR-0036); once asked, the ordinary window applies again.
+ */
+export async function shopsToAskAgain(db: Queryable, itemId: string): Promise<string[]> {
+  const { rows } = await db.query<{ shop_id: string }>(
+    `SELECT st.shop_id FROM shop_stock st
+      WHERE st.item_id = $1 AND st.invalidated_at IS NOT NULL
+        AND st.last_confirmed_at < st.invalidated_at
+        AND NOT EXISTS (
+          SELECT 1 FROM pings p
+           WHERE p.shop_id = st.shop_id AND p.item_id = st.item_id AND p.sent_at > st.invalidated_at)`,
+    [itemId],
+  );
+  return rows.map((r) => r.shop_id);
+}
+
+/**
  * A customer went there and it was not there ("Wahan nahi tha", ADR-0035): the learned answer
  * stops counting at once (it no longer shows as Likely anywhere) and is counted against the shop
  * for this item. The row keeps no trace of who said so.
@@ -55,7 +73,7 @@ export async function invalidateStockByCustomer(
   await db.query(
     `UPDATE shop_stock
         SET expires_at = LEAST(expires_at, $3), customer_verified_at = NULL,
-            wrong_reports = wrong_reports + 1
+            wrong_reports = wrong_reports + 1, invalidated_at = $3
       WHERE shop_id = $1 AND item_id = $2`,
     [shopId, itemId, now],
   );

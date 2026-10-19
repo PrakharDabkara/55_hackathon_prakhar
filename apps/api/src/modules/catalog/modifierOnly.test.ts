@@ -26,7 +26,7 @@ describe('isModifierOnlyMatch: a query that names only a modifier of a longer te
   });
 
   it('counts a small typo in the modifier as the modifier', () => {
-    expect(isModifierOnlyMatch('phul', broom)).toBe(true);
+    expect(isModifierOnlyMatch('phol', broom)).toBe(true);
     expect(isModifierOnlyMatch('phool', ['phool jhadu', 'jhadu'])).toBe(true);
     expect(isModifierOnlyMatch('phoool', ['phool jhadu', 'jhadu'])).toBe(true);
   });

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n/index.js';
 import type { LiveOptions } from '../lib/live.js';
 import { formatRupees } from '../lib/money.js';
-import { activeFirst, orderTotalPaise, type SeekerOrder } from '../lib/orders.js';
+import { activeFirst, lineName, orderTotalPaise, type SeekerOrder } from '../lib/orders.js';
 import { orderStatusText } from '../lib/orderText.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
@@ -22,7 +22,7 @@ interface Props {
  * opens its own page. Below, the address the customer chose to keep, which they can delete.
  */
 export function MyOrders({ api, onOpen, onBack, pollMs = 15_000, live }: Props) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const [orders, setOrders] = useState<SeekerOrder[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
@@ -88,7 +88,9 @@ export function MyOrders({ api, onOpen, onBack, pollMs = 15_000, live }: Props) 
                 >
                   <strong>{order.shopName}</strong>
                   <span className="meta">
-                    {order.lines.map((line) => `${line.count} × ${line.name}`).join(', ')}
+                    {order.lines
+                      .map((line) => `${line.count} × ${lineName(line, lang)}`)
+                      .join(', ')}
                   </span>
                   <span className="meta">
                     {total === null ? t.orderTotalUnknown : t.orderTotal(formatRupees(total))}

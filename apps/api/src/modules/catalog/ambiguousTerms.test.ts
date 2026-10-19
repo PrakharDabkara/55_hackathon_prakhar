@@ -41,8 +41,8 @@ describe('ambiguous: everyday words that mean several items (PR H)', () => {
   });
 
   it('rejects a word that is already a name, a synonym or a default: it would not be ambiguous', () => {
-    const bad = catalog([entry({ terms: ['red a'] })], item('red'), item('green'));
-    expect(() => checkCatalog(bad)).toThrow(/red a/);
+    const bad = catalog([entry({ terms: ['red b'] })], item('red'), item('green'));
+    expect(() => checkCatalog(bad)).toThrow(/red b/);
     const dflt = catalog(
       [entry({ terms: ['chilli'] })],
       item('red', { defaultFor: ['chilli'] }),

@@ -43,7 +43,8 @@ export interface ErrandQuestion {
   /** 0-based indexes of the options that start ticked. */
   preselected?: number[];
 }
-export type ErrandAnswer = { text: string } | { timedOut: true };
+/** `ticked`: the options the customer ticked (and words they typed) in a checklist, as they were. */
+export type ErrandAnswer = { text: string; ticked?: string[] } | { timedOut: true };
 export type ResumeReason = 'replies' | 'timer' | 'answered' | 'answer_timeout';
 
 interface Row {

@@ -69,6 +69,10 @@ export interface Strings {
   search: string;
   searching: string;
   errUnresolved: string;
+  /** "Kya aapka matlab…?": what the app understood, asked before any shop is. */
+  understoodTitle: string;
+  understoodYes: string;
+  writeSomethingElse: string;
   errItemBlocked: string;
   errItemUnavailable: string;
   errNewItemLimit: (scope: string) => string;
@@ -345,6 +349,9 @@ export const hi: Strings = {
   search: 'Dhoondho',
   searching: 'Dhoondh rahe hain…',
   errUnresolved: 'Ye cheez samajh nahi aayi — thoda aur batayein',
+  understoodTitle: 'Kya aapka matlab…?',
+  understoodYes: 'Haan, yahi',
+  writeSomethingElse: 'Kuch aur likhein',
   errItemBlocked: 'Ye cheez hum dukaanon ko nahi bhej sakte',
   errItemUnavailable: 'Abhi ye cheez dukaanon ko nahi bhej sakte',
   errNewItemLimit: (scope) =>
@@ -663,6 +670,9 @@ export const en: Strings = {
   search: 'Search',
   searching: 'Searching…',
   errUnresolved: "We couldn't understand that item. Please tell us a little more.",
+  understoodTitle: 'Did you mean…?',
+  understoodYes: 'Yes, this one',
+  writeSomethingElse: 'Write something else',
   errItemBlocked: "We can't send this item to shops",
   errItemUnavailable: "We can't send this item to shops right now",
   errNewItemLimit: (scope) =>

@@ -1,14 +1,18 @@
 import { useEffect, useId, useState } from 'react';
 import { useT } from '../i18n/index.js';
 import type { ShopApi, ShopDemand as Demand } from '../lib/api.js';
+import { itemWords } from '../lib/itemLabel.js';
 
 /** The numbers stay fresh without a reload, but a shop screen is not a dashboard. */
 const REFRESH_MS = 60_000;
 
 function ItemName({ item }: { item: { nameEn: string; nameHi: string } }) {
+  const { main, sub } = itemWords(item);
   return (
     <span className="demand-item">
-      <span lang="hi">{item.nameHi}</span> <span className="item-en">{item.nameEn}</span>
+      <span lang={sub ? 'hi' : undefined}>{main}</span>
+      {sub && ' '}
+      {sub && <span className="item-en">{sub}</span>}
     </span>
   );
 }

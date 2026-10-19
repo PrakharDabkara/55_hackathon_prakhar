@@ -10,6 +10,8 @@ import {
   type Candidate,
 } from '../ai/index.js';
 import { isTypoOf } from './editDistance.js';
+import { termsOfItems } from './itemTerms.js';
+import { isModifierOnlyMatch } from './modifierOnly.js';
 import { createUserItem, type Refusal } from './openCatalog.js';
 import { formConflict } from './productForm.js';
 import { firstLine, normaliseQuery, type Quantity } from './normalise.js';
@@ -17,6 +19,7 @@ import {
   defaultItem,
   hasEmbeddings,
   itemsByIds,
+  itemsBySlugs,
   nearestItems,
   readCache,
   suggestSynonym,
@@ -24,7 +27,8 @@ import {
   writeCache,
   type ItemRow,
 } from './resolveSteps.js';
-import { CATALOG_VERSION } from './seed.js';
+import { CATALOG_VERSION, loadSeedCatalog } from './seed.js';
+import { ambiguousTerms } from './seedData.js';
 
 export interface CatalogItem {
   id: string;
@@ -46,6 +50,12 @@ const AMBIGUITY_MARGIN = 0.1;
 const MIN_COVERAGE = 0.6;
 const coverage = (term: string, text: string): number =>
   Math.min(term.length, text.length) / Math.max(term.length, text.length, 1);
+
+/** Everyday words the catalog file says mean several items ("mirchi"): the customer is asked. */
+const AMBIGUOUS_WORDS = ambiguousTerms(loadSeedCatalog());
+
+/** How many other candidates the customer is shown next to the understood item. */
+const MAX_ALTERNATIVES = 2;
 
 /** How many candidates the trigram and embedding steps each offer, and the most the LLM is shown. */
 const CANDIDATES_PER_STEP = 5;
@@ -70,6 +80,8 @@ export interface Resolution {
   similarity: number;
   /** Set when the customer must choose between genuinely different items. */
   ambiguous?: AmbiguousChoice;
+  /** Up to two other items the text could mean, best first (for "Kya aapka matlab…?"). */
+  alternatives?: CatalogItem[];
   /** Set when the text looked like a product but may not be sent to shops (ADR-0029). */
   refused?: Refusal;
 }
@@ -87,7 +99,14 @@ export interface ResolveOptions {
    * Turn a real product the catalog does not know into a new item (ADR-0028). Needs `ai` and a
    * `userId`. `errandId` counts the new item toward that errand's limit.
    */
-  openCatalog?: { errandId?: string | null | undefined };
+  openCatalog?: {
+    errandId?: string | null | undefined;
+    /**
+     * A person already confirmed the text is a real thing (the customer ticked it in an errand
+     * checklist): the classifier needs "medium" confidence instead of "high" (ADR-0036).
+     */
+    confirmedByCustomer?: boolean;
+  };
 }
 
 const toItem = (r: ItemRow): CatalogItem => ({
@@ -113,6 +132,60 @@ interface Found {
   similarity: number;
   ambiguous?: AmbiguousChoice;
   refused?: Refusal;
+  alternatives?: ItemRow[];
+}
+
+/**
+ * Leaves out items the query only half names: "phool" for the broom, whose term "phool jhadu" has
+ * "jhadu" (the product) as a word of its own. See isModifierOnlyMatch.
+ */
+async function withoutModifierOnly(
+  db: Queryable,
+  text: string,
+  rows: ItemRow[],
+): Promise<ItemRow[]> {
+  if (rows.length === 0) return rows;
+  const terms = await termsOfItems(
+    db,
+    rows.map((r) => r.id),
+  );
+  return rows.filter((r) => !isModifierOnlyMatch(text, terms.get(r.id) ?? []));
+}
+
+const firstAlternatives = (chosenId: string | undefined, ...lists: ItemRow[][]): ItemRow[] => {
+  const seen = new Set<string>(chosenId ? [chosenId] : []);
+  const out: ItemRow[] = [];
+  for (const row of lists.flat())
+    if (!seen.has(row.id)) {
+      seen.add(row.id);
+      out.push(row);
+    }
+  return out.slice(0, MAX_ALTERNATIVES);
+};
+
+/**
+ * Other items the text resembles, by trigram only (free): for the "Kya aapka matlab…?" question
+ * when the step that answered had no candidates of its own (a cached or default answer).
+ */
+export async function similarItems(
+  db: Queryable,
+  text: string,
+  chosenId: string,
+): Promise<CatalogItem[]> {
+  const { rows } = await db.query<ItemRow>(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (i.id) i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified,
+              s.term, similarity(s.term, $1) AS sim
+         FROM item_synonyms s JOIN items i ON i.id = s.item_id
+        WHERE s.term % $1 AND i.id <> $2
+        ORDER BY i.id, sim DESC
+     ) best
+     ORDER BY sim DESC, slug
+     LIMIT 8`,
+    [text, chosenId],
+  );
+  const fits = rows.filter((r) => !formConflict(text, [r.name_en, r.name_hi]));
+  return firstAlternatives(chosenId, await withoutModifierOnly(db, text, fits)).map(toItem);
 }
 
 const choiceFor = async (
@@ -153,7 +226,13 @@ export async function resolveItem(
      VALUES ($1, $2, $3, $4, $5)`,
     [opts.userId ?? null, raw, text, found.item?.id ?? null, found.matchedBy],
   );
-  return { normalised: text, ...(quantity && { quantity }), ...found };
+  const { alternatives, ...rest } = found;
+  return {
+    normalised: text,
+    ...(quantity && { quantity }),
+    ...rest,
+    ...(alternatives && alternatives.length > 0 && { alternatives: alternatives.map(toItem) }),
+  };
 }
 
 /** Nothing in the catalog fits: is it a real product we do not know yet? (ADR-0028) */
@@ -168,6 +247,7 @@ async function openCatalog(
   const outcome = await createUserItem(db, ai, query, text, {
     userId: opts.userId as string,
     errandId: opts.openCatalog?.errandId,
+    minConfidence: opts.openCatalog?.confirmedByCustomer ? 'medium' : 'high',
     requestId: opts.requestId,
     logger: opts.logger,
   });
@@ -197,12 +277,36 @@ async function findItem(
   // never a candidate, at any step (productForm.ts).
   const fits = (row: ItemRow) => !formConflict(text, [row.name_en, row.name_hi]);
 
-  // a) A query we have answered before. A cached answer that breaks the form rule is ignored.
+  // a0) An everyday word that means several items ("mirchi"): ask which, never guess. Data in the
+  // catalog file, so it also overrides an answer cached before the word was listed.
+  const word = AMBIGUOUS_WORDS.get(text);
+  if (word) {
+    const options = (await itemsBySlugs(db, word.slugs)).filter(fits);
+    if (options.length >= 2)
+      return {
+        item: null,
+        matchedBy: 'default',
+        similarity: 0,
+        ambiguous: await choiceFor(
+          db,
+          word.question,
+          options.map((o) => o.id),
+        ),
+      };
+  }
+
+  // a) A query we have answered before. A cached answer that breaks the form rule, or names only a
+  // modifier of the item's term, is ignored.
   const hit = await readCache(db, text, CATALOG_VERSION);
   if (hit) {
     if (hit.itemId) {
       const item = (await itemsByIds(db, [hit.itemId]))[0];
-      if (item && fits(item)) return { item: toItem(item), matchedBy: 'cache', similarity: 1 };
+      if (item && fits(item) && (await withoutModifierOnly(db, text, [item])).length > 0) {
+        // The text may be the item's own name or synonym (a new item remembers the words it was
+        // made from): that is an exact match, whatever the cache says.
+        const exactTerm = (await termsOfItems(db, [item.id])).get(item.id)?.includes(text);
+        return { item: toItem(item), matchedBy: exactTerm ? 'synonym' : 'cache', similarity: 1 };
+      }
     } else if (hit.optionIds && hit.question) {
       const options = await itemsByIds(db, hit.optionIds);
       if (options.every(fits))
@@ -242,7 +346,7 @@ async function findItem(
      LIMIT $2`,
     [text, CANDIDATES_PER_STEP],
   );
-  const fuzzy = { rows: fuzzyAll.rows.filter(fits) };
+  const fuzzy = { rows: await withoutModifierOnly(db, text, fuzzyAll.rows.filter(fits)) };
   // Unresolved when the match is not clear-cut. A wrong guess costs the user more than asking again.
   // - One word ("tape", "nail"): any second item at or above the threshold is too close, and a
   //   word that only resembles part of a longer phrase ("band" vs "rubber band") is no typo.
@@ -262,7 +366,12 @@ async function findItem(
   //   ("guitar" and "glitter").
   const typo = !oneWord || isTypoOf(text, best?.term ?? '');
   if (best && !trigramUnsure && allWordsReal && covered && typo)
-    return { item: toItem(best), matchedBy: 'trigram', similarity: best.sim ?? 0 };
+    return {
+      item: toItem(best),
+      matchedBy: 'trigram',
+      similarity: best.sim ?? 0,
+      alternatives: firstAlternatives(best.id, fuzzy.rows),
+    };
 
   // c2) A generic word the catalog file names a usual item for ("pen"): data, not a model's guess.
   const usual = await defaultItem(db, text);
@@ -285,7 +394,11 @@ async function findItem(
   if (await hasEmbeddings(db)) {
     try {
       const { vectors } = await ai.client.embed([text], 'embed_query', opts.requestId);
-      nearest = (await nearestItems(db, vectors[0] as number[], CANDIDATES_PER_STEP)).filter(fits);
+      nearest = await withoutModifierOnly(
+        db,
+        text,
+        (await nearestItems(db, vectors[0] as number[], CANDIDATES_PER_STEP)).filter(fits),
+      );
     } catch (error) {
       if (!(error instanceof AiUnavailableError)) throw error;
     }
@@ -306,7 +419,12 @@ async function findItem(
       { itemId: top.id, question: null, optionIds: null },
       CATALOG_VERSION,
     );
-    return { item: toItem(top), matchedBy: 'embedding', similarity: top.sim ?? 0 };
+    return {
+      item: toItem(top),
+      matchedBy: 'embedding',
+      similarity: top.sim ?? 0,
+      alternatives: firstAlternatives(top.id, nearest, fuzzy.rows),
+    };
   }
 
   // e) The LLM, shown a shortlist of at most 10 items from the two steps above.
@@ -365,7 +483,12 @@ async function askLlm(
       CATALOG_VERSION,
     );
     await suggestSynonym(db, text, row.id);
-    return { item: toItem(row), matchedBy: 'llm', similarity: 0 };
+    return {
+      item: toItem(row),
+      matchedBy: 'llm',
+      similarity: 0,
+      alternatives: firstAlternatives(row.id, shortlist),
+    };
   }
   if (verdict.kind === 'none') {
     await writeCache(

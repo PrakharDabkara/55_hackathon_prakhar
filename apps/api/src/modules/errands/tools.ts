@@ -153,6 +153,7 @@ export const AGENT_TOOLS: ChatTool[] = [
       'FINISH THIS RUN by asking the customer one short question; the errand pauses until they answer, then you continue. ' +
       'Use it when resolve_item returns a clarification: pass its question and options to ask_user instead of guessing. Also for a task too vague to act on. ' +
       'For a goal with no items listed (for example "chai banane ka saaman"), propose the usual items as options with multiSelect true and the defaults in preselected, and ask once. ' +
+      'Options that are not mutually exclusive (kaunse colours, which sizes, which extras) need multiSelect true so the customer can tick several; only options that exclude each other are a single pick. ' +
       'Use it rarely; at most a couple of times per errand. Do not ask what you can find out with the other tools.',
     input: askUserInput,
   },

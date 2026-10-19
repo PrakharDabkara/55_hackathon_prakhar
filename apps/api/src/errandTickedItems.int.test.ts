@@ -16,7 +16,7 @@ import {
   type ErrandLimits,
 } from './modules/errands/index.js';
 import { testConfig } from './testing/config.js';
-import { north, ORIGIN } from './testing/fixtures.js';
+import { ORIGIN } from './testing/fixtures.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
 const logger = pino({ level: 'silent' });

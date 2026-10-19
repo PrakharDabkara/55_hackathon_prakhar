@@ -124,7 +124,7 @@
 {"q": "hari mirchi", "kind": "hinglish", "expected": "green-chilli"}
 {"q": "lal mirch powder", "kind": "hinglish", "expected": "red-chilli-powder"}
 {"q": "daal", "kind": "ambiguous", "expected": "ambiguous"}
-{"q": "tel", "kind": "ambiguous", "expected": "ambiguous"}
+{"q": "तेल", "kind": "ambiguous", "expected": "ambiguous"}
 {"q": "mentos", "kind": "newitem", "expected": null}
 {"q": "harpic", "kind": "hinglish", "expected": "toilet-cleaner"}
 {"q": "fevicol", "kind": "hinglish", "expected": "wood-glue"}

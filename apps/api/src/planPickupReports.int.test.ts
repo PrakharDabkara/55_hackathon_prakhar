@@ -87,34 +87,6 @@ describe('errand plans honour what customers reported at the shop (Le liya?, ADR
                now() - make_interval(hours => $3::int) + interval '7 days')`,
       [shopId, ids[slug], ageHours, pricePaise],
     );
-  /** A yes to one of the errand's own requests ("confirmed"). */
-  async function confirm(errandId: string, shopId: string, slug: string, pricePaise: number) {
-    const found = await pool.query<{ request_id: string }>(
-      `SELECT request_id FROM errand_requests WHERE errand_id = $1 AND item_id = $2`,
-      [errandId, ids[slug]],
-    );
-    let requestId = found.rows[0]?.request_id;
-    if (!requestId) {
-      requestId = (
-        await pool.query<{ id: string }>(
-          `INSERT INTO requests (user_id, item_id, raw_query, location, radius_m, state, expires_at)
-           VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, 2000,
-                   'PINGING', now() + interval '10 minutes') RETURNING id`,
-          [userId, ids[slug], slug, ORIGIN.lng, ORIGIN.lat],
-        )
-      ).rows[0]?.id as string;
-      await pool.query(
-        `INSERT INTO errand_requests (errand_id, request_id, item_id) VALUES ($1, $2, $3)`,
-        [errandId, requestId, ids[slug]],
-      );
-    }
-    await pool.query(
-      `INSERT INTO pings (request_id, shop_id, item_id, state, price_paise, sent_at, answered_at)
-       VALUES ($1, $2, $3, 'YES', $4, now(), now())`,
-      [requestId, shopId, ids[slug], pricePaise],
-    );
-  }
-
   const newErrand = (task: string) =>
     createErrand({ db: pool, logger, limits }, userId, {
       task,

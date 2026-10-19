@@ -22,6 +22,8 @@ const createBody = z
     radiusM: z.number().int().min(1).max(5000).optional(),
     targetPricePaise: z.number().int().min(1).max(10_000_000).optional(),
     itemId: z.uuid().optional(),
+    /** What the customer did with the "Kya aapka matlab…?" question (a metric only, ADR-0036). */
+    understanding: z.enum(['confirmed', 'changed']).optional(),
     /** An optional photo of what is wanted: one the customer uploaded and has not used (ADR-0030). */
     photoId: z.uuid().optional(),
   })

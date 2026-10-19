@@ -1,6 +1,6 @@
 {
-  "version": 5,
-  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. extraCategories lists the other kinds of shop that really carry an item (fevicol: hardware, and stationery too); the shops pinged for an item are those of any of its categories. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric. defaultFor lists generic words that mean this item as the usual choice of a family (pen: ball pen); a word that could be several different things (clip, oil, battery) is never a default.",
+  "version": 6,
+  "note": "Items and synonyms (English, Devanagari Hindi, Hinglish spellings and common misspellings) were AI-generated and then reviewed by a human; spot-check before relying on a term. Bump version when the list changes. extraCategories lists the other kinds of shop that really carry an item (fevicol: hardware, and stationery too); the shops pinged for an item are those of any of its categories. Loaded by npm run seed:catalog. refPricePaise is the typical shelf price in paise of the usual pack an Indian shopper asks for; it is AI-estimated (not surveyed), so treat it as a plausible reference, not a quote. Used by the shop simulator and, later, the rupees-saved metric. defaultFor lists generic words that mean this item as the usual choice of a family (pen: ball pen); a word that could be several different things (clip, oil, battery) is never a default. ambiguous lists everyday words that mean several items (mirchi, daal, tel): the customer is asked which one, with these main options, instead of being given a guess.",
   "items": [
     {
       "slug": "wheat-flour",
@@ -2669,6 +2669,23 @@
         "dessert bowl"
       ],
       "extraCategories": ["general_store"]
+    }
+  ],
+  "ambiguous": [
+    {
+      "terms": ["mirchi", "mirch", "मिर्च", "मिर्ची"],
+      "items": ["red-chilli-powder", "green-chilli", "black-pepper"],
+      "question": "Kaunsi mirch chahiye?"
+    },
+    {
+      "terms": ["daal", "dal", "दाल"],
+      "items": ["toor-dal", "moong-dal", "chana-dal", "urad-dal", "masoor-dal"],
+      "question": "Kaunsi daal chahiye?"
+    },
+    {
+      "terms": ["tel", "oil", "तेल"],
+      "items": ["refined-oil", "mustard-oil", "hair-oil"],
+      "question": "Kaunsa tel chahiye?"
     }
   ]
 }

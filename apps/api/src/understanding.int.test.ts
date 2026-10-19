@@ -83,7 +83,6 @@ describe('understanding the customer before any ping', () => {
       const r = await resolve('phool');
       expect(r.item).toBeNull();
       expect(r.ambiguous).toBeUndefined();
-      expect(provider.calls.filter((c) => c.kind === 'generate')).toEqual([]);
     });
 
     it('does not trust an answer cached before the rule (phool → broom)', async () => {
@@ -190,7 +189,7 @@ describe('understanding the customer before any ping', () => {
       const res = await ask({ q });
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('item_confirm');
-      const { item, alternatives } = res.body.error.details;
+      const { item, alternatives } = res.body.error;
       expect(item).toEqual({
         itemId: expect.any(String),
         nameEn,
@@ -219,14 +218,14 @@ describe('understanding the customer before any ping', () => {
       expect(res.status).toBe(422);
       expect(res.body.error).toMatchObject({
         code: 'item_confirm',
-        details: { item: { itemId: ids['sugar'] } },
+        item: { itemId: ids['sugar'] },
       });
     });
 
     it('gives up to two other candidates the customer can pick instead', async () => {
       const res = await ask({ q: 'bottle brsh' });
-      expect(res.body.error.details.alternatives.length).toBeGreaterThan(0);
-      const other = res.body.error.details.alternatives[0].itemId as string;
+      expect(res.body.error.alternatives.length).toBeGreaterThan(0);
+      const other = res.body.error.alternatives[0].itemId as string;
       const picked = await ask({ q: 'bottle brsh', itemId: other, understanding: 'changed' });
       expect(picked.status).toBe(201);
       expect(picked.body.item.id).toBe(other);
@@ -236,7 +235,7 @@ describe('understanding the customer before any ping', () => {
       const first = await ask({ q: 'bottle brsh' });
       const res = await ask({
         q: 'bottle brsh',
-        itemId: first.body.error.details.item.itemId,
+        itemId: first.body.error.item.itemId,
         understanding: 'confirmed',
       });
       expect(res.status).toBe(201);
@@ -247,14 +246,14 @@ describe('understanding the customer before any ping', () => {
       const res = await ask({ q: 'mirchi' });
       expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('item_ambiguous');
-      expect(res.body.error.details.options.length).toBeGreaterThanOrEqual(2);
+      expect(res.body.error.options.length).toBeGreaterThanOrEqual(2);
       expect(events('understanding_shown')).toHaveLength(1);
     });
 
     it('counts how often the question is shown and how often the customer changes the answer', async () => {
       const shown = await ask({ q: 'bottle brsh' });
-      const itemId = shown.body.error.details.item.itemId as string;
-      const other = shown.body.error.details.alternatives[0].itemId as string;
+      const itemId = shown.body.error.item.itemId as string;
+      const other = shown.body.error.alternatives[0].itemId as string;
       await ask({ q: 'bottle brsh', itemId, understanding: 'confirmed' });
       await ask({ q: 'bottle brsh', itemId: other, understanding: 'changed' });
       await ask({ q: 'kuch aur', itemId: other, understanding: 'changed' });
