@@ -49,9 +49,18 @@ jobs:
       group: ${{ github.workflow }}-e2e-${{ github.ref }}
       cancel-in-progress: true
     env:
-      # Its own compose project, so a self-hosted runner never touches the containers and volumes of
-      # a local `npm run db:up` (the ports are the same: stop the local ones first, see the runbook).
+      # Its own compose project and its own host ports, so a self-hosted runner never meets the
+      # containers, volumes or ports of a developer's local `npm run db:up` and e2e run (5433,
+      # 6379, 3100). Set here, not in .env: the environment wins over the .env file.
       COMPOSE_PROJECT_NAME: kahanmilega-ci
+      POSTGRES_USER: kahanmilega
+      POSTGRES_PASSWORD: kahanmilega
+      POSTGRES_DB: kahanmilega
+      POSTGRES_PORT: '55432'
+      REDIS_PORT: '56379'
+      DATABASE_URL: postgres://kahanmilega:kahanmilega@localhost:55432/kahanmilega
+      REDIS_URL: redis://localhost:56379
+      E2E_PORT: '53100'
     steps:
       - name: Which runner
         run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"

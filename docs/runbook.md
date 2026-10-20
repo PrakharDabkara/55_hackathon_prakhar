@@ -159,7 +159,7 @@ One-time prep, on the laptop:
 Things to know:
 
 - The laptop must be on and online during CI. A job waits for a runner and fails after the queue limit if it is off.
-- The e2e job uses its own compose project (`kahanmilega-ci`) but the same ports as `npm run db:up` (5432, 6379): run `npm run db:down` before CI runs on this laptop.
+- CI never meets your local dev: the e2e job uses its own compose project (`kahanmilega-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
 - Back to GitHub's runners: delete the `RUNNER` variable. Nothing else changes.
 
 ## AI configuration (query understanding)

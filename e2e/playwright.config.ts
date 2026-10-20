@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-export const PORT = 3100;
+/** E2E_PORT lets CI use a port of its own, so it never meets a developer's own server. */
+export const PORT = Number(process.env['E2E_PORT'] ?? 3100);
 /** The admin that the background shops are made by. Not a real account. */
 export const ADMIN_PHONE = '9810000999';
 const baseURL = `http://localhost:${PORT}`;

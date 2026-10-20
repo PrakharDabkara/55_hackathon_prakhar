@@ -25,11 +25,12 @@ test.describe.configure({ retries: 0 });
 test.setTimeout(90_000);
 
 /**
- * A shop answers its waiting question over HTTP, as the shop app does (POST /pings/:id/answer),
- * with the shop's own login. Answers sent together all land: the first yes of a request withdraws
- * the pings that are still unanswered, so the screens could not be seeded one answer at a time.
+ * The shop's waiting question, found over HTTP while it is still open; the returned function
+ * answers it as the shop app does (POST /pings/:id/answer), with the shop's own login. Find the
+ * question first and answer later: after the first yes the other pings are no longer waiting
+ * (they are NO_REPLY), but they can still be answered, late.
  */
-async function answerOverHttp(shop: Page, body: Record<string, unknown>) {
+async function waitingPing(shop: Page) {
   const origin = new URL(shop.url()).origin;
   const token = await shop.evaluate(() => localStorage.getItem('km-token'));
   const headers = { Authorization: `Bearer ${token}` };
@@ -42,11 +43,11 @@ async function answerOverHttp(shop: Page, body: Record<string, unknown>) {
     if (pings.length === 0) await shop.waitForTimeout(500);
   }
   expect(pings.length, 'the shop was asked').toBeGreaterThan(0);
-  const res = await http.post(`${origin}/pings/${(pings[0] as { id: string }).id}/answer`, {
-    headers,
-    data: body,
-  });
-  expect(res.ok(), await res.text()).toBe(true);
+  const id = (pings[0] as { id: string }).id;
+  return async (body: Record<string, unknown>) => {
+    const res = await http.post(`${origin}/pings/${id}/answer`, { headers, data: body });
+    expect(res.ok(), await res.text()).toBe(true);
+  };
 }
 
 /** SCREENS=1 writes the 360/1280 x light/dark screenshots to look at; off by default (and in CI). */
@@ -155,22 +156,26 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await ask(page, 'haldi', { delivery: true });
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
   const requestUrl = page.url();
-  // Wait until all four shops have the question, then answer together: two yes, two no.
+  // Wait until all four shops have the question, then answer in order: two yes, two no.
   await Promise.all(
     [a, b, c, d].map(async (s) => {
       await expect(s.page.getByRole('button', { name: 'Answer' })).toBeVisible({ timeout: 30_000 });
     }),
   );
-  await Promise.all([
-    answerOverHttp(a.page, {
-      answer: 'yes',
-      pricePaise: 4000,
-      delivery: { feePaise: 2000, minutes: 30 },
-    }),
-    answerOverHttp(b.page, { answer: 'yes', pricePaise: 4500 }),
-    answerOverHttp(c.page, { answer: 'no' }),
-    answerOverHttp(d.page, { answer: 'no' }),
-  ]);
+  // Alpha answers first and alone: its yes is the live one. The others answer after it, so they
+  // are late answers whatever the network does (sent together, either yes could win the race).
+  const replyAlpha = await waitingPing(a.page);
+  const replyBravo = await waitingPing(b.page);
+  const replyCharlie = await waitingPing(c.page);
+  const replyDelta = await waitingPing(d.page);
+  await replyAlpha({
+    answer: 'yes',
+    pricePaise: 4000,
+    delivery: { feePaise: 2000, minutes: 30 },
+  });
+  await replyBravo({ answer: 'yes', pricePaise: 4500 });
+  await replyCharlie({ answer: 'no' });
+  await replyDelta({ answer: 'no' });
   await expect(page.getByRole('listitem').filter({ hasText: a.name })).toBeVisible({
     timeout: 30_000,
   });
