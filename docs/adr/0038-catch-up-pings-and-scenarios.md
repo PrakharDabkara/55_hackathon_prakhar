@@ -1,6 +1,6 @@
 # 0038. Catch-up pings, and a list of scenarios (Day 17, PR I)
 
-Status: Accepted · 2026-10-19 · no new dependency, no migration. Touches the agent prompt only for the checklist rule; no resolve code in this part.
+Status: Accepted · 2026-10-19 · the "first yes" part of decision 1 is superseded by ADR-0043 · no new dependency, no migration. Touches the agent prompt only for the checklist rule; no resolve code in this part.
 
 ## Decisions
 
