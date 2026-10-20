@@ -29,7 +29,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -68,7 +70,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       - run: cp .env.example .env
       - run: npm run db:up
@@ -115,7 +119,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       # Migrations first, so new code never meets an old schema.
       - name: Run migrations on Neon

@@ -64,7 +64,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       # A gate that skips itself when its key is missing is no gate. Fail loudly instead.
       - name: Require the Gemini key
@@ -77,8 +79,14 @@ jobs:
           fi
       # Embedding the 224 catalog items is the biggest user of the free embedding quota, and the
       # vectors only change when the catalog file does, so they are kept between runs.
+      - name: Restore saved catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted'
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals" evals/.cache
+          cp -a "$HOME/.cache/kahanmilega-evals/." evals/.cache/
       - name: Restore saved catalog embeddings
         id: embeddings
+        if: runner.environment != 'self-hosted'
         uses: actions/cache/restore@v6
         with:
           path: evals/.cache
@@ -100,11 +108,16 @@ jobs:
           DATABASE_URL: postgres://unused@localhost/unused # not used with EVAL_DB=testcontainers
         run: npm run eval:resolve
       - name: Save catalog embeddings
-        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        if: runner.environment != 'self-hosted' && always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
         uses: actions/cache/save@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Save catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted' && always()
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals"
+          cp -a evals/.cache/. "$HOME/.cache/kahanmilega-evals/" || true
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -132,7 +145,9 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       - name: Require the Gemini key
         env:
@@ -143,8 +158,14 @@ jobs:
             exit 1
           fi
       # The catalog vectors only change with the catalog file; the resolve evals save them too.
+      - name: Restore saved catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted'
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals" evals/.cache
+          cp -a "$HOME/.cache/kahanmilega-evals/." evals/.cache/
       - name: Restore saved catalog embeddings
         id: embeddings
+        if: runner.environment != 'self-hosted'
         uses: actions/cache/restore@v6
         with:
           path: evals/.cache
@@ -165,11 +186,16 @@ jobs:
           DATABASE_URL: postgres://unused@localhost/unused # not used: the run has its own Postgres
         run: npm run eval:errand
       - name: Save catalog embeddings
-        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        if: runner.environment != 'self-hosted' && always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
         uses: actions/cache/save@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Save catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted' && always()
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals"
+          cp -a evals/.cache/. "$HOME/.cache/kahanmilega-evals/" || true
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@v7
