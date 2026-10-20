@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   directionsForRoute,
+  isActiveErrand,
+  resumableErrand,
   haversineM,
   mapPoints,
   plansDiffer,
@@ -8,7 +10,7 @@ import {
   shownProgress,
   stopsForMap,
 } from './errand.js';
-import type { PlanVariant } from './seekerApi.js';
+import type { ErrandListItem, PlanVariant } from './seekerApi.js';
 
 const origin = { lat: 22.7196, lng: 75.8577 };
 const stops = [
@@ -143,5 +145,40 @@ describe('mapPoints: what the plan map must show', () => {
   it('falls back to the start alone when no stop can be drawn, never to an empty list', () => {
     expect(mapPoints(origin, []).points).toEqual([[22.7196, 75.8577]]);
     expect(mapPoints({ lat: Number.NaN, lng: 1 }, stops).points).toHaveLength(2);
+  });
+});
+
+describe('the errand to continue', () => {
+  const now = Date.parse('2026-10-16T12:00:00.000Z');
+  const row = (over: Partial<ErrandListItem>): ErrandListItem => ({
+    id: 'e',
+    state: 'WAITING_FOR_SHOPS',
+    task: 'x',
+    createdAt: '2026-10-16T11:50:00.000Z',
+    expiresAt: '2026-10-16T12:05:00.000Z',
+    ...over,
+  });
+
+  it('is active while it is not final and has not run out of time', () => {
+    expect(isActiveErrand(row({}), now)).toBe(true);
+    expect(isActiveErrand(row({ state: 'NEEDS_INPUT' }), now)).toBe(true);
+    expect(isActiveErrand(row({ expiresAt: '2026-10-16T11:59:00.000Z' }), now)).toBe(false);
+    for (const state of ['PLAN_READY', 'FAILED', 'EXPIRED', 'CANCELLED'] as const)
+      expect(isActiveErrand(row({ state }), now), state).toBe(false);
+  });
+
+  it('picks the newest active errand, or a plan that became ready within a day', () => {
+    const active = row({ id: 'a' });
+    const ready = row({ id: 'r', state: 'PLAN_READY', createdAt: '2026-10-16T08:00:00.000Z' });
+    expect(resumableErrand([ready, active], now)?.id).toBe('r');
+    expect(resumableErrand([active, ready], now)?.id).toBe('a');
+    expect(resumableErrand([], now)).toBeNull();
+  });
+
+  it('leaves out old plans and errands that ended without a plan', () => {
+    const old = row({ id: 'o', state: 'PLAN_READY', createdAt: '2026-10-14T08:00:00.000Z' });
+    const failed = row({ id: 'f', state: 'FAILED' });
+    const cancelled = row({ id: 'c', state: 'CANCELLED' });
+    expect(resumableErrand([old, failed, cancelled], now)).toBeNull();
   });
 });

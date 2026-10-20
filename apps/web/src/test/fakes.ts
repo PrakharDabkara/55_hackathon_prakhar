@@ -5,6 +5,7 @@ import type { PhotoApi } from '../lib/photoApi.js';
 import type { PickupApi } from '../lib/pickupApi.js';
 import type { PushApi } from '../lib/pushApi.js';
 import type {
+  ErrandListItem,
   ErrandPlan,
   ErrandView,
   PlanItem,
@@ -194,6 +195,7 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     placeOrder: vi.fn(async () => seekerOrder()),
     listOrders: vi.fn(async () => []),
     myOrders: vi.fn(async () => []),
+    myErrands: vi.fn(async () => []),
     getOrder: vi.fn(async () => seekerOrder()),
     cancelOrder: vi.fn(async () => seekerOrder({ state: 'CANCELLED' })),
     savedAddress: vi.fn(async () => ({ id: null, addressText: null, customerName: null })),
@@ -342,5 +344,17 @@ export const shopOrder = (overrides: Partial<ShopOrder> = {}): ShopOrder => ({
   expiresAt: '2026-10-16T10:10:00.000Z',
   createdAt: '2026-10-16T10:00:00.000Z',
   updatedAt: '2026-10-16T10:00:00.000Z',
+  ...overrides,
+});
+
+/** One row of GET /errands. */
+export const errandListItem = (
+  overrides: Partial<ErrandListItem> = {},
+): ErrandListItem => ({
+  id: 'errand-1',
+  state: 'WAITING_FOR_SHOPS',
+  task: 'school things for Riya',
+  createdAt: '2026-10-16T10:00:00.000Z',
+  expiresAt: '2099-10-16T10:15:00.000Z',
   ...overrides,
 });
