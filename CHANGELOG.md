@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed (PR #43 CI)
 
 - Find: with "Deliver to me" on, the address field no longer appears and then vanishes when a kept address arrives; a skeleton shows until the saved-address request answers, then either the kept address or the field to type in.
+- CI: `ci`, `e2e`, `evals` and `agent-evals` run on `vars.RUNNER` (default `ubuntu-latest`; `deploy` stays on GitHub's runner); CI runs on pull requests and pushes to main only, skips docs-only changes and drafts, and cancels a superseded run; each job names its runner in the summary; Chromium installs without sudo on a self-hosted runner. Runbook: Self-hosted runner.
 - E2E: the demand spec waits for Insights to finish loading; `customer-screens.spec.ts` has a 90 s limit and no retries, scans 360 px only, and writes screenshots (360 and 1280 px, light and dark) only with `SCREENS=1`; `e2e/.auth/` (session tokens) is now really in `.gitignore`.
 
 ### Added (Day 19, PR M: Parchi customer UI)

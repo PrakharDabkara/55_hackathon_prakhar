@@ -36,25 +36,30 @@ permissions:
   contents: read
 
 # Two eval runs never overlap: the free Gemini quota is shared by every run. A run that arrives
-# while another is going waits its turn (only the newest waiting run is kept).
+# while another is going waits its turn (only the newest waiting run is kept). A new push to a PR
+# cancels that PR's own earlier eval run (it would only spend quota on old code), but a manual or
+# scheduled run is never cancelled by a PR run: they queue under separate keys.
 concurrency:
-  group: evals
-  cancel-in-progress: false
+  group: evals-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'queue' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   evals:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     environment: evals
     # `labeled` fires for any label: only the `evals` label starts a run. A manual run of the
     # agent suite leaves this job out.
     if: >-
-      (github.event_name != 'pull_request' &&
+      github.event.pull_request.draft != true &&
+      ((github.event_name != 'pull_request' &&
        (github.event_name != 'workflow_dispatch' || inputs.suite != 'agent')) ||
       (github.event_name == 'pull_request' &&
        contains(github.event.pull_request.labels.*.name, 'evals') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'evals'))
+       (github.event.action != 'labeled' || github.event.label.name == 'evals')))
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -109,17 +114,20 @@ jobs:
           if-no-files-found: ignore
 
   agent-evals:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 60
     environment: evals
     # `labeled` fires for any label: only the `agent-evals` label starts a run. Never on the schedule.
     if: >-
+      github.event.pull_request.draft != true &&
       github.event_name != 'schedule' &&
       ((github.event_name == 'workflow_dispatch' && inputs.suite == 'agent') ||
        (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'agent-evals') &&
         (github.event.action != 'labeled' || github.event.label.name == 'agent-evals')))
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:

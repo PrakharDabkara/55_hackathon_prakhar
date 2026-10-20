@@ -1,17 +1,30 @@
 name: CI
 
+# Pull requests and main only: a push to a feature branch with a PR would run everything twice.
+# Docs-only changes run nothing. A new push to the same branch cancels the run still going (never
+# the deploy job, which has its own group). Draft PRs wait until they are ready.
 on:
   push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
 
 permissions:
   contents: read
 
 jobs:
   ci:
-    runs-on: ubuntu-24.04
+    # vars.RUNNER = self-hosted sends this to the laptop runner; delete the variable to go back.
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    if: github.event.pull_request.draft != true
     timeout-minutes: 20
+    concurrency:
+      group: ${{ github.workflow }}-ci-${{ github.ref }}
+      cancel-in-progress: true
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -29,9 +42,19 @@ jobs:
   # Postgres comes from docker-compose because it needs PostGIS and pgvector together, which no
   # stock service-container image has; Redis and Postgres are the same ones used locally.
   e2e:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
+    if: github.event.pull_request.draft != true
     timeout-minutes: 25
+    concurrency:
+      group: ${{ github.workflow }}-e2e-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      # Its own compose project, so a self-hosted runner never touches the containers and volumes of
+      # a local `npm run db:up` (the ports are the same: stop the local ones first, see the runbook).
+      COMPOSE_PROJECT_NAME: kahanmilega-ci
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -43,7 +66,14 @@ jobs:
       - run: npm run db:migrate
       # Builds the shared package and the API, then loads the catalog.
       - run: npm run seed:catalog
-      - run: npx playwright install --with-deps chromium
+      # --with-deps installs system libraries with apt, which needs sudo: on GitHub's runners only.
+      # The self-hosted runner has them already (runbook: Self-hosted runner).
+      - name: Install Chromium with its system libraries
+        if: runner.environment != 'self-hosted'
+        run: npx playwright install --with-deps chromium
+      - name: Install Chromium
+        if: runner.environment == 'self-hosted'
+        run: npx playwright install chromium
       # Builds the web app, starts the API with ADMIN_PHONES set, starts five simulated grocery
       # shops that answer pings, and drives Chromium (see e2e/).
       - run: npm run test:e2e
@@ -56,17 +86,22 @@ jobs:
             e2e/artifacts
             playwright-report
           if-no-files-found: ignore
+      - name: Stop the e2e database and Redis
+        if: always()
+        run: docker compose down -v
 
   deploy:
     needs: [ci, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:

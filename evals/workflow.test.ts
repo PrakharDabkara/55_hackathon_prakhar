@@ -37,9 +37,9 @@ describe('.github/workflows/evals.yml triggers', () => {
 describe('.github/workflows/evals.yml: the agent-evals job (Day 14c)', () => {
   const job = block('agent-evals');
 
-  it('exists, on ubuntu-24.04, in the evals environment, with a timeout', () => {
+  it('exists, on the RUNNER variable (else ubuntu-latest), in the evals environment, with a timeout', () => {
     expect(job).not.toBe('');
-    expect(job).toMatch(/runs-on:\s*ubuntu-24\.04/);
+    expect(job).toMatch(/runs-on:\s*\$\{\{ vars\.RUNNER \|\| 'ubuntu-latest' \}\}/);
     expect(job).toMatch(/environment:\s*evals/);
     expect(job).toMatch(/timeout-minutes:\s*\d+/);
   });
