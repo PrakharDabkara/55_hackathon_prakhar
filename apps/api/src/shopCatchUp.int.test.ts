@@ -158,17 +158,38 @@ describe('catch-up pings for a shop that opens late', () => {
     expect(await pingCount(lasting, shop.shopId)).toBe(1);
   });
 
-  it('skips a request that already has its answers (answered) or its maximum of pings', async () => {
+  it('skips a request that already has three live yes (S26)', async () => {
     const shop = await makeShop(['grocery'], 0.3, false);
     const answered = await pinging('chini');
     await pool.query(`UPDATE requests SET state = 'ANSWERED' WHERE id = $1`, [answered]);
+    // Answered with two yes: the customer still waits for more, so the shop is asked.
+    for (const km of [0.4, 0.5, 0.6]) {
+      const yes = await makeShop(['grocery'], km);
+      await pool.query(
+        `INSERT INTO pings (request_id, shop_id, item_id, state, sent_at)
+         SELECT $1, $2, item_id, 'YES', now() FROM requests WHERE id = $1
+         ON CONFLICT (request_id, shop_id) DO UPDATE SET state = 'YES'`,
+        [answered, yes.shopId],
+      );
+      if (km === 0.5) {
+        await reopen(shop);
+        await catchUp(shop.shopId);
+        expect(await pingCount(answered, shop.shopId)).toBe(1);
+        await pool.query('DELETE FROM pings WHERE shop_id = $1', [shop.shopId]);
+      }
+    }
+    await catchUp(shop.shopId);
+    expect(await pingCount(answered, shop.shopId)).toBe(0);
+  });
+
+  it('skips a request that already has its maximum of pings', async () => {
+    const shop = await makeShop(['grocery'], 0.3, false);
     const full = await pinging('namak');
     const other = await makeShop(['grocery'], 0.5);
     await fan(full); // `other` is asked: 1 ping
     expect(await pingCount(full)).toBe(1);
     await reopen(shop);
     await catchUp(shop.shopId, allow, 1); // the cap is 1 ping per request
-    expect(await pingCount(answered)).toBe(0);
     expect(await pingCount(full, shop.shopId)).toBe(0);
     expect(other.shopId).toBeTruthy();
   });

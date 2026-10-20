@@ -1,6 +1,8 @@
 import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
+import type { EventPublisher } from '../realtime/index.js';
+import { withdrawPingsForChoice } from '../requests/index.js';
 import {
   confirmStockByCustomer,
   hasStockRecord,
@@ -12,6 +14,7 @@ export type PickupAnswer = 'found' | 'not_there' | 'not_gone';
 export interface PickupsContext {
   db: Database;
   logger: Logger;
+  events?: EventPublisher | undefined;
   /** Minutes after the tap before the home screen asks. */
   askAfterMinutes: number;
 }
@@ -45,7 +48,7 @@ export interface PendingPickup {
  * that has no record of the item (so nobody can plant a question about a shop they never saw).
  */
 export async function recordPickup(
-  { db }: PickupsContext,
+  { db, logger, events }: PickupsContext,
   userId: string,
   input: NewPickup,
 ): Promise<void> {
@@ -78,6 +81,8 @@ export async function recordPickup(
      ON CONFLICT (user_id, shop_id, item_id) DO NOTHING`,
     [userId, input.shopId, input.itemId, input.requestId ?? null, input.errandId ?? null],
   );
+  // The customer is on the way to a shop: the shops still holding the question can let it go (ADR-0043).
+  if (input.requestId) await withdrawPingsForChoice({ db, logger, events }, input.requestId);
 }
 
 /**

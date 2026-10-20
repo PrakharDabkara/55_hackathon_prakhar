@@ -8,7 +8,11 @@ import {
   type ErrandsContext,
 } from '../errands/index.js';
 import type { EventPublisher } from '../realtime/index.js';
-import { deliveryOfferForRequest, otherAnsweredShops } from '../requests/index.js';
+import {
+  deliveryOfferForRequest,
+  otherAnsweredShops,
+  withdrawPingsForChoice,
+} from '../requests/index.js';
 import {
   findOpenOrder,
   findOrder,
@@ -209,9 +213,11 @@ export async function placeOrder(
 
 /**
  * The customer picked a shop, so the others that answered are told "the customer already got an
- * answer" (the same note as when enough shops had said yes). Ids only.
+ * answer" (the same note as when enough shops had said yes); shops still holding the question get it too. Ids only.
  */
 async function tellOtherShops(ctx: OrdersContext, requestId: string, chosenShopId: string) {
+  // Shops that have not answered yet let the question go too (ADR-0043).
+  await withdrawPingsForChoice(ctx, requestId);
   if (!ctx.events) return;
   for (const other of await otherAnsweredShops(ctx.db, requestId, chosenShopId))
     ctx.events.publish(

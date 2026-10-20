@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 20, PR N: collect up to three offers, ADR-0043)
+
+- A request keeps asking until three shops have said yes (`MAX_LIVE_OFFERS`), it ends, or the customer orders or starts a pickup. The first yes still answers it; the other shops' questions stay open and are withdrawn then, with the existing "customer got an answer" note. A fourth yes is remembered stock, not an offer. A shop that opens late is asked about answered requests with fewer than three live yes. Errands still wake on the first answer.
+- E2E: `customer-screens.spec.ts` seeds three live yes, one late yes and one no, checks "Best price nearby", and takes the pickup from the remembered shop (45 s; the full e2e passed locally on the CI-port stack, 21 tests, 2.6 min).
+
+### Fixed (Day 20, PR N)
+
+- Flaky `App.test.tsx` "says it is offline above whatever screen is open": the test now waits for the shell's first load (the sign its listeners are attached) before sending the offline event, instead of a longer timeout.
+
 ### Fixed (PR #43 CI)
 
 - Find: with "Deliver to me" on, the address field no longer appears and then vanishes when a kept address arrives; a skeleton shows until the saved-address request answers, then either the kept address or the field to type in.

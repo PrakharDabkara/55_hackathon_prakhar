@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App.js';
 import { ApiError } from './lib/api.js';
@@ -146,10 +146,14 @@ describe('App: the shell', () => {
     location.hash = '#/insights';
     app(api);
     await screen.findByRole('heading', { name: 'Insights' });
-    window.dispatchEvent(new Event('offline'));
-    expect(
-      await screen.findByText("You're offline. Reconnect to answer.", {}, { timeout: 4000 }),
-    ).toBeTruthy();
+    // The heading is on screen as soon as the shell is painted, but its effects (the first load and
+    // the online/offline listeners) run just after, and slower on a busy machine. An event sent
+    // before that reaches nobody. The first load is the sign they have run.
+    await waitFor(() => expect(api.listPings).toHaveBeenCalled());
+    act(() => {
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(await screen.findByText("You're offline. Reconnect to answer.")).toBeTruthy();
   });
 });
 

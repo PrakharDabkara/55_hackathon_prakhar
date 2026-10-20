@@ -267,20 +267,27 @@ describe('realtime over SSE', () => {
       const view = await request(app).get(`/requests/${requestId}`).set(auth(seekerA));
       expect(view.body.state).toBe('ANSWERED');
 
-      // The answering shop's ping is done; the other shop's ping closed with the request.
+      // The answering shop's ping is done; the other shop keeps its question (ADR-0043).
       expect((await (s1 as SseStream).waitForEvent('ping.closed')).data).toEqual({
         pingId: c1.data['pingId'],
         reason: 'answered',
       });
+      expect((await myPings(shop2)).map((p) => p.id)).toEqual([c2.data['pingId']]);
+
+      // The customer stops asking: the other shop's ping closes with the request.
+      await request(app).post(`/requests/${requestId}/close`).set(auth(seekerA));
       expect((await (s2 as SseStream).waitForEvent('ping.closed')).data).toEqual({
         pingId: c2.data['pingId'],
-        reason: 'enough_answers',
+        reason: 'request_ended',
       });
 
       await settle();
       expect((sB as SseStream).events).toEqual([]);
       expect((s3 as SseStream).events).toEqual([]);
-      expect((sA as SseStream).events.map((e) => e.type)).toEqual(['request.updated']);
+      expect((sA as SseStream).events.map((e) => e.type)).toEqual([
+        'request.updated',
+        'request.updated',
+      ]);
       expect((s1 as SseStream).events.map((e) => e.type)).toEqual(['ping.created', 'ping.closed']);
       expect((s2 as SseStream).events.map((e) => e.type)).toEqual(['ping.created', 'ping.closed']);
       for (const s of [sA, sB, s1, s2, s3] as SseStream[]) s.close();

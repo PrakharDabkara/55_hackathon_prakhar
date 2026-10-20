@@ -99,7 +99,7 @@ export type ApplyResult =
       event: RequestEvent;
       reason: TransitionReason | null;
       /** Pings that went NO_REPLY because the request left PINGING, with their shop owners. */
-      closedPings: { id: string; ownerUserId: string | null }[];
+      closedPings: ClosedPing[];
     }
   /** Nothing moved: a no-op event, or someone else moved the request first. `request` is the current state. */
   | { kind: 'unchanged'; request: RequestRecord }
@@ -148,19 +148,28 @@ export async function applyEventIn(
     [requestId, current.state, result.to, event, reason],
   );
   // The request is over for shops too: pings still waiting become NO_REPLY, in this same transaction.
-  let closedPings: { id: string; ownerUserId: string | null }[] = [];
-  if (current.state === 'PINGING') {
-    const closed = await tx.query<{ id: string; owner_user_id: string | null }>(
-      `UPDATE pings p SET state = 'NO_REPLY'
-         FROM shops s
-        WHERE p.request_id = $1 AND p.state IN ('QUEUED', 'SENT') AND s.id = p.shop_id
-        RETURNING p.id, s.owner_user_id`,
-      [requestId],
-    );
-    closedPings = closed.rows.map((r) => ({ id: r.id, ownerUserId: r.owner_user_id }));
-  }
+  // A yes on the way to ANSWERED leaves them open: the customer chooses among up to
+  // MAX_LIVE_OFFERS yes (ADR-0043).
+  const closedPings = event === 'SHOP_SAID_YES' ? [] : await withdrawOpenPings(tx, requestId);
   const updated = (await findRequest(tx, requestId)) as RequestRecord;
   return { kind: 'applied', request: updated, from: current.state, event, reason, closedPings };
+}
+
+export interface ClosedPing {
+  id: string;
+  ownerUserId: string | null;
+}
+
+/** Pings still waiting (QUEUED or SENT) become NO_REPLY. Call it inside the transaction that ends their need. */
+export async function withdrawOpenPings(tx: Queryable, requestId: string): Promise<ClosedPing[]> {
+  const closed = await tx.query<{ id: string; owner_user_id: string | null }>(
+    `UPDATE pings p SET state = 'NO_REPLY'
+       FROM shops s
+      WHERE p.request_id = $1 AND p.state IN ('QUEUED', 'SENT') AND s.id = p.shop_id
+      RETURNING p.id, s.owner_user_id`,
+    [requestId],
+  );
+  return closed.rows.map((r) => ({ id: r.id, ownerUserId: r.owner_user_id }));
 }
 
 /** One log line per transition: ids and states only, never the query text or the location. */

@@ -20,7 +20,7 @@ Delivery was an extra on a yes: any shop with an offer could be ordered from, a 
 
 ## Consequences
 
-- ADR-0038 stands: the first yes closes the other cards. The customer's choice is therefore between the offers that arrive before the cards close. Collecting up to N offers before closing is a possible follow-up.
+- ADR-0038 stood on this until ADR-0043: up to three offers are collected before the other cards close.
 - Typing an address on Find keeps it as the customer's saved address (one per customer, deletable under Mere orders); an address typed only on an order is still kept only if they tick the box (ADR-0033).
 - When the first yes answers a search, the other pings close (ADR-0038), so two shops usually offer only if they answered at the same moment or the second answers late. The one-shop rule matters in exactly those cases.
 - `executor.ts` passes the errand's flag into `createRequest`: CLAUDE.md asks for the `agent-evals` label on a change there, even though no prompt or tool schema changed.
