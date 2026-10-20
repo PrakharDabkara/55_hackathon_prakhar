@@ -595,9 +595,9 @@ function QuestionBox({
           });
         }}
       >
-        {/* The model's own question is data, never shown: the app names the list itself. */}
+        {/* The agent's question is in English (ADR-0048); shown as plain text, never acted on. */}
         <h2 id={headingId} className="sh-heading">
-          {c.listTitle}
+          {question.question.trim() || c.listTitle}
         </h2>
         <div className="cu-errand-ai">
           <Icon name="robot" size={20} />

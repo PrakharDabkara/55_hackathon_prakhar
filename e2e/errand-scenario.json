@@ -6,7 +6,7 @@
         {
           "name": "ask_user",
           "args": {
-            "question": "Ye cheezein chahiye?",
+            "question": "Which of these do you need?",
             "options": ["chai patti", "doodh", "adrak", "elaichi"],
             "multiSelect": true,
             "preselected": [0, 1]
@@ -60,7 +60,7 @@
             {
               "name": "ask_user",
               "args": {
-                "question": "Project ke liye ye cheezein?",
+                "question": "Which of these do you need for the project?",
                 "options": [
                   "{{kit}}",
                   "chart paper",

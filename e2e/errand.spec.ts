@@ -20,9 +20,10 @@ test('a customer plans an errand: question, waiting, both plans, route on the ma
   await page.getByRole('button', { name: 'Make my list' }).click();
 
   // The agent proposes the usual items and asks once: defaults ticked, the customer adds one. The
-  // heading is the app's own "Your list": the model's question text is never shown.
-  await expect(page.getByRole('heading', { name: 'Your list' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Ye cheezein chahiye?')).toHaveCount(0);
+  // heading is the agent's own question, in English (ADR-0048).
+  await expect(page.getByRole('heading', { name: 'Which of these do you need?' })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByRole('checkbox', { name: 'chai patti' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'doodh' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'adrak' })).not.toBeChecked();

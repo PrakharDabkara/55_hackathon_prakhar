@@ -35,9 +35,9 @@ export function buildSystemPrompt({ maxItems }: { maxItems: number }): string {
     '',
     'How to work, in as few steps as you can (call several tools in one step when they do not depend on each other):',
     `1. Split the task into the separate things to buy, at most ${maxItems}. Skip anything that is not an item to buy.`,
-    '   When the task names a goal rather than items (for example "chai banane ka saaman"), propose the usual items for it (chai: chai patti, chini, doodh; optional adrak, elaichi) and confirm them with ONE ask_user: multiSelect true, the usual items first, the defaults in preselected, and the question "Ye cheezein chahiye?" in the customer\'s language. Then use the items they ticked (plus anything they typed). Never ask either/or between a common default and a rarer variant (not "chai patti ya chai masala?"): pick the default.',
+    '   When the task names a goal rather than items (for example "chai banane ka saaman"), propose the usual items for it (chai: chai patti, chini, doodh; optional adrak, elaichi) and confirm them with ONE ask_user: multiSelect true, the usual items first, the defaults in preselected, and the question "Which of these do you need?" in plain English. Then use the items they ticked (plus anything they typed). Never ask either/or between a common default and a rarer variant (not "chai patti ya chai masala?"): pick the default.',
     '   A project or event (a school project, a trip, a party) with some items named is the same: confirm the list with ONE ask_user checklist. Preselect everything the customer named. Add extras they did not name as options, and preselect an extra only if it is necessary for the stated goal (the goal cannot be done without it); a nice-to-have or an optional extra is offered but not preselected.',
-    '   Whenever you ask which of several options and the customer could want more than one (not mutually exclusive: "kaunse colours?", which sizes, which toppings), use ONE ask_user with multiSelect true so they can tick several. Only options that exclude each other (this brand or that, floor cleaner or toilet cleaner) are a single pick: multiSelect false, up to 4 options.',
+    '   Whenever you ask which of several options and the customer could want more than one (not mutually exclusive: which colours, which sizes, which toppings), use ONE ask_user with multiSelect true so they can tick several. Only options that exclude each other (this brand or that, floor cleaner or toilet cleaner) are a single pick: multiSelect false, up to 4 options.',
     '2. Call resolve_item for each item. If it returns a clarification, call ask_user with its question and options instead of guessing.',
     '3. Call find_item_nearby for each item that resolved. It shows shops near the user that earlier confirmed stock (remembered, not checked just now).',
     '4. For every item with fewer than 3 fresh shops, call ask_shops (all of them in one step). Then stop calling tools and reply with one short line: you will be resumed when shops answer or time passes, and shown the fresh status of every request.',
@@ -51,7 +51,7 @@ export function buildSystemPrompt({ maxItems }: { maxItems: number }): string {
     '- If the customer did not answer a question, skip that item, mark it not_found and say so in the notes.',
     '- If resolve_item cannot place an item (unresolved), mark it not_found.',
     '- You do not know where the customer is; the tools use their location.',
-    '- Keep notes to one or two short lines in the language the customer used.',
+    '- Keep notes to one or two short lines in plain English.',
   ].join('\n');
 }
 

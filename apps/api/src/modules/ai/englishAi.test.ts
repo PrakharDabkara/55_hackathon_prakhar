@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { loadSeedCatalog } from '../catalog/index.js';
 import { buildSystemPrompt } from '../errands/prompt.js';
 import { AGENT_TOOLS } from '../errands/tools.js';
@@ -37,7 +38,13 @@ describe('English on the AI side', () => {
   });
 
   it('the agent tool descriptions and parameters name English questions and notes', () => {
-    const text = JSON.stringify(AGENT_TOOLS);
+    const text = JSON.stringify(
+      AGENT_TOOLS.map((t) => ({
+        name: t.name,
+        description: t.description,
+        schema: z.toJSONSchema(t.input),
+      })),
+    );
     expect(text).not.toMatch(HINGLISH);
     expect(text).toMatch(/One short question, in plain English/);
     expect(text).toMatch(/in plain English/);

@@ -275,20 +275,29 @@ describe('a free-form question', () => {
   });
 });
 
-describe('"Your list" (the agent asks you to confirm items)', () => {
+describe('the list (the agent asks you to confirm items)', () => {
   const confirm = errandView({ state: 'NEEDS_INPUT', question: listQuestion });
-  const list = () => screen.getByRole('group', { name: 'Your list' });
+  const list = () => screen.getByRole('group', { name: 'Which of these do you need?' });
   async function open(overrides: Parameters<typeof fakeSeekerApi>[0] = {}) {
     const utils = setup({ getErrand: vi.fn(async () => confirm), ...overrides });
     await start(utils.user);
-    await screen.findByRole('group', { name: 'Your list' });
+    await screen.findByRole('group', { name: 'Which of these do you need?' });
     return utils;
   }
 
-  it("uses the app's own heading and never shows the model-written question", async () => {
+  it("shows the agent's question, in English, as the heading", async () => {
     await open();
-    expect(screen.getByRole('heading', { name: 'Your list' })).toBeTruthy();
-    expect(screen.queryByText('Ye cheezein chahiye?')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Which of these do you need?' })).toBeTruthy();
+  });
+
+  it('falls back to "Your list" when the question is empty', async () => {
+    const empty = errandView({
+      state: 'NEEDS_INPUT',
+      question: { ...listQuestion, question: ' ' },
+    });
+    const utils = setup({ getErrand: vi.fn(async () => empty) });
+    await start(utils.user);
+    expect(await screen.findByRole('heading', { name: 'Your list' })).toBeTruthy();
   });
 
   it('shows each option as a checkbox row, the suggested ones ticked and tagged "Suggested"', async () => {
