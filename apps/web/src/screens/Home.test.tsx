@@ -356,14 +356,13 @@ describe('Find: Did you mean?', () => {
     const createRequest = vi
       .fn()
       .mockRejectedValueOnce(
-        new ApiError(409, 'item_ambiguous', 'x', { question: 'Kaun si chini?', options }),
+        new ApiError(409, 'item_ambiguous', 'x', { question: 'Which sugar do you mean?', options }),
       )
       .mockResolvedValue(seekerRequest());
     const { user, onFound } = setup({ createRequest });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Which one do you mean?' });
-    expect(screen.queryByText('Kaun si chini?')).toBeNull();
+    const sheet = await screen.findByRole('dialog', { name: 'Which sugar do you mean?' });
     await user.click(within(sheet).getByRole('button', { name: 'sugar-free tablets' }));
     await waitFor(() => expect(onFound).toHaveBeenCalled());
     expect(createRequest).toHaveBeenLastCalledWith({

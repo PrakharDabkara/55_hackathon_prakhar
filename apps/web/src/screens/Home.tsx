@@ -70,10 +70,13 @@ const validOptions = (list: unknown): FollowUpOption[] =>
       )
     : [];
 
-/** item_ambiguous: two or more items it might be. The server's own question text is not shown. */
+/** item_ambiguous: two or more items it might be, with the server's question (English, ADR-0048). */
 function ambiguousFrom(error: ApiError): FollowUp | null {
   const options = validOptions(error.details['options']);
-  return options.length >= 2 ? { options } : null;
+  const question = error.details['question'];
+  return options.length >= 2
+    ? { options, ...(typeof question === 'string' && question.trim() !== '' && { question }) }
+    : null;
 }
 
 /** item_confirm: the item the server understood and the other items it might be. */
@@ -88,6 +91,8 @@ interface SendOptions {
   q?: string;
   pick?: { itemId: string; understanding?: 'confirmed' | 'changed' };
   changed?: boolean;
+  /** Search exactly these words (ADR-0045). */
+  asTyped?: boolean;
 }
 
 /**
@@ -114,6 +119,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const followUpOpen = useRef(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationNote, setLocationNote] = useState<string | null>(null);
@@ -238,6 +245,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     } else setLocationNote(c.findLocationFailed);
   }
 
+  followUpOpen.current = followUp !== null;
+
   async function send(options: SendOptions = {}) {
     const q = (options.q ?? query).trim();
     if (q === '' || sending.current) return;
@@ -245,7 +254,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     sending.current = true;
     setBusy(true);
     setError(null);
-    setFollowUp(null);
+    setSheetError(null);
     try {
       let latValue = coordinate(lat, 90);
       let lngValue = coordinate(lng, 180);
@@ -267,6 +276,10 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
       if (options.pick?.understanding) input.understanding = options.pick.understanding;
       else if (options.changed || (!options.pick && rewrote.current))
         input.understanding = 'changed';
+      if (options.asTyped) {
+        input.asTyped = true;
+        input.understanding = 'changed';
+      }
       if (photoId) input.photoId = photoId;
       if (wantsDelivery) {
         const addressId = usingSaved
@@ -293,14 +306,24 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
       else if (e instanceof ApiError && e.status === 401) {
         sendAfterLogin.current = true;
         setLoginOpen(true);
-      } else if (e instanceof ApiError && e.code === 'item_unresolved') setError(t.errUnresolved);
-      else if (e instanceof ApiError && e.code === 'item_blocked') setError(t.errItemBlocked);
-      else if (e instanceof ApiError && e.code === 'item_unavailable')
-        setError(t.errItemUnavailable);
-      else if (e instanceof ApiError && e.code === 'new_item_limit')
-        setError(t.errNewItemLimit(String(e.details['scope'] ?? 'day')));
-      else if (e instanceof ApiError && e.status === 403) setError(t.errNotSeeker);
-      else setError(t.errGeneric);
+      } else {
+        const message =
+          e instanceof ApiError && e.code === 'item_unresolved'
+            ? t.errUnresolved
+            : e instanceof ApiError && e.code === 'item_blocked'
+              ? t.errItemBlocked
+              : e instanceof ApiError && e.code === 'item_unavailable'
+                ? t.errItemUnavailable
+                : e instanceof ApiError && e.code === 'new_item_limit'
+                  ? t.errNewItemLimit(String(e.details['scope'] ?? 'day'))
+                  : e instanceof ApiError && e.status === 403
+                    ? t.errNotSeeker
+                    : t.errGeneric;
+        // With the question sheet open, the reason shows inside it: the customer is not dropped
+        // back on Find, and can pick again or change the words.
+        if (followUpOpen.current) setSheetError(message);
+        else setError(message);
+      }
       setBusy(false);
     } finally {
       sending.current = false;
@@ -515,16 +538,21 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
       />
 
       <FollowUpSheet
+        key={followUp ? 'open' : 'closed'}
         followUp={followUp}
         busy={busy}
-        onClose={() => setFollowUp(null)}
+        typed={query.trim()}
+        error={sheetError}
+        onClose={() => {
+          setFollowUp(null);
+          setSheetError(null);
+        }}
         onPick={(itemId, understanding) =>
           void send({ pick: { itemId, ...(understanding && { understanding }) } })
         }
-        onRewrite={(text) => {
-          setQuery(text);
-          rewrote.current = true;
-          void send({ q: text, changed: true });
+        onAsTyped={(text, from) => {
+          if (from === 'else') setQuery(text);
+          void send({ q: text, asTyped: true });
         }}
       />
 

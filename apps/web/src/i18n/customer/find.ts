@@ -63,6 +63,7 @@ export interface FindStrings {
   askWhich: string;
   askDidYouMean: (name: string) => string;
   askYes: string;
+  askAsTyped: (query: string) => string;
   askElse: string;
   askElseHint: string;
   askElseGo: string;
@@ -131,6 +132,7 @@ export const findEn: FindStrings = {
   askWhich: 'Which one do you mean?',
   askDidYouMean: (name) => `Did you mean ${name}?`,
   askYes: 'Yes, this one',
+  askAsTyped: (query) => `Search for exactly what I typed: "${query}"`,
   askElse: 'Something else',
   askElseHint: 'Type what you need',
   askElseGo: 'Search again',
@@ -199,6 +201,7 @@ export const findHi: FindStrings = {
   askWhich: 'Aapka matlab kaun sa hai?',
   askDidYouMean: (name) => `Kya aapka matlab ${name} hai?`,
   askYes: 'Haan, yahi',
+  askAsTyped: (query) => `Jo maine likha wahi dhoondho: "${query}"`,
   askElse: 'Kuch aur',
   askElseHint: 'Likhein kya chahiye',
   askElseGo: 'Phir se dhoondho',

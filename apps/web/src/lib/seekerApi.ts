@@ -81,6 +81,8 @@ export interface NewRequest {
   understanding?: 'confirmed' | 'changed';
   /** A photo of what is wanted, uploaded first with POST /photos (optional). */
   photoId?: string;
+  /** "Search for exactly what I typed": the customer's words become the item (ADR-0045). */
+  asTyped?: true;
   /** "Deliver to me": with the id of one of the customer's saved addresses. */
   wantsDelivery?: true;
   deliveryAddressId?: string;

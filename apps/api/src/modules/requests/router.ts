@@ -24,6 +24,8 @@ const createBody = z
     itemId: z.uuid().optional(),
     /** What the customer did with the "Kya aapka matlab…?" question (a metric only, ADR-0036). */
     understanding: z.enum(['confirmed', 'changed']).optional(),
+    /** "Search for exactly what I typed" (ADR-0045): the customer's words are the item. */
+    asTyped: z.boolean().optional(),
     /** An optional photo of what is wanted: one the customer uploaded and has not used (ADR-0030). */
     photoId: z.uuid().optional(),
     /** "Deliver to me" (ADR-0039): with one of the customer's own saved addresses. */
@@ -33,6 +35,10 @@ const createBody = z
   .refine((v) => v.q !== undefined || v.itemId !== undefined, {
     message: 'q: give the text to look for, or an itemId',
     path: ['q'],
+  })
+  .refine((v) => !v.asTyped || (v.q !== undefined && v.itemId === undefined), {
+    message: 'asTyped: needs the text and cannot be combined with an itemId',
+    path: ['asTyped'],
   });
 
 const viewQuery = z.object({ sort: z.enum(['distance', 'price']).optional() });

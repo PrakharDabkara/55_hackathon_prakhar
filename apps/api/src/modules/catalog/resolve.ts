@@ -93,6 +93,12 @@ export interface Resolution {
 export interface ResolveOptions {
   userId?: string | null;
   threshold: number;
+  /**
+   * The customer chose "search exactly what I typed" (ADR-0045): no catalog step may swap their
+   * words for another item. The text goes straight to the open catalog, where every safety and
+   * sanity check still runs. Needs `ai`, `userId` and `openCatalog`.
+   */
+  asTyped?: boolean;
   /** Embeddings and the LLM. Without it only the free steps run. */
   ai?: AiContext;
   /** Joins the AI audit rows to the HTTP request that caused them. */
@@ -219,10 +225,15 @@ export async function resolveItem(
   // Only the first line is the query (see firstLine); the raw text is kept in the log row.
   const query = firstLine(raw);
   const { text, quantity } = normaliseQuery(query);
-  let found: Found = text
-    ? await findItem(db, text, opts, query)
-    : { item: null, matchedBy: null, similarity: 0 };
-  if (text && !found.item && !found.ambiguous && opts.openCatalog && opts.ai && opts.userId)
+  const none: Found = { item: null, matchedBy: null, similarity: 0 };
+  let found: Found = text && !opts.asTyped ? await findItem(db, text, opts, query) : none;
+  if (
+    text &&
+    (opts.asTyped || (!found.item && !found.ambiguous)) &&
+    opts.openCatalog &&
+    opts.ai &&
+    opts.userId
+  )
     found = await openCatalog(db, opts.ai, query, text, found, opts);
 
   await db.query(
@@ -251,7 +262,9 @@ async function openCatalog(
   const outcome = await createUserItem(db, ai, query, text, {
     userId: opts.userId as string,
     errandId: opts.openCatalog?.errandId,
-    minConfidence: opts.openCatalog?.confirmedByCustomer ? 'medium' : 'high',
+    // A person confirmed it (ticked it, or chose "exactly what I typed"): "medium" is enough.
+    minConfidence: opts.openCatalog?.confirmedByCustomer || opts.asTyped ? 'medium' : 'high',
+    asTyped: opts.asTyped === true,
     requestId: opts.requestId,
     logger: opts.logger,
   });

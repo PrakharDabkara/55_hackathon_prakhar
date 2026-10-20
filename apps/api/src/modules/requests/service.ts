@@ -66,6 +66,8 @@ export interface CreateRequestInput {
    * logs (ADR-0036); it changes nothing else.
    */
   understanding?: 'confirmed' | 'changed' | undefined;
+  /** The customer chose "search exactly what I typed": their words become the item (ADR-0045). */
+  asTyped?: boolean | undefined;
   /** An unused photo of the customer's to attach (ADR-0030). */
   photoId?: string | undefined;
   /** The HTTP request id, so AI calls can be traced to it. */
@@ -226,7 +228,8 @@ export async function createRequest(
   const resolution = await resolveForCustomer(ctx.db, input.q, {
     // A plain search is confirmed before any shop is asked; a picked item (itemId) and an errand's
     // own requests are not.
-    confirm: !input.itemId && !input.errandId,
+    confirm: !input.itemId && !input.errandId && !input.asTyped,
+    asTyped: input.asTyped === true,
     userId,
     threshold: ctx.config.trigramThreshold,
     itemId: input.itemId,

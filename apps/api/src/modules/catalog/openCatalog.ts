@@ -54,6 +54,12 @@ export interface CreateOptions {
   logger?: Logger | undefined;
   /** How sure the classifier must be that it is a real product; "medium" when a person confirmed it. */
   minConfidence?: 'high' | 'medium';
+  /**
+   * The customer's own words are the item ("search exactly what I typed", ADR-0045): no existing
+   * catalog item may stand in for them (the same words typed again reuse the item they made). All
+   * the other checks run as usual.
+   */
+  asTyped?: boolean | undefined;
 }
 
 /**
@@ -79,8 +85,15 @@ export async function createUserItem(
   if (looksLikeInstruction(firstLine(raw).toLowerCase())) return { kind: 'none' };
 
   const fits = (row: ItemRow) => !formConflict(text, [row.name_en, row.name_hi]);
-  const existing = (await findExisting(db, text)).find(fits);
-  if (existing) return { kind: 'item', row: existing, created: false };
+  if (opts.asTyped) {
+    const mine = await db.query<ItemRow>(`SELECT ${COLUMNS} FROM items i WHERE slug = $1`, [
+      slugForUserItem(text),
+    ]);
+    if (mine.rows[0]) return { kind: 'item', row: mine.rows[0], created: false };
+  } else {
+    const existing = (await findExisting(db, text)).find(fits);
+    if (existing) return { kind: 'item', row: existing, created: false };
+  }
 
   // Not a product, by code alone: random, mash, a sentence, a vehicle or a phone itself. Free.
   if (!checkProductName(text).ok) return { kind: 'none' };
@@ -163,16 +176,20 @@ const unavailable = (): UserItemOutcome => ({
 export function refusalError(refusal: Refusal): ApiError {
   switch (refusal.reason) {
     case 'blocked':
-      return new ApiError(422, 'item_blocked', 'Ye cheez hum dukaanon ko nahi bhej sakte');
+      return new ApiError(422, 'item_blocked', "We can't send this item to shops.");
     case 'unavailable':
-      return new ApiError(503, 'item_unavailable', 'Abhi ye cheez dukaanon ko nahi bhej sakte');
+      return new ApiError(
+        503,
+        'item_unavailable',
+        "We can't send this item to shops right now. Try again later.",
+      );
     case 'limit':
       return new ApiError(
         429,
         'new_item_limit',
         refusal.scope === 'errand'
-          ? 'Ek kaam mein 5 se zyada nayi cheezein nahi pooch sakte'
-          : 'Aaj ke liye nayi cheezon ki limit poori ho gayi, kal phir koshish karein',
+          ? 'You can add at most 5 new items in one errand.'
+          : "You've reached today's limit for new items. Try again tomorrow.",
         { scope: refusal.scope },
       );
   }
