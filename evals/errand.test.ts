@@ -18,7 +18,7 @@ describe.each([
 ])('evals/%s', (name, cases, prefix) => {
   it('has about fifteen cases (about twenty on dev), with unique ids and tasks', () => {
     expect(cases.length).toBeGreaterThanOrEqual(14);
-    expect(cases.length).toBeLessThanOrEqual(22);
+    expect(cases.length).toBeLessThanOrEqual(24);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
     expect(new Set(cases.map((c) => c.task.toLowerCase())).size).toBe(cases.length);
     for (const c of cases) expect(c.id.startsWith(prefix), c.id).toBe(true);
