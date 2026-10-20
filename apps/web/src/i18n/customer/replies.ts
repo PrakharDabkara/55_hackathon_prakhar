@@ -69,7 +69,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 export const repliesEn: RepliesStrings = {
   repliesTitle: 'Your request',
   itemFallback: 'Your item',
-  sentTo: (shops, km) => `Sent to ${shops} ${plural(shops, 'shop', 'shops')} · within ${km} km`,
+  sentTo: (shops, km) => `Sent to ${shops} ${plural(shops, 'shop', 'shops')} · ${km} km`,
   haveIt: (n) => `${n} have it`,
   stillChecking: (n) => (n === 1 ? '1 shop is still checking.' : `${n} shops are still checking.`),
   allReplied: 'All shops have replied.',
@@ -143,7 +143,7 @@ export const repliesEn: RepliesStrings = {
 export const repliesHi: RepliesStrings = {
   repliesTitle: 'Aapki request',
   itemFallback: 'Aapki cheez',
-  sentTo: (shops, km) => `${shops} dukaanon ko bheja · ${km} km ke andar`,
+  sentTo: (shops, km) => `${shops} dukaanon ko bheja · ${km} km`,
   haveIt: (n) => `${n} ke paas hai`,
   stillChecking: (n) => `${n} dukaan abhi dekh rahi ${n === 1 ? 'hai' : 'hain'}.`,
   allReplied: 'Sab dukaanon ne jawab de diya.',

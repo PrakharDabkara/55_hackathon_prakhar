@@ -59,6 +59,8 @@ export interface SeekerRequest {
     unverified: boolean;
   } | null;
   radiusM: number;
+  /** What the customer typed after the item ("2 kg"); the server's parse, unit as the query wrote it. */
+  quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
   results: ShopResult[];
   pingStats: PingStats;

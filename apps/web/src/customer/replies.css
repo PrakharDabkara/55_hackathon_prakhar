@@ -8,10 +8,31 @@
   min-height: 0;
   padding-bottom: var(--space-6);
 }
+/* The meta may wrap, and the stamp keeps its own space: the text never runs under it. */
+.cu-parchi .sh-parchi__meta {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
 .cu-parchi__meta {
+  flex: 1;
+  min-width: 0;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
+}
+/* The slip is as tall as what is written on it: no empty ruled lines below the item. */
+.cu-parchi div.sh-parchi__ruled {
+  min-height: 0;
+}
+.cu-parchi .sh-parchi__note {
+  line-height: 34px;
+}
+/* Reply cards are plain cards: their meta reads as a sentence, not a caption. */
+.cu-reply .sh-caption {
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 .cu-parchi .sh-stamp {
   flex: none;

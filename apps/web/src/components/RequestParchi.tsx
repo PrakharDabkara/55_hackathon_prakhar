@@ -1,3 +1,4 @@
+import { formatQuantity, unitFromQuery } from '@kahanmilega/shared';
 import { useT } from '../i18n/index.js';
 import { itemLabel } from '../lib/results.js';
 import type { SeekerRequest } from '../lib/seekerApi.js';
@@ -14,6 +15,12 @@ const kilometres = (metres: number) => String(Math.round(metres / 100) / 10);
 export function RequestParchi({ request }: { request: SeekerRequest }) {
   const { t, lang } = useT();
   const haveIt = request.results.filter((r) => r.source === 'live').length;
+  const quantity = request.quantity
+    ? formatQuantity({
+        amount: request.quantity.quantity,
+        unit: unitFromQuery(request.quantity.unit),
+      })
+    : null;
   return (
     <Parchi delivery={request.wantsDelivery === true} className="cu-parchi">
       <div className="sh-parchi__meta">
@@ -24,6 +31,7 @@ export function RequestParchi({ request }: { request: SeekerRequest }) {
       </div>
       <div className="sh-parchi__ruled">
         <h2 className="sh-parchi__item">{itemLabel(request.item, lang) ?? t.c.itemFallback}</h2>
+        {quantity && <p className="sh-parchi__note">{quantity}</p>}
       </div>
     </Parchi>
   );
