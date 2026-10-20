@@ -32,3 +32,6 @@ e2e/screens/
 
 # Kept login sessions of the e2e run (never committed)
 e2e/.auth/
+
+# Playwright logged-in sessions (tokens): never commit
+e2e/.auth/

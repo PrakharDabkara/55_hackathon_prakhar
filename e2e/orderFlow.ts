@@ -52,7 +52,11 @@ export async function ask(
   await page.getByLabel('What do you need?').fill(what);
   if (delivery) {
     await page.getByRole('switch', { name: 'Deliver to me' }).click();
-    await page.getByLabel('Delivery address').fill(address);
+    // Find first checks for a kept address: either the typing field comes, or the kept address is
+    // shown as a line (a customer who ordered before). Type only into the field.
+    const field = page.getByLabel('Delivery address');
+    await expect(field.or(page.getByText(/^Deliver to: /))).toBeVisible();
+    if (await field.isVisible()) await field.fill(address);
   }
   await page.getByRole('button', { name: 'Find nearby' }).click();
 }

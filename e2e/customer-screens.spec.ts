@@ -20,7 +20,9 @@ import { uniqueName, uniquePhone } from './unique.js';
 // says yes and delivers, two are remembered (one from an earlier request, one answered a moment
 // late) and two say no. One delivery
 // order is out for delivery, one pickup question is open and one errand has a plan.
-test.setTimeout(500_000);
+// Fail fast: a broken screen must not burn minutes. One try, 90 s.
+test.describe.configure({ retries: 0 });
+test.setTimeout(90_000);
 
 /**
  * A shop answers its waiting question over HTTP, as the shop app does (POST /pings/:id/answer),
@@ -47,6 +49,8 @@ async function answerOverHttp(shop: Page, body: Record<string, unknown>) {
   expect(res.ok(), await res.text()).toBe(true);
 }
 
+/** SCREENS=1 writes the 360/1280 x light/dark screenshots to look at; off by default (and in CI). */
+const SCREENS = process.env['SCREENS'] === '1';
 const SIZES = [
   { name: '360', width: 360, height: 800 },
   { name: '1280', width: 1280, height: 800 },
@@ -54,13 +58,15 @@ const SIZES = [
 const THEMES = ['light', 'dark'] as const;
 
 async function look(page: Page, name: string) {
-  for (const size of SIZES) {
+  // CI scans 360 px only, light and dark. SCREENS=1 adds 1280 px and writes the screenshots.
+  for (const size of SCREENS ? SIZES : SIZES.slice(0, 1)) {
     await page.setViewportSize({ width: size.width, height: size.height });
     for (const theme of THEMES) {
       await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(250);
-      await page.screenshot({ path: `e2e/screens/customer/${name}-${size.name}-${theme}.png` });
+      if (SCREENS)
+        await page.screenshot({ path: `e2e/screens/customer/${name}-${size.name}-${theme}.png` });
       const scan = await new AxeBuilder({ page }).analyze();
       const bad = scan.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
       expect(

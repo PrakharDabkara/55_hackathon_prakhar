@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (PR #43 CI)
+
+- Find: with "Deliver to me" on, the address field no longer appears and then vanishes when a kept address arrives; a skeleton shows until the saved-address request answers, then either the kept address or the field to type in.
+- E2E: the demand spec waits for Insights to finish loading; `customer-screens.spec.ts` has a 90 s limit and no retries, scans 360 px only, and writes screenshots (360 and 1280 px, light and dark) only with `SCREENS=1`; `e2e/.auth/` (session tokens) is now really in `.gitignore`.
+
 ### Added (Day 19, PR M: Parchi customer UI)
 
 - New customer app UI (ADR-0042), in English with the Hindi table in parity: Find without a login wall (a login sheet opens on the first Find and the draft is sent right after), a "Did you mean" sheet, the request as a parchi with a "N have it" stamp, a List/Map reply view with best price, remembered stock and a collapsed "don't have it" count, a Choose a shop sheet (delivery or pickup), order tracking with steps and times, My orders (pickup question, active and earlier, saved address, notifications) and the errand list and plan.

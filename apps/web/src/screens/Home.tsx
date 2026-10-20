@@ -15,6 +15,7 @@ import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
 import { Icon } from '../ui/Icon.js';
+import { Skeleton } from '../ui/Skeleton.js';
 import { Switch } from '../ui/Switch.js';
 
 const MIN_ADDRESS = 5;
@@ -97,6 +98,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const [lng, setLng] = useState(draft.lng);
   const [photoId, setPhotoId] = useState<string | null>(null);
   const [saved, setSaved] = useState<SavedAddress | null>(null);
+  /** The saved-address request has answered (or failed) at least once for this login. */
+  const [savedLoaded, setSavedLoaded] = useState(false);
   const [changingAddress, setChangingAddress] = useState(false);
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +119,11 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
 
   const hasSaved = saved?.id != null && saved.addressText != null;
   const usingSaved = hasSaved && !changingAddress;
-  const addressOk = !wantsDelivery || usingSaved || typedAddress.trim().length >= MIN_ADDRESS;
+  /** Delivery is on and we do not yet know whether an address is kept: show no field to type in. */
+  const checkingAddress = wantsDelivery && loggedIn && !savedLoaded;
+  const addressOk =
+    !wantsDelivery ||
+    (!checkingAddress && (usingSaved || typedAddress.trim().length >= MIN_ADDRESS));
   const ready = query.trim() !== '' && addressOk;
 
   useEffect(() => {
@@ -151,12 +158,22 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   }, [api, loggedIn]);
 
   // Delivery asked for: look for the address the customer kept. A failure just means they type one.
+  // Until it answers no field is shown, so the field never appears and then vanishes while typing.
   useEffect(() => {
-    if (!wantsDelivery || !loggedIn) return;
+    if (!loggedIn) {
+      setSavedLoaded(false);
+      setSaved(null);
+      return;
+    }
+    if (!wantsDelivery) return;
     let alive = true;
     api.savedAddress().then(
-      (found) => alive && setSaved(found),
-      () => undefined,
+      (found) => {
+        if (!alive) return;
+        setSaved(found);
+        setSavedLoaded(true);
+      },
+      () => alive && setSavedLoaded(true),
     );
     return () => {
       alive = false;
@@ -383,7 +400,11 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             <p className="sh-helper">{c.findDeliverHelp}</p>
           </div>
           {wantsDelivery &&
-            (usingSaved ? (
+            (checkingAddress ? (
+              <div className="cu-find__saved" aria-busy="true">
+                <Skeleton height="48px" />
+              </div>
+            ) : usingSaved ? (
               <div className="cu-find__saved">
                 <p className="sh-body">{c.findDeliverTo(saved?.addressText as string)}</p>
                 <Button variant="quiet" onClick={() => setChangingAddress(true)}>
