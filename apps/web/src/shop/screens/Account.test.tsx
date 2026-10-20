@@ -252,14 +252,26 @@ describe('Settings', () => {
     return { api, onSaved, ...view };
   };
 
-  it('shows the logo with change and remove, or just upload when there is none', () => {
+  it('shows the logo as a tappable circle with a quiet remove link, or just the circle when there is none', () => {
     const first = setup();
-    expect(screen.getByRole('button', { name: 'Change logo' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Remove logo' })).toBeTruthy();
+    const circle = screen.getByRole('button', { name: 'Change logo' });
+    expect(circle.className).toContain('sh-logopick__circle');
+    expect(circle.querySelector('.sh-logopick__plus')).toBeTruthy();
+    expect(circle.querySelector('img, .sh-logo')).toBeTruthy();
+    const remove = screen.getByRole('button', { name: 'Remove logo' });
+    expect(remove.className).toContain('sh-btn--quiet');
     first.unmount();
     setup(shop({ logoUrl: null }));
     expect(screen.getByRole('button', { name: 'Change logo' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull();
+  });
+
+  it('opens the file picker when the circle is tapped', async () => {
+    const { user } = setup();
+    const picker = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const click = vi.spyOn(picker, 'click');
+    await user.click(screen.getByRole('button', { name: 'Change logo' }));
+    expect(click).toHaveBeenCalled();
   });
 
   it('uploads a new logo as soon as it is picked', async () => {
@@ -286,9 +298,22 @@ describe('Settings', () => {
     ).toBeTruthy();
   });
 
-  it('removes the logo', async () => {
+  it('asks in a bottom sheet before removing the logo, and keeps it on cancel', async () => {
     const { user, api, onSaved } = setup();
     await user.click(screen.getByRole('button', { name: 'Remove logo' }));
+    const sheet = screen.getByRole('dialog', { name: 'Remove your logo?' });
+    expect(api.deleteLogo).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByRole('button', { name: 'Keep logo' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.deleteLogo).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('removes the logo once it is confirmed', async () => {
+    const { user, api, onSaved } = setup();
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }));
+    const sheet = screen.getByRole('dialog', { name: 'Remove your logo?' });
+    await user.click(within(sheet).getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(api.deleteLogo).toHaveBeenCalled());
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ logoUrl: null }));
     expect(await screen.findByText('Logo removed.')).toBeTruthy();

@@ -106,6 +106,15 @@ describe('Home: states', () => {
     await user.click(button);
     expect(d.setOpen).toHaveBeenCalledWith(true);
   });
+
+  it('hangs a CLOSED sign instead of blank slips, hidden from screen readers', () => {
+    setup({ shop: shop({ open: false }), pings: [] });
+    const sign = document.querySelector('svg.sh-closed-sign');
+    expect(sign).toBeTruthy();
+    expect(sign?.getAttribute('aria-hidden')).toBe('true');
+    expect(sign?.textContent).toBe('CLOSED');
+    expect(document.querySelector('.sh-blank, .sh-blank-stack')).toBeNull();
+  });
 });
 
 describe('Home: the deck', () => {

@@ -163,6 +163,16 @@ describe('the shop stylesheets', () => {
     expect(meta).toMatch(/flex:\s*1/);
   });
 
+  it('hangs the closed sign still: no animation, no movement', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    expect(all).toMatch(/\.sh-closed-sign/);
+    const rules = [...all.matchAll(/[^{}]*\.sh-closed-sign[^{]*\{([^}]*)\}/g)]
+      .map((m) => m[1])
+      .join('\n');
+    expect(rules).not.toMatch(/animation|transition/);
+    expect(all).not.toMatch(/\.sh-blank/);
+  });
+
   it('writes the reply card meta in sentence case', () => {
     const all = shopCss.map((f) => f.text).join('\n');
     const meta = /\.cu-reply \.sh-caption\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
