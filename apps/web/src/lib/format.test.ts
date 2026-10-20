@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCountdown, formatDistance } from './format.js';
+import { displayItemName, formatCountdown, formatDistance } from './format.js';
 
 describe('formatDistance', () => {
   it('says "Under 100 m" below 100 m', () => {
@@ -25,6 +25,15 @@ describe('formatDistance', () => {
     expect(formatDistance(1000)).toBe('1 km');
     expect(formatDistance(1234)).toBe('1.2 km');
     expect(formatDistance(4960)).toBe('5 km');
+  });
+});
+
+describe('displayItemName', () => {
+  it('puts the first letter up and leaves the rest as it is', () => {
+    expect(displayItemName('refined flour')).toBe('Refined flour');
+    expect(displayItemName('Pencil HB')).toBe('Pencil HB');
+    expect(displayItemName('आटा')).toBe('आटा');
+    expect(displayItemName('')).toBe('');
   });
 });
 

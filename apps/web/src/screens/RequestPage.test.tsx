@@ -61,7 +61,36 @@ describe('the request as a parchi', () => {
     show(answeredRequest([liveYes()], { pingStats: { sent: 10, yes: 1, no: 2, pending: 7 } }));
     expect(screen.getByRole('heading', { level: 1, name: 'Your request' })).toBeTruthy();
     expect(screen.getByText('Sent to 10 shops · 2 km')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'sugar' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Sugar' })).toBeTruthy();
+  });
+
+  it("shows the customer's own words as typed, with the matched item small underneath", () => {
+    show(
+      answeredRequest([], {
+        typed: 'maida',
+        item: {
+          id: 'i9',
+          slug: 'maida',
+          nameEn: 'refined flour',
+          nameHi: 'मैदा',
+          category: 'grocery',
+          unverified: false,
+        },
+        pingStats: { sent: 1, yes: 0, no: 0, pending: 1 },
+      }),
+    );
+    const own = screen.getByRole('heading', { name: 'maida' });
+    expect(own.className).toContain('sh-parchi__item');
+    expect(screen.getByText('Refined flour').className).toContain('sh-parchi__alias');
+  });
+
+  it('keeps the words exactly as typed (never re-cased), and shows no second line when they are the item', () => {
+    const first = show(answeredRequest([], { typed: 'pencil HB' }));
+    expect(screen.getByRole('heading', { name: 'pencil HB' })).toBeTruthy();
+    first.unmount();
+    show(answeredRequest([], { typed: 'Sugar' }));
+    expect(screen.getByRole('heading', { name: 'Sugar' })).toBeTruthy();
+    expect(document.querySelector('.sh-parchi__alias')).toBeNull();
   });
 
   it('shows the quantity asked for under the item, and nothing when none was asked', () => {

@@ -182,13 +182,38 @@ describe('Find', () => {
     );
   });
 
+  it('is never disabled: tapping it on an empty box focuses the box and says what to type', async () => {
+    const { user, api } = setup();
+    const find = screen.getByRole('button', { name: 'Find nearby' }) as HTMLButtonElement;
+    expect(find.disabled).toBe(false);
+    await user.click(find);
+    const box = screen.getByLabelText('What do you need?');
+    expect(document.activeElement).toBe(box);
+    expect(screen.getByText('Type what you need')).toBeTruthy();
+    expect(box.getAttribute('aria-describedby')).toBeTruthy();
+    expect(api.createRequest).not.toHaveBeenCalled();
+    await user.type(box, 'a');
+    expect(screen.queryByText('Type what you need')).toBeNull();
+  });
+
+  it('with delivery on and no address yet, tapping Find nearby focuses the address and asks for it', async () => {
+    const { user, api } = setup();
+    await user.type(screen.getByLabelText('What do you need?'), 'aata');
+    await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Delivery address'));
+    expect(screen.getByText('Add your delivery address')).toBeTruthy();
+    expect(api.createRequest).not.toHaveBeenCalled();
+  });
+
   it('sends the delivery address it keeps, and reuses a saved one', async () => {
     here();
     const { user, api } = setup();
     await user.type(screen.getByLabelText('What do you need?'), 'aata');
     await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
     const find = screen.getByRole('button', { name: 'Find nearby' }) as HTMLButtonElement;
-    expect(find.disabled).toBe(true);
+    // Never disabled: with no address yet, tapping it asks for one (see the nudge tests below).
+    expect(find.disabled).toBe(false);
     await user.type(screen.getByLabelText('Delivery address'), '12 MG Road');
     expect(screen.getByText(/We'll save this address so you don't type it again/)).toBeTruthy();
     await user.click(find);
