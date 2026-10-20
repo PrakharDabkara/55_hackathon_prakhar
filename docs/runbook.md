@@ -145,6 +145,24 @@ npm run test:e2e            # builds the apps, starts the API on port 3100, runs
 
 The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin phone (`9810000999`), and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.
 
+## Self-hosted runner (CI on the laptop)
+
+The `ci`, `e2e`, `evals` and `agent-evals` jobs run on `runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}`; `deploy` always runs on `ubuntu-latest`. Each job writes its runner name to the run summary.
+
+One-time prep, on the laptop:
+
+1. Playwright's system libraries (needs sudo, which is why CI does not do it): `sudo env "PATH=$PATH" npx playwright install-deps chromium`.
+2. The runner's user is in the `docker` group (`sudo usermod -aG docker $USER`, then log in again). Integration tests (Testcontainers) and the e2e job (`docker compose`) need it. No CI step uses sudo.
+3. Install the runner as a service from `~/actions-runner`: `sudo ./svc.sh install && sudo ./svc.sh start`.
+4. In the repo (Settings, Secrets and variables, Actions, Variables) set `RUNNER` to `self-hosted`.
+
+Things to know:
+
+- The laptop must be on and online during CI. A job waits for a runner and fails after the queue limit if it is off.
+- CI never meets your local dev: the e2e job uses its own compose project (`kahanmilega-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
+- No cache uploads on the laptop: the npm cache (~/.npm is about 12 GB here, 2.9 GB compressed) is skipped on self-hosted, since the disk keeps it. The eval catalog embeddings live in `~/.cache/kahanmilega-evals` there.
+- Back to GitHub's runners: delete the `RUNNER` variable. Nothing else changes.
+
 ## AI configuration (query understanding)
 
 Item matching tries a dictionary, trigram similarity, embeddings and then an LLM (ADR-0021). The model is Google's Gemini free tier behind a provider port (ADR-0020).

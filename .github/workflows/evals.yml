@@ -36,30 +36,37 @@ permissions:
   contents: read
 
 # Two eval runs never overlap: the free Gemini quota is shared by every run. A run that arrives
-# while another is going waits its turn (only the newest waiting run is kept).
+# while another is going waits its turn (only the newest waiting run is kept). A new push to a PR
+# cancels that PR's own earlier eval run (it would only spend quota on old code), but a manual or
+# scheduled run is never cancelled by a PR run: they queue under separate keys.
 concurrency:
-  group: evals
-  cancel-in-progress: false
+  group: evals-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'queue' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   evals:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     environment: evals
     # `labeled` fires for any label: only the `evals` label starts a run. A manual run of the
     # agent suite leaves this job out.
     if: >-
-      (github.event_name != 'pull_request' &&
+      github.event.pull_request.draft != true &&
+      ((github.event_name != 'pull_request' &&
        (github.event_name != 'workflow_dispatch' || inputs.suite != 'agent')) ||
       (github.event_name == 'pull_request' &&
        contains(github.event.pull_request.labels.*.name, 'evals') &&
-       (github.event.action != 'labeled' || github.event.label.name == 'evals'))
+       (github.event.action != 'labeled' || github.event.label.name == 'evals')))
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       # A gate that skips itself when its key is missing is no gate. Fail loudly instead.
       - name: Require the Gemini key
@@ -72,8 +79,14 @@ jobs:
           fi
       # Embedding the 224 catalog items is the biggest user of the free embedding quota, and the
       # vectors only change when the catalog file does, so they are kept between runs.
+      - name: Restore saved catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted'
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals" evals/.cache
+          cp -a "$HOME/.cache/kahanmilega-evals/." evals/.cache/
       - name: Restore saved catalog embeddings
         id: embeddings
+        if: runner.environment != 'self-hosted'
         uses: actions/cache/restore@v6
         with:
           path: evals/.cache
@@ -95,11 +108,16 @@ jobs:
           DATABASE_URL: postgres://unused@localhost/unused # not used with EVAL_DB=testcontainers
         run: npm run eval:resolve
       - name: Save catalog embeddings
-        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        if: runner.environment != 'self-hosted' && always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
         uses: actions/cache/save@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Save catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted' && always()
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals"
+          cp -a evals/.cache/. "$HOME/.cache/kahanmilega-evals/" || true
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -109,22 +127,27 @@ jobs:
           if-no-files-found: ignore
 
   agent-evals:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 60
     environment: evals
     # `labeled` fires for any label: only the `agent-evals` label starts a run. Never on the schedule.
     if: >-
+      github.event.pull_request.draft != true &&
       github.event_name != 'schedule' &&
       ((github.event_name == 'workflow_dispatch' && inputs.suite == 'agent') ||
        (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'agent-evals') &&
         (github.event.action != 'labeled' || github.event.label.name == 'agent-evals')))
     steps:
+      - name: Which runner
+        run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-          cache: npm
+          # GitHub's runners start empty, so ~/.npm is cached there. A self-hosted runner keeps its
+          # own ~/.npm on disk: no cache, and no upload over a home connection.
+          cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       - name: Require the Gemini key
         env:
@@ -135,8 +158,14 @@ jobs:
             exit 1
           fi
       # The catalog vectors only change with the catalog file; the resolve evals save them too.
+      - name: Restore saved catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted'
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals" evals/.cache
+          cp -a "$HOME/.cache/kahanmilega-evals/." evals/.cache/
       - name: Restore saved catalog embeddings
         id: embeddings
+        if: runner.environment != 'self-hosted'
         uses: actions/cache/restore@v6
         with:
           path: evals/.cache
@@ -157,11 +186,16 @@ jobs:
           DATABASE_URL: postgres://unused@localhost/unused # not used: the run has its own Postgres
         run: npm run eval:errand
       - name: Save catalog embeddings
-        if: always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
+        if: runner.environment != 'self-hosted' && always() && steps.embeddings.outputs.cache-hit != 'true' && hashFiles('evals/.cache/embeddings.json') != ''
         uses: actions/cache/save@v6
         with:
           path: evals/.cache
           key: embeddings-${{ hashFiles('apps/api/src/modules/catalog/catalog.seed.json') }}
+      - name: Save catalog embeddings (self-hosted, a fixed local directory)
+        if: runner.environment == 'self-hosted' && always()
+        run: |
+          mkdir -p "$HOME/.cache/kahanmilega-evals"
+          cp -a evals/.cache/. "$HOME/.cache/kahanmilega-evals/" || true
       - name: Upload the reports
         if: always()
         uses: actions/upload-artifact@v7

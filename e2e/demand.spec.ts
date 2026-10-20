@@ -1,10 +1,17 @@
-import { expect, test, type Browser } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { ask, goTo, login, newCorner, noSidewaysScroll, setup, VIEWPORT } from './orderFlow.js';
 
 // Insights (ADR-0035, ADR-0041): the shop screen counts today's questions, shows what people asked for
 // and did not find, and shows the area's demand only once 3 different customers asked.
 
 type Corner = ReturnType<typeof newCorner>;
+
+/** Insights shows skeletons (aria-busy) until its numbers arrive: wait for that, not for a longer timeout. */
+async function insightsLoaded(shop: Page) {
+  await expect(shop.getByRole('heading', { name: 'Insights' })).toBeVisible();
+  await expect(shop.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(shop.locator('.sh-tile').first()).toBeVisible();
+}
 
 /** A new customer, standing at the corner, asking for `what`. */
 async function customerAsks(browser: Browser, corner: Corner, what: string) {
@@ -40,6 +47,7 @@ test("the shop sees today's numbers, what was asked for and missed, and the area
 
   await goTo(shop, 'insights');
   await shop.reload();
+  await insightsLoaded(shop);
   const tile = (label: string) => shop.locator('.sh-tile', { hasText: label });
   await expect(tile('Requests')).toContainText('2', { timeout: 15_000 });
   await expect(tile('You answered')).toContainText('2');
@@ -53,10 +61,12 @@ test("the shop sees today's numbers, what was asked for and missed, and the area
   // A second and a third customer asking for the same thing (the first asked for haldi too).
   const extra = [await customerAsks(browser, corner, 'haldi')];
   await shop.reload();
+  await insightsLoaded(shop);
   await expect(shop.getByText('Not enough nearby requests yet.')).toBeVisible();
 
   extra.push(await customerAsks(browser, corner, 'haldi'));
   await shop.reload();
+  await insightsLoaded(shop);
   const area = shop.getByRole('list', { name: 'Most asked near you' });
   await expect(area).toBeVisible({ timeout: 15_000 });
   await expect(area.getByRole('listitem').first()).toContainText('3');

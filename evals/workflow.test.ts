@@ -37,9 +37,9 @@ describe('.github/workflows/evals.yml triggers', () => {
 describe('.github/workflows/evals.yml: the agent-evals job (Day 14c)', () => {
   const job = block('agent-evals');
 
-  it('exists, on ubuntu-24.04, in the evals environment, with a timeout', () => {
+  it('exists, on the RUNNER variable (else ubuntu-latest), in the evals environment, with a timeout', () => {
     expect(job).not.toBe('');
-    expect(job).toMatch(/runs-on:\s*ubuntu-24\.04/);
+    expect(job).toMatch(/runs-on:\s*\$\{\{ vars\.RUNNER \|\| 'ubuntu-latest' \}\}/);
     expect(job).toMatch(/environment:\s*evals/);
     expect(job).toMatch(/timeout-minutes:\s*\d+/);
   });
@@ -68,5 +68,35 @@ describe('.github/workflows/evals.yml: the agent-evals job (Day 14c)', () => {
 
   it('does not let the resolve job start for an agent-evals label', () => {
     expect(yml).toContain("github.event.label.name == 'evals'");
+  });
+});
+
+describe('the workflows and caches on a self-hosted runner', () => {
+  const ci = readFileSync(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const npmCache = "cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}";
+
+  it('caches ~/.npm only on GitHub-hosted runners, in every job that sets up node', () => {
+    for (const [name, text] of [
+      ['ci.yml', ci],
+      ['evals.yml', yml],
+    ] as const) {
+      const setups = text.match(/actions\/setup-node@/g)?.length ?? 0;
+      const guarded = text.split(npmCache).length - 1;
+      expect(guarded, `${name}: every setup-node`).toBe(setups);
+      expect(text).not.toMatch(/cache: npm\s*$/m);
+    }
+  });
+
+  it('never saves or restores an actions/cache on a self-hosted runner', () => {
+    const steps = yml.split(/^ {6}- /m).filter((step) => step.includes('uses: actions/cache/'));
+    expect(steps.length).toBeGreaterThan(0);
+    for (const step of steps) expect(step).toContain("runner.environment != 'self-hosted'");
+  });
+
+  it('keeps the catalog embeddings in a fixed local directory on a self-hosted runner', () => {
+    expect(yml).toContain('$HOME/.cache/kahanmilega-evals');
+    expect(yml.match(/if: runner\.environment == 'self-hosted'/g)?.length).toBeGreaterThanOrEqual(
+      2,
+    );
   });
 });

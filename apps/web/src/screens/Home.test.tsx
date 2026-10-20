@@ -168,6 +168,56 @@ describe('Find', () => {
     expect(api.keepAddress).not.toHaveBeenCalled();
   });
 
+  describe('the address field while the saved address loads', () => {
+    function pendingSaved() {
+      let resolve!: (value: {
+        id: string | null;
+        addressText: string | null;
+        customerName: null;
+      }) => void;
+      const promise = new Promise<{
+        id: string | null;
+        addressText: string | null;
+        customerName: null;
+      }>((done) => (resolve = done));
+      return { savedAddress: vi.fn(() => promise), resolve };
+    }
+
+    it('shows a skeleton, then one field that keeps its value and focus, with no saved address', async () => {
+      const pending = pendingSaved();
+      const { user } = setup({ savedAddress: pending.savedAddress });
+      await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
+      expect(screen.queryByLabelText('Delivery address')).toBeNull();
+      expect(document.querySelector('.sh-skeleton')).not.toBeNull();
+      pending.resolve({ id: null, addressText: null, customerName: null });
+      const field = (await screen.findByLabelText('Delivery address')) as HTMLTextAreaElement;
+      await user.type(field, '12 MG');
+      // Nothing re-renders the field into a new node while the customer types.
+      await user.type(field, ' Road');
+      expect(screen.getByLabelText('Delivery address')).toBe(field);
+      expect(field.isConnected).toBe(true);
+      expect(field.value).toBe('12 MG Road');
+      expect(document.activeElement).toBe(field);
+    });
+
+    it('never shows a field to type in when an address is already saved', async () => {
+      const pending = pendingSaved();
+      const { user } = setup({ savedAddress: pending.savedAddress });
+      await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
+      // Still loading: nothing to type into yet, so nothing can vanish under the customer's hands.
+      expect(screen.queryByLabelText('Delivery address')).toBeNull();
+      pending.resolve({ id: 'a9', addressText: '5 Park St', customerName: null });
+      expect(await screen.findByText('Deliver to: 5 Park St')).toBeTruthy();
+      expect(screen.queryByLabelText('Delivery address')).toBeNull();
+    });
+
+    it('shows the field to type in when the saved address cannot be loaded', async () => {
+      const { user } = setup({ savedAddress: vi.fn(async () => Promise.reject(new Error('x'))) });
+      await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
+      expect(await screen.findByLabelText('Delivery address')).toBeTruthy();
+    });
+  });
+
   it('shows the offline banner', () => {
     vi.stubGlobal('navigator', { ...navigator, onLine: false });
     setup();
