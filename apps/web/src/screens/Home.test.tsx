@@ -412,7 +412,7 @@ describe('Find: Did you mean?', () => {
     );
   });
 
-  it('rewrites the query with Something else and sends it as a change', async () => {
+  it('searches the words typed under Something else exactly as typed, as a change', async () => {
     here();
     const createRequest = vi
       .fn()
@@ -421,17 +421,85 @@ describe('Find: Did you mean?', () => {
     const { user } = setup({ createRequest });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Which one do you mean?' });
-    await user.type(within(sheet).getByLabelText('Something else'), 'brown sugar');
-    await user.click(within(sheet).getByRole('button', { name: 'Search again' }));
+    const sheet = await screen.findByRole('dialog');
+    await user.type(within(sheet).getByLabelText('Something else'), 'pencil HB{Enter}');
     await waitFor(() =>
       expect(createRequest).toHaveBeenLastCalledWith({
-        q: 'brown sugar',
+        q: 'pencil HB',
         lat: 12.97,
         lng: 77.59,
         understanding: 'changed',
+        asTyped: true,
       }),
     );
+  });
+
+  it('offers "Search for exactly what I typed" first, and sends the typed text as the item', async () => {
+    here();
+    const details = { item: options[0], alternatives: [options[1]] };
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(409, 'item_confirm', 'x', details))
+      .mockResolvedValue(seekerRequest());
+    const { user } = setup({ createRequest });
+    await user.type(screen.getByLabelText('What do you need?'), 'pencil HB');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Did you mean sugar?' });
+    const buttons = within(sheet).getAllByRole('button');
+    const typed = within(sheet).getByRole('button', {
+      name: 'Search for exactly what I typed: "pencil HB"',
+    });
+    // First choice in the sheet, before the app's own guess (the close button comes first in the DOM).
+    expect(buttons.filter((b) => b.className.includes('cu-find__option'))[0]).toBe(typed);
+    await user.click(typed);
+    await waitFor(() =>
+      expect(createRequest).toHaveBeenLastCalledWith({
+        q: 'pencil HB',
+        lat: 12.97,
+        lng: 77.59,
+        understanding: 'changed',
+        asTyped: true,
+      }),
+    );
+  });
+
+  it('keeps the sheet open and says why when an exact search is refused, instead of dropping to Home', async () => {
+    here();
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(409, 'item_ambiguous', 'x', { question: 'q', options }))
+      .mockRejectedValueOnce(new ApiError(422, 'item_unresolved', 'x'));
+    const { user } = setup({ createRequest });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    const sheet = await screen.findByRole('dialog');
+    await user.type(within(sheet).getByLabelText('Something else'), 'asdfgh');
+    await user.click(within(sheet).getByRole('button', { name: 'Search again' }));
+    const still = await screen.findByRole('dialog');
+    expect(within(still).getByRole('alert').textContent).toMatch(/couldn't understand/i);
+  });
+
+  it('shows the question the server asked as the sheet title, and a fallback without one', async () => {
+    here();
+    const first = setup({
+      createRequest: vi
+        .fn()
+        .mockRejectedValue(
+          new ApiError(422, 'item_ambiguous', 'x', { question: 'Which dal do you mean?', options }),
+        ),
+    });
+    await first.user.type(screen.getByLabelText('What do you need?'), 'dal');
+    await first.user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(await screen.findByRole('dialog', { name: 'Which dal do you mean?' })).toBeTruthy();
+    first.unmount();
+    const second = setup({
+      createRequest: vi
+        .fn()
+        .mockRejectedValue(new ApiError(422, 'item_ambiguous', 'x', { question: '', options })),
+    });
+    await second.user.type(screen.getByLabelText('What do you need?'), 'dal');
+    await second.user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(await screen.findByRole('dialog', { name: 'Which one do you mean?' })).toBeTruthy();
   });
 
   it.each([
