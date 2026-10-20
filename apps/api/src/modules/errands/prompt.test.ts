@@ -38,14 +38,14 @@ describe('prompts', () => {
     expect(system).toMatch(/chai patti, chini, doodh/);
     expect(system).toMatch(/multiSelect/);
     expect(system).toMatch(/preselected/);
-    expect(system).toMatch(/Ye cheezein chahiye\?/);
+    expect(system).toMatch(/Which of these do you need\?/);
     expect(system).toMatch(/never ask either\/or|either\/or/i);
   });
 
   it('options that are not mutually exclusive (which colours, which sizes) use multiSelect', () => {
     const system = buildSystemPrompt({ maxItems: 10 });
     expect(system).toMatch(/not mutually exclusive|can be more than one|any number of/i);
-    expect(system).toMatch(/kaunse colours/);
+    expect(system).toMatch(/which colours/);
     expect(system).toMatch(/multiSelect true/);
     expect(system).toMatch(/either\/or|one of/i);
   });
