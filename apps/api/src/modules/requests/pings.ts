@@ -13,12 +13,14 @@ import type { EventPublisher } from '../realtime/index.js';
 import type { ExactQuantity } from '@kahanmilega/shared';
 import { attachAnswerPhoto } from '../photos/index.js';
 import { distanceBand } from './distanceBand.js';
-import { announceTransition } from './events.js';
+import { announceClosedPings, announceTransition } from './events.js';
 import {
   applyEventIn,
   findRequest,
   logTransition,
+  withdrawOpenPings,
   type ApplyResult,
+  type ClosedPing,
   type RequestRecord,
 } from './persistence.js';
 import { selectPingTargets } from './targets.js';
@@ -31,6 +33,9 @@ const MIN_TARGETS = 3;
 
 /** How many candidates to consider per ping we want to send. */
 const BACKFILL_FACTOR = 3;
+
+/** The customer sees at most this many live yes; the rest of the shops are told enough answers came (ADR-0043). */
+export const MAX_LIVE_OFFERS = 3;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -251,7 +256,7 @@ const CATCH_UP_MAX_REQUESTS = 5;
 
 /**
  * A shop that has just opened (or finished onboarding) is asked about the live requests nearby
- * that it was never asked (ADR-0038): still PINGING (no yes yet), more than 2 minutes left, inside
+ * that it was never asked (ADR-0038): still PINGING or ANSWERED with fewer than three live yes, more than 2 minutes left, inside
  * the request's radius, an item of one of the shop's categories, fewer than the maximum pings
  * already sent, and no fresh learned stock of its own. Same dedupe window and same announcements
  * as the fan-out, simulated shops included. Never twice for one request: the ping row is unique.
@@ -271,8 +276,9 @@ export async function catchUpShop(
   const { rows: due } = await db.query<{ request_id: string; item_id: string }>(
     `SELECT r.id AS request_id, r.item_id
        FROM shops s
-       JOIN requests r ON r.state = 'PINGING'
+       JOIN requests r ON r.state IN ('PINGING', 'ANSWERED')
         AND r.expires_at > now() + interval '${CATCH_UP_MIN_LIFE}'
+        AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) < $3
         AND ST_DWithin(r.location, s.location, r.radius_m)
        JOIN items i ON i.id = r.item_id AND i.categories && s.categories
       WHERE s.id = $1
@@ -283,7 +289,7 @@ export async function catchUpShop(
                          WHERE st.shop_id = s.id AND st.item_id = r.item_id AND st.expires_at > now())
       ORDER BY r.created_at DESC
       LIMIT ${CATCH_UP_MAX_REQUESTS}`,
-    [shopId, deps.config.maxPings],
+    [shopId, deps.config.maxPings, MAX_LIVE_OFFERS],
   );
   let total = 0;
   for (const { request_id: requestId, item_id: itemId } of due) {
@@ -292,9 +298,11 @@ export async function catchUpShop(
     try {
       sent = await withTransaction(db, async (tx) => {
         const live = await tx.query<{ ok: boolean }>(
-          `SELECT (state = 'PINGING' AND expires_at > now() + interval '${CATCH_UP_MIN_LIFE}') AS ok
+          `SELECT (state IN ('PINGING', 'ANSWERED')
+                   AND expires_at > now() + interval '${CATCH_UP_MIN_LIFE}'
+                   AND (SELECT count(*) FROM pings p WHERE p.request_id = requests.id AND p.state = 'YES' AND NOT p.late) < $2) AS ok
              FROM requests WHERE id = $1 FOR SHARE`,
-          [requestId],
+          [requestId, MAX_LIVE_OFFERS],
         );
         if (!live.rows[0]?.ok) return null;
         const inserted = await tx.query<{
@@ -390,7 +398,7 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
        JOIN items i ON i.id = p.item_id
-      WHERE s.owner_user_id = $1 AND p.state = 'SENT' AND r.state = 'PINGING' AND r.expires_at > now()
+      WHERE s.owner_user_id = $1 AND p.state = 'SENT' AND r.state IN ('PINGING', 'ANSWERED') AND r.expires_at > now()
       ORDER BY p.sent_at DESC`,
     [ownerUserId],
   );
@@ -493,10 +501,11 @@ export async function answerPing(
       );
 
     const moves: ApplyResult[] = [];
+    let enough: ClosedPing[] = [];
     // A request past its deadline is over even if nothing has expired it yet: do that first, so
     // this answer is treated as late rather than reviving the request.
     const request = (await findRequest(tx, ping.request_id)) as RequestRecord;
-    if (request.overdue && request.state === 'PINGING') {
+    if (request.overdue && (request.state === 'PINGING' || request.state === 'ANSWERED')) {
       moves.push(await applyEventIn(tx, request.id, 'TIMEOUT', 'lazy'));
     }
 
@@ -531,7 +540,7 @@ export async function answerPing(
       const current = (await tx.query<PingRow>(`${PING} WHERE p.id = $1`, [pingId]))
         .rows[0] as PingRow;
       if (current.state === 'YES' || current.state === 'NO')
-        return { answer: toAnswer(current), moves, fresh: false };
+        return { answer: toAnswer(current), moves, enough, fresh: false };
       throw new ApiError(409, 'ping_closed', 'This ping is too old to answer');
     }
 
@@ -548,9 +557,18 @@ export async function answerPing(
         confirmedAt: new Date(),
       });
       if (input.photoId) await attachAnswerPhoto(tx, ownerUserId, input.photoId, pingId);
-      if (!row.late) moves.push(await applyEventIn(tx, row.request_id, 'SHOP_SAID_YES'));
+      if (!row.late) {
+        moves.push(await applyEventIn(tx, row.request_id, 'SHOP_SAID_YES'));
+        // The request lock serialises yeses, so exactly one of them is the last one the customer needs.
+        const live = await tx.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pings WHERE request_id = $1 AND state = 'YES' AND NOT late`,
+          [row.request_id],
+        );
+        if ((live.rows[0]?.n ?? 0) >= MAX_LIVE_OFFERS)
+          enough = await withdrawOpenPings(tx, row.request_id);
+      }
     }
-    return { answer: toAnswer(row), moves, fresh: true };
+    return { answer: toAnswer(row), moves, enough, fresh: true };
   });
 
   if (!outcome) return null;
@@ -560,6 +578,7 @@ export async function answerPing(
   }
   // A repeated answer changed nothing, so it announces nothing.
   if (outcome.fresh) {
+    announceClosedPings(deps.events, outcome.enough, 'enough_answers', deps.logger);
     // This shop's ping is finished (it may have it open on another phone).
     deps.events?.publish(
       { to: { userId: ownerUserId }, type: 'ping.closed', data: { pingId, reason: 'answered' } },
@@ -583,4 +602,22 @@ export async function answerPing(
     'ping answered',
   );
   return outcome.answer;
+}
+
+/**
+ * The customer chose (an order, or a pickup): the shops still holding the question are told the
+ * customer already got an answer (ADR-0043). Takes the request lock like every transition, so a yes
+ * landing at the same moment is either counted before or stored late after.
+ */
+export async function withdrawPingsForChoice(
+  deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
+  requestId: string,
+): Promise<number> {
+  if (!UUID.test(requestId)) return 0;
+  const closed = await withTransaction(deps.db, async (tx) => {
+    await tx.query('SELECT 1 FROM requests WHERE id = $1 FOR UPDATE', [requestId]);
+    return withdrawOpenPings(tx, requestId);
+  });
+  announceClosedPings(deps.events, closed, 'customer_chose', deps.logger);
+  return closed.length;
 }

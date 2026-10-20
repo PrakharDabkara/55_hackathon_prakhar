@@ -97,7 +97,14 @@ export function createApp({
   app.use(photosRouter({ db, logger, capMb: config.photoStorageCapMb }));
   app.use(shopsRouter({ db, ...(requestHooks && { hooks: requestHooks }) }));
   app.use(demandRouter({ db }));
-  app.use(pickupsRouter({ db, logger, askAfterMinutes: config.pickupAskAfterMinutes }));
+  app.use(
+    pickupsRouter({
+      db,
+      logger,
+      events: realtime.events,
+      askAfterMinutes: config.pickupAskAfterMinutes,
+    }),
+  );
   app.use(routingRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
   const requestsContext = {

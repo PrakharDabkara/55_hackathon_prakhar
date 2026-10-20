@@ -1,6 +1,6 @@
 import type { Logger } from 'pino';
 import type { EventPublisher } from '../realtime/index.js';
-import type { ApplyResult } from './persistence.js';
+import type { ApplyResult, ClosedPing } from './persistence.js';
 
 /**
  * Tells the seeker their request moved and the shops their open pings ended. Call it only after
@@ -20,16 +20,21 @@ export function announceTransition(
     },
     log,
   );
-  // Why the ping went away, so the shop's screen can say "thanks" instead of just dropping it.
-  const reason = result.event === 'SHOP_SAID_YES' ? 'enough_answers' : 'request_ended';
-  for (const ping of result.closedPings) {
+  announceClosedPings(events, result.closedPings, 'request_ended', log);
+}
+
+/** Why the ping went away, so the shop's screen can say "thanks" instead of just dropping it. */
+export function announceClosedPings(
+  events: EventPublisher | undefined,
+  pings: ClosedPing[],
+  reason: 'enough_answers' | 'request_ended' | 'customer_chose',
+  log?: Logger,
+): void {
+  if (!events) return;
+  for (const ping of pings) {
     if (!ping.ownerUserId) continue;
     events.publish(
-      {
-        to: { userId: ping.ownerUserId },
-        type: 'ping.closed',
-        data: { pingId: ping.id, reason },
-      },
+      { to: { userId: ping.ownerUserId }, type: 'ping.closed', data: { pingId: ping.id, reason } },
       log,
     );
   }
