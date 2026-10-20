@@ -25,18 +25,38 @@ test('a typo is confirmed with "Did you mean…?" before the shops are asked', a
   // "Yes, this one" asks the shops: the replies screen opens with the item on the parchi.
   await yes.click();
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
-  await expect(page.locator('.sh-parchi__item')).toContainText(/bottle brush/i);
+  // The customer's own words lead; the item they matched is small underneath (ADR-0047).
+  await expect(page.locator('.sh-parchi__item')).toContainText('bottle brsh');
+  await expect(page.locator('.sh-parchi__alias')).toContainText(/bottle brush/i);
 });
 
-test('"Something else" searches again with the new words and asks nothing before that', async ({
+test('"Something else" searches those words exactly, as typed, and opens the replies', async ({
   page,
 }) => {
   await login(page, '/app/');
   await useDemoLocation(page);
   await ask(page, 'bottle brsh');
   const sheet = page.getByRole('dialog', { name: /Did you mean/ });
-  await sheet.getByLabel('Something else').fill('chini');
+  await sheet.getByLabel('Something else').fill('blue glitter pen');
   await sheet.getByRole('button', { name: 'Search again' }).click();
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
-  await expect(page.locator('.sh-parchi__item')).toContainText(/sugar|chini/i);
+  await expect(page.locator('.sh-parchi__item')).toContainText('blue glitter pen');
+});
+
+test('"Search for exactly what I typed" is the first choice, and a refusal stays in the sheet', async ({
+  page,
+}) => {
+  await login(page, '/app/');
+  await useDemoLocation(page);
+  await ask(page, 'bottle brsh');
+  const sheet = page.getByRole('dialog', { name: /Did you mean/ });
+  const exact = sheet.getByRole('button', {
+    name: 'Search for exactly what I typed: "bottle brsh"',
+  });
+  await expect(exact).toBeVisible();
+  // The safety checks still run: this text is no product the classifier knows, so it is refused,
+  // and the customer is not dropped back on Find.
+  await exact.click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText(/couldn't understand/i);
+  await expect(page).toHaveURL(/\/app\/$/);
 });

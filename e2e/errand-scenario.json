@@ -122,5 +122,8 @@
       ]
     }
   ],
-  "classify": [{ "match": "bead dazzling", "verdict": "allowed", "category": "stationery" }]
+  "classify": [
+    { "match": "bead dazzling", "verdict": "allowed", "category": "stationery" },
+    { "match": "glitter pen", "verdict": "allowed", "category": "stationery" }
+  ]
 }
