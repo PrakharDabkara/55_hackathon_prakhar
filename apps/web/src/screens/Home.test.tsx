@@ -70,6 +70,14 @@ describe('Find', () => {
     expect(api.createErrand).not.toHaveBeenCalled();
   });
 
+  it('shows the AskBuy mark, name and tagline in the header', () => {
+    setup();
+    const header = document.querySelector('.cu-find__bar') as HTMLElement;
+    expect(within(header).getByText('AskBuy')).toBeTruthy();
+    expect(header.querySelector('svg.brand-mark')).toBeTruthy();
+    expect(screen.getByText('Ask the shops nearby, then buy.')).toBeTruthy();
+  });
+
   it('puts a chevron on the right of the errand card, and the whole card is one link', () => {
     setup();
     const card = screen.getByRole('link', { name: /Plan an errand/ });

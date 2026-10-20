@@ -14,14 +14,24 @@ const files: Record<string, string> = {
   'src/i18n/strings.ts': './i18n/strings.ts',
 };
 
-// "KahanMilega", "Kahan Milega", "kahanmilega" … but not a package scope such as @kahanmilega/shared.
-const BRAND_LIKE = /(?<![@\w/-])kahan[\s_-]?milega(?![\w/-])/gi;
+// "AskBuy", "Ask Buy", "askbuy" … but not a package scope or a path such as @askbuy/shared.
+const BRAND_LIKE = /(?<![@\w/-])ask[\s_-]?buy(?![\w/-])/gi;
+// The name before PR P: none of these files may still carry it.
+const OLD_BRAND = /(?<![@\w/-])kahan[\s_-]?milega(?![\w/-])/gi;
 
 describe('brand name', () => {
   it.each(Object.entries(files))('%s uses BRAND_NAME exactly', (_name, rel) => {
     const found = read(rel).match(BRAND_LIKE) ?? [];
     expect(found.length, 'the file should carry the brand at least once').toBeGreaterThan(0);
     for (const occurrence of found) expect(occurrence).toBe(BRAND_NAME);
+  });
+
+  it.each(Object.entries(files))('%s no longer carries the old name', (_name, rel) => {
+    expect(read(rel).match(OLD_BRAND) ?? []).toEqual([]);
+  });
+
+  it('the brand is AskBuy', () => {
+    expect(BRAND_NAME).toBe('AskBuy');
   });
 
   it('the app name in both languages is the brand name', async () => {

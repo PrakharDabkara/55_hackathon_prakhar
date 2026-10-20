@@ -106,7 +106,7 @@ describe('App: the shell', () => {
     const menu = screen.getByRole('dialog', { name: 'Main menu' });
     expect(within(menu).getByRole('link', { name: /Requests/ }).textContent).toContain('1');
     expect(within(menu).getByText('1 active')).toBeTruthy();
-    expect(within(menu).getByText('Powered by KahanMilega')).toBeTruthy();
+    expect(within(menu).getByText('Powered by AskBuy')).toBeTruthy();
     await user.click(within(menu).getByRole('link', { name: /Orders/ }));
     expect(await screen.findByRole('heading', { name: 'Orders' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();

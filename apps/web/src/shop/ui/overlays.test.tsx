@@ -197,7 +197,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('2 active')).toBeTruthy();
     expect(screen.getByText('Open now')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Log out' })).toBeTruthy();
-    expect(screen.getByText(/Powered by KahanMilega/)).toBeTruthy();
+    expect(screen.getByText(/Powered by AskBuy/)).toBeTruthy();
   });
 
   it('marks the current place and links by hash', () => {
