@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
-import { fakeSeekerApi, seekerOrder, seekerRequest } from '../test/fakes.js';
+import { errandListItem, fakeSeekerApi, seekerOrder, seekerRequest } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Home } from './Home.js';
 
@@ -68,6 +68,59 @@ describe('Find', () => {
     await user.click(card);
     expect(navigate).toHaveBeenCalledWith('/app/errand');
     expect(api.createErrand).not.toHaveBeenCalled();
+  });
+
+  it('puts a chevron on the right of the errand card, and the whole card is one link', () => {
+    setup();
+    const card = screen.getByRole('link', { name: /Plan an errand/ });
+    expect(card.querySelector('.cu-find__chevron')).toBeTruthy();
+    expect(card.querySelector('.cu-find__chevron')?.getAttribute('aria-hidden')).toBe('true');
+    expect(card.querySelectorAll('a, button')).toHaveLength(0);
+  });
+
+  describe('Continue your errand', () => {
+    it('shows one card to the running errand, as a single link with a chevron', async () => {
+      const myErrands = vi.fn(async () => [
+        errandListItem({ id: 'e-9', task: 'school things for Riya' }),
+      ]);
+      const { user, navigate } = setup({ myErrands });
+      const card = await screen.findByRole('link', { name: /Continue your errand/ });
+      expect(card.getAttribute('href')).toBe('/app/errand/e-9');
+      expect(card.textContent).toContain('school things for Riya');
+      expect(card.textContent).toContain('Asking shops');
+      expect(card.querySelector('.cu-find__chevron')).toBeTruthy();
+      await user.click(card);
+      expect(navigate).toHaveBeenCalledWith('/app/errand/e-9');
+    });
+
+    it('also shows a plan that is ready and recent', async () => {
+      const recent = new Date(Date.now() - 3_600_000).toISOString();
+      const myErrands = vi.fn(async () => [
+        errandListItem({ state: 'PLAN_READY', createdAt: recent, expiresAt: recent }),
+      ]);
+      setup({ myErrands });
+      const card = await screen.findByRole('link', { name: /Continue your errand/ });
+      expect(card.textContent).toContain('Plan ready');
+    });
+
+    it('is not shown without an errand to continue, when logged out, or when the list fails', async () => {
+      const ended = errandListItem({ state: 'CANCELLED' });
+      const first = setup({ myErrands: vi.fn(async () => [ended]) });
+      await waitFor(() => expect(first.api.myErrands).toHaveBeenCalled());
+      expect(screen.queryByRole('link', { name: /Continue your errand/ })).toBeNull();
+      first.unmount();
+      const second = setup(
+        { myErrands: vi.fn(async () => [errandListItem()]) },
+        { loggedIn: false },
+      );
+      expect(second.api.myErrands).not.toHaveBeenCalled();
+      second.unmount();
+      setup({ myErrands: vi.fn(async () => Promise.reject(new Error('offline'))) });
+      await waitFor(() =>
+        expect(screen.getByRole('link', { name: /Plan an errand/ })).toBeTruthy(),
+      );
+      expect(screen.queryByRole('link', { name: /Continue your errand/ })).toBeNull();
+    });
   });
 
   it('links to shopkeepers and no longer shows pickup, notifications or recent work', () => {

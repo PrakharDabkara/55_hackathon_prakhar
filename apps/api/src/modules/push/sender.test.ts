@@ -4,7 +4,13 @@ import { createPushSender, type PushStore, type WebPushClient } from './sender.j
 
 const logger = pino({ level: 'silent' });
 const vapid = { publicKey: 'pub', privateKey: 'priv', subject: 'mailto:ops@example.com' };
-const payload = { title: 'Naya sawaal: atta', item: 'atta', url: '/app/shop' };
+const payload = {
+  title: 'New request: atta · under 1 km',
+  body: 'Open the shop to answer',
+  tag: 'shop-requests',
+  renotify: true,
+  url: '/app/shop',
+};
 const sub = {
   id: 'sub-1',
   userId: 'u1',

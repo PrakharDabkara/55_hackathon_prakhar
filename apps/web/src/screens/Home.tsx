@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { ActiveOrderStrip } from '../components/ActiveOrderStrip.js';
+import { ErrandResume } from '../components/ErrandResume.js';
 import { FollowUpSheet, type FollowUp, type FollowUpOption } from '../components/FollowUpSheet.js';
 import { LangToggle } from '../components/LangToggle.js';
 import { LoginSheet } from '../components/LoginSheet.js';
@@ -9,8 +10,15 @@ import '../customer/find.css';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
+import { resumableErrand } from '../lib/errand.js';
 import { isActiveOrder, type SeekerOrder } from '../lib/orders.js';
-import type { NewRequest, SavedAddress, SeekerApi, SeekerRequest } from '../lib/seekerApi.js';
+import type {
+  ErrandListItem,
+  NewRequest,
+  SavedAddress,
+  SeekerApi,
+  SeekerRequest,
+} from '../lib/seekerApi.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
@@ -102,6 +110,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const [savedLoaded, setSavedLoaded] = useState(false);
   const [changingAddress, setChangingAddress] = useState(false);
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
+  const [errand, setErrand] = useState<ErrandListItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
@@ -150,6 +159,22 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     let alive = true;
     api.myOrders().then(
       (found) => alive && setOrders(found.filter(isActiveOrder)),
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api, loggedIn]);
+
+  // Signed in: an errand still running (or a fresh plan) gets a way back. Best effort.
+  useEffect(() => {
+    if (!loggedIn) {
+      setErrand(null);
+      return;
+    }
+    let alive = true;
+    api.myErrands().then(
+      (found) => alive && setErrand(resumableErrand(found)),
       () => undefined,
     );
     return () => {
@@ -447,6 +472,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
           </Button>
         </form>
 
+        {errand && <ErrandResume errand={errand} navigate={navigate} />}
+
         <a className="cu-find__errand" {...appLink(navigate, '/app/errand')}>
           <svg
             className="cu-find__errand-icon"
@@ -467,6 +494,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             <span className="sh-heading">{c.findErrandTitle}</span>
             <span className="sh-helper">{c.findErrandText}</span>
           </span>
+          <Icon name="right" size={20} className="cu-find__chevron" />
         </a>
 
         <a className="sh-btn sh-btn--quiet cu-find__shop" href="/app/shop">

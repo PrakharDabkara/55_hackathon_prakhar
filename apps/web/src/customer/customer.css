@@ -1,7 +1,8 @@
 /* The customer app's shared layout (ADR-0042). Tokens only (design/tokens.css); screens add their own file. */
 .cu-app {
   min-height: 100vh;
-  background: var(--surface-sunk);
+  min-height: 100dvh;
+  background: var(--bg);
 }
 .cu-column {
   position: relative;
@@ -9,6 +10,7 @@
   flex-direction: column;
   max-width: 560px;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   background: var(--bg);
 }

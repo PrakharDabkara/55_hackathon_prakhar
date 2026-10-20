@@ -2,7 +2,8 @@ import type { Logger } from 'pino';
 import type { Database } from '../../db/queryable.js';
 import { claimPickupReminders } from '../pickups/index.js';
 import type { RealtimeEvent } from '../realtime/index.js';
-import { buildPayload, type PushKind } from './payload.js';
+import { distanceBand } from '../requests/index.js';
+import { buildPayload, type PushArgs, type PushKind } from './payload.js';
 import type { RateLimiter } from './rateLimit.js';
 import type { PushJob } from './sender.js';
 import { listSubscriptionIds } from './subscriptions.js';
@@ -61,7 +62,7 @@ export function createNotifier(deps: Deps): Notifier {
   async function notify(
     userId: string,
     kind: PushKind,
-    args: { item?: string; id?: string },
+    args: PushArgs,
     options?: EnqueueOptions,
   ): Promise<boolean> {
     const subscriptions = await listSubscriptionIds(db, userId);
@@ -83,23 +84,36 @@ export function createNotifier(deps: Deps): Notifier {
       name_en: string;
       is_simulated: boolean;
       closed: boolean;
+      distance_m: number;
+      waiting: number;
     }>(
       `SELECT i.name_en, s.is_simulated,
-              (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed
+              (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed,
+              ST_Distance(s.location, r.location) AS distance_m,
+              (SELECT count(*)::int FROM pings w JOIN requests wr ON wr.id = w.request_id
+                WHERE w.shop_id = s.id AND w.state = 'SENT'
+                  AND wr.state IN ('PINGING', 'ANSWERED') AND wr.expires_at > now()) AS waiting
          FROM pings p JOIN shops s ON s.id = p.shop_id JOIN items i ON i.id = p.item_id
+         JOIN requests r ON r.id = p.request_id
         WHERE p.id = $1 AND s.owner_user_id = $2`,
       [pingId, userId],
     );
     const row = rows[0];
     // A closed shop is not nagged: its card waits in the list (scenario S9).
     if (!row || row.is_simulated || row.closed) return;
-    await notify(userId, 'new_ping', { item: row.name_en });
+    // One notification per shop: it says how many others are waiting too.
+    await notify(userId, 'new_ping', {
+      item: row.name_en,
+      band: distanceBand(row.distance_m),
+      more: Math.max(0, row.waiting - 1),
+    });
   }
 
   interface OrderRow {
     user_id: string;
     state: string;
     lines: { name: string }[];
+    shop_name: string;
     owner_user_id: string | null;
     is_simulated: boolean;
     cancelled_by: string | null;
@@ -107,7 +121,7 @@ export function createNotifier(deps: Deps): Notifier {
   const loadOrder = async (orderId: string) =>
     (
       await db.query<OrderRow>(
-        `SELECT o.user_id, o.state, o.lines, s.owner_user_id, s.is_simulated, o.cancelled_by
+        `SELECT o.user_id, o.state, o.lines, s.name AS shop_name, s.owner_user_id, s.is_simulated, o.cancelled_by
            FROM delivery_orders o JOIN shops s ON s.id = o.shop_id WHERE o.id = $1`,
         [orderId],
       )
@@ -121,18 +135,15 @@ export function createNotifier(deps: Deps): Notifier {
     // A fresh offer the customer took is binding: the order starts ACCEPTED and the shop is told
     // the customer chose it, not asked to accept.
     const kind = order.state === 'ACCEPTED' ? 'order_chosen' : 'new_order';
-    await notify(userId, kind, { item: orderItem(order.lines) });
+    await notify(userId, kind, { item: orderItem(order.lines), id: orderId });
   }
 
   async function onOrderUpdated(userId: string, orderId: string) {
     const order = await loadOrder(orderId);
     if (!order) return;
-    // The customer's Received is the one thing the shop is told about an order's progress.
-    if (order.owner_user_id === userId && order.user_id !== userId) {
-      if (order.state === 'DELIVERED' && !order.is_simulated)
-        await notify(userId, 'order_received', { item: orderItem(order.lines) });
-      return;
-    }
+    // The shop hears about an order when it is placed or chosen, and nothing after: its own taps
+    // and the customer's Received need no action from it.
+    if (order.owner_user_id === userId && order.user_id !== userId) return;
     // The same event also goes to the shop; only the customer hears about the shop's own taps.
     if (order.user_id !== userId) return;
     // A customer is not pushed about their own cancel, only about the shop's.
@@ -141,18 +152,22 @@ export function createNotifier(deps: Deps): Notifier {
         await notify(userId, 'order_cancelled_by_shop', {
           item: orderItem(order.lines),
           id: orderId,
+          shop: order.shop_name,
         });
       return;
     }
     const kind = ORDER_KINDS[order.state];
     if (!kind) return;
-    await notify(userId, kind, { item: orderItem(order.lines), id: orderId });
+    await notify(userId, kind, {
+      item: orderItem(order.lines),
+      id: orderId,
+      shop: order.shop_name,
+    });
   }
 
   async function onRequestAnswered(userId: string, requestId: string) {
-    const { rows } = await db.query<{ name_en: string | null; yes: boolean; errand: boolean }>(
+    const { rows } = await db.query<{ name_en: string | null; errand: boolean }>(
       `SELECT i.name_en,
-              EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) AS yes,
               EXISTS (SELECT 1 FROM errand_requests er JOIN errands e ON e.id = er.errand_id
                        WHERE er.request_id = r.id
                          AND e.state IN ('PLANNING', 'WAITING_FOR_SHOPS', 'NEEDS_INPUT')) AS errand
@@ -163,12 +178,31 @@ export function createNotifier(deps: Deps): Notifier {
     const row = rows[0];
     // The searches an errand opened itself (errand_requests) are its own while it is planning:
     // "Plan taiyaar" is the one push for them. The customer's separate searches still get theirs.
-    if (!row || !row.yes || row.errand) return;
+    if (!row || row.errand) return;
+    const yes = (
+      await db.query<{ name: string; price_paise: number | null }>(
+        `SELECT s.name, p.price_paise
+           FROM pings p JOIN shops s ON s.id = p.shop_id
+          WHERE p.request_id = $1 AND p.state = 'YES' AND NOT p.late
+          ORDER BY p.price_paise ASC NULLS LAST, p.answered_at ASC`,
+        [requestId],
+      )
+    ).rows;
+    const cheapest = yes[0];
+    if (!cheapest) return;
+    // One notification per request (tag req:<id>): the first yes alerts, the next ones update it
+    // quietly with the count and the lowest price. The key is per count so each is queued once.
     await notify(
       userId,
       'shop_answered',
-      { item: row.name_en ?? '', id: requestId },
-      { key: `answer:${requestId}`, delayMs: deps.answerDebounceMs },
+      {
+        item: row.name_en ?? '',
+        id: requestId,
+        shop: cheapest.name,
+        shops: yes.length,
+        ...(cheapest.price_paise !== null && { pricePaise: cheapest.price_paise }),
+      },
+      { key: `answer:${requestId}:${yes.length}`, delayMs: deps.answerDebounceMs },
     );
   }
 

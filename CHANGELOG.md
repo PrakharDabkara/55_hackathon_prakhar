@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 21, PR O: UI fixes from the live test, ADR-0044)
+
+- App frame: `html`, `body` and `#root` now paint `--bg` with no margin (the browser's 8px margin and default canvas were the dark seam), both app roots use `--bg` and `100dvh`, and `theme-color` and the manifest follow `--bg`.
+- Focus is drawn in the brand colour (`--focus` is `var(--brand)`, so it follows the dark theme). Text inputs show a single 2 px brand border; buttons and links keep the `:focus-visible` ring.
+- Shop settings: the logo is a centred 104 px circle you tap to change (camera badge), with a quiet "Remove logo" link that confirms in a bottom sheet. The closed shop shows a still hanging CLOSED sign instead of blank slips.
+- Customer request slip: shows the quantity asked for, fits its content, and reads "Sent to N shops · X km" without running under the stamp. Reply card meta is in sentence case; distances read "Under 100 m", "600 m" (nearest 50) and "1.2 km".
+- Push: named copy, a tag per request, order and shop, one notification per request and per shop, no push for "received" and no unused delivered kind (ADR-0044). Payload is `{title, body, tag, renotify, url}`.
+- `GET /errands` returns the last 20 with `expiresAt`. Find shows "Continue your errand" for a running errand or a plan ready in the last day; My orders has an "Errands" section; the errand card has a chevron.
+
 ### Changed (Day 20, PR N: collect up to three offers, ADR-0043)
 
 - A request keeps asking until three shops have said yes (`MAX_LIVE_OFFERS`), it ends, or the customer orders or starts a pickup. The first yes still answers it; the other shops' questions stay open and are withdrawn then, with the existing "customer got an answer" note. A fourth yes is remembered stock, not an offer. A shop that opens late is asked about answered requests with fewer than three live yes. Errands still wake on the first answer.

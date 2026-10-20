@@ -46,6 +46,7 @@ export interface OrdersStrings {
   // My orders
   myOrdersTitle: string;
   activeTitle: string;
+  errandsTitle: string;
   earlierTitle: string;
   byTime: (time: string) => string;
   statusDelivered: string;
@@ -124,6 +125,7 @@ export const ordersEn: OrdersStrings = {
   orderActionFailed: "That didn't go through. Check the order and try again.",
   myOrdersTitle: 'My orders',
   activeTitle: 'Active',
+  errandsTitle: 'Errands',
   earlierTitle: 'Earlier',
   byTime: (time) => `by ${time}`,
   statusDelivered: 'Delivered',
@@ -200,6 +202,7 @@ export const ordersHi: OrdersStrings = {
   orderActionFailed: 'Ye nahi ho paaya. Order dekhein aur phir try karein.',
   myOrdersTitle: 'Mere orders',
   activeTitle: 'Chal rahe',
+  errandsTitle: 'Kaam',
   earlierTitle: 'Pehle ke',
   byTime: (time) => `${time} tak`,
   statusDelivered: 'Pahunch gaya',

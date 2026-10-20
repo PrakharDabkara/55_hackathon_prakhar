@@ -82,6 +82,7 @@ export interface ShopStrings {
   notificationsOn: string;
   turnOnNotifications: string;
   closedTitle: string;
+  closedSign: string;
   openShop: string;
   // Parchi
   replyIn: string;
@@ -193,6 +194,10 @@ export interface ShopStrings {
   removeLogo: string;
   logoFailed: string;
   logoRemoved: string;
+  removeLogoTitle: string;
+  removeLogoText: string;
+  removeLogoYes: string;
+  keepLogo: string;
   categoriesTitle: string;
   notificationsTitle: string;
   notificationsBody: string;
@@ -285,6 +290,7 @@ export const shopEn: ShopStrings = {
   notificationsOn: 'Notifications are on',
   turnOnNotifications: 'Turn on notifications',
   closedTitle: "You're closed",
+  closedSign: 'CLOSED',
   openShop: 'Open shop',
 
   replyIn: 'Reply in',
@@ -397,6 +403,10 @@ export const shopEn: ShopStrings = {
   removeLogo: 'Remove logo',
   logoFailed: "Couldn't upload the logo. Try a smaller picture.",
   logoRemoved: 'Logo removed.',
+  removeLogoTitle: 'Remove your logo?',
+  removeLogoText: 'Your shop will show its initials instead.',
+  removeLogoYes: 'Remove',
+  keepLogo: 'Keep logo',
   categoriesTitle: 'What you sell · up to 3',
   notificationsTitle: 'Notifications',
   notificationsBody: 'Get a buzz when someone nearby asks for something you sell.',
@@ -490,6 +500,7 @@ export const shopHi: ShopStrings = {
   notificationsOn: 'Notification chalu hain',
   turnOnNotifications: 'Notification chalu karein',
   closedTitle: 'Dukaan band hai',
+  closedSign: 'BAND',
   openShop: 'Dukaan kholein',
 
   replyIn: 'Jawab dein',
@@ -602,6 +613,10 @@ export const shopHi: ShopStrings = {
   removeLogo: 'Logo hatayein',
   logoFailed: 'Logo upload nahi hua. Chhoti photo try karein.',
   logoRemoved: 'Logo hata diya.',
+  removeLogoTitle: 'Logo hatayein?',
+  removeLogoText: 'Logo ki jagah dukaan ke pehle akshar dikhenge.',
+  removeLogoYes: 'Hatayein',
+  keepLogo: 'Rehne dein',
   categoriesTitle: 'Aap kya bechte hain · 3 tak',
   notificationsTitle: 'Notification',
   notificationsBody: 'Jab aas-paas koi aapki cheez maange, to buzz aayega.',

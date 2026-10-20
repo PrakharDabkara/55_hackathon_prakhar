@@ -12,7 +12,7 @@ import {
 } from './service.js';
 import { listRecentErrands } from './persistence.js';
 
-const RECENT_LIMIT = 10;
+const RECENT_LIMIT = 20;
 
 export function errandsRouter(deps: ErrandsContext): Router {
   const router = Router();

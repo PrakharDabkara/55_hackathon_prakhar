@@ -145,6 +145,8 @@ export interface RecentErrand {
   state: string;
   task: string;
   createdAt: Date;
+  /** When an unfinished errand lapses, so a screen can tell a live one from a stale row. */
+  expiresAt: Date;
 }
 
 /** The customer's latest errands, newest first (for "Haal ke kaam"). */
@@ -153,12 +155,24 @@ export async function listRecentErrands(
   userId: string,
   limit: number,
 ): Promise<RecentErrand[]> {
-  const { rows } = await db.query<{ id: string; state: string; task: string; created_at: Date }>(
-    `SELECT id, state, task, created_at FROM errands
+  const { rows } = await db.query<{
+    id: string;
+    state: string;
+    task: string;
+    created_at: Date;
+    expires_at: Date;
+  }>(
+    `SELECT id, state, task, created_at, expires_at FROM errands
       WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
     [userId, limit],
   );
-  return rows.map((r) => ({ id: r.id, state: r.state, task: r.task, createdAt: r.created_at }));
+  return rows.map((r) => ({
+    id: r.id,
+    state: r.state,
+    task: r.task,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  }));
 }
 
 export async function insertErrand(

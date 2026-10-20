@@ -24,10 +24,11 @@ const shopCss = [
   text: readFileSync(path, 'utf8'),
 }));
 
+const light = /:root\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
+const dark =
+  /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ?? '';
+
 describe('tokens.css', () => {
-  const light = /:root\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
-  const dark =
-    /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ?? '';
   const names = (block: string) => [...block.matchAll(/(--[\w-]+):/g)].map((m) => m[1]);
 
   it('has the colour, space, radius and type tokens the rules name', () => {
@@ -119,6 +120,64 @@ describe('the shop stylesheets', () => {
     );
     expect(all).toMatch(/min-height:\s*var\(--tap\)/);
     expect(all).toMatch(/prefers-reduced-motion:\s*reduce/);
+  });
+
+  // PR O: one background everywhere, so no seam shows around the app (either theme, either app).
+  it('paints html, body and the app root with --bg and no margin, in both apps', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const page = /html,\s*body,\s*#root\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(page).toMatch(/margin:\s*0/);
+    expect(page).toMatch(/background:\s*var\(--bg\)/);
+    for (const root of ['.km-app', '.cu-app']) {
+      const rule = new RegExp(`(?:^|\\n)\\${root}\\s*\\{([^}]*)\\}`).exec(all)?.[1] ?? '';
+      expect(rule, root).toMatch(/background:\s*var\(--bg\)/);
+      expect(rule, root).toMatch(/min-height:\s*100dvh/);
+    }
+    for (const column of ['.sh-column', '.cu-column']) {
+      const rule = new RegExp(`\\${column}\\s*\\{([^}]*)\\}`).exec(all)?.[1] ?? '';
+      expect(rule, column).toMatch(/background:\s*var\(--bg\)/);
+      expect(rule, column).not.toMatch(/border|outline|box-shadow/);
+    }
+  });
+
+  it('draws focus in the brand colour: the ring on keyboard focus, one 2 px border on text inputs', () => {
+    expect(light).toMatch(/--focus:\s*var\(--brand\)/);
+    expect(dark).toMatch(/--focus:\s*var\(--brand\)/);
+    const all = shopCss.map((f) => f.text).join('\n');
+    expect(all).not.toMatch(/:focus\s*\{[^}]*outline:\s*2px/);
+    for (const box of ['.sh-input-wrap:focus-within', '.cu-find__box:focus-within']) {
+      const rule = new RegExp(`\\${box}\\s*\\{([^}]*)\\}`).exec(all)?.[1] ?? '';
+      expect(rule, box).toMatch(/border-color:\s*var\(--focus\)/);
+      expect(rule, box).not.toMatch(/outline:\s*2px/);
+    }
+  });
+
+  it('fits the customer slip to its content and keeps the meta clear of the stamp', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const ruled = /\.cu-parchi div\.sh-parchi__ruled\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(ruled).toMatch(/min-height:\s*0/);
+    const row = /\.cu-parchi \.sh-parchi__meta\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(row).toMatch(/flex-wrap:\s*wrap/);
+    const meta = /\.cu-parchi__meta\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(meta).toMatch(/min-width:\s*0/);
+    expect(meta).toMatch(/flex:\s*1/);
+  });
+
+  it('hangs the closed sign still: no animation, no movement', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    expect(all).toMatch(/\.sh-closed-sign/);
+    const rules = [...all.matchAll(/[^{}]*\.sh-closed-sign[^{]*\{([^}]*)\}/g)]
+      .map((m) => m[1])
+      .join('\n');
+    expect(rules).not.toMatch(/animation|transition/);
+    expect(all).not.toMatch(/\.sh-blank/);
+  });
+
+  it('writes the reply card meta in sentence case', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const meta = /\.cu-reply \.sh-caption\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(meta).toMatch(/text-transform:\s*none/);
+    expect(meta).toMatch(/letter-spacing:\s*0/);
   });
 
   it('never uses marigold as a text colour', () => {

@@ -17,6 +17,7 @@ export type {
   RequestsContext,
 } from './service.js';
 export { requestsRouter } from './router.js';
+export { distanceBand } from './distanceBand.js';
 export { deliveryOfferForRequest, otherAnsweredShops } from './deliveryOffer.js';
 export { ownsSavedAddress } from './deliveryAddress.js';
 export type { RequestDeliveryOffer } from './deliveryOffer.js';

@@ -2,7 +2,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { timeAfter } from '../lib/time.js';
-import { fakeSeekerApi, seekerOrder } from '../test/fakes.js';
+import { errandListItem, fakeSeekerApi, seekerOrder } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { MyOrders } from './MyOrders.js';
 
@@ -34,6 +34,45 @@ describe('My orders', () => {
     expect(screen.getByText('Orders you place from a request show up here.')).toBeTruthy();
     await user.click(screen.getByRole('link', { name: 'Find an item' }));
     expect(navigate).toHaveBeenCalledWith('/app/');
+  });
+
+  it('lists recent errands with the task, status and date, each a link to the errand', async () => {
+    const myErrands = vi.fn(async () => [
+      errandListItem({ id: 'e-1', task: 'school things for Riya', state: 'PLAN_READY' }),
+      errandListItem({
+        id: 'e-2',
+        task: 'diwali sweets and diyas',
+        state: 'CANCELLED',
+        createdAt: '2026-10-15T10:00:00.000Z',
+      }),
+    ]);
+    const { user, navigate } = setup({ myErrands });
+    const section = (await screen.findByRole('heading', { name: 'Errands' })).closest('section');
+    expect(section).toBeTruthy();
+    const rows = within(section as HTMLElement).getAllByRole('link');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.getAttribute('href')).toBe('/app/errand/e-1');
+    expect(rows[0]?.textContent).toContain('school things for Riya');
+    expect(rows[0]?.textContent).toContain('Plan ready');
+    expect(rows[0]?.textContent).toContain('16 Oct');
+    expect(rows[1]?.textContent).toContain('Cancelled');
+    await user.click(rows[0] as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith('/app/errand/e-1');
+    // Errands are not orders: the "No orders yet" empty state does not hide them.
+    expect(screen.queryByText('No orders yet.')).toBeNull();
+  });
+
+  it('leaves the Errands section out when there are none, or when the list cannot load', async () => {
+    const first = setup({ myErrands: vi.fn(async () => []) });
+    expect(await screen.findByText('No orders yet.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Errands' })).toBeNull();
+    first.unmount();
+    setup({
+      myErrands: vi.fn(async () => Promise.reject(new Error('offline'))),
+      myOrders: vi.fn(async () => [seekerOrder()]),
+    });
+    expect(await screen.findByRole('link', { name: /Mishra Kirana/ })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Errands' })).toBeNull();
   });
 
   it('shows skeletons while loading', () => {

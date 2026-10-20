@@ -21,11 +21,17 @@ self.addEventListener('push', (event) => {
   let title = 'KahanMilega';
   let body = '';
   let url = HOME;
+  let tag = '';
+  let renotify = true;
   try {
     const data = event.data ? event.data.json() : null;
     if (data && typeof data.title === 'string') title = data.title;
-    if (data && typeof data.item === 'string') body = data.item;
+    // Older pushes carried the item name as `item`.
+    if (data && typeof data.body === 'string') body = data.body;
+    else if (data && typeof data.item === 'string') body = data.item;
     if (data) url = safePath(data.url);
+    if (data && typeof data.tag === 'string') tag = data.tag.slice(0, 80);
+    if (data && data.renotify === false) renotify = false;
   } catch {
     // A payload we cannot read still has to show something: a browser may not push silently.
   }
@@ -34,9 +40,10 @@ self.addEventListener('push', (event) => {
       body,
       icon: '/app/icon-192.png',
       badge: '/app/icon-192.png',
-      // One notification per screen: a second ping to the shop replaces the first instead of stacking.
-      tag: url,
-      renotify: true,
+      // The tag names the request or order, so a later push replaces the earlier one instead of
+      // stacking; renotify false makes that replacement silent (ADR-0044).
+      tag: tag || url,
+      renotify,
       data: { url },
     }),
   );

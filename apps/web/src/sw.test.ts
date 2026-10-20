@@ -86,19 +86,51 @@ describe('the service worker (public/sw.js)', () => {
   });
 
   describe('push', () => {
-    it('shows the title and the item, and remembers the link', async () => {
+    it('shows the title and body, and remembers the link', async () => {
       const { push, showNotification } = load();
-      await push({ title: 'Naya sawaal: atta', item: 'atta', url: '/app/shop' });
+      await push({
+        title: 'New request: atta · under 1 km',
+        body: 'Open the shop to answer',
+        tag: 'shop-requests',
+        renotify: true,
+        url: '/app/shop',
+      });
       expect(showNotification).toHaveBeenCalledOnce();
       const [title, options] = showNotification.mock.calls[0] as unknown as [
         string,
-        { body: string; tag: string; data: { url: string } },
+        { body: string; tag: string; renotify: boolean; data: { url: string } },
       ];
-      expect(title).toBe('Naya sawaal: atta');
-      expect(options.body).toBe('atta');
+      expect(title).toBe('New request: atta · under 1 km');
+      expect(options.body).toBe('Open the shop to answer');
       expect(options.data.url).toBe('/app/shop');
-      // One notification per link: a second ping to /app/shop replaces the first instead of stacking.
+      // The tag names the request or order, so a later push replaces the earlier one.
+      expect(options.tag).toBe('shop-requests');
+      expect(options.renotify).toBe(true);
+    });
+
+    it('replaces a notification silently when the push says renotify is false', async () => {
+      const { push, showNotification } = load();
+      await push({
+        title: '2 shops have atta',
+        body: 'b',
+        tag: 'req:1',
+        renotify: false,
+        url: '/app/request/1',
+      });
+      const options = (
+        showNotification.mock.calls[0] as unknown as [string, { renotify: boolean }]
+      )[1];
+      expect(options.renotify).toBe(false);
+    });
+
+    it('falls back to the link as the tag for an older payload', async () => {
+      const { push, showNotification } = load();
+      await push({ title: 'Naya sawaal: atta', item: 'atta', url: '/app/shop' });
+      const options = (
+        showNotification.mock.calls[0] as unknown as [string, { body: string; tag: string }]
+      )[1];
       expect(options.tag).toBe('/app/shop');
+      expect(options.body).toBe('atta');
     });
 
     it('still shows something when the payload cannot be read (a browser must show a notification)', async () => {

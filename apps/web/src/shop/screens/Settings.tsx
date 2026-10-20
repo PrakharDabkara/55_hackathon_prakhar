@@ -8,7 +8,8 @@ import { Button } from '../../ui/Button.js';
 import { CategoryPicker } from '../ui/CategoryPicker.js';
 import { Field } from '../../ui/Field.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
-import { ShopLogo } from '../../ui/ShopLogo.js';
+import { BottomSheet } from '../../ui/BottomSheet.js';
+import { Icon } from '../../ui/Icon.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {
@@ -34,6 +35,7 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
   const [place, setPlace] = useState<LatLng | null>({ lat: shop.lat, lng: shop.lng });
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [askRemove, setAskRemove] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,6 +57,7 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
   }
 
   async function removeLogo() {
+    setAskRemove(false);
     setLogoBusy(true);
     try {
       await api.deleteLogo();
@@ -95,30 +98,40 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
         <h2 id="logo-title" className="sh-heading">
           {s.logoTitle}
         </h2>
-        <div className="sh-logorow">
-          <ShopLogo name={shop.name} logoUrl={shop.logoUrl} size={64} />
-          <div className="sh-logorow__actions">
-            <input
-              ref={input}
-              type="file"
-              accept="image/*"
-              hidden
-              tabIndex={-1}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                void changeLogo(file);
-              }}
-            />
-            <Button variant="secondary" disabled={logoBusy} onClick={() => input.current?.click()}>
-              {s.changeLogo}
-            </Button>
-            {shop.logoUrl && (
-              <Button variant="quiet" disabled={logoBusy} onClick={() => void removeLogo()}>
-                {s.removeLogo}
-              </Button>
+        <div className="sh-logopick">
+          <input
+            ref={input}
+            type="file"
+            accept="image/*"
+            hidden
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              void changeLogo(file);
+            }}
+          />
+          <button
+            type="button"
+            className={`sh-logopick__circle${shop.logoUrl ? ' sh-logopick__circle--set' : ''}`}
+            aria-label={s.changeLogo}
+            disabled={logoBusy}
+            onClick={() => input.current?.click()}
+          >
+            {shop.logoUrl ? (
+              <img className="sh-logopick__img" src={shop.logoUrl} alt="" />
+            ) : (
+              <Icon name="camera" size={32} />
             )}
-          </div>
+            <span className="sh-logopick__plus" aria-hidden="true">
+              <Icon name="camera" size={16} />
+            </span>
+          </button>
+          {shop.logoUrl && (
+            <Button variant="quiet" disabled={logoBusy} onClick={() => setAskRemove(true)}>
+              {s.removeLogo}
+            </Button>
+          )}
         </div>
         {logoError && (
           <p role="alert" className="sh-error">
@@ -153,6 +166,23 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
       >
         {s.save}
       </Button>
+      <BottomSheet
+        open={askRemove}
+        title={s.removeLogoTitle}
+        onClose={() => setAskRemove(false)}
+        footer={
+          <>
+            <Button variant="danger" onClick={() => void removeLogo()}>
+              {s.removeLogoYes}
+            </Button>
+            <Button variant="quiet" onClick={() => setAskRemove(false)}>
+              {s.keepLogo}
+            </Button>
+          </>
+        }
+      >
+        <p className="sh-body">{s.removeLogoText}</p>
+      </BottomSheet>
     </>
   );
 }

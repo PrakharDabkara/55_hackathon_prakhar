@@ -6,7 +6,13 @@ import { waitFor } from '../testing/waitFor.js';
 import { startPushWorker, type PushWorker } from './pushWorker.js';
 
 const logger = pino({ level: 'silent' });
-const payload = { title: 'Naya sawaal: atta', item: 'atta', url: '/app/shop' };
+const payload = {
+  title: 'New request: atta · under 1 km',
+  body: 'Open the shop to answer',
+  tag: 'shop-requests',
+  renotify: true,
+  url: '/app/shop',
+};
 
 // ADR-0034: sends go through their own BullMQ queue, so a push service having a bad minute costs a retry.
 describe('push queue', () => {

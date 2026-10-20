@@ -120,16 +120,34 @@ describe('push notifications for the events of a search, an errand and an order'
     );
     return requestId;
   };
-  const answer = async (said: 'yes' | 'no' = 'yes') => {
-    const pings = (await request(app).get('/shops/me/pings').set(auth(shop))).body;
+  const answer = async (said: 'yes' | 'no' = 'yes', who: User = shop, pricePaise = 4500) => {
+    const pings = (await request(app).get('/shops/me/pings').set(auth(who))).body;
     await request(app)
       .post(`/pings/${pings[0].id}/answer`)
-      .set(auth(shop))
+      .set(auth(who))
       .send(
         said === 'yes'
-          ? { answer: 'yes', pricePaise: 4500, delivery: { feePaise: 3000, minutes: 45 } }
+          ? { answer: 'yes', pricePaise, delivery: { feePaise: 3000, minutes: 45 } }
           : { answer: 'no' },
       );
+  };
+  /** More shops in range, each with a device subscribed, to get a second and third yes. */
+  const moreShops = async (count: number) => {
+    const made: (User & { shopId: string })[] = [];
+    for (let i = 0; i < count; i++) {
+      const owner = await loginAs(app, 'shop', String(phone++));
+      const res = await request(app)
+        .post('/shops')
+        .set(auth(owner))
+        .send({
+          name: `Extra Store ${i + 2}`,
+          lat: north(0.35 + i * 0.05),
+          lng: ORIGIN.lng,
+          categories: ['grocery'],
+        });
+      made.push({ ...owner, shopId: res.body.id as string });
+    }
+    return made;
   };
   const to = (subscriptionId: string) => queued.filter((q) => q.subscriptionId === subscriptionId);
   /** A stale offer (older than 30 minutes) starts REQUESTED; a fresh one is binding and starts ACCEPTED. */
@@ -149,15 +167,29 @@ describe('push notifications for the events of a search, an errand and an order'
     request(app).post(`/orders/${id}/${verb}`).set(auth(shop));
 
   describe('the shop', () => {
-    it('hears "Naya sawaal: <item>" for a new ping, with a link to the shop screen and nothing else', async () => {
+    it('hears "New request: <item> · <band>" for a new ping, with a link to the shop screen and no customer detail', async () => {
       await search();
       await notifier.idle();
       expect(to(shopSub)).toHaveLength(1);
       const job = to(shopSub)[0] as Queued;
-      expect(job.payload.title).toMatch(/^Naya sawaal: \S+/);
+      expect(job.payload.title).toMatch(/^New request: \S+.* · under 1 km$/);
       expect(job.payload.url).toBe('/app/shop');
-      expect(Object.keys(job.payload).sort()).toEqual(['item', 'title', 'url']);
+      expect(job.payload.tag).toBe('shop-requests');
+      expect(job.payload.renotify).toBe(true);
+      expect(Object.keys(job.payload).sort()).toEqual(['body', 'renotify', 'tag', 'title', 'url']);
       expect(to(seekerSub)).toHaveLength(0);
+    });
+
+    it('one notification per shop: the next request reuses the tag and counts the ones still waiting', async () => {
+      await search();
+      await search('doodh');
+      await notifier.idle();
+      const heard = to(shopSub);
+      expect(heard).toHaveLength(2);
+      expect(new Set(heard.map((q) => q.payload.tag))).toEqual(new Set(['shop-requests']));
+      expect(heard[0]?.payload.title).not.toMatch(/more/);
+      expect(heard[1]?.payload.title).toMatch(/ and 1 more$/);
+      expect(heard.every((q) => q.payload.renotify)).toBe(true);
     });
 
     it('a shop that is closed when the question arrives is not pushed (the card waits in its list)', async () => {
@@ -189,25 +221,27 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(queued).toHaveLength(0);
     });
 
-    it('hears "Naya order: <item>" for a new delivery order, and the customer is not told', async () => {
-      await orderOf();
-      const orders = to(shopSub).filter((q) => q.payload.title.startsWith('Naya order: '));
+    it('hears "New order: <item>" for a new delivery order, and the customer is not told', async () => {
+      const { orderId } = await orderOf();
+      const orders = to(shopSub).filter((q) => q.payload.title.startsWith('New order: '));
       expect(orders).toHaveLength(1);
       expect(orders[0]?.payload.url).toBe('/app/shop');
+      expect(orders[0]?.payload.tag).toBe(`order:${orderId}`);
       // The customer made the order; the only push they got was for the answer that came before it.
       expect(to(seekerSub).map((q) => q.payload.title)).toEqual([
-        expect.stringMatching(/^A shop replied/),
+        expect.stringMatching(/^Push Kirana has /),
       ]);
     });
 
-    it('hears "Grahak ne aapko chuna" instead when the customer takes a fresh offer', async () => {
+    it('hears "Customer chose you" instead when the customer takes a fresh offer, and the customer gets no accepted push', async () => {
       const { orderId } = await orderOf(true);
-      const chosen = to(shopSub).filter((q) =>
-        q.payload.title.startsWith('Grahak ne aapko chuna: '),
-      );
+      const chosen = to(shopSub).filter((q) => q.payload.title.startsWith('Customer chose you: '));
       expect(chosen).toHaveLength(1);
       expect(chosen[0]?.payload.url).toBe('/app/shop');
-      expect(to(shopSub).some((q) => q.payload.title.startsWith('Naya order: '))).toBe(false);
+      expect(chosen[0]?.payload.tag).toBe(`order:${orderId}`);
+      expect(to(shopSub).some((q) => q.payload.title.startsWith('New order: '))).toBe(false);
+      // Placing it is the customer's own tap: no "accepted" for an order born ACCEPTED.
+      expect(to(seekerSub).some((q) => /accepted/i.test(q.payload.title))).toBe(false);
       expect(
         (await pool.query(`SELECT state FROM delivery_orders WHERE id = $1`, [orderId])).rows[0]
           .state,
@@ -227,16 +261,42 @@ describe('push notifications for the events of a search, an errand and an order'
   });
 
   describe('the customer', () => {
-    it('hears "A shop replied: <item>" once per request, a few seconds late so a burst is one', async () => {
+    it('hears "<Shop> has <item> · ₹<price>" for the first yes, a few seconds late, and it alerts', async () => {
       const requestId = await search();
       await answer('yes');
       await notifier.idle();
       const heard = to(seekerSub);
       expect(heard).toHaveLength(1);
-      expect(heard[0]?.payload.title).toMatch(/^A shop replied: \S+/);
+      expect(heard[0]?.payload.title).toMatch(/^Push Kirana has \S+.* · ₹45$/);
       expect(heard[0]?.payload.url).toBe(`/app/request/${requestId}`);
-      expect(heard[0]?.key).toBe(`answer:${requestId}`);
+      expect(heard[0]?.payload.tag).toBe(`req:${requestId}`);
+      expect(heard[0]?.payload.renotify).toBe(true);
+      expect(heard[0]?.key).toBe(`answer:${requestId}:1`);
       expect(heard[0]?.delayMs).toBe(3000);
+    });
+
+    it('updates the same notification silently, with the count and the lowest price, for the 2nd and 3rd yes', async () => {
+      const [second, third] = await moreShops(2);
+      for (const who of [second, third]) {
+        await saveSubscription(pool, who?.userId as string, {
+          endpoint: `https://fcm.googleapis.com/fcm/send/${who?.userId}`,
+          ...KEYS,
+        });
+      }
+      const requestId = await search();
+      await answer('yes', shop, 4500);
+      await answer('yes', second as User, 4200);
+      await answer('yes', third as User, 4800);
+      await notifier.idle();
+      const heard = to(seekerSub);
+      expect(heard).toHaveLength(3);
+      expect(new Set(heard.map((q) => q.payload.tag))).toEqual(new Set([`req:${requestId}`]));
+      expect(heard[0]?.payload.renotify).toBe(true);
+      expect(heard[1]?.payload.title).toMatch(/^2 shops have \S+.* · from ₹42$/);
+      expect(heard[1]?.payload.renotify).toBe(false);
+      expect(heard[2]?.payload.title).toMatch(/^3 shops have \S+.* · from ₹42$/);
+      expect(heard[2]?.payload.renotify).toBe(false);
+      expect(new Set(heard.map((q) => q.key)).size).toBe(3);
     });
 
     it('hears nothing for a request that only got a no', async () => {
@@ -246,7 +306,7 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(to(seekerSub)).toHaveLength(0);
     });
 
-    it('hears "Your plan is ready" when an errand is ready, and nothing while it is still planning', async () => {
+    it('hears "Your errand plan is ready" when an errand is ready, and nothing while it is still planning', async () => {
       const { rows } = await pool.query<{ id: string }>(
         `INSERT INTO errands (user_id, task, location, state)
          VALUES ($1, 'school things', ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 'PLANNING')
@@ -271,7 +331,11 @@ describe('push notifications for the events of a search, an errand and an order'
       await notifier.idle();
       expect(to(seekerSub)).toHaveLength(1);
       expect(to(seekerSub)[0]).toMatchObject({
-        payload: { title: 'Your plan is ready', url: `/app/errand/${errandId}` },
+        payload: {
+          title: 'Your errand plan is ready',
+          url: `/app/errand/${errandId}`,
+          tag: `errand:${errandId}`,
+        },
         key: `plan:${errandId}`,
       });
     });
@@ -287,7 +351,7 @@ describe('push notifications for the events of a search, an errand and an order'
           )
         ).rows[0]?.id as string;
 
-      it('leaves the answers of the errand\'s own searches to "Your plan is ready"', async () => {
+      it('leaves the answers of the errand\'s own searches to "Your errand plan is ready"', async () => {
         const errandId = await runningErrand();
         const requestId = await search();
         await pool.query(
@@ -325,12 +389,12 @@ describe('push notifications for the events of a search, an errand and an order'
       });
     });
 
-    it('hears about an order as the shop accepts and sends it out', async () => {
+    it('hears about an order as the shop accepts and sends it out, naming the shop, under one tag', async () => {
       const { orderId } = await orderOf();
       queued = [];
       for (const [verb, title] of [
-        ['accept', /accept/i],
-        ['out', /on its way/i],
+        ['accept', /^Push Kirana accepted your \S+.* order$/],
+        ['out', /^Push Kirana: your \S+.* is on the way$/],
       ] as const) {
         await act(orderId, verb);
         await notifier.idle();
@@ -338,21 +402,19 @@ describe('push notifications for the events of a search, an errand and an order'
         expect(heard, verb).toHaveLength(1);
         expect(heard[0]?.payload.title, verb).toMatch(title);
         expect(heard[0]?.payload.url).toBe(`/app/order/${orderId}`);
+        expect(heard[0]?.payload.tag).toBe(`order:${orderId}`);
         queued = [];
       }
     });
 
-    it('tells the shop when the customer taps Received, with the existing delivered copy', async () => {
+    it('does not tell the shop when the customer taps Received (nothing to act on)', async () => {
       const { orderId } = await orderOf();
       for (const verb of ['accept', 'out']) await act(orderId, verb);
       await notifier.idle();
       queued = [];
       await request(app).post(`/orders/${orderId}/received`).set(auth(seeker));
       await notifier.idle();
-      expect(to(shopSub)).toHaveLength(1);
-      expect(to(shopSub)[0]?.payload.title).toMatch(/pahunch/i);
-      expect(to(shopSub)[0]?.payload.url).toBe('/app/shop');
-      expect(to(seekerSub)).toHaveLength(0);
+      expect(queued).toHaveLength(0);
     });
 
     it('tells the customer when the shop cancels an accepted order, with the reason kept out of the push', async () => {
@@ -366,7 +428,7 @@ describe('push notifications for the events of a search, an errand and an order'
         .send({ reason: 'out_of_stock', text: 'call 9876543210' });
       await notifier.idle();
       expect(to(seekerSub)).toHaveLength(1);
-      expect(to(seekerSub)[0]?.payload.title).toMatch(/cancel/i);
+      expect(to(seekerSub)[0]?.payload.title).toMatch(/^Push Kirana cancelled your \S+.* order$/);
       expect(JSON.stringify(queued)).not.toMatch(/9876543210|out_of_stock/);
       expect(to(shopSub)).toHaveLength(0);
     });
@@ -402,15 +464,15 @@ describe('push notifications for the events of a search, an errand and an order'
     for (const verb of ['accept', 'out']) await act(orderId, verb);
     await request(app).post(`/orders/${orderId}/received`).set(auth(seeker));
     await notifier.idle();
-    expect(queued.length).toBeGreaterThan(3);
+    expect(queued.length).toBeGreaterThan(2);
     const all = JSON.stringify(queued.map((q) => q.payload));
     expect(all).not.toMatch(/Sapna|Vijay|Flat|Asha/);
     // The link holds a random id; the words a person reads must hold no phone or coordinates.
-    const words = JSON.stringify(queued.map((q) => [q.payload.title, q.payload.item]));
+    const words = JSON.stringify(queued.map((q) => [q.payload.title, q.payload.body]));
     expect(words).not.toMatch(/\d{7}/);
     expect(words).not.toMatch(/\d{2}\.\d{3,}/);
     for (const q of queued) {
-      expect(Object.keys(q.payload).sort()).toEqual(['item', 'title', 'url']);
+      expect(Object.keys(q.payload).sort()).toEqual(['body', 'renotify', 'tag', 'title', 'url']);
       expect(q.payload.url).toMatch(/^\/app\/(shop|request\/[\w-]+|errand\/[\w-]+|order\/[\w-]+)$/);
     }
   });

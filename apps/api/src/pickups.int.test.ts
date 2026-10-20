@@ -4,7 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
-import { createNotifier, type EnqueuePush } from './modules/push/index.js';
+import { createNotifier, type EnqueuePush, type PushPayload } from './modules/push/index.js';
 import { createRateLimiter, type CounterStore } from './modules/push/index.js';
 import { createRealtime } from './modules/realtime/index.js';
 import { sweepPickups } from './modules/pickups/index.js';
@@ -384,7 +384,7 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
   let owner: User;
   let shopId: string;
   let itemIds: string[];
-  type Queued = { payload: { title: string; item: string; url: string }; subscriptionId: string };
+  type Queued = { payload: PushPayload; subscriptionId: string };
   let queued: Queued[];
   const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.token}` });
 
@@ -471,7 +471,9 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
     expect(queued).toHaveLength(1);
     expect((queued[0] as Queued).payload).toEqual({
       title: `Did you get ${name}?`,
-      item: name,
+      body: 'Tap to tell us',
+      tag: 'pickup',
+      renotify: true,
       url: '/app/',
     });
     expect(JSON.stringify(queued)).not.toContain('Yaad Kirana');
@@ -497,7 +499,7 @@ describe('"Le liya?" push reminder (ADR-0034 module, ADR-0035)', () => {
     for (const item of itemIds) await visit(item, 75);
     expect(await makeNotifier().remindPickups()).toBe(1);
     expect(queued).toHaveLength(1);
-    expect((queued[0] as Queued).payload.item).toMatch(/\+2$/);
+    expect((queued[0] as Queued).payload.title).toMatch(/\+2\?$/);
   });
 
   it('counts against the same per-minute limit as every other push', async () => {

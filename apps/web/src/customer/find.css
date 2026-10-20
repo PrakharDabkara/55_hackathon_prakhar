@@ -74,9 +74,7 @@
   background: var(--surface);
 }
 .cu-find__box:focus-within {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  border-color: var(--focus); /* a single border, no outer ring */
 }
 .cu-find__input {
   min-height: 64px;
@@ -87,7 +85,7 @@
   font: 400 20px/28px var(--font-ui);
 }
 .cu-find__input:focus-visible {
-  outline: none; /* the whole box draws the ring (above) */
+  outline: none; /* the whole box draws the focus border (above) */
 }
 .cu-find__box-foot {
   display: flex;
@@ -126,8 +124,25 @@
 }
 .cu-find__errand-text {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-1);
+}
+.cu-find__errand--resume {
+  min-height: var(--tap);
+  border-color: var(--brand);
+}
+.cu-find__errand-task {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-find__chevron {
+  flex: none;
+  color: var(--ink-muted);
 }
 .cu-find__shop {
   align-self: center;

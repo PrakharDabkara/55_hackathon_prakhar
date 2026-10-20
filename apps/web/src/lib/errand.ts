@@ -1,4 +1,4 @@
-import type { PlanRoute, PlanVariant } from './seekerApi.js';
+import type { ErrandListItem, PlanRoute, PlanVariant } from './seekerApi.js';
 
 export interface MapStop {
   /** 1 for the first shop to visit. */
@@ -67,6 +67,23 @@ export const shownProgress = (lines: string[]): string[] =>
 
 export const isFinalState = (state: string): boolean =>
   state === 'PLAN_READY' || state === 'FAILED' || state === 'EXPIRED' || state === 'CANCELLED';
+
+/** Still working or waiting on the customer, and not past its time. */
+export const isActiveErrand = (errand: ErrandListItem, now: number = Date.now()): boolean =>
+  !isFinalState(errand.state) && Date.parse(errand.expiresAt) > now;
+
+const PLAN_STAYS_MS = 24 * 3_600_000;
+
+/** The errand Find offers to continue: the newest one still running, or a plan ready within a day. */
+export function resumableErrand(
+  errands: ErrandListItem[],
+  now: number = Date.now(),
+): ErrandListItem | null {
+  const fresh = (e: ErrandListItem) =>
+    isActiveErrand(e, now) ||
+    (e.state === 'PLAN_READY' && now - Date.parse(e.createdAt) < PLAN_STAYS_MS);
+  return [...errands].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).find(fresh) ?? null;
+}
 
 /**
  * Two plans that buy the same things from the same shops at the same prices are one plan: the

@@ -154,6 +154,32 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
       expect(errands.body[0]).toMatchObject({ task: 'chai ka saaman' });
     });
 
+    it('lists the customer’s last 20 errands, newest first, with only the minimal fields', async () => {
+      await pool.query(
+        `INSERT INTO errands (user_id, task, location, created_at)
+         SELECT $1, 'task ' || n, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography,
+                now() - (n || ' minutes')::interval
+           FROM generate_series(1, 25) AS n`,
+        [seeker.userId, ORIGIN.lng, ORIGIN.lat],
+      );
+      const res = await request(app).get('/errands').set(auth(seeker));
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(20);
+      expect(res.body[0].task).toBe('task 1');
+      expect(Object.keys(res.body[0]).sort()).toEqual([
+        'createdAt',
+        'expiresAt',
+        'id',
+        'state',
+        'task',
+      ]);
+      expect(res.body[0].expiresAt).toEqual(expect.any(String));
+    });
+
+    it('needs a login', async () => {
+      expect((await request(app).get('/errands')).status).toBe(401);
+    });
+
     it('a search can be opened again, and its view still never carries the customer’s own point', async () => {
       const id = await answeredRequest();
       const res = await request(app).get(`/requests/${id}`).set(auth(seeker));

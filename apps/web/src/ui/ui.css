@@ -1,7 +1,16 @@
 /* The shop app's primitives. Tokens only (design/tokens.css); sizes follow the Parchi type scale. */
+
+/* One background from the page edge to the app, so no seam shows (a browser leaves an 8px body margin and its own canvas colour otherwise). */
+html,
+body,
+#root {
+  margin: 0;
+  background: var(--bg);
+}
 .km-app {
   min-height: 100vh;
-  background: var(--surface-sunk);
+  min-height: 100dvh;
+  background: var(--bg);
   color: var(--ink);
   font: 400 16px/24px var(--font-ui);
   -webkit-text-size-adjust: 100%;
@@ -35,6 +44,7 @@
   position: relative;
   max-width: 480px;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   background: var(--bg);
   display: flex;
@@ -193,9 +203,7 @@
   background: var(--surface);
 }
 .sh-input-wrap:focus-within {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  border-color: var(--focus); /* the one focus mark on a text input: no outer ring */
 }
 .sh-prefix {
   display: flex;
@@ -216,7 +224,7 @@
   font: 400 16px/24px var(--font-ui);
 }
 .sh-input:focus-visible {
-  outline: none; /* the whole field draws the ring (above) */
+  outline: none; /* the whole field draws the focus border (above) */
 }
 .sh-input[aria-invalid='true'] {
   color: var(--danger);

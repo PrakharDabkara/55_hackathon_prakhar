@@ -21,7 +21,7 @@ import {
 } from '../lib/orders.js';
 import { earlierStatus, orderCaption } from '../lib/orderText.js';
 import type { PushClient } from '../lib/push.js';
-import type { SeekerApi } from '../lib/seekerApi.js';
+import type { ErrandListItem, SeekerApi } from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
@@ -31,6 +31,7 @@ interface Props {
   api: Pick<
     SeekerApi,
     | 'myOrders'
+    | 'myErrands'
     | 'savedAddress'
     | 'forgetAddress'
     | 'eventTicket'
@@ -49,6 +50,9 @@ interface Props {
   pushClient?: PushClient;
 }
 
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
 /**
  * "My orders": the question about a pickup first, then the orders still moving, the earlier ones,
  * the address the customer chose to keep (which they can delete) and the notifications switch.
@@ -58,6 +62,7 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
   const c = t.c;
   const online = useOnline();
   const [orders, setOrders] = useState<SeekerOrder[] | null>(null);
+  const [errands, setErrands] = useState<ErrandListItem[]>([]);
   const [failed, setFailed] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -71,6 +76,11 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
         setFailed(false);
       },
       () => alive.current && setFailed(true),
+    );
+    // Errands are a bonus list: if it cannot load, the orders still show.
+    api.myErrands().then(
+      (next) => alive.current && setErrands(next),
+      () => undefined,
     );
   }, [api]);
 
@@ -155,7 +165,7 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
             </Button>
           </div>
         )}
-        {orders?.length === 0 && (
+        {orders?.length === 0 && errands.length === 0 && (
           <div className="cu-empty">
             <p className="sh-heading">{c.emptyTitle}</p>
             <p>{c.emptyHelp}</p>
@@ -178,6 +188,30 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
               {c.earlierTitle}
             </h2>
             <ul className="cu-list">{earlier.map((o) => row(o, false))}</ul>
+          </section>
+        )}
+
+        {errands.length > 0 && (
+          <section className="cu-section" aria-labelledby="orders-errands">
+            <h2 id="orders-errands" className="sh-caption">
+              {c.errandsTitle}
+            </h2>
+            <ul className="cu-list">
+              {errands.map((errand) => (
+                <li key={errand.id}>
+                  <a className="cu-order-row" {...appLink(navigate, `/app/errand/${errand.id}`)}>
+                    <span className="cu-order-row__body">
+                      <span className="cu-order-row__shop cu-order-row__task">{errand.task}</span>
+                      <span className="cu-order-row__meta">
+                        <span className="cu-pill">{c.errandState(errand.state)}</span>
+                        <span>{shortDate(errand.createdAt)}</span>
+                      </span>
+                    </span>
+                    <Icon name="right" size={20} />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 

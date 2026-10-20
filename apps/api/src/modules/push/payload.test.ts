@@ -4,54 +4,123 @@ import { buildPayload, type PushKind } from './payload.js';
 const ID = '3f2b8c1e-5d4a-4b7e-9a10-0c1d2e3f4a5b';
 
 describe('buildPayload', () => {
-  it('writes the shop titles', () => {
-    expect(buildPayload('new_ping', { item: 'atta' }).title).toBe('Naya sawaal: atta');
-    expect(buildPayload('new_order', { item: 'atta' }).title).toBe('Naya order: atta');
-  });
-
-  it('writes the customer titles', () => {
-    expect(buildPayload('shop_answered', { item: 'atta', id: ID }).title).toBe(
-      'A shop replied: atta',
-    );
-    expect(buildPayload('plan_ready', { id: ID }).title).toBe('Your plan is ready');
-    expect(buildPayload('order_accepted', { item: 'atta', id: ID }).title).toMatch(/accept/i);
-    expect(buildPayload('order_declined', { item: 'atta', id: ID }).title).toMatch(/declined/i);
-    expect(buildPayload('order_out', { item: 'atta', id: ID }).title).toMatch(/on its way/i);
-    expect(buildPayload('order_delivered', { item: 'atta', id: ID }).title).toMatch(/delivered/i);
-  });
-
-  it('writes the Delivery v2 titles and links', () => {
-    expect(buildPayload('order_chosen', { item: 'atta' })).toEqual({
-      title: 'Grahak ne aapko chuna: atta',
-      item: 'atta',
+  it('names the item and the distance band in a new request, with one tag for the whole shop', () => {
+    expect(buildPayload('new_ping', { item: 'atta', band: 'under 1 km' })).toEqual({
+      title: 'New request: atta · under 1 km',
+      body: 'Open the shop to answer',
+      tag: 'shop-requests',
+      renotify: true,
       url: '/app/shop',
     });
-    expect(buildPayload('order_received', { item: 'atta' }).title).toBe('Order pahunch gaya: atta');
-    expect(buildPayload('order_received', { item: 'atta' }).url).toBe('/app/shop');
-    expect(buildPayload('order_cancelled_by_shop', { item: 'atta', id: ID })).toEqual({
-      title: 'Shop cancelled your order: atta',
-      item: 'atta',
-      url: `/app/order/${ID}`,
+  });
+
+  it('adds "and N more" when several requests wait, and still alerts', () => {
+    const payload = buildPayload('new_ping', { item: 'atta', band: '1–2 km', more: 2 });
+    expect(payload.title).toBe('New request: atta · 1–2 km and 2 more');
+    expect(payload.tag).toBe('shop-requests');
+    expect(payload.renotify).toBe(true);
+  });
+
+  it('writes the shop order titles with a tag per order', () => {
+    expect(buildPayload('new_order', { item: 'atta', id: ID })).toMatchObject({
+      title: 'New order: atta',
+      tag: `order:${ID}`,
+      url: '/app/shop',
+    });
+    expect(buildPayload('order_chosen', { item: 'atta', id: ID })).toMatchObject({
+      title: 'Customer chose you: atta',
+      tag: `order:${ID}`,
+      url: '/app/shop',
     });
   });
 
-  it('asks "Le liya?" with the item only, and opens the home screen', () => {
-    const payload = buildPayload('pickup_ask', { item: 'atta' });
-    expect(payload).toEqual({ title: 'Did you get atta?', item: 'atta', url: '/app/' });
+  it('names the shop and the price for the first answer, and alerts', () => {
+    expect(
+      buildPayload('shop_answered', {
+        item: 'atta',
+        id: ID,
+        shop: 'Raju Kirana',
+        pricePaise: 4500,
+      }),
+    ).toEqual({
+      title: 'Raju Kirana has atta · ₹45',
+      body: 'Tap to see the reply',
+      tag: `req:${ID}`,
+      renotify: true,
+      url: `/app/request/${ID}`,
+    });
+    expect(
+      buildPayload('shop_answered', { item: 'atta', id: ID, shop: 'Raju', pricePaise: 4550 }).title,
+    ).toBe('Raju has atta · ₹45.50');
+    expect(buildPayload('shop_answered', { item: 'atta', id: ID, shop: 'Raju' }).title).toBe(
+      'Raju has atta',
+    );
   });
 
-  it('links to the right screen', () => {
-    expect(buildPayload('new_ping', { item: 'atta' }).url).toBe('/app/shop');
-    expect(buildPayload('new_order', { item: 'atta' }).url).toBe('/app/shop');
-    expect(buildPayload('shop_answered', { item: 'atta', id: ID }).url).toBe(`/app/request/${ID}`);
-    expect(buildPayload('plan_ready', { id: ID }).url).toBe(`/app/errand/${ID}`);
+  it('updates the same notification silently when more shops answer', () => {
+    const payload = buildPayload('shop_answered', {
+      item: 'atta',
+      id: ID,
+      shops: 3,
+      pricePaise: 4200,
+    });
+    expect(payload.title).toBe('3 shops have atta · from ₹42');
+    expect(payload.tag).toBe(`req:${ID}`);
+    expect(payload.renotify).toBe(false);
+  });
+
+  it('writes the customer order titles with the shop named and a tag per order', () => {
+    const args = { item: 'atta', id: ID, shop: 'Raju' };
+    expect(buildPayload('order_accepted', args).title).toBe('Raju accepted your atta order');
+    expect(buildPayload('order_declined', args).title).toBe('Raju declined your atta order');
+    expect(buildPayload('order_out', args).title).toBe('Raju: your atta is on the way');
+    expect(buildPayload('order_cancelled_by_shop', args).title).toBe(
+      'Raju cancelled your atta order',
+    );
     for (const kind of [
       'order_accepted',
       'order_declined',
       'order_out',
-      'order_delivered',
-    ] as const)
-      expect(buildPayload(kind, { item: 'atta', id: ID }).url).toBe(`/app/order/${ID}`);
+      'order_cancelled_by_shop',
+    ] as const) {
+      const payload = buildPayload(kind, args);
+      expect(payload.tag, kind).toBe(`order:${ID}`);
+      expect(payload.url, kind).toBe(`/app/order/${ID}`);
+    }
+  });
+
+  it('says the errand plan is ready, with a tag per errand', () => {
+    expect(buildPayload('plan_ready', { id: ID })).toMatchObject({
+      title: 'Your errand plan is ready',
+      tag: `errand:${ID}`,
+      url: `/app/errand/${ID}`,
+    });
+  });
+
+  it('asks "Did you get ...?" with the item only, and opens the home screen', () => {
+    expect(buildPayload('pickup_ask', { item: 'atta' })).toMatchObject({
+      title: 'Did you get atta?',
+      tag: 'pickup',
+      url: '/app/',
+    });
+  });
+
+  it('no longer has a push for the shop when the customer taps Received, nor a dead delivered kind', () => {
+    const kinds: string[] = [
+      'new_ping',
+      'new_order',
+      'shop_answered',
+      'plan_ready',
+      'order_accepted',
+      'order_declined',
+      'order_out',
+      'order_chosen',
+      'order_cancelled_by_shop',
+      'pickup_ask',
+    ];
+    expect(() => buildPayload('order_received' as PushKind, { item: 'atta', id: ID })).toThrow();
+    expect(() => buildPayload('order_delivered' as PushKind, { item: 'atta', id: ID })).toThrow();
+    expect(kinds).toHaveLength(10);
   });
 
   // The privacy rule (ADR-0034): a push passes through Google, Mozilla and Apple servers.
@@ -64,24 +133,34 @@ describe('buildPayload', () => {
       'order_accepted',
       'order_declined',
       'order_out',
-      'order_delivered',
       'order_chosen',
-      'order_received',
       'order_cancelled_by_shop',
       'pickup_ask',
     ];
 
-    it('has exactly a title, the item name and a deep link, and nothing else', () => {
+    it('has exactly a title, a body, a tag, renotify and a deep link, and nothing else', () => {
       for (const kind of kinds) {
-        const payload = buildPayload(kind, { item: 'atta', id: ID });
-        expect(Object.keys(payload).sort(), kind).toEqual(['item', 'title', 'url']);
+        const payload = buildPayload(kind, {
+          item: 'atta',
+          id: ID,
+          shop: 'Raju',
+          band: 'under 1 km',
+        });
+        expect(Object.keys(payload).sort(), kind).toEqual([
+          'body',
+          'renotify',
+          'tag',
+          'title',
+          'url',
+        ]);
         expect(payload.url, kind).toMatch(
           /^\/app\/(shop|request\/[\w-]+|errand\/[\w-]+|order\/[\w-]+)?$/,
         );
+        expect(payload.tag, kind).toMatch(/^[\w:-]{1,80}$/);
       }
     });
 
-    it('never carries a phone number or coordinates, even if the item text does', () => {
+    it('never carries a phone number or coordinates, even if the item or shop name does', () => {
       const hostile = [
         'atta +919876543210',
         'atta 9876543210',
@@ -90,27 +169,32 @@ describe('buildPayload', () => {
       ];
       for (const kind of kinds) {
         for (const item of hostile) {
-          const text = JSON.stringify(buildPayload(kind, { item, id: ID }));
+          const text = JSON.stringify(
+            buildPayload(kind, { item, id: ID, shop: `Raju ${item}`, band: 'under 1 km' }),
+          );
           expect(text, `${kind} ${item}`).not.toMatch(/\d{7}/);
           expect(text, `${kind} ${item}`).not.toMatch(/\+91/);
           expect(text, `${kind} ${item}`).not.toMatch(/\d{1,3}\.\d{3,}/);
-          expect(text, `${kind} ${item}`).toContain('atta');
+          if (kind !== 'plan_ready') expect(text, `${kind} ${item}`).toContain('atta');
         }
       }
     });
 
-    it('has no way to take an address: the builder is only given an item name and an id', () => {
+    it('has no way to take an address: the builder is only given a kind and a small set of words', () => {
       expect(buildPayload.length).toBe(2);
     });
 
-    it('keeps only a short, plain item name', () => {
-      const payload = buildPayload('new_ping', { item: `  a\u0000tta\n\n  ${'x'.repeat(200)} ` });
-      expect(payload.item).not.toMatch(/[\u0000-\u001f]/);
-      expect(payload.item.length).toBeLessThanOrEqual(60);
-      expect(payload.title.length).toBeLessThanOrEqual(90);
+    it('keeps only a short, plain item and shop name', () => {
+      const payload = buildPayload('shop_answered', {
+        item: `  a\u0000tta\n\n  ${'x'.repeat(200)} `,
+        shop: 'S'.repeat(200),
+        id: ID,
+      });
+      expect(payload.title).not.toMatch(/[\u0000-\u001f]/);
+      expect(payload.title.length).toBeLessThanOrEqual(120);
     });
 
-    it('refuses an id that is not a plain id, so the link cannot be bent', () => {
+    it('refuses an id that is not a plain id, so the link and tag cannot be bent', () => {
       expect(() => buildPayload('shop_answered', { item: 'atta', id: '../../evil' })).toThrow();
       expect(() => buildPayload('order_out', { item: 'atta', id: 'x?y=1' })).toThrow();
       expect(() => buildPayload('plan_ready', {})).toThrow();
