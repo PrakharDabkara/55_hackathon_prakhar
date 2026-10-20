@@ -60,13 +60,28 @@ describe('the request as a parchi', () => {
   it('has the screen title, how many shops were asked, how far, and the item', () => {
     show(answeredRequest([liveYes()], { pingStats: { sent: 10, yes: 1, no: 2, pending: 7 } }));
     expect(screen.getByRole('heading', { level: 1, name: 'Your request' })).toBeTruthy();
-    expect(screen.getByText('Sent to 10 shops · within 2 km')).toBeTruthy();
+    expect(screen.getByText('Sent to 10 shops · 2 km')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'sugar' })).toBeTruthy();
+  });
+
+  it('shows the quantity asked for under the item, and nothing when none was asked', () => {
+    const { unmount } = show(
+      answeredRequest([], {
+        quantity: { quantity: 2, unit: 'kg' },
+        pingStats: { sent: 1, yes: 0, no: 0, pending: 1 },
+      }),
+    );
+    const note = screen.getByText('2 kg');
+    expect(note.className).toContain('sh-parchi__note');
+    expect(note.previousElementSibling?.textContent).toBe('sugar');
+    unmount();
+    show(answeredRequest([], { pingStats: { sent: 1, yes: 0, no: 0, pending: 1 } }));
+    expect(document.querySelector('.cu-parchi .sh-parchi__note')).toBeNull();
   });
 
   it('writes a half kilometre with a decimal, one shop in the singular, and Hindi names in hi', () => {
     show(answeredRequest([], { radiusM: 500, pingStats: { sent: 1, yes: 0, no: 0, pending: 1 } }));
-    expect(screen.getByText('Sent to 1 shop · within 0.5 km')).toBeTruthy();
+    expect(screen.getByText('Sent to 1 shop · 0.5 km')).toBeTruthy();
   });
 
   it('uses the delivery band for a request that wants delivery', () => {

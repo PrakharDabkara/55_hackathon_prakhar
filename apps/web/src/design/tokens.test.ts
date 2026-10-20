@@ -152,6 +152,24 @@ describe('the shop stylesheets', () => {
     }
   });
 
+  it('fits the customer slip to its content and keeps the meta clear of the stamp', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const ruled = /\.cu-parchi div\.sh-parchi__ruled\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(ruled).toMatch(/min-height:\s*0/);
+    const row = /\.cu-parchi \.sh-parchi__meta\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(row).toMatch(/flex-wrap:\s*wrap/);
+    const meta = /\.cu-parchi__meta\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(meta).toMatch(/min-width:\s*0/);
+    expect(meta).toMatch(/flex:\s*1/);
+  });
+
+  it('writes the reply card meta in sentence case', () => {
+    const all = shopCss.map((f) => f.text).join('\n');
+    const meta = /\.cu-reply \.sh-caption\s*\{([^}]*)\}/.exec(all)?.[1] ?? '';
+    expect(meta).toMatch(/text-transform:\s*none/);
+    expect(meta).toMatch(/letter-spacing:\s*0/);
+  });
+
   it('never uses marigold as a text colour', () => {
     const all = shopCss.map((f) => f.text).join('\n');
     expect(all).not.toMatch(/(?<![-\w])color:\s*var\(--marigold\)/);
