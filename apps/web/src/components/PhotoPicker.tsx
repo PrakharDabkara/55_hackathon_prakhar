@@ -1,5 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useT } from '../i18n/index.js';
+import '../customer/find.css';
+import { Button } from '../ui/Button.js';
+import { Icon } from '../ui/Icon.js';
 import { ApiError } from '../lib/api.js';
 import { blobToDataUrl, shrinkPhoto } from '../lib/photo.js';
 import type { PhotoApi } from '../lib/photoApi.js';
@@ -30,19 +33,20 @@ type State =
  */
 export function PhotoPicker({ api, role, errand, label, onChange, prepare = shrinkPhoto }: Props) {
   const { t } = useT();
+  const c = t.c;
   const input = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [error, setError] = useState<string | null>(null);
 
   function messageFor(failure: unknown): string {
     if (failure instanceof ApiError) {
-      if (failure.code === 'photo_too_large') return t.errPhotoTooLarge;
-      if (failure.code === 'photo_limit') return t.errPhotoLimit;
-      if (failure.code === 'invalid_image') return t.errPhotoBad;
-      if (failure.code === 'network') return t.errPhotoNetwork;
-      if (failure.code === 'photo_storage_full') return t.errPhotoFull;
+      if (failure.code === 'photo_too_large') return c.findPhotoTooLarge;
+      if (failure.code === 'photo_limit') return c.findPhotoLimit;
+      if (failure.code === 'invalid_image') return c.findPhotoBad;
+      if (failure.code === 'network') return c.findPhotoNetwork;
+      if (failure.code === 'photo_storage_full') return c.findPhotoFull;
     }
-    return t.errPhoto;
+    return c.findPhotoFailed;
   }
 
   async function chosen(event: ChangeEvent<HTMLInputElement>) {
@@ -73,7 +77,7 @@ export function PhotoPicker({ api, role, errand, label, onChange, prepare = shri
   }
 
   return (
-    <div className="photo-picker">
+    <div className="cu-photo">
       <input
         ref={input}
         type="file"
@@ -83,21 +87,18 @@ export function PhotoPicker({ api, role, errand, label, onChange, prepare = shri
         onChange={(event) => void chosen(event)}
       />
       {state.kind === 'idle' && (
-        <button
-          type="button"
-          className="btn btn-quiet photo-add"
-          onClick={() => input.current?.click()}
-        >
-          {label ? t.photoAddFor(label) : t.photoAdd}
-        </button>
+        <Button variant="quiet" className="cu-photo__add" onClick={() => input.current?.click()}>
+          <Icon name="photo" size={20} />
+          {label ? c.findAddPhotoFor(label) : c.findAddPhoto}
+        </Button>
       )}
       {state.kind === 'working' && (
-        <div className="photo-progress">
-          <p role="status">
-            {state.percent === null ? t.photoPreparing : t.photoUploading(state.percent)}
+        <div className="cu-photo__progress">
+          <p role="status" className="sh-label">
+            {state.percent === null ? c.findPhotoPreparing : c.findPhotoUploading(state.percent)}
           </p>
           <div
-            className="progress"
+            className="cu-photo__bar"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
@@ -108,15 +109,15 @@ export function PhotoPicker({ api, role, errand, label, onChange, prepare = shri
         </div>
       )}
       {state.kind === 'done' && (
-        <div className="photo-done">
-          <img className="photo-thumb" src={state.preview} alt={t.photoPreviewAlt} />
-          <button type="button" className="btn btn-quiet" onClick={remove}>
-            {t.photoRemove}
-          </button>
+        <div className="cu-photo__done">
+          <img className="cu-photo__thumb" src={state.preview} alt={c.findPhotoAlt} />
+          <Button variant="quiet" onClick={remove}>
+            {c.findRemovePhoto}
+          </Button>
         </div>
       )}
       {error && (
-        <p className="alert" role="alert">
+        <p className="sh-alert" role="alert">
           {error}
         </p>
       )}

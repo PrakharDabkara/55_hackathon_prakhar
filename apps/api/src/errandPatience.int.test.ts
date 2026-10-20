@@ -1198,10 +1198,10 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await shopSaysYes(id, 'floor-cleaner', own('mishra'), 4200); // the third ping of request a
       const view = await getErrand(ctx(), seekerId, id);
       expect(view?.state).toBe('WAITING_FOR_SHOPS');
-      expect(view?.progress).toContain('3 dukaanon se pooch raha hoon: floor cleaner');
-      expect(view?.progress.some((l) => /^1 dukaan se pooch raha hoon: /.test(l))).toBe(true);
-      expect(view?.progress).toContain('P13 Mishra Kirana ne haan kaha ₹42');
-      expect(view?.progress.at(-1)).toBe('Jawab ka intezaar…');
+      expect(view?.progress).toContain('Asking 3 shops: floor cleaner');
+      expect(view?.progress.some((l) => /^Asking 1 shop: /.test(l))).toBe(true);
+      expect(view?.progress).toContain('P13 Mishra Kirana has it ₹42');
+      expect(view?.progress.at(-1)).toBe('Waiting for shops…');
     });
 
     it('shows the open question in the view while NEEDS_INPUT', async () => {
@@ -1212,7 +1212,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
       await runErrand(deps(), id);
       const view = await getErrand(ctx(), seekerId, id);
       expect(view?.question).toEqual({ question: 'Kaunsa phenyl?', options: ['A', 'B'] });
-      expect(view?.progress.at(-1)).toBe('Aapse ek sawaal: Kaunsa phenyl?');
+      expect(view?.progress.at(-1)).toBe('Question for you: Kaunsa phenyl?');
     });
 
     it('sends errand.updated to the owner on every state change and every new progress line', async () => {

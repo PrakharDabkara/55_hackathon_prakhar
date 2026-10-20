@@ -1,4 +1,5 @@
 import type { Category } from '@kahanmilega/shared';
+import { customerEn, customerHi, type CustomerStrings } from './customerStrings.js';
 import { shopEn, shopHi, type ShopStrings } from './shopStrings.js';
 
 /** The distance bands the API sends, as written there. */
@@ -13,6 +14,8 @@ export interface Label {
 export interface Strings {
   /** The shop app's own copy (ADR-0041). */
   shop: ShopStrings;
+  /** The customer app's own copy (ADR-0042). */
+  c: CustomerStrings;
   appName: string;
   /** The label of the button that switches to the other language. */
   switchLanguage: string;
@@ -257,6 +260,7 @@ export interface Strings {
 /** Hindi: the one-tap words are Devanagari with the Latin spelling below; running text stays Latin so no keyboard switch is needed. */
 export const hi: Strings = {
   shop: shopHi,
+  c: customerHi,
   appName: 'KahanMilega',
   switchLanguage: 'English',
 
@@ -526,6 +530,7 @@ export const hi: Strings = {
 
 export const en: Strings = {
   shop: shopEn,
+  c: customerEn,
   appName: 'KahanMilega',
   switchLanguage: 'हिंदी',
 
@@ -541,7 +546,7 @@ export const en: Strings = {
   errBadCode: 'That OTP is wrong or has expired. Ask for a new one.',
   errNoDemoCode: 'No demo OTP yet. Tap Send OTP first.',
   errGeneric: 'Something went wrong. Please try again.',
-  errNotShop: 'This number belongs to a customer. Use another number for a dukaan (shop).',
+  errNotShop: 'This number belongs to a customer. Use another number for a shop.',
   otherNumber: 'Another number',
 
   categoriesTitle: 'What do you sell? (pick 1 to 3)',
@@ -608,10 +613,10 @@ export const en: Strings = {
   errandTaskLabel: 'What is the errand?',
   errandExamplesTitle: 'For example:',
   errandExamples: [
-    'chai banane ka saaman',
-    'chai: chai patti, chini, doodh',
-    'school project: chart paper, fevicol, sketch pens',
-    'puja ka saaman',
+    'Make tea at home',
+    'Tea: tea leaves, sugar, milk',
+    'School project: chart paper, glue, sketch pens',
+    'Puja items',
   ],
   errandBudgetLabel: 'Budget ₹ (optional)',
   errandMake: 'Make a plan',
@@ -678,7 +683,7 @@ export const en: Strings = {
 
   qtyHas: (quantity) => `${quantity} available`,
   qtyShort: (quantity) => `Only ${quantity} available`,
-  qtyNotEnough: 'Kam hai (not enough)',
+  qtyNotEnough: 'Not enough',
   qtyLast: (quantity) => `Last time: ${quantity}`,
   deliveryChip: (fee, free, minutes) =>
     ['We deliver', free ? 'free' : fee, minutes !== null ? `${minutes} min` : null]
@@ -754,9 +759,9 @@ export const en: Strings = {
   orderNotConfirmed: "You didn't confirm delivery",
   orderCancelledByShop: 'The shop cancelled the order',
   orderNoteLabel: 'Note for the shop',
-  photoAdd: 'Photo jodein',
-  photoAddFor: (what) => `Photo jodein: ${what}`,
-  photoRemove: 'Photo hatayein',
+  photoAdd: 'Add photo',
+  photoAddFor: (what) => `Add photo: ${what}`,
+  photoRemove: 'Remove photo',
   photoPreparing: 'Preparing the photo…',
   photoUploading: (percent) => `Uploading ${percent}%`,
   photoPreviewAlt: 'Your photo',

@@ -1,33 +1,33 @@
 /* The shop app's primitives. Tokens only (design/tokens.css); sizes follow the Parchi type scale. */
-.shop-app {
+.km-app {
   min-height: 100vh;
   background: var(--surface-sunk);
   color: var(--ink);
   font: 400 16px/24px var(--font-ui);
   -webkit-text-size-adjust: 100%;
 }
-.shop-app *,
-.shop-app *::before,
-.shop-app *::after {
+.km-app *,
+.km-app *::before,
+.km-app *::after {
   box-sizing: border-box;
 }
-.shop-app :focus-visible {
+.km-app :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
-.shop-app p,
-.shop-app h1,
-.shop-app h2,
-.shop-app h3,
-.shop-app ul {
+.km-app p,
+.km-app h1,
+.km-app h2,
+.km-app h3,
+.km-app ul {
   margin: 0;
 }
-.shop-app ul {
+.km-app ul {
   padding: 0;
   list-style: none;
 }
-.shop-app button,
-.shop-app input {
+.km-app button,
+.km-app input {
   font-family: inherit;
 }
 
@@ -663,9 +663,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shop-app *,
-  .shop-app *::before,
-  .shop-app *::after {
+  .km-app *,
+  .km-app *::before,
+  .km-app *::after {
     transition: none !important;
   }
   .sh-drawer,
@@ -678,4 +678,23 @@
   .sh-skeleton {
     animation: none;
   }
+}
+
+/* A photo shown big: a dimmed page and a Close button (shop and customer). */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+.lightbox-img {
+  justify-self: center;
+  align-self: center;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }

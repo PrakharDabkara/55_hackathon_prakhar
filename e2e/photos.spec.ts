@@ -66,18 +66,17 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
 
   // The customer asks for turmeric with a photo.
   await login(page, '/app/');
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('haldi');
+  await page.getByLabel('What do you need?').fill('haldi');
   const asking = phonePhoto('customer');
   await page
     .locator('input[type="file"]')
     .setInputFiles({ name: 'IMG_1.jpg', mimeType: 'image/jpeg', buffer: await asking });
-  await expect(page.getByRole('button', { name: 'Photo hatayein' })).toBeVisible({
+  await expect(page.getByRole('button', { name: 'Remove photo' })).toBeVisible({
     timeout: 20_000,
   });
   await noSidewaysScroll(page);
   await page.screenshot({ path: 'e2e/artifacts/photo-customer-attached.png', fullPage: true });
-  await page.getByRole('button', { name: 'Search' }).click();
+  await page.getByRole('button', { name: 'Find nearby' }).click();
 
   // The shop sees the customer's photo on the request card: small, clean, tap to enlarge.
   const theirs = shop.getByRole('button', { name: 'Photo of what the customer wants: enlarge' });
@@ -105,16 +104,17 @@ test("a customer and a shop each attach a photo, and each sees the other's, at 3
   await shop.screenshot({ path: 'e2e/artifacts/photo-shop-attached.png', fullPage: true });
   await sheet.getByRole('button', { name: 'Send', exact: true }).click();
 
-  // The customer sees the shop's photo on that shop's result card.
-  const shops = page.getByRole('button', { name: "Shop's photo: enlarge" });
-  await expect(shops.first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.result', { hasText: 'Photo Test Kirana' })).toBeVisible();
-  await expectClean(await pictureBytes(page, "Shop's photo"));
+  // The customer sees a Photo chip on that shop's reply, and the picture opens big.
+  const reply = page.getByRole('listitem').filter({ hasText: 'Photo Test Kirana' });
+  await expect(reply).toBeVisible({ timeout: 30_000 });
+  const chip = reply.getByRole('button', { name: 'Photo' });
+  await expect(chip).toBeVisible({ timeout: 30_000 });
   await noSidewaysScroll(page);
-  await shops.first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await chip.click();
+  await expect(page.getByRole('dialog', { name: "Shop's photo of the item" })).toBeVisible();
+  await expectClean(await pictureBytes(page, "Shop's photo of the item"));
   await page.screenshot({ path: 'e2e/artifacts/photo-customer-sees-shop.png' });
-  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Close photo' }).click();
 
   await shopContext.close();
 });
@@ -123,9 +123,11 @@ test('a search needs no photo: the button is there and the search works without 
   page,
 }) => {
   await login(page, '/app/');
-  await expect(page.getByRole('button', { name: 'Photo jodein' })).toBeVisible();
-  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('namak');
-  await page.getByRole('button', { name: 'Search' }).click();
-  await expect(page.locator('.status-line')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Add photo' })).toBeVisible();
+  await page.getByLabel('What do you need?').fill('namak');
+  await page.getByRole('button', { name: 'Find nearby' }).click();
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole('status').filter({ hasText: /shops? (is|are) still checking|replied|ended/ }),
+  ).toBeVisible({ timeout: 30_000 });
 });

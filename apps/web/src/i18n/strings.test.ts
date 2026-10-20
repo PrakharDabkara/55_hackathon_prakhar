@@ -19,6 +19,16 @@ describe('the two dictionaries', () => {
     }
   });
 
+  it('have the same customer keys, none empty', () => {
+    expect(Object.keys(en.c).sort()).toEqual(Object.keys(hi.c).sort());
+    for (const dict of [en.c, hi.c]) {
+      for (const [key, value] of Object.entries(dict)) {
+        if (typeof value === 'string') expect(value.trim(), key).not.toBe('');
+        else expect(typeof value, key).toBe('function');
+      }
+    }
+  });
+
   it('use the English copy the shop UI promises', () => {
     const s = en.shop;
     expect(s.toastClosed).toBe("You're closed. You won't get new requests.");
@@ -68,10 +78,10 @@ describe('the two dictionaries', () => {
   });
 
   it('give four examples: a vague goal and an explicit list among them', () => {
-    for (const dict of [en, hi]) {
-      expect(dict.errandExamples).toHaveLength(4);
-      expect(dict.errandExamples).toContain('chai banane ka saaman');
-      expect(dict.errandExamples).toContain('chai: chai patti, chini, doodh');
-    }
+    expect(en.errandExamples).toHaveLength(4);
+    expect(en.errandExamples).toContain('Make tea at home');
+    expect(en.errandExamples).toContain('Tea: tea leaves, sugar, milk');
+    expect(hi.errandExamples).toHaveLength(4);
+    expect(hi.errandExamples).toContain('chai banane ka saaman');
   });
 });

@@ -5,7 +5,7 @@ import { ApiError } from '../../lib/api.js';
 import { fakeApi, shop, shopOrder } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
 import type { ShopData } from '../lib/useShopData.js';
-import { ToastProvider } from '../ui/Toast.js';
+import { ToastProvider } from '../../ui/Toast.js';
 import { Orders } from './Orders.js';
 
 // 19 Oct 2026, 7 pm local: "today" is the 19th.

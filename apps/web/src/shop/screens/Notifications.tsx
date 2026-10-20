@@ -2,8 +2,8 @@ import { useT } from '../../i18n/index.js';
 import type { PushClient } from '../../lib/push.js';
 import type { PushApi } from '../../lib/pushApi.js';
 import { usePush } from '../lib/hooks.js';
-import { Button } from '../ui/Button.js';
-import { Icon } from '../ui/Icon.js';
+import { Button } from '../../ui/Button.js';
+import { Icon } from '../../ui/Icon.js';
 
 interface Props {
   api: PushApi;

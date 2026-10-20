@@ -1,16 +1,26 @@
-import type { Strings } from '../i18n/strings.js';
-import type { OrderState } from './orders.js';
+import type { CustomerStrings } from '../i18n/customerStrings.js';
+import type { OrderState, SeekerOrder } from './orders.js';
 
-/** The one sentence that says where an order stands, for the list and for the order page. */
-export function orderStatusText(t: Strings, state: OrderState): string {
+/** The caption on the status card and the pill on an active row. */
+export function orderCaption(c: CustomerStrings, state: OrderState): string {
   return {
-    REQUESTED: t.orderWaiting,
-    ACCEPTED: t.orderAccepted,
-    OUT_FOR_DELIVERY: t.orderOut,
-    DELIVERED: t.orderDoneFull,
-    DECLINED: t.orderDeclined,
-    EXPIRED: t.orderExpired,
-    CANCELLED: t.orderCancelled,
-    NOT_CONFIRMED: t.orderNotConfirmed,
+    REQUESTED: c.capRequested,
+    ACCEPTED: c.capAccepted,
+    OUT_FOR_DELIVERY: c.capOut,
+    DELIVERED: c.capDelivered,
+    DECLINED: c.statusDeclined,
+    EXPIRED: c.statusExpired,
+    CANCELLED: c.statusCancelledYou,
+    NOT_CONFIRMED: c.statusNotConfirmed,
   }[state];
+}
+
+/** Plain status text for a finished order in the "Earlier" list. */
+export function earlierStatus(
+  c: CustomerStrings,
+  order: Pick<SeekerOrder, 'state' | 'cancelledBy'>,
+): string {
+  if (order.state === 'CANCELLED')
+    return order.cancelledBy === 'shop' ? c.statusCancelledShop : c.statusCancelledYou;
+  return orderCaption(c, order.state);
 }

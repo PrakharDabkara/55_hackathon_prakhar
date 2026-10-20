@@ -6,12 +6,12 @@ import { parseAmount, type QuantityUnit } from '../../lib/offer.js';
 import type { PhotoApi } from '../../lib/photoApi.js';
 import { defaultOffer, parsePrice, priceInput } from '../lib/answer.js';
 import { displayItemName, formatQuantity } from '../lib/format.js';
-import { BottomSheet } from '../ui/BottomSheet.js';
-import { Button } from '../ui/Button.js';
-import { Field } from '../ui/Field.js';
+import { BottomSheet } from '../../ui/BottomSheet.js';
+import { Button } from '../../ui/Button.js';
+import { Field } from '../../ui/Field.js';
 import { PhotoRow } from '../ui/PhotoRow.js';
-import { SegmentedControl } from '../ui/SegmentedControl.js';
-import { Switch } from '../ui/Switch.js';
+import { SegmentedControl } from '../../ui/SegmentedControl.js';
+import { Switch } from '../../ui/Switch.js';
 
 export interface SheetProps {
   ping: ShopPing;

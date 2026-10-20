@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { ask, useDemoLocation } from './orderFlow.js';
+import { uniquePhone } from './unique.js';
 
 // The first end-to-end test: a real browser, the real API, Postgres, Redis and five simulated
 // grocery shops that answer pings in the background (see global-setup.ts).
@@ -6,37 +8,33 @@ test('a customer asks for sugar and watches simulated shops answer on the map', 
   page,
 }) => {
   await page.goto('/app/');
+  // No login wall: Find opens for anyone, and the first Find asks for the login.
+  await useDemoLocation(page);
+  await ask(page, 'chini');
+  const dialog = page.getByRole('dialog', { name: 'Log in to send your request' });
+  await dialog.getByLabel('Mobile number').fill(uniquePhone());
+  await dialog.getByRole('button', { name: 'Send code' }).click();
+  await dialog.getByRole('button', { name: 'Fill demo OTP' }).click();
+  await dialog.getByRole('button', { name: 'Log in' }).click();
 
-  // Log in with the Demo mode box: no SMS, the code is filled for us.
-  await page.getByLabel(/mobile number/i).fill('9810000501');
-  await page.getByRole('button', { name: 'Send OTP' }).click();
-  await page.getByRole('button', { name: 'Fill demo OTP' }).click();
-  await page.getByRole('button', { name: 'Log in' }).click();
+  // The draft is sent right after the login: the replies screen opens with the request as a parchi.
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
+  await expect(page.locator('.sh-parchi')).toBeVisible();
 
-  // Search "chini" (sugar) near the demo location, having seen it for Rs 60 elsewhere.
-  await page.getByRole('button', { name: 'Demo location (Indore)' }).click();
-  await page.getByLabel('क्या चाहिए?').fill('chini');
-  await page.getByLabel(/I saw it for ₹__/).fill('60');
-  await page.getByRole('button', { name: 'Search' }).click();
-
-  // Within 30 seconds: a pin besides the user's own, a row with a price, and a "haan" in the status.
-  const shopPins = page
-    .locator('.leaflet-marker-icon.km-pin')
-    .filter({ has: page.locator('path') });
-  await expect(shopPins.first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('.result .price').first()).toContainText('₹', { timeout: 30_000 });
-  await expect(page.locator('.status-line')).toHaveText(/[1-9]\d* said yes/, {
+  // Within 30 seconds: a reply with a price and a "N have it" stamp.
+  await expect(page.getByRole('list', { name: 'Replies' }).getByText('₹').first()).toBeVisible({
     timeout: 30_000,
   });
+  await expect(page.getByText(/[1-9]\d* have it/i)).toBeVisible();
 
   // The map really is there, with the attribution OpenStreetMap asks for.
+  await page.getByRole('button', { name: 'Map' }).click();
+  const shopPins = page.locator('.leaflet-marker-icon .cu-map-pin');
+  await expect(shopPins.first()).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.leaflet-control-attribution')).toContainText(
     '© OpenStreetMap contributors',
   );
-  await expect(page.getByRole('link', { name: 'Directions' }).first()).toHaveAttribute(
-    'href',
-    /google\.com\/maps\/dir\/\?api=1&destination=/,
-  );
+  await page.getByRole('button', { name: 'List' }).click();
 
   await page.screenshot({ path: 'e2e/artifacts/seeker-results.png', fullPage: true });
 });

@@ -1,5 +1,5 @@
 import { expect, test, type Browser } from '@playwright/test';
-import { goTo, login, newCorner, noSidewaysScroll, setup, VIEWPORT } from './orderFlow.js';
+import { ask, goTo, login, newCorner, noSidewaysScroll, setup, VIEWPORT } from './orderFlow.js';
 
 // Insights (ADR-0035, ADR-0041): the shop screen counts today's questions, shows what people asked for
 // and did not find, and shows the area's demand only once 3 different customers asked.
@@ -15,12 +15,8 @@ async function customerAsks(browser: Browser, corner: Corner, what: string) {
   });
   const page = await context.newPage();
   await login(page, '/app/');
-  await page.getByRole('button', { name: 'Use my location' }).click();
-  await page.getByLabel('क्या चाहिए?').fill(what);
-  await page.getByRole('button', { name: 'Search' }).click();
-  await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  await ask(page, what);
+  await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
   return context;
 }
 
@@ -37,9 +33,7 @@ test("the shop sees today's numbers, what was asked for and missed, and the area
   // One question the shop cannot answer: "Not available".
   const second = await customer.context().newPage();
   await second.goto('/app/');
-  await second.getByRole('button', { name: 'Use my location' }).click();
-  await second.getByLabel('क्या चाहिए?').fill('chini');
-  await second.getByRole('button', { name: 'Search' }).click();
+  await ask(second, 'chini');
   await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
   await shop.getByRole('button', { name: 'Not available' }).click();
   await expect(shop.getByText('No requests right now')).toBeVisible();

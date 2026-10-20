@@ -2,8 +2,8 @@ import { useT } from '../../i18n/index.js';
 import { formatRupees } from '../../lib/money.js';
 import type { ShopOrder } from '../../lib/orders.js';
 import { displayItemName } from '../lib/format.js';
-import { Button } from './Button.js';
-import { Parchi } from './Parchi.js';
+import { Button } from '../../ui/Button.js';
+import { Parchi } from '../../ui/Parchi.js';
 import { TimeRing } from './TimeRing.js';
 
 interface Props {

@@ -7,10 +7,10 @@ import type { Session } from './lib/session.js';
 import { ShopShell } from './shop/ShopShell.js';
 import { Login } from './shop/screens/Login.js';
 import { Setup } from './shop/screens/Setup.js';
-import { Button } from './shop/ui/Button.js';
+import { Button } from './ui/Button.js';
 import { LangSwitch } from './shop/ui/LangSwitch.js';
-import { Skeleton } from './shop/ui/Skeleton.js';
-import { ToastProvider } from './shop/ui/Toast.js';
+import { Skeleton } from './ui/Skeleton.js';
+import { ToastProvider } from './ui/Toast.js';
 import './shop/shopStyles.js';
 
 /** The API client fires this when the server says the login is no longer valid. */
@@ -67,7 +67,7 @@ export function App({ api, session, live, pushClient }: Props) {
   }, [logout]);
 
   return (
-    <div className="shop-app">
+    <div className="shop-app km-app">
       <ToastProvider>
         {phase.name === 'home' ? (
           <ShopShell

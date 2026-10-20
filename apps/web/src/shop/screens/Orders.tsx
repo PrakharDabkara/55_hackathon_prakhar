@@ -5,13 +5,13 @@ import { formatRupees } from '../../lib/money.js';
 import type { ShopCancelReason, ShopOrder } from '../../lib/orders.js';
 import { displayItemName, formatClock, isToday } from '../lib/format.js';
 import type { ShopData } from '../lib/useShopData.js';
-import { BottomSheet } from '../ui/BottomSheet.js';
-import { Button, LinkButton } from '../ui/Button.js';
-import { Chip } from '../ui/Chip.js';
-import { Field } from '../ui/Field.js';
-import { SegmentedControl } from '../ui/SegmentedControl.js';
-import { Skeleton } from '../ui/Skeleton.js';
-import { useToast } from '../ui/Toast.js';
+import { BottomSheet } from '../../ui/BottomSheet.js';
+import { Button, LinkButton } from '../../ui/Button.js';
+import { Chip } from '../../ui/Chip.js';
+import { Field } from '../../ui/Field.js';
+import { SegmentedControl } from '../../ui/SegmentedControl.js';
+import { Skeleton } from '../../ui/Skeleton.js';
+import { useToast } from '../../ui/Toast.js';
 
 interface Props {
   api: ShopApi;

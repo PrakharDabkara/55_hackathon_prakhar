@@ -1,9 +1,8 @@
 /*
  * Design tokens (ADR-0041). Components use these only: no hex values elsewhere.
- * Scoped to the shop app, not :root: the customer app's stylesheet still defines --ink, --line,
- * --paper, --danger and --tap with other values until it is restyled.
+ * On :root since the customer app uses them too (ADR-0042).
  */
-.shop-app {
+:root {
   --bg: #f3f6f4;
   --surface: #ffffff;
   --surface-sunk: #e8eeeb;
@@ -25,6 +24,9 @@
   --danger: #b3261e;
   --danger-soft: #fbe3e1;
   --focus: #1f6feb;
+  /* The dark status card on order tracking: dark in both themes. */
+  --panel-dark: #18223b;
+  --on-panel-dark: #f3f6f4;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -53,7 +55,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .shop-app {
+  :root {
     --bg: #0e1412;
     --surface: #17201d;
     --surface-sunk: #0a0f0d;

@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Day 19, PR M: Parchi customer UI)
+
+- New customer app UI (ADR-0042), in English with the Hindi table in parity: Find without a login wall (a login sheet opens on the first Find and the draft is sent right after), a "Did you mean" sheet, the request as a parchi with a "N have it" stamp, a List/Map reply view with best price, remembered stock and a collapsed "don't have it" count, a Choose a shop sheet (delivery or pickup), order tracking with steps and times, My orders (pickup question, active and earlier, saved address, notifications) and the errand list and plan.
+- `acceptedAt` and `outForDeliveryAt` on the customer's order view; migration 024 adds `delivery_orders.accepted_at`, set when an order becomes ACCEPTED (a fresh offer at insert, or the shop's accept). Orders from before show no time.
+- E2E: `customer-screens.spec.ts` (every customer screen at 360 and 1280 px, light and dark, with an axe scan); each test phone logs in once per run and the simulator's admin session is cached under `e2e/.auth/` (gitignored).
+
+### Changed (Day 19, PR M)
+
+- Design tokens and the shared primitives (Button, Chip, Field, Switch, BottomSheet, Parchi, Toast, ShopLogo …) moved from the shop app to `:root` and `apps/web/src/ui/`; the old customer stylesheet is gone.
+- Customer push titles, errand progress lines and the remembered-answer text on plans are English; the "Grahak" fallback is "Customer". Strings that a model also reads (result freshness, prompts, tool text) are unchanged.
+- Customer copy that was Hinglish in the English table (photo buttons, errand examples, "not enough") is English.
+- "Price seen elsewhere" is no longer asked on Find; "Near you" replaces coordinates; the pickup question ("Did you get it?") moved from Find to My orders.
+
 ### Added (Day 18, PR L: Parchi shop UI)
 
 - New shop app (ADR-0041): design tokens with light and dark themes, a request deck of paper slips (parchi) with a time ring and stamps, answer sheets for normal and delivery questions, Orders, Insights, Delivery, Shop settings and Notifications behind a menu drawer, and a Login and Set up screen in the same style.

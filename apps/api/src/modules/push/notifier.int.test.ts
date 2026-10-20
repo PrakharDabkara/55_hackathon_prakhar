@@ -196,7 +196,7 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(orders[0]?.payload.url).toBe('/app/shop');
       // The customer made the order; the only push they got was for the answer that came before it.
       expect(to(seekerSub).map((q) => q.payload.title)).toEqual([
-        expect.stringMatching(/^Dukaan ne jawab diya/),
+        expect.stringMatching(/^A shop replied/),
       ]);
     });
 
@@ -227,13 +227,13 @@ describe('push notifications for the events of a search, an errand and an order'
   });
 
   describe('the customer', () => {
-    it('hears "Dukaan ne jawab diya: <item>" once per request, a few seconds late so a burst is one', async () => {
+    it('hears "A shop replied: <item>" once per request, a few seconds late so a burst is one', async () => {
       const requestId = await search();
       await answer('yes');
       await notifier.idle();
       const heard = to(seekerSub);
       expect(heard).toHaveLength(1);
-      expect(heard[0]?.payload.title).toMatch(/^Dukaan ne jawab diya: \S+/);
+      expect(heard[0]?.payload.title).toMatch(/^A shop replied: \S+/);
       expect(heard[0]?.payload.url).toBe(`/app/request/${requestId}`);
       expect(heard[0]?.key).toBe(`answer:${requestId}`);
       expect(heard[0]?.delayMs).toBe(3000);
@@ -246,7 +246,7 @@ describe('push notifications for the events of a search, an errand and an order'
       expect(to(seekerSub)).toHaveLength(0);
     });
 
-    it('hears "Plan taiyaar" when an errand is ready, and nothing while it is still planning', async () => {
+    it('hears "Your plan is ready" when an errand is ready, and nothing while it is still planning', async () => {
       const { rows } = await pool.query<{ id: string }>(
         `INSERT INTO errands (user_id, task, location, state)
          VALUES ($1, 'school things', ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, 'PLANNING')
@@ -271,7 +271,7 @@ describe('push notifications for the events of a search, an errand and an order'
       await notifier.idle();
       expect(to(seekerSub)).toHaveLength(1);
       expect(to(seekerSub)[0]).toMatchObject({
-        payload: { title: 'Plan taiyaar', url: `/app/errand/${errandId}` },
+        payload: { title: 'Your plan is ready', url: `/app/errand/${errandId}` },
         key: `plan:${errandId}`,
       });
     });
@@ -287,7 +287,7 @@ describe('push notifications for the events of a search, an errand and an order'
           )
         ).rows[0]?.id as string;
 
-      it('leaves the answers of the errand\'s own searches to "Plan taiyaar"', async () => {
+      it('leaves the answers of the errand\'s own searches to "Your plan is ready"', async () => {
         const errandId = await runningErrand();
         const requestId = await search();
         await pool.query(
@@ -330,7 +330,7 @@ describe('push notifications for the events of a search, an errand and an order'
       queued = [];
       for (const [verb, title] of [
         ['accept', /accept/i],
-        ['out', /nikla|raaste|out/i],
+        ['out', /on its way/i],
       ] as const) {
         await act(orderId, verb);
         await notifier.idle();

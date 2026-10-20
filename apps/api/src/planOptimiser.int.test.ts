@@ -273,7 +273,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
       itemName: 'candle',
       matchedAs: true,
     });
-    expect(progress).toContain("Aapne 'diya' kaha tha — dukaan ke paas 'candle' hai");
+    expect(progress).toContain("You said 'diya': the shop has 'candle'");
   });
 
   it('does not mark matchedAs when the words are the item or a synonym of it', async () => {
@@ -316,7 +316,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     ]);
     await runErrand(deps(), id);
     const { progress } = await view(id);
-    expect(progress[0]).toBe('Samjha: 2 cheezein');
+    expect(progress[0]).toBe('Understood: 2 items');
   });
 
   it('puts answers that arrive after the plan under lateAnswers, not in the timeline', async () => {
@@ -326,7 +326,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     play([['chini', 'sugar']], [claim('chini', 'sugar')]);
     await runErrand(deps(), id);
     const before = await view(id);
-    expect(before.progress.join('\n')).toContain('ne haan kaha ₹50');
+    expect(before.progress.join('\n')).toContain('has it ₹50');
     expect(before.lateAnswers).toEqual([]);
 
     const late = await shop('Late Shop', 0.5);
@@ -334,7 +334,7 @@ describe('errand plans: two plans from the optimiser (fake model, real database)
     await confirm(id, late, 'sugar', 4100);
     const after = await view(id);
     expect(after.progress.join('\n')).not.toContain('Late Shop');
-    expect(after.progress.join('\n')).toContain('ne haan kaha ₹50');
-    expect(after.lateAnswers).toEqual(['P14 Late Shop ne haan kaha ₹41']);
+    expect(after.progress.join('\n')).toContain('has it ₹50');
+    expect(after.lateAnswers).toEqual(['P14 Late Shop has it ₹41']);
   });
 });

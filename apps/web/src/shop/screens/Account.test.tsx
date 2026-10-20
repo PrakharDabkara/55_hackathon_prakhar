@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api.js';
 import { fakeApi, shop } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
-import { ToastProvider } from '../ui/Toast.js';
+import { ToastProvider } from '../../ui/Toast.js';
 import { Login } from './Login.js';
 import { Settings } from './Settings.js';
 import { Setup } from './Setup.js';

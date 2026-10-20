@@ -28,6 +28,7 @@ interface Row {
   lat: number | null;
   lng: number | null;
   note: string | null;
+  accepted_at: Date | null;
   out_for_delivery_at: Date | null;
   receive_by: Date | null;
   cancelled_by: 'customer' | 'shop' | null;
@@ -43,7 +44,7 @@ const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name,
        s.owner_user_id AS shop_owner_user_id,
        o.request_id, o.errand_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
        o.fee_paise, o.fee_minutes, o.address_text, o.customer_first_name, o.lat, o.lng,
-       o.note, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
+       o.note, o.accepted_at, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
        o.expires_at, o.created_at, o.updated_at
   FROM delivery_orders o JOIN shops s ON s.id = o.shop_id`;
 
@@ -67,6 +68,7 @@ const toRecord = (r: Row): OrderRecord => ({
   lat: r.lat,
   lng: r.lng,
   note: r.note,
+  acceptedAt: r.accepted_at,
   outForDeliveryAt: r.out_for_delivery_at,
   receiveBy: r.receive_by,
   cancelledBy: r.cancelled_by,
@@ -103,9 +105,10 @@ export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | 
     `INSERT INTO delivery_orders
        (user_id, shop_id, request_id, errand_id, source_id, lines, items_total_paise,
         unknown_price_count, fee_paise, fee_minutes, address_text, customer_first_name, lat, lng,
-        note, state, expires_at)
+        note, state, expires_at, accepted_at)
      VALUES ($1, $2, $3::uuid, $4::uuid, COALESCE($3::uuid, $4::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
-             $14, $15, now() + make_interval(mins => $16::int))
+             $14, $15, now() + make_interval(mins => $16::int),
+             CASE WHEN $15::text = 'ACCEPTED' THEN now() END)
      ON CONFLICT (user_id, shop_id, source_id)
        WHERE state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY') DO NOTHING
      RETURNING id`,
@@ -304,6 +307,7 @@ export async function moveOrder(
   const { rowCount } = await db.query(
     `UPDATE delivery_orders
         SET state = $3, updated_at = now(),
+            accepted_at = CASE WHEN $3::text = 'ACCEPTED' THEN now() ELSE accepted_at END,
             out_for_delivery_at = CASE WHEN $4::text = 'DISPATCH' THEN now() ELSE out_for_delivery_at END,
             receive_by = CASE WHEN $4::text = 'DISPATCH'
                               THEN now() + make_interval(hours => $5::int) ELSE receive_by END,

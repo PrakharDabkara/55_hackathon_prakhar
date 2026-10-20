@@ -54,7 +54,7 @@ export interface PlanItem {
   quantityHint: 'few' | 'plenty' | null;
   /** Enough for what the customer asked? Only when both are in units that compare (ADR-0031). */
   quantityCheck: 'enough' | 'short' | 'unknown' | null;
-  /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Pichhla jawab: kal" for learned stock. */
+  /** "Confirmed 2 min ago" for a shop that said yes in this errand, else "Last answer: yesterday" for learned stock. */
   freshness: string | null;
   /** Set when the model said "likely" and the server could not confirm it. */
   downgraded: Downgrade | null;
@@ -135,13 +135,13 @@ const DAY_MS = 24 * 3_600_000;
 
 /**
  * What a remembered answer reads like on the plan (learned stock is never "Confirmed": nobody
- * checked just now): "Pichhla jawab: aaj", "…: kal", "…: 3 din pehle".
+ * checked just now): "Last answer: today", "…: yesterday", "…: 3 days ago".
  */
 export function previousAnswerLabel(lastConfirmedAt: Date, now: Date): string {
   const days = Math.max(0, Math.floor((now.getTime() - lastConfirmedAt.getTime()) / DAY_MS));
-  if (days < 1) return 'Pichhla jawab: aaj';
-  if (days === 1) return 'Pichhla jawab: kal';
-  return `Pichhla jawab: ${days} din pehle`;
+  if (days < 1) return 'Last answer: today';
+  if (days === 1) return 'Last answer: yesterday';
+  return `Last answer: ${days} days ago`;
 }
 
 interface ItemRecord {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderApp } from '../../test/render.js';
+import { renderApp } from '../test/render.js';
 import { Button, LinkButton } from './Button.js';
 import { Chip } from './Chip.js';
 import { Field } from './Field.js';

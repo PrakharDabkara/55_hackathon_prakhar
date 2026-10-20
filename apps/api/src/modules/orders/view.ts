@@ -23,6 +23,9 @@ export interface SeekerOrderView {
   unknownPriceCount: number;
   feePaise: number | null;
   feeMinutes: number | null;
+  /** When the shop accepted, and when it set out; null until then. */
+  acceptedAt: string | null;
+  outForDeliveryAt: string | null;
   /** The customer's own words. Cash on delivery: no money moves in the app. */
   /** Empty once the order ended 30 days ago (ADR-0033). */
   addressText: string | null;
@@ -48,7 +51,7 @@ export interface ShopOrderView {
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
-  /** The customer's first name if they gave one, else "Grahak". Never a phone. */
+  /** The customer's first name if they gave one, else "Customer". Never a phone. */
   contactName: string;
   final: boolean;
   /** What the customer wrote for the shop (≤140, phone numbers removed). */
@@ -77,6 +80,8 @@ export function seekerOrderView(o: OrderRecord): SeekerOrderView {
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,
     feeMinutes: o.feeMinutes,
+    acceptedAt: o.acceptedAt ? o.acceptedAt.toISOString() : null,
+    outForDeliveryAt: o.outForDeliveryAt ? o.outForDeliveryAt.toISOString() : null,
     addressText: o.addressText,
     customerName: o.customerFirstName,
     payment: 'cash_on_delivery',
@@ -105,7 +110,7 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,
-    contactName: o.customerFirstName ?? 'Grahak',
+    contactName: o.customerFirstName ?? 'Customer',
     final: isFinalOrderState(o.state),
     note: o.note,
     cancelReason: o.cancelledBy === 'shop' ? o.cancelReason : null,

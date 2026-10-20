@@ -3,11 +3,11 @@ import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi } from '../../lib/api.js';
 import { parseFee } from '../../lib/offer.js';
 import { priceInput } from '../lib/answer.js';
-import { Button } from '../ui/Button.js';
-import { Chip } from '../ui/Chip.js';
-import { Field } from '../ui/Field.js';
-import { Switch } from '../ui/Switch.js';
-import { useToast } from '../ui/Toast.js';
+import { Button } from '../../ui/Button.js';
+import { Chip } from '../../ui/Chip.js';
+import { Field } from '../../ui/Field.js';
+import { Switch } from '../../ui/Switch.js';
+import { useToast } from '../../ui/Toast.js';
 
 const MINUTES = [15, 30, 60] as const;
 

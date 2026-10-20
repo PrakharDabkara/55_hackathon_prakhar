@@ -11,15 +11,13 @@ describe('buildPayload', () => {
 
   it('writes the customer titles', () => {
     expect(buildPayload('shop_answered', { item: 'atta', id: ID }).title).toBe(
-      'Dukaan ne jawab diya: atta',
+      'A shop replied: atta',
     );
-    expect(buildPayload('plan_ready', { id: ID }).title).toBe('Plan taiyaar');
+    expect(buildPayload('plan_ready', { id: ID }).title).toBe('Your plan is ready');
     expect(buildPayload('order_accepted', { item: 'atta', id: ID }).title).toMatch(/accept/i);
-    expect(buildPayload('order_declined', { item: 'atta', id: ID }).title).toMatch(/decline|mana/i);
-    expect(buildPayload('order_out', { item: 'atta', id: ID }).title).toMatch(/nikla|raaste|out/i);
-    expect(buildPayload('order_delivered', { item: 'atta', id: ID }).title).toMatch(
-      /pahunch|deliver/i,
-    );
+    expect(buildPayload('order_declined', { item: 'atta', id: ID }).title).toMatch(/declined/i);
+    expect(buildPayload('order_out', { item: 'atta', id: ID }).title).toMatch(/on its way/i);
+    expect(buildPayload('order_delivered', { item: 'atta', id: ID }).title).toMatch(/delivered/i);
   });
 
   it('writes the Delivery v2 titles and links', () => {
@@ -31,7 +29,7 @@ describe('buildPayload', () => {
     expect(buildPayload('order_received', { item: 'atta' }).title).toBe('Order pahunch gaya: atta');
     expect(buildPayload('order_received', { item: 'atta' }).url).toBe('/app/shop');
     expect(buildPayload('order_cancelled_by_shop', { item: 'atta', id: ID })).toEqual({
-      title: 'Dukaan ne order cancel kiya: atta',
+      title: 'Shop cancelled your order: atta',
       item: 'atta',
       url: `/app/order/${ID}`,
     });
@@ -39,7 +37,7 @@ describe('buildPayload', () => {
 
   it('asks "Le liya?" with the item only, and opens the home screen', () => {
     const payload = buildPayload('pickup_ask', { item: 'atta' });
-    expect(payload).toEqual({ title: 'Kya aapko atta mila?', item: 'atta', url: '/app/' });
+    expect(payload).toEqual({ title: 'Did you get atta?', item: 'atta', url: '/app/' });
   });
 
   it('links to the right screen', () => {

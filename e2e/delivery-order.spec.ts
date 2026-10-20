@@ -11,7 +11,7 @@ test('a delivery order: pick, set out, and the customer confirms receipt', async
     'Delivery Test Kirana',
     newCorner(),
   );
-  await expect(card.getByText(/Will deliver · ₹20/)).toBeVisible();
+  await expect(card.getByText(/Delivers · ₹20 · 30 min/)).toBeVisible();
   await order(customer, card, { note: 'Gate 2, ring the bell' });
 
   // Chosen, not asked: the shop is told, and already has the address and the customer's note.
@@ -19,7 +19,7 @@ test('a delivery order: pick, set out, and the customer confirms receipt', async
   await shop.getByRole('link', { name: 'View order' }).click();
   const shopCard = shop.locator('article.sh-order');
   await expect(shopCard).toBeVisible();
-  await expect(shopCard.getByText('For: Grahak')).toBeVisible();
+  await expect(shopCard.getByText('For: Customer')).toBeVisible();
   await expect(shopCard.getByText(/collect cash/)).toBeVisible();
   await expect(shopCard.getByText(/Gate 2, ring the bell/)).toBeVisible();
   await expect(shopCard.getByText(ADDRESS)).toBeVisible();
@@ -31,16 +31,20 @@ test('a delivery order: pick, set out, and the customer confirms receipt', async
   await shop.screenshot({ path: 'e2e/artifacts/delivery-shop-accepted.png', fullPage: true });
 
   await shopCard.getByRole('button', { name: 'Out for delivery' }).click();
-  await expect(card.getByText('On its way')).toBeVisible({ timeout: 15_000 });
-  await expect(card.getByRole('button', { name: 'Cancel order' })).toHaveCount(0);
+  await expect(customer.getByText('Out for delivery').first()).toBeVisible({ timeout: 15_000 });
+  await expect(customer.getByRole('button', { name: 'Cancel order' })).toHaveCount(0);
+  await expect(
+    customer.getByText("It's out for delivery, so it can't be cancelled now."),
+  ).toBeVisible();
   // The shop has no Delivered button: only the customer finishes it.
   await expect(shopCard.getByText('Waiting for the customer to confirm')).toBeVisible();
   await expect(shopCard.getByRole('button', { name: 'Delivered' })).toHaveCount(0);
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-customer-out.png', fullPage: true });
 
-  await card.getByRole('button', { name: 'Received' }).click();
-  await expect(card.getByText(/Delivered\. Pay in cash/)).toBeVisible({ timeout: 15_000 });
+  await customer.getByRole('button', { name: 'I received it' }).click();
+  await expect(customer.getByText('Delivered').first()).toBeVisible({ timeout: 15_000 });
+  await expect(customer.getByRole('button', { name: 'I received it' })).toHaveCount(0);
   await shop.getByRole('button', { name: /Done today/ }).click();
   await expect(shopCard.getByText('Delivered', { exact: true })).toBeVisible({ timeout: 15_000 });
   await noSidewaysScroll(customer);
@@ -73,9 +77,10 @@ test('a shop that cancels with a reason: the customer is told, and it is pickup'
   await shop.getByRole('button', { name: /Done today/ }).click();
   await expect(shop.getByText('Cancelled · Out of stock')).toBeVisible({ timeout: 15_000 });
 
-  await expect(card.getByText(/The shop cancelled the order/)).toBeVisible({ timeout: 15_000 });
-  // It is still a shop to walk to.
-  await expect(card.getByRole('link', { name: 'Directions' })).toBeVisible();
+  await expect(customer.getByText('The shop cancelled this order')).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(customer.getByText('Out of stock')).toBeVisible();
   await noSidewaysScroll(customer);
   await customer.screenshot({ path: 'e2e/artifacts/delivery-shop-cancelled.png', fullPage: true });
 

@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { BRAND_NAME } from '../../brand.js';
 import { useT } from '../../i18n/index.js';
 import { ApiError, type ShopApi } from '../../lib/api.js';
-import { Button } from '../ui/Button.js';
-import { Field } from '../ui/Field.js';
-import { Icon } from '../ui/Icon.js';
+import { Button } from '../../ui/Button.js';
+import { Field } from '../../ui/Field.js';
+import { Icon } from '../../ui/Icon.js';
 
 export type LoginApi = Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp'>;
 

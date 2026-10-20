@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { result } from '../test/fakes.js';
-import { directionsUrl, pinsFor, sortResults } from './results.js';
+import {
+  bestPriceShopId,
+  daysSince,
+  directionsUrl,
+  learnedReplies,
+  liveReplies,
+  pinsFor,
+  sortResults,
+} from './results.js';
 
 describe('sortResults', () => {
   const a = result({ shopId: 'a', pricePaise: 6000, distanceM: 100 });
@@ -43,5 +51,60 @@ describe('directionsUrl', () => {
     expect(directionsUrl(22.7196, 75.8577)).toBe(
       'https://www.google.com/maps/dir/?api=1&destination=22.7196,75.8577',
     );
+  });
+});
+
+describe('liveReplies', () => {
+  it('keeps live answers only: price first (no price last), then distance', () => {
+    const rows = liveReplies([
+      result({ shopId: 'l', source: 'learned', pricePaise: 100 }),
+      result({ shopId: 'none', pricePaise: null, distanceM: 10 }),
+      result({ shopId: 'far', pricePaise: 5000, distanceM: 900 }),
+      result({ shopId: 'near', pricePaise: 5000, distanceM: 100 }),
+      result({ shopId: 'cheap', pricePaise: 4000, distanceM: 2000 }),
+    ]);
+    expect(rows.map((r) => r.shopId)).toEqual(['cheap', 'near', 'far', 'none']);
+  });
+});
+
+describe('learnedReplies', () => {
+  it('keeps remembered answers only, newest first', () => {
+    const rows = learnedReplies([
+      result({ shopId: 'live', source: 'live' }),
+      result({ shopId: 'old', source: 'learned', lastConfirmedAt: '2026-10-10T10:00:00.000Z' }),
+      result({ shopId: 'new', source: 'learned', lastConfirmedAt: '2026-10-15T10:00:00.000Z' }),
+    ]);
+    expect(rows.map((r) => r.shopId)).toEqual(['new', 'old']);
+  });
+});
+
+describe('bestPriceShopId', () => {
+  const live = (...prices: (number | null)[]) =>
+    liveReplies(prices.map((p, i) => result({ shopId: `s${i}`, pricePaise: p, distanceM: i })));
+
+  it('names the shop with the strictly lowest price', () => {
+    expect(bestPriceShopId(live(5000, 4000, 6000))).toBe('s1');
+  });
+  it('names nobody when the two lowest prices are equal', () => {
+    expect(bestPriceShopId(live(4000, 4000, 6000))).toBeNull();
+  });
+  it('names nobody when there is nothing to compare with', () => {
+    expect(bestPriceShopId(live(4000))).toBeNull();
+    expect(bestPriceShopId(live(4000, null))).toBeNull();
+    expect(bestPriceShopId(live(null, null))).toBeNull();
+    expect(bestPriceShopId([])).toBeNull();
+  });
+  it('ignores replies with no price when others can be compared', () => {
+    expect(bestPriceShopId(live(null, 4000, 5000))).toBe('s1');
+  });
+});
+
+describe('daysSince', () => {
+  const now = new Date('2026-10-16T10:00:00.000Z').getTime();
+  it('counts whole days, 0 for today', () => {
+    expect(daysSince('2026-10-16T01:00:00.000Z', now)).toBe(0);
+    expect(daysSince('2026-10-15T09:00:00.000Z', now)).toBe(1);
+    expect(daysSince('2026-10-11T09:00:00.000Z', now)).toBe(5);
+    expect(daysSince('2026-10-17T09:00:00.000Z', now)).toBe(0);
   });
 });

@@ -182,12 +182,12 @@
 .sh-pin--guess .sh-pin__dot {
   background: var(--ink-muted);
 }
-.shop-app .leaflet-bar a {
+.km-app .leaflet-bar a {
   width: var(--tap);
   height: var(--tap);
   line-height: var(--tap);
 }
-.shop-app .leaflet-container {
+.km-app .leaflet-container {
   font-family: var(--font-ui);
 }
 

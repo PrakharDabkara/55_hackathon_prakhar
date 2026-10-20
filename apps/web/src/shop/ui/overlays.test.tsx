@@ -2,11 +2,11 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../../test/render.js';
-import { BottomSheet } from './BottomSheet.js';
+import { BottomSheet } from '../../ui/BottomSheet.js';
 import { ShopHeader } from './ShopHeader.js';
-import { ShopLogo, initialsOf } from './ShopLogo.js';
+import { ShopLogo, initialsOf } from '../../ui/ShopLogo.js';
 import { Sidebar } from './Sidebar.js';
-import { ToastProvider } from './Toast.js';
+import { ToastProvider } from '../../ui/Toast.js';
 
 describe('initialsOf', () => {
   it('takes the first letters of the first two words', () => {

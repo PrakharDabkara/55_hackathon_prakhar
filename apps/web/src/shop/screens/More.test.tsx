@@ -5,7 +5,7 @@ import type { ShopDemand } from '../../lib/api.js';
 import type { PushClient, PushStatus } from '../../lib/push.js';
 import { fakeApi, fakePush, shop } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
-import { ToastProvider } from '../ui/Toast.js';
+import { ToastProvider } from '../../ui/Toast.js';
 import { Delivery } from './Delivery.js';
 import { Insights } from './Insights.js';
 import { Notifications } from './Notifications.js';

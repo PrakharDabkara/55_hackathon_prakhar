@@ -24,6 +24,7 @@ const order = (over: Partial<OrderRecord> = {}): OrderRecord => ({
   lat: 22.72,
   lng: 75.86,
   note: null,
+  acceptedAt: null,
   outForDeliveryAt: null,
   receiveBy: null,
   cancelledBy: null,
@@ -56,9 +57,9 @@ describe('what the shop sees of an order (ADR-0031)', () => {
     });
   }
 
-  it('the contact line is the first name if given, else "Grahak"', () => {
+  it('the contact line is the first name if given, else "Customer"', () => {
     expect(shopOrderView(order({ customerFirstName: 'Asha' })).contactName).toBe('Asha');
-    expect(shopOrderView(order({ customerFirstName: null })).contactName).toBe('Grahak');
+    expect(shopOrderView(order({ customerFirstName: null })).contactName).toBe('Customer');
   });
 
   it('never carries a phone or a user id, whatever the state', () => {
@@ -70,6 +71,18 @@ describe('what the shop sees of an order (ADR-0031)', () => {
 });
 
 describe('what the customer sees of an order', () => {
+  it('has when the shop accepted and when it set out, as ISO times, or null', () => {
+    expect(seekerOrderView(order())).toMatchObject({ acceptedAt: null, outForDeliveryAt: null });
+    const view = seekerOrderView(
+      order({
+        acceptedAt: new Date('2026-10-18T10:02:00Z'),
+        outForDeliveryAt: new Date('2026-10-18T10:20:00Z'),
+      }),
+    );
+    expect(view.acceptedAt).toBe('2026-10-18T10:02:00.000Z');
+    expect(view.outForDeliveryAt).toBe('2026-10-18T10:20:00.000Z');
+  });
+
   it('has their own address, the cash-on-delivery line and the shop name', () => {
     const view = seekerOrderView(order());
     expect(view).toMatchObject({

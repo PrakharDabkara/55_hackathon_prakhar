@@ -544,7 +544,7 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [call('resolve_item', { text: 'rice' })] },
         { toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }])] },
       ]);
-      expect(plan.items[0].freshness).toBe('Pichhla jawab: aaj');
+      expect(plan.items[0].freshness).toBe('Last answer: today');
       expect(JSON.stringify(plan)).not.toMatch(/Confirmed|Had it/);
     });
   });
@@ -1276,9 +1276,9 @@ describe('errands over HTTP', () => {
     const res = await get(seeker.token, id);
     expect(res.body.state).toBe('PLAN_READY');
     expect(res.body.progress).toEqual([
-      'Samjha: 1 cheez',
-      'Rice: 1 dukaan mein mili',
-      'Plan taiyaar: 1 cheez mil gayi, 0 nahi mili',
+      'Understood: 1 item',
+      'Rice: found at 1 shop',
+      'Plan ready: 1 item found, 0 not found',
     ]);
     expect(res.body.plan.items[0]).toMatchObject({ status: 'likely', pricePaise: 6100 });
     expect(res.body.plan.route.orderedStops).toHaveLength(1);

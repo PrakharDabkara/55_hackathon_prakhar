@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { directionsForRoute, mapPoints, shownProgress, stopsForMap } from './errand.js';
+import {
+  directionsForRoute,
+  haversineM,
+  mapPoints,
+  plansDiffer,
+  roundTripM,
+  shownProgress,
+  stopsForMap,
+} from './errand.js';
+import type { PlanVariant } from './seekerApi.js';
 
 const origin = { lat: 22.7196, lng: 75.8577 };
 const stops = [
@@ -39,7 +48,59 @@ describe('stopsForMap', () => {
   });
 });
 
-describe('shownProgress', () => {
+describe('shownProgress (English from the server)', () => {
+  it('drops the "Waiting for shops…" marker and the question line', () => {
+    expect(
+      shownProgress(['Understood: 3 items', 'Waiting for shops…', 'Question for you: Which tea?']),
+    ).toEqual(['Understood: 3 items']);
+  });
+});
+
+describe('haversineM', () => {
+  it('is 0 for the same point and about 111 km for one degree of latitude', () => {
+    expect(haversineM(origin, origin)).toBe(0);
+    expect(haversineM({ lat: 0, lng: 0 }, { lat: 1, lng: 0 })).toBeCloseTo(111195, -2);
+  });
+  it('is symmetric', () => {
+    const a = haversineM(origin, stops[2] as (typeof stops)[number]);
+    expect(haversineM(stops[2] as (typeof stops)[number], origin)).toBeCloseTo(a, 6);
+  });
+});
+
+describe('roundTripM', () => {
+  const route = (n: number) => ({
+    orderedStops: stops.slice(0, n),
+    legsM: [],
+    totalM: 1000,
+  });
+  it('is the route plus the straight line from the last stop back to the start', () => {
+    const back = haversineM(stops[1] as (typeof stops)[number], origin);
+    expect(roundTripM(origin, route(2))).toBeCloseTo(1000 + back, 6);
+  });
+  it('is null without a route or without stops', () => {
+    expect(roundTripM(origin, null)).toBeNull();
+    expect(roundTripM(origin, route(0))).toBeNull();
+  });
+  it('is null when the start cannot be placed', () => {
+    expect(roundTripM({ lat: Number.NaN, lng: 1 }, route(1))).toBeNull();
+  });
+});
+
+describe('plansDiffer', () => {
+  const v = (over: Partial<PlanVariant>) =>
+    ({ shopCount: 1, totalPricePaise: 100, ...over }) as PlanVariant;
+  it('is true when the shop count or the total differs, the total being the grand total when known', () => {
+    expect(plansDiffer(v({}), v({ shopCount: 2 }))).toBe(true);
+    expect(plansDiffer(v({}), v({ totalPricePaise: 200 }))).toBe(true);
+    expect(plansDiffer(v({}), v({ grandTotalPaise: 150 }))).toBe(true);
+  });
+  it('is false for the same count and total', () => {
+    expect(plansDiffer(v({}), v({}))).toBe(false);
+    expect(plansDiffer(v({}), v({ grandTotalPaise: 100 }))).toBe(false);
+  });
+});
+
+describe('shownProgress (old marker)', () => {
   it('drops the "Jawab ka intezaar…" marker: the screen has its own waiting state', () => {
     expect(shownProgress(['Samjha: 3 cheezein', 'Jawab ka intezaar…'])).toEqual([
       'Samjha: 3 cheezein',

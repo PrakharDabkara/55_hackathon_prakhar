@@ -6,7 +6,7 @@ export function LangToggle() {
   return (
     <button
       type="button"
-      className="btn btn-quiet"
+      className="sh-btn sh-btn--quiet"
       onClick={() => setLang(lang === 'hi' ? 'en' : 'hi')}
     >
       {t.switchLanguage}

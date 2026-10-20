@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import '../customer/orders.css';
 import { useT } from '../i18n/index.js';
 import type { PendingPickup, PickupAnswer, PickupApi } from '../lib/pickupApi.js';
+import { Button } from '../ui/Button.js';
 
 const ANSWERS: { answer: PickupAnswer; key: 'pickupFound' | 'pickupNotThere' | 'pickupNotGone' }[] =
   [
@@ -10,15 +12,17 @@ const ANSWERS: { answer: PickupAnswer; key: 'pickupFound' | 'pickupNotThere' | '
   ];
 
 /**
- * "Le liya?": after the customer tapped "Raasta", one question at a time on the home screen. The
- * answer keeps what shops told us honest (ADR-0035). Best effort: if it cannot be fetched there is
- * simply no question.
+ * "Did you get it?": after the customer tapped Directions, one question at a time at the top of
+ * My orders. The answer keeps what shops told us honest (ADR-0035). Best effort: if it cannot be
+ * fetched there is simply no question.
  */
 export function PickupAsk({ api }: { api: Pick<PickupApi, 'pendingPickups' | 'answerPickup'> }) {
   const { t } = useT();
+  const c = t.c;
   const [waiting, setWaiting] = useState<PendingPickup[]>([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [thanked, setThanked] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -32,7 +36,13 @@ export function PickupAsk({ api }: { api: Pick<PickupApi, 'pendingPickups' | 'an
   }, [api]);
 
   const current = waiting[0];
-  if (!current) return null;
+  if (!current) {
+    return thanked ? (
+      <p className="sh-helper" role="status">
+        {c.pickupThanks}
+      </p>
+    ) : null;
+  }
 
   async function answer(choice: PickupAnswer) {
     if (!current) return;
@@ -41,6 +51,7 @@ export function PickupAsk({ api }: { api: Pick<PickupApi, 'pendingPickups' | 'an
     try {
       await api.answerPickup(current.id, choice);
       setWaiting((all) => all.filter((p) => p.id !== current.id));
+      setThanked(true);
     } catch {
       setFailed(true);
     } finally {
@@ -49,24 +60,29 @@ export function PickupAsk({ api }: { api: Pick<PickupApi, 'pendingPickups' | 'an
   }
 
   return (
-    <section className="pickup-ask" aria-live="polite">
-      <p className="pickup-question">{t.pickupQuestion(current.item.nameEn, current.shop.name)}</p>
-      <div className="pickup-answers">
+    <section
+      className="cu-pickup"
+      aria-label={c.pickupQuestion(current.item.nameEn, current.shop.name)}
+    >
+      <div className="cu-section">
+        <p className="sh-heading">{c.pickupQuestion(current.item.nameEn, current.shop.name)}</p>
+        <p className="sh-helper">{c.pickupHelp}</p>
+      </div>
+      <div className="cu-pickup__answers">
         {ANSWERS.map(({ answer: choice, key }) => (
-          <button
+          <Button
             key={choice}
-            type="button"
-            className={choice === 'found' ? 'btn btn-yes' : 'btn btn-quiet'}
+            variant="secondary"
             disabled={busy}
             onClick={() => void answer(choice)}
           >
-            {t[key]}
-          </button>
+            {c[key]}
+          </Button>
         ))}
       </div>
       {failed && (
-        <p className="alert" role="alert">
-          {t.pickupError}
+        <p className="sh-alert" role="alert">
+          {c.pickupError}
         </p>
       )}
     </section>
