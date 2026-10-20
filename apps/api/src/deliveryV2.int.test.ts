@@ -168,6 +168,8 @@ describe('Delivery v2', () => {
       expect(Object.keys(card).sort()).toEqual(
         [
           'canDeliver',
+          // The catalog word the customer used ("chini"), on purpose since ADR-0047.
+          'displayName',
           'distanceBand',
           'expiresAt',
           'id',

@@ -38,6 +38,13 @@ const GENERIC = new Set([
   'function',
   'event',
   'gift',
+  'kuch',
+  'kuchh',
+  'something',
+  'anything',
+  'else',
+  'other',
+  'extra',
 ]);
 
 /** The things a task names, each as the normalised words the customer used. Goals name nothing. */

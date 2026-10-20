@@ -180,6 +180,8 @@ describe('shop screen data and the shop logo', () => {
       expect(Object.keys(card as object).sort()).toEqual(
         [
           'canDeliver',
+          // The catalog word the customer used ("chini"), on purpose since ADR-0047.
+          'displayName',
           'distanceBand',
           'expiresAt',
           'id',

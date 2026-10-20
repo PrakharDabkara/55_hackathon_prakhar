@@ -31,6 +31,10 @@ describe('namedFragments', () => {
     expect(namedFragments('चीनी, दाल aur chai patti')).toEqual(['चीनी', 'दाल', 'chai patti']);
   });
 
+  it('"kuch" (something) is no item', () => {
+    expect(namedFragments('chai patti aur kuch')).toEqual(['chai patti']);
+  });
+
   it('ignores empty pieces and text with no words', () => {
     expect(namedFragments(' , ,, ')).toEqual([]);
     expect(namedFragments('')).toEqual([]);
