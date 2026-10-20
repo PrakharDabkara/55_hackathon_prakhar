@@ -23,7 +23,8 @@
   --stamp-delivery: #8a4b00;
   --danger: #b3261e;
   --danger-soft: #fbe3e1;
-  --focus: #1f6feb;
+  /* Focus is drawn in the brand colour; the dark theme below redefines --brand. */
+  --focus: var(--brand);
   /* The dark status card on order tracking: dark in both themes. */
   --panel-dark: #18223b;
   --on-panel-dark: #f3f6f4;
@@ -71,7 +72,7 @@
     --paper-ink-muted: #55596a;
     --danger: #f2857d;
     --danger-soft: #3a1a18;
-    --focus: #79b0ff;
+    --focus: var(--brand);
     color-scheme: dark;
   }
 }
