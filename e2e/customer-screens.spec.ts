@@ -16,9 +16,9 @@ import { uniqueName, uniquePhone } from './unique.js';
 
 // Every customer screen, at phone and desktop width, in light and dark: a screenshot to look at
 // (e2e/screens/customer/, not committed) and an accessibility scan that must find nothing serious
-// or critical (ADR-0042). Five real shops stand in one quiet corner and answer one request: three
+// or critical (ADR-0042). Six real shops stand in one quiet corner and answer one request: three
 // say yes (the most the customer sees live, ADR-0043; Alpha delivers and is the cheapest), the
-// fourth answers a moment late and is remembered, like Echo from an earlier request. One delivery
+// fourth answers a moment late and is remembered, like Echo from an earlier request, and one says no. One delivery
 // order is out for delivery, one pickup question is open and one errand has a plan.
 // Fail fast: a broken screen must not burn minutes. One try, 90 s.
 test.describe.configure({ retries: 0 });
@@ -144,12 +144,13 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   });
   await page.getByRole('button', { name: 'Stop asking' }).click();
 
-  // --- Four more shops in the same quiet corner.
+  // --- Five more shops in the same quiet corner.
   const a = await shopAt(browser, corner, uniqueName('Seed Alpha Kirana'), true);
   const b = await shopAt(browser, corner, uniqueName('Seed Bravo Kirana'), false);
   const c = await shopAt(browser, corner, uniqueName('Seed Charlie Kirana'), false);
   const d = await shopAt(browser, corner, uniqueName('Seed Delta Kirana'), false);
-  for (const s of [a, b, c, d]) contexts.push(s.context);
+  const f = await shopAt(browser, corner, uniqueName('Seed Foxtrot Kirana'), false);
+  for (const s of [a, b, c, d, f]) contexts.push(s.context);
 
   // The request this run is about: two yes (Alpha delivers), two no, Echo remembered.
   await page.goto('/app/');
@@ -158,7 +159,7 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   const requestUrl = page.url();
   // Wait until all four shops have the question, then answer in order.
   await Promise.all(
-    [a, b, c, d].map(async (s) => {
+    [a, b, c, d, f].map(async (s) => {
       await expect(s.page.getByRole('button', { name: 'Answer' })).toBeVisible({ timeout: 30_000 });
     }),
   );
@@ -168,6 +169,7 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   const replyBravo = await waitingPing(b.page);
   const replyCharlie = await waitingPing(c.page);
   const replyDelta = await waitingPing(d.page);
+  const replyFoxtrot = await waitingPing(f.page);
   await replyAlpha({
     answer: 'yes',
     pricePaise: 4000,
@@ -176,6 +178,7 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await replyBravo({ answer: 'yes', pricePaise: 4500 });
   await replyCharlie({ answer: 'yes', pricePaise: 4200 });
   await replyDelta({ answer: 'yes', pricePaise: 5000 });
+  await replyFoxtrot({ answer: 'no' });
   await expect(page.getByRole('listitem').filter({ hasText: a.name })).toBeVisible({
     timeout: 30_000,
   });
@@ -187,6 +190,10 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await expect(page.getByText('Best price nearby')).toHaveCount(1);
   await expect(page.getByText(/Had it .* at ₹38/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Had it .* at ₹50/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: /shops? (doesn't|don't) have it/ })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole('button', { name: /shops? (doesn't|don't) have it/ }).click();
   await look(page, '4a-replies-list');
   await page.getByRole('button', { name: 'Map' }).click();
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible({ timeout: 15_000 });
@@ -211,12 +218,12 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   ).toBeVisible({ timeout: 20_000 });
   await look(page, '6b-order-out-for-delivery');
 
-  // --- A pickup from Bravo opens the "Did you get it?" question (screen 7).
+  // --- A pickup from Delta (remembered, never orderable) opens the "Did you get it?" question (screen 7).
   await page.context().route('https://www.google.com/**', (route) => route.abort());
   await page.goto(requestUrl);
-  const replyB = page.getByRole('listitem').filter({ hasText: b.name });
+  const replyD = page.getByRole('listitem').filter({ hasText: d.name });
   const popup = page.waitForEvent('popup').catch(() => null);
-  await replyB.getByRole('link', { name: 'Show the way' }).click();
+  await replyD.getByRole('link', { name: 'Show the way' }).click();
   await (await popup)?.close().catch(() => undefined);
   await page.goto('/app/orders');
   await expect(page.getByText(/Did you get .+ at .+\?/)).toBeVisible({ timeout: 15_000 });

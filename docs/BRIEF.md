@@ -102,7 +102,7 @@ Request states and transitions:
 
 - `OPEN` → `ANSWERED` when 3 or more shops already have the item in learned stock
 - `OPEN` → `PINGING` when too few shops have it in stock
-- `PINGING` → `ANSWERED` on the first yes
+- `PINGING` → `ANSWERED` on the first yes; up to 3 live offers are collected, and the third closes the request for the other shops (ADR-0043)
 - `PINGING` → `EXPIRED` after 15 minutes with no yes
 - `ANSWERED` → `CLOSED` when the user is done, or after 15 minutes
 
