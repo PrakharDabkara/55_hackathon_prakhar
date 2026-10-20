@@ -112,8 +112,9 @@ describe('everyday names', () => {
     const res = await ask({ q: 'maidha' });
     if (res.status === 422) {
       // The app asks first for a fuzzy match; picking the item it understood is the confirmed path.
-      const picked = await ask({ q: 'maidha', itemId: res.body.error.details.item.itemId });
+      const picked = await ask({ q: 'maidha', itemId: res.body.error.item.itemId });
       expect(picked.status).toBe(201);
+      // "maidha" is not a catalog word, so nothing is kept as the everyday name.
       expect(await alias(picked.body.id)).toBeNull();
       return;
     }
@@ -122,7 +123,14 @@ describe('everyday names', () => {
   });
 
   it('a generic word the catalog names a usual item for ("pen") shows as "Pen" over the item name', async () => {
-    const res = await ask({ q: 'pen' });
+    const asked = await ask({ q: 'pen' });
+    expect(asked.status).toBe(422);
+    expect(asked.body.error.code).toBe('item_confirm');
+    const res = await ask({
+      q: 'pen',
+      itemId: asked.body.error.item.itemId,
+      understanding: 'confirmed',
+    });
     expect(res.status).toBe(201);
     expect(await alias(res.body.id)).toBe('pen');
     expect(res.body.displayName).toBe('Pen');
@@ -157,5 +165,44 @@ describe('everyday names', () => {
     );
     const [card] = await shopCards();
     expect(card).not.toHaveProperty('displayName');
+  });
+
+  it("carries displayName on the shop's order line and the customer's own words on theirs", async () => {
+    const res = await ask({ q: 'maida' });
+    await fanOutPings(
+      { db: pool, logger, config: { maxPings: 10 } },
+      res.body.id as string,
+      claimsAll,
+    );
+    const [card] = await shopCards();
+    await request(app)
+      .post(`/pings/${card.id}/answer`)
+      .set({ Authorization: `Bearer ${owner.token}` })
+      .send({ answer: 'yes', pricePaise: 4500, delivery: { feePaise: 3000, minutes: 45 } });
+    const shopRow = (
+      await pool.query<{ id: string }>(`SELECT id FROM shops WHERE owner_user_id = $1`, [
+        owner.userId,
+      ])
+    ).rows[0];
+    const placed = await request(app)
+      .post('/orders')
+      .set({ Authorization: `Bearer ${seeker.token}` })
+      .send({
+        shopId: shopRow?.id,
+        requestId: res.body.id,
+        addressText: 'Flat 4B, Sapna Apartments, Indore',
+        customerName: 'Asha',
+      });
+    expect(placed.status).toBe(201);
+    // Customer: their own word, as typed (text), and the catalog name.
+    expect(placed.body.lines[0]).toMatchObject({ text: 'maida', name: 'refined flour' });
+    const mine = (
+      await request(app)
+        .get('/shops/me/orders')
+        .set({ Authorization: `Bearer ${owner.token}` })
+    ).body;
+    const line = mine[0].lines[0];
+    expect(line).toMatchObject({ name: 'refined flour', displayName: 'Maida' });
+    expect(line).not.toHaveProperty('text');
   });
 });

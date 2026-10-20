@@ -106,7 +106,12 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
     id: o.id,
     state: o.state,
     // Field by field: the customer's own words stay with the customer.
-    lines: o.lines.map(({ name, count, pricePaise }) => ({ name, count, pricePaise })),
+    lines: o.lines.map(({ name, displayName, count, pricePaise }) => ({
+      name,
+      ...(displayName && { displayName }),
+      count,
+      pricePaise,
+    })),
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,

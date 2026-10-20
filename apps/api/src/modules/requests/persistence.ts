@@ -24,6 +24,10 @@ export interface RequestRecord {
   /** Ticked "Deliver to me" on Find (ADR-0039). The address itself is never kept here. */
   wantsDelivery: boolean;
   deliveryAddressId: string | null;
+  /** The item could not be filed under a kind of shop: ask the nearest open shops of any kind (ADR-0046). */
+  misc: boolean;
+  /** The catalog word the customer's text matched, if any (ADR-0047). Never the customer's text. */
+  matchedAlias: string | null;
   /** Past its deadline by the database clock. */
   overdue: boolean;
 }
@@ -44,13 +48,15 @@ interface Row {
   lng: number;
   wants_delivery: boolean;
   delivery_address_id: string | null;
+  misc: boolean;
+  matched_alias: string | null;
   overdue: boolean;
 }
 
 const SELECT = `SELECT r.id, r.user_id, r.item_id, r.raw_query, r.quantity, r.target_price_paise, r.radius_m, r.state,
        r.version, r.expires_at, r.created_at,
        ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
-       r.wants_delivery, r.delivery_address_id,
+       r.wants_delivery, r.delivery_address_id, r.misc, r.matched_alias,
        (r.expires_at <= now()) AS overdue
   FROM requests r`;
 
@@ -70,6 +76,8 @@ const toRecord = (r: Row): RequestRecord => ({
   lng: r.lng,
   wantsDelivery: r.wants_delivery,
   deliveryAddressId: r.delivery_address_id,
+  misc: r.misc,
+  matchedAlias: r.matched_alias,
   overdue: r.overdue,
 });
 

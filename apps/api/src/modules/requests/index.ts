@@ -27,6 +27,7 @@ export {
   fanOutPings,
   listShopPings,
   MAX_LIVE_OFFERS,
+  MISC_FANOUT_MAX,
   withdrawPingsForChoice,
 } from './pings.js';
 export type { PingClaims, FanOutResult, CatchUpResult } from './pings.js';

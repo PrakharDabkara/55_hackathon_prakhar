@@ -16,6 +16,8 @@ interface Options {
    * category fill the gap up to this number (still within the radius and the cap).
    */
   minTargets?: number;
+  /** A misc request (ADR-0046): every open shop in the radius counts, whatever it sells. */
+  anyCategory?: boolean;
 }
 
 /**
@@ -26,8 +28,10 @@ interface Options {
 export function selectPingTargets<T extends Candidate>(candidates: T[], opts: Options): T[] {
   const byDistance = (a: T, b: T) => a.distanceM - b.distanceM;
   const inRadius = candidates.filter((c) => c.distanceM <= opts.radiusM);
-  const ofKind = inRadius.filter((c) =>
-    c.categories.some((category) => opts.itemCategories.includes(category)),
+  const ofKind = inRadius.filter(
+    (c) =>
+      opts.anyCategory === true ||
+      c.categories.some((category) => opts.itemCategories.includes(category)),
   );
   const matching = ofKind
     .filter((c) => !opts.excludeShopIds.has(c.shopId))

@@ -115,12 +115,16 @@ export async function createUserItem(
   if (verdict.verdict === 'blocked') return blocked(db, opts, 'classifier', 'classifier');
 
   const slug = slugForUserItem(text);
+  // "other": filed under general_store (so every shop check still holds) and marked uncategorised,
+  // so a request for it goes to the nearest open shops of any kind (ADR-0046).
+  const uncategorised = verdict.category === 'other';
+  const category = uncategorised ? 'general_store' : verdict.category;
   const inserted = await db.query<ItemRow>(
-    `INSERT INTO items (slug, name_en, name_hi, category, categories, source, unverified, created_by)
-     VALUES ($1, $2, $2, $3, ARRAY[$3], 'user', true, $4)
+    `INSERT INTO items (slug, name_en, name_hi, category, categories, source, unverified, created_by, uncategorised)
+     VALUES ($1, $2, $2, $3::text, ARRAY[$3::text], 'user', true, $4, $5)
      ON CONFLICT (slug) DO NOTHING
      RETURNING id, slug, name_en, name_hi, category, categories, unverified`,
-    [slug, name, verdict.category, opts.userId],
+    [slug, name, category, opts.userId, uncategorised],
   );
   let row = inserted.rows[0];
   if (!row) {

@@ -120,7 +120,7 @@ export async function nearestItems(db: Queryable, vector: number[], limit = 5): 
 /** The item a generic word defaults to ("pen" → ball pen), from the catalog file. */
 export async function defaultItem(db: Queryable, text: string): Promise<ItemRow | null> {
   const { rows } = await db.query<ItemRow>(
-    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified
+    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified, d.term
        FROM item_defaults d JOIN items i ON i.id = d.item_id WHERE d.term = $1`,
     [text],
   );

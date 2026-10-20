@@ -88,6 +88,11 @@ export interface Resolution {
   alternatives?: CatalogItem[];
   /** Set when the text looked like a product but may not be sent to shops (ADR-0029). */
   refused?: Refusal;
+  /**
+   * The catalog word the text matched ("maida" for refined flour): read back from a synonym or
+   * default row, never the customer's own text (ADR-0047). Absent when no catalog word matched.
+   */
+  matchedAlias?: string;
 }
 
 export interface ResolveOptions {
@@ -143,6 +148,7 @@ interface Found {
   ambiguous?: AmbiguousChoice;
   refused?: Refusal;
   alternatives?: ItemRow[];
+  matchedAlias?: string;
 }
 
 /**
@@ -322,7 +328,12 @@ async function findItem(
         // The text may be the item's own name or synonym (a new item remembers the words it was
         // made from): that is an exact match, whatever the cache says.
         const exactTerm = (await termsOfItems(db, [item.id])).get(item.id)?.includes(text);
-        return { item: toItem(item), matchedBy: exactTerm ? 'synonym' : 'cache', similarity: 1 };
+        return {
+          item: toItem(item),
+          matchedBy: exactTerm ? 'synonym' : 'cache',
+          similarity: 1,
+          ...(exactTerm && { matchedAlias: text }),
+        };
       }
     } else if (hit.optionIds && hit.question) {
       const options = await itemsByIds(db, hit.optionIds);
@@ -340,13 +351,18 @@ async function findItem(
 
   // b) An exact synonym.
   const exact = await db.query<ItemRow>(
-    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified
+    `SELECT i.id, i.slug, i.name_en, i.name_hi, i.category, i.categories, i.unverified, s.term
        FROM item_synonyms s JOIN items i ON i.id = s.item_id
       WHERE s.term = $1`,
     [text],
   );
   if (exact.rows[0] && fits(exact.rows[0]))
-    return { item: toItem(exact.rows[0]), matchedBy: 'synonym', similarity: 1 };
+    return {
+      item: toItem(exact.rows[0]),
+      matchedBy: 'synonym',
+      similarity: 1,
+      ...(exact.rows[0].term && { matchedAlias: exact.rows[0].term }),
+    };
 
   // c) Trigram similarity. `%` lets the GIN index prefilter (at pg_trgm's default 0.3); the
   // threshold is applied below. One best term per item, so we can tell "one clear item" from
@@ -388,11 +404,18 @@ async function findItem(
       matchedBy: 'trigram',
       similarity: best.sim ?? 0,
       alternatives: firstAlternatives(best.id, fuzzy.rows),
+      ...(best.term && { matchedAlias: best.term }),
     };
 
   // c2) A generic word the catalog file names a usual item for ("pen"): data, not a model's guess.
   const usual = await defaultItem(db, text);
-  if (usual && fits(usual)) return { item: toItem(usual), matchedBy: 'default', similarity: 1 };
+  if (usual && fits(usual))
+    return {
+      item: toItem(usual),
+      matchedBy: 'default',
+      similarity: 1,
+      ...(usual.term && { matchedAlias: usual.term }),
+    };
 
   const ai = opts.ai;
   if (!ai) return none;
