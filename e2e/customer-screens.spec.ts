@@ -16,9 +16,9 @@ import { uniqueName, uniquePhone } from './unique.js';
 
 // Every customer screen, at phone and desktop width, in light and dark: a screenshot to look at
 // (e2e/screens/customer/, not committed) and an accessibility scan that must find nothing serious
-// or critical (ADR-0042). Five real shops stand in one quiet corner and answer one request: one
-// says yes and delivers, two are remembered (one from an earlier request, one answered a moment
-// late) and two say no. One delivery
+// or critical (ADR-0042). Five real shops stand in one quiet corner and answer one request: three
+// say yes (the most the customer sees live, ADR-0043; Alpha delivers and is the cheapest), the
+// fourth answers a moment late and is remembered, like Echo from an earlier request. One delivery
 // order is out for delivery, one pickup question is open and one errand has a plan.
 // Fail fast: a broken screen must not burn minutes. One try, 90 s.
 test.describe.configure({ retries: 0 });
@@ -27,7 +27,7 @@ test.setTimeout(90_000);
 /**
  * The shop's waiting question, found over HTTP while it is still open; the returned function
  * answers it as the shop app does (POST /pings/:id/answer), with the shop's own login. Find the
- * question first and answer later: after the first yes the other pings are no longer waiting
+ * question first and answer later: after the third yes the other pings are no longer waiting
  * (they are NO_REPLY), but they can still be answered, late.
  */
 async function waitingPing(shop: Page) {
@@ -156,14 +156,14 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await ask(page, 'haldi', { delivery: true });
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
   const requestUrl = page.url();
-  // Wait until all four shops have the question, then answer in order: two yes, two no.
+  // Wait until all four shops have the question, then answer in order.
   await Promise.all(
     [a, b, c, d].map(async (s) => {
       await expect(s.page.getByRole('button', { name: 'Answer' })).toBeVisible({ timeout: 30_000 });
     }),
   );
-  // Alpha answers first and alone: its yes is the live one. The others answer after it, so they
-  // are late answers whatever the network does (sent together, either yes could win the race).
+  // The first three yes are live; the fourth comes after them, so it is a late answer whatever the
+  // network does (sent together, any of the four could be the one left out).
   const replyAlpha = await waitingPing(a.page);
   const replyBravo = await waitingPing(b.page);
   const replyCharlie = await waitingPing(c.page);
@@ -174,20 +174,19 @@ test('every customer screen is readable and passes the accessibility scan', asyn
     delivery: { feePaise: 2000, minutes: 30 },
   });
   await replyBravo({ answer: 'yes', pricePaise: 4500 });
-  await replyCharlie({ answer: 'no' });
-  await replyDelta({ answer: 'no' });
+  await replyCharlie({ answer: 'yes', pricePaise: 4200 });
+  await replyDelta({ answer: 'yes', pricePaise: 5000 });
   await expect(page.getByRole('listitem').filter({ hasText: a.name })).toBeVisible({
     timeout: 30_000,
   });
-  // The first yes ends the asking (the other pings become late answers), so one reply is live
-  // and the shops that answered a moment later are remembered, like Echo from before.
-  await expect(page.getByText(/1 have it/i)).toBeVisible({ timeout: 20_000 });
+  // Three replies are live and the cheapest says so; the fourth shop and Echo are remembered.
+  await expect(page.getByText(/3 have it/i)).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.getByRole('listitem').filter({ hasText: a.name }).getByText('Best price nearby'),
+  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Best price nearby')).toHaveCount(1);
   await expect(page.getByText(/Had it .* at ₹38/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/Had it .* at ₹45/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole('button', { name: /shops? don't have it/ })).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole('button', { name: /shops? don't have it/ }).click();
+  await expect(page.getByText(/Had it .* at ₹50/)).toBeVisible({ timeout: 20_000 });
   await look(page, '4a-replies-list');
   await page.getByRole('button', { name: 'Map' }).click();
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible({ timeout: 15_000 });
