@@ -1,7 +1,8 @@
 /**
- * What a push may say (ADR-0034). It travels through the browser maker's servers, so it is a title,
- * the item name and a deep link, and nothing else: no phone, address, coordinates or ids beyond the
- * link. The builder is only given an item name and an id, so there is nothing else it could include.
+ * What a push may say (ADR-0034, ADR-0044). It travels through the browser maker's servers, so it
+ * is a title, one line, a tag and a deep link, and nothing else: no phone, address, coordinates or
+ * ids beyond the link and tag. The builder is only given plain words (item, shop name, a distance
+ * band, a price, counts), so there is nothing else it could include.
  */
 export type PushKind =
   | 'new_ping'
@@ -11,71 +12,162 @@ export type PushKind =
   | 'order_accepted'
   | 'order_declined'
   | 'order_out'
-  | 'order_delivered'
   | 'order_chosen'
-  | 'order_received'
   | 'order_cancelled_by_shop'
   | 'pickup_ask';
 
 export interface PushPayload {
   title: string;
-  item: string;
+  /** One short line under the title. */
+  body: string;
+  /** A later push with the same tag replaces the earlier one on the phone instead of stacking. */
+  tag: string;
+  /** Whether a replacing push should alert again (false: it quietly updates the one on screen). */
+  renotify: boolean;
   /** A path inside /app/, opened when the notification is tapped. */
   url: string;
 }
 
+/** The words a push may be built from. The builder takes nothing else, so nothing else can leave. */
+export interface PushArgs {
+  item?: string;
+  id?: string;
+  /** The shop's public name. */
+  shop?: string;
+  /** The distance band a shop is told, never a position. */
+  band?: string;
+  pricePaise?: number;
+  /** Shops that have said yes (for the customer's one-per-request notification). */
+  shops?: number;
+  /** Other requests still waiting on this shop. */
+  more?: number;
+}
+
 const ITEM_MAX = 60;
+const NAME_MAX = 30;
 const PLAIN_ID = /^[\w-]{1,64}$/;
 
 /** Our privacy rule for free text: a run of digits that looks like a phone number goes. */
 export const stripPhoneNumbers = (text: string): string => text.replace(/\+?\d[\d\s-]{5,}\d/g, ' ');
 
-/** A short single-line item name with nothing that looks like a phone number or a coordinate. */
-export function cleanItem(raw: string | undefined): string {
+/** A short single-line name with nothing that looks like a phone number or a coordinate. */
+export function cleanText(raw: string | undefined, max: number): string {
   const text = stripPhoneNumbers((raw ?? '').replace(/[\u0000-\u001f\u007f]/g, ' '))
     .replace(/-?\d{1,3}\.\d{3,}/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  return text.length > ITEM_MAX ? `${text.slice(0, ITEM_MAX - 1).trimEnd()}…` : text;
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
 }
+export const cleanItem = (raw: string | undefined): string => cleanText(raw, ITEM_MAX);
 
-const TITLES: Record<PushKind, (item: string) => string> = {
-  new_ping: (item) => `Naya sawaal: ${item}`,
-  new_order: (item) => `Naya order: ${item}`,
-  shop_answered: (item) => `A shop replied: ${item}`,
-  plan_ready: () => 'Your plan is ready',
-  order_accepted: (item) => `Order accepted: ${item}`,
-  order_declined: (item) => `Shop declined your order: ${item}`,
-  order_out: (item) => `Order is on its way: ${item}`,
-  order_delivered: (item) => `Order delivered: ${item}`,
-  order_chosen: (item) => `Grahak ne aapko chuna: ${item}`,
-  // The customer tapped Received: the shop hears the same words the customer used to.
-  order_received: (item) => `Order pahunch gaya: ${item}`,
-  order_cancelled_by_shop: (item) => `Shop cancelled your order: ${item}`,
-  pickup_ask: (item) => `Did you get ${item}?`,
+const rupees = (paise: number): string => {
+  const value = paise / 100;
+  return `₹${Number.isInteger(value) ? value : value.toFixed(2)}`;
 };
 
-/** The link for each kind; the id is the request, errand or order it is about. */
-function linkFor(kind: PushKind, id: string | undefined): string {
-  if (
-    kind === 'new_ping' ||
-    kind === 'new_order' ||
-    kind === 'order_chosen' ||
-    kind === 'order_received'
-  )
-    return '/app/shop';
-  // The question itself is on the customer's home screen ("Le liya?", ADR-0035).
-  if (kind === 'pickup_ask') return '/app/';
-  if (!id || !PLAIN_ID.test(id)) throw new Error(`push kind ${kind} needs a plain id for its link`);
-  if (kind === 'shop_answered') return `/app/request/${id}`;
-  if (kind === 'plan_ready') return `/app/errand/${id}`;
-  return `/app/order/${id}`;
+interface Words {
+  item: string;
+  shop: string;
+  band: string;
+  price: string;
+  shops: number;
+  more: number;
 }
 
-export function buildPayload(
-  kind: PushKind,
-  { item, id }: { item?: string; id?: string },
-): PushPayload {
-  const name = cleanItem(item);
-  return { title: TITLES[kind](name).trim(), item: name, url: linkFor(kind, id) };
+interface Copy {
+  title: (w: Words) => string;
+  body: string;
+  /** The tag, from the plain id (or fixed for a screen-wide notification). */
+  tag: (id: string) => string;
+  link: (id: string) => string;
+  needsId: boolean;
+  renotify: (w: Words) => boolean;
+}
+
+const ofOrder = (id: string) => `order:${id}`;
+const customerOrder = (title: (w: Words) => string): Copy => ({
+  title,
+  body: 'Tap to see your order',
+  tag: ofOrder,
+  link: (id) => `/app/order/${id}`,
+  needsId: true,
+  renotify: () => true,
+});
+const shopOrder = (title: (w: Words) => string): Copy => ({
+  title,
+  body: 'Open the shop to see it',
+  tag: ofOrder,
+  link: () => '/app/shop',
+  needsId: true,
+  renotify: () => true,
+});
+
+const COPY: Record<PushKind, Copy> = {
+  // One notification per shop, replaced by each new request (ADR-0044).
+  new_ping: {
+    title: (w) => `New request: ${w.item} · ${w.band}${w.more > 0 ? ` and ${w.more} more` : ''}`,
+    body: 'Open the shop to answer',
+    tag: () => 'shop-requests',
+    link: () => '/app/shop',
+    needsId: false,
+    renotify: () => true,
+  },
+  new_order: shopOrder((w) => `New order: ${w.item}`),
+  order_chosen: shopOrder((w) => `Customer chose you: ${w.item}`),
+  // One notification per request: the first yes alerts, the 2nd and 3rd update it quietly.
+  shop_answered: {
+    title: (w) =>
+      w.shops > 1
+        ? `${w.shops} shops have ${w.item}${w.price ? ` · from ${w.price}` : ''}`
+        : `${w.shop} has ${w.item}${w.price ? ` · ${w.price}` : ''}`,
+    body: 'Tap to see the reply',
+    tag: (id) => `req:${id}`,
+    link: (id) => `/app/request/${id}`,
+    needsId: true,
+    renotify: (w) => w.shops <= 1,
+  },
+  plan_ready: {
+    title: () => 'Your errand plan is ready',
+    body: 'Tap to see the plan',
+    tag: (id) => `errand:${id}`,
+    link: (id) => `/app/errand/${id}`,
+    needsId: true,
+    renotify: () => true,
+  },
+  order_accepted: customerOrder((w) => `${w.shop} accepted your ${w.item} order`),
+  order_declined: customerOrder((w) => `${w.shop} declined your ${w.item} order`),
+  order_out: customerOrder((w) => `${w.shop}: your ${w.item} is on the way`),
+  order_cancelled_by_shop: customerOrder((w) => `${w.shop} cancelled your ${w.item} order`),
+  // The question itself is on the customer's home screen ("Le liya?", ADR-0035).
+  pickup_ask: {
+    title: (w) => `Did you get ${w.item}?`,
+    body: 'Tap to tell us',
+    tag: () => 'pickup',
+    link: () => '/app/',
+    needsId: false,
+    renotify: () => true,
+  },
+};
+
+export function buildPayload(kind: PushKind, args: PushArgs): PushPayload {
+  const copy = COPY[kind];
+  if (!copy) throw new Error(`unknown push kind ${String(kind)}`);
+  const id = args.id ?? '';
+  if (copy.needsId && !PLAIN_ID.test(id))
+    throw new Error(`push kind ${kind} needs a plain id for its tag and link`);
+  const words: Words = {
+    item: cleanItem(args.item),
+    shop: cleanText(args.shop, NAME_MAX) || 'A shop',
+    band: cleanText(args.band, 20),
+    price: args.pricePaise === undefined ? '' : rupees(args.pricePaise),
+    shops: args.shops ?? 1,
+    more: args.more ?? 0,
+  };
+  return {
+    title: copy.title(words).trim(),
+    body: copy.body,
+    tag: copy.tag(id),
+    renotify: copy.renotify(words),
+    url: copy.link(id),
+  };
 }
