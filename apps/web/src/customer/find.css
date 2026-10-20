@@ -9,16 +9,22 @@
   gap: var(--space-2);
   min-width: 0;
 }
-.cu-find__mark {
-  display: inline-flex;
-  flex: none;
+.cu-find__brandtext {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.cu-find__tagline {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font: 400 12px/16px var(--font-ui);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-login__brand {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--r-md);
-  background: var(--brand);
-  color: var(--on-brand);
+  gap: var(--space-3);
 }
 .cu-find__brand-name {
   overflow: hidden;

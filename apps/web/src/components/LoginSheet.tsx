@@ -4,6 +4,7 @@ import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
+import { BrandMark } from '../ui/BrandMark.js';
 import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
 
@@ -100,6 +101,10 @@ function Sheet({ api, onClose, onLoggedIn }: Omit<Props, 'open'>) {
       }
     >
       <form id={FORM} className="cu-find__form" onSubmit={submit}>
+        <div className="cu-login__brand">
+          <BrandMark size={40} />
+          <p className="sh-helper">{c.findTagline}</p>
+        </div>
         <Field
           label={c.loginPhone}
           type="tel"

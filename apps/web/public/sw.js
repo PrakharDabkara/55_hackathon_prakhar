@@ -1,4 +1,4 @@
-// KahanMilega service worker (ADR-0034): shows a Web Push and opens the right screen on a tap.
+// AskBuy service worker (ADR-0034): shows a Web Push and opens the right screen on a tap.
 // Plain JavaScript on purpose: it is served as-is from /app/sw.js, not bundled. It caches nothing.
 const HOME = '/app/';
 
@@ -18,7 +18,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let title = 'KahanMilega';
+  let title = 'AskBuy';
   let body = '';
   let url = HOME;
   let tag = '';

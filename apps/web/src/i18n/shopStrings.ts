@@ -31,7 +31,8 @@ export interface ShopStrings {
   logout: string;
   poweredBy: string;
   // Login
-  forShops: string;
+  /** The line under the brand on the shop login; the brand name comes from BRAND_NAME. */
+  forShops: (brand: string) => string;
   mobileNumber: string;
   codeHelper: string;
   sendCode: string;
@@ -240,7 +241,7 @@ export const shopEn: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'For shops',
+  forShops: (brand) => `${brand} for shops — lift your shutter online in a minute.`,
   mobileNumber: 'Mobile number',
   codeHelper: "We'll send a 6-digit code by SMS.",
   sendCode: 'Send code',
@@ -451,7 +452,7 @@ export const shopHi: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'Dukaandaar ke liye',
+  forShops: (brand) => `${brand} dukaandaar ke liye — ek minute mein apni dukaan online kholein.`,
   mobileNumber: 'Mobile number',
   codeHelper: 'Hum SMS se 6 ank ka code bhejenge.',
   sendCode: 'Code bhejo',

@@ -22,6 +22,7 @@ import type {
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
+import { BrandMark } from '../ui/BrandMark.js';
 import { Icon } from '../ui/Icon.js';
 import { Skeleton } from '../ui/Skeleton.js';
 import { Switch } from '../ui/Switch.js';
@@ -371,22 +372,11 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     <>
       <header className="cu-bar cu-find__bar">
         <span className="cu-find__brand">
-          <span className="cu-find__mark" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              width="20"
-              height="20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 21s-6-5.5-6-10a6 6 0 0112 0c0 4.500-6 10-6 10z" />
-              <circle cx="12" cy="11" r="2" />
-            </svg>
+          <BrandMark size={32} />
+          <span className="cu-find__brandtext">
+            <span className="cu-find__brand-name sh-heading">{BRAND_NAME}</span>
+            <span className="cu-find__tagline">{c.findTagline}</span>
           </span>
-          <span className="cu-find__brand-name sh-heading">{BRAND_NAME}</span>
         </span>
         <LangToggle />
         <a
