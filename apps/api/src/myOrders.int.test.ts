@@ -176,7 +176,7 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
       expect(res.body[0].expiresAt).toEqual(expect.any(String));
     });
 
-    it('does not list errands to a shop account or without a login', async () => {
+    it('needs a login', async () => {
       expect((await request(app).get('/errands')).status).toBe(401);
     });
 
