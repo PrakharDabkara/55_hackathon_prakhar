@@ -500,7 +500,7 @@ describe('errand patience: ask shops, wait, resume, ask the user (fake model, re
 
     it('ask_shops is capped per errand (ERRAND_MAX_ASK_SHOPS); asking again about the same item is free', async () => {
       limits = { ...limits, maxAskShops: 2 };
-      const { id } = await newErrand();
+      const { id } = await newErrand('phenyl, jhaadu, agarbatti');
       provider.playChat([
         {
           toolCalls: [

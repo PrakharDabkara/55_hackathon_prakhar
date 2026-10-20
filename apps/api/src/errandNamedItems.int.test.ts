@@ -173,7 +173,13 @@ describe("the errand rule: named items are kept, the agent's own additions are c
     const id = await start('chini, namak');
     provider.playChat([
       { toolCalls: [call('resolve_item', { text: 'chini' })] },
-      { toolCalls: [call('submit_plan', { items: [{ text: 'chini', status: 'not_found' }] })] },
+      {
+        toolCalls: [
+          call('submit_plan', {
+            items: [{ text: 'chini', itemId: sugar, status: 'not_found' }],
+          }),
+        ],
+      },
     ]);
     await runErrand(deps(), id);
     const plan = (await row(id)).plan as { items: { text: string; status: string }[] };

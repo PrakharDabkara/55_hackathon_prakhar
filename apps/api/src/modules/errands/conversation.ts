@@ -82,14 +82,19 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
   const resolved = new Map<string, string>();
   const refused = new Map<string, Refused>();
   const ticked = new Set<string>();
+  const declined = new Set<string>();
   const calls: RunState['calls'] = new Map();
   let epoch = 0;
   for (const step of steps) {
     if (step.kind === 'note') {
       epoch++;
-      const said = (step.payload as { ticked?: unknown } | null)?.ticked;
-      if (Array.isArray(said))
-        for (const word of said) if (typeof word === 'string') ticked.add(refusalKey(word));
+      const payload = step.payload as { ticked?: unknown; declined?: unknown } | null;
+      if (Array.isArray(payload?.ticked))
+        for (const word of payload.ticked)
+          if (typeof word === 'string') ticked.add(refusalKey(word));
+      if (Array.isArray(payload?.declined))
+        for (const word of payload.declined)
+          if (typeof word === 'string') declined.add(refusalKey(word));
     }
     if (step.kind !== 'tool') continue;
     const result = (step.payload as ToolPayload | null)?.result as
@@ -122,7 +127,7 @@ export function rebuildRunState(steps: StepRecord[], questionsAsked: number): Ru
       });
     }
   }
-  return { labels, found, resolved, questionsAsked, refused, ticked, calls, epoch };
+  return { labels, found, resolved, questionsAsked, refused, ticked, declined, calls, epoch };
 }
 
 /** What a failed or expired errand keeps: what the agent had found so far. */

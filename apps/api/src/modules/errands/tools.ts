@@ -47,7 +47,7 @@ export const submitPlanInput = z.object({
     .string()
     .max(400)
     .optional()
-    .describe("One or two short lines for the customer, in plain English"),
+    .describe('One or two short lines for the customer, in plain English'),
 });
 export type SubmitPlanInput = z.infer<typeof submitPlanInput>;
 
@@ -56,12 +56,7 @@ export const askShopsAgentInput = askShopsTool.input.pick({ itemId: true, target
 export const getRequestStatusAgentInput = getRequestStatusTool.input;
 export const askUserInput = z
   .object({
-    question: z
-      .string()
-      .trim()
-      .min(1)
-      .max(200)
-      .describe("One short question, in plain English"),
+    question: z.string().trim().min(1).max(200).describe('One short question, in plain English'),
     options: z
       .array(z.string().trim().min(1).max(80))
       .min(1)

@@ -6,8 +6,11 @@ import { isTypoOf, normaliseQuery } from '../catalog/index.js';
  * agent added on its own is never asked about before the customer confirmed it.
  */
 
-/** Pieces of a task: a comma, semicolon, new line, "+", "&", or the words "aur" and "and". */
-const SPLIT = /[,;\n+&]|\s(?:aur|and)\s/giu;
+/**
+ * Pieces of a task: a comma, semicolon, colon, new line, "+", "&", or the words "aur" and "and".
+ * A colon ends a goal ("ghar ki safai: phenyl, jhaadu"): the goal names nothing, the rest does.
+ */
+const SPLIT = /[,;:\n+&]|\s(?:aur|and)\s/giu;
 
 /**
  * After one of these the items of a goal follow ("bachche ke project ke liye <items>"). The
