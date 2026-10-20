@@ -7,6 +7,7 @@ import { displayItemName } from '../lib/format.js';
 import { useDemand, usePush } from '../lib/hooks.js';
 import type { ShopData } from '../lib/useShopData.js';
 import { Button } from '../../ui/Button.js';
+import { ClosedSign } from '../ui/ClosedSign.js';
 import { Deck } from '../ui/Deck.js';
 import { Icon } from '../../ui/Icon.js';
 import { OrderSlip } from '../ui/OrderSlip.js';
@@ -110,10 +111,7 @@ export function Home({ api, data, now, pushClient }: Props) {
   if (!shop.open) {
     return (
       <section className="sh-center" aria-labelledby="closed-title">
-        <div className="sh-blank-stack" aria-hidden="true">
-          <span className="sh-blank" />
-          <span className="sh-blank" />
-        </div>
+        <ClosedSign word={s.closedSign} />
         <h1 id="closed-title" className="sh-title">
           {s.closedTitle}
         </h1>

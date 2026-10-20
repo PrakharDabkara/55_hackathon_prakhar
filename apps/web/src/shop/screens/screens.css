@@ -148,16 +148,9 @@
   background: var(--brand);
   color: var(--on-brand);
 }
-.sh-logorow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-.sh-logorow__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
+.sh-logopick__circle--set {
+  border-style: solid;
+  overflow: visible;
 }
 .sh-pinmap {
   border: 2px solid var(--line);
@@ -289,25 +282,39 @@
 a.sh-tile:hover .sh-tile__label {
   color: var(--ink);
 }
-.sh-blank-stack {
-  position: relative;
-  width: 160px;
-  height: 120px;
+/* The closed sign: a still board on a string, brand and ink tokens only. */
+.sh-closed-sign {
+  display: block;
+  width: 200px;
+  height: auto;
+  max-width: 100%;
 }
-.sh-blank {
-  position: absolute;
-  inset: 0;
-  border: 2px dashed var(--line);
-  border-radius: var(--r-sm);
-  background: repeating-linear-gradient(to bottom, transparent 0 23px, var(--line) 23px 24px);
-  opacity: 0.8;
+.sh-closed-sign__string {
+  fill: none;
+  stroke: var(--ink-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
 }
-.sh-blank:first-child {
-  transform: rotate(-4deg) translateX(-12px);
+.sh-closed-sign__board {
+  fill: var(--brand);
 }
-.sh-blank:last-child {
-  transform: rotate(3deg) translateX(12px);
-  background-color: var(--bg);
+.sh-closed-sign__edge {
+  fill: none;
+  stroke: var(--on-brand);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  opacity: 0.6;
+}
+.sh-closed-sign__hole {
+  fill: var(--bg);
+}
+.sh-closed-sign__nail {
+  fill: var(--ink);
+}
+.sh-closed-sign__word {
+  fill: var(--on-brand);
+  font: 800 30px/1 var(--font-ui);
+  letter-spacing: 0.14em;
 }
 
 /* Orders */
