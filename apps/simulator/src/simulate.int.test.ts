@@ -74,7 +74,9 @@ describe('the simulator against a real API', () => {
    * running would be asked of them and answered, and counted in the simulator's totals.
    */
   const endLeftoverRequests = () =>
-    testDb.pool.query(`UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING')`);
+    testDb.pool.query(
+      `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+    );
 
   const options = (lines: string[]) => ({
     target: base,

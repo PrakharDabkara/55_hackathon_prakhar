@@ -137,8 +137,8 @@ describe('what the seeker sees: shop positions and ping counts', () => {
         .post(`/pings/${first.body[0].id}/answer`)
         .set(auth(shops[0] as User))
         .send({ answer: 'yes', pricePaise: 25000 });
-      // The yes answers the request, which ends the wait for the third shop.
-      expect(await stats()).toEqual({ sent: 3, yes: 1, no: 1, pending: 0 });
+      // The yes answers the request; the third shop may still answer (ADR-0043).
+      expect(await stats()).toEqual({ sent: 3, yes: 1, no: 1, pending: 1 });
     });
 
     it('is all zeros for a request answered from learned stock', async () => {

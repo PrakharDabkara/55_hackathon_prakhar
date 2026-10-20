@@ -50,9 +50,11 @@ describe('fan-out, ping answers and the price check', () => {
     seeker2 = await loginAs(app, 'seeker', String(phone++));
   }, 300_000);
 
-  // A shop made now is caught up on every live request (ADR-0038): every test starts with none.
+  // A shop made now is caught up on every live request (ADR-0038, ADR-0043): every test starts with none.
   beforeEach(async () => {
-    await pool.query(`UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING')`);
+    await pool.query(
+      `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+    );
   });
 
   afterAll(async () => {
@@ -163,10 +165,18 @@ describe('fan-out, ping answers and the price check', () => {
       });
       expect(stock.rows[0].ttl).toEqual({ days: 7 });
 
-      // 4. B and C are told it is over (NO_REPLY) and A's list is empty.
+      // 4. B and C still hold the question (the customer may wait for more offers, ADR-0043).
       const after = await pingsOf(requestId);
       const stateOf = (s: Shop) => after.find((p) => p.shop_id === s.shopId)?.state;
-      expect([stateOf(A), stateOf(B), stateOf(C)]).toEqual(['YES', 'NO_REPLY', 'NO_REPLY']);
+      expect([stateOf(A), stateOf(B), stateOf(C)]).toEqual(['YES', 'SENT', 'SENT']);
+      expect((await myPings(B)).body).toHaveLength(1);
+      // The customer stops asking: B and C are told it is over (NO_REPLY).
+      await request(app).post(`/requests/${requestId}/close`).set(auth(seeker));
+      expect((await pingsOf(requestId)).map((p) => p.state).sort()).toEqual([
+        'NO_REPLY',
+        'NO_REPLY',
+        'YES',
+      ]);
       expect((await myPings(B)).body).toEqual([]);
 
       // 5. B answers anyway, late: stock is learned, the request is untouched.
@@ -336,7 +346,7 @@ describe('fan-out, ping answers and the price check', () => {
       const near = await makeShop('Near dear', 0.2, ['personal_care']);
       const far = await makeShop('Far cheap', 1.5, ['personal_care']);
       const req = await ask({ q: 'comb', targetPricePaise: 5000 });
-      // Cap the race: wait for both pings, answer the far one first so it becomes ANSWERED...
+      // Wait for both pings; both shops say yes and both answers are live (up to three count)...
       const nearPing = (
         await waitFor(
           async () => (await myPings(near)).body,
@@ -350,7 +360,6 @@ describe('fan-out, ping answers and the price check', () => {
         )
       )[0];
       await answer(far, farPing.id, { answer: 'yes', pricePaise: 3000 });
-      // ...and the near shop's yes arrives late, so it becomes learned stock.
       await answer(near, nearPing.id, { answer: 'yes', pricePaise: 4800 });
 
       const byDefault = await getRequest(req.body.id);
@@ -359,7 +368,7 @@ describe('fan-out, ping answers and the price check', () => {
         near.shopId,
       ]);
       expect(byDefault.body.results[0]).toMatchObject({ source: 'live', savingsPaise: 2000 });
-      expect(byDefault.body.results[1]).toMatchObject({ source: 'learned', savingsPaise: 200 });
+      expect(byDefault.body.results[1]).toMatchObject({ source: 'live', savingsPaise: 200 });
 
       const byDistance = await getRequest(req.body.id, seeker, '?sort=distance');
       expect(byDistance.body.results.map((r: { shopId: string }) => r.shopId)).toEqual([

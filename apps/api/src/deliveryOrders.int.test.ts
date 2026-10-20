@@ -686,7 +686,7 @@ describe('delivery orders', () => {
   });
 
   describe('a withdrawn ping says why', () => {
-    it('ping.closed says "enough_answers" when another shop’s yes ended the request, and "answered" for the shop’s own answer', async () => {
+    it('ping.closed says "request_ended" when the customer stops asking, and "answered" for the shop’s own answer', async () => {
       const made = await request(app)
         .post('/requests')
         .set(auth(seeker))
@@ -704,9 +704,11 @@ describe('delivery orders', () => {
         .post(`/pings/${theirs.id}/answer`)
         .set(auth(rival))
         .send({ answer: 'yes', pricePaise: 4000 });
+      // Another shop's yes leaves the question open (ADR-0043); closing the request withdraws it.
+      await request(app).post(`/requests/${requestId}/close`).set(auth(seeker));
       const closed = events.filter((e) => e.type === 'ping.closed');
       const forShop = closed.find((e) => 'userId' in e.to && e.to.userId === shop.userId);
-      expect(forShop?.data).toEqual({ pingId: mine.id, reason: 'enough_answers' });
+      expect(forShop?.data).toEqual({ pingId: mine.id, reason: 'request_ended' });
       const forRival = closed.find((e) => 'userId' in e.to && e.to.userId === rival.userId);
       expect(forRival?.data).toEqual({ pingId: theirs.id, reason: 'answered' });
     });

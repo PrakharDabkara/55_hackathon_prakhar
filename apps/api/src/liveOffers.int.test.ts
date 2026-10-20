@@ -175,7 +175,9 @@ describe('collect up to three offers (S22 to S26)', () => {
     expect(found.filter((s) => s === 'YES/late')).toHaveLength(1);
     expect(await stock(c as Shop)).toBe(1);
     expect(await stock(d as Shop)).toBe(1);
-    expect((await status(r.id)).results).toHaveLength(3);
+    expect(
+      (await status(r.id)).results.filter((x: { source: string }) => x.source === 'live'),
+    ).toHaveLength(3);
   });
 
   it('S24: the customer orders after the first yes; the other open pings are withdrawn with the note', async () => {
