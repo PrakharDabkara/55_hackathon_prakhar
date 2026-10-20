@@ -1,3 +1,4 @@
+import { displayItemName } from './format.js';
 import type { Pin } from '../components/ResultsMap.js';
 import type { SeekerRequest, ShopResult } from './seekerApi.js';
 
@@ -62,5 +63,5 @@ export function daysSince(iso: string, now: number = Date.now()): number {
 /** The item's name on screen: Hindi on a Hindi screen, else English; null when there is no item. */
 export function itemLabel(item: SeekerRequest['item'], lang: 'hi' | 'en'): string | null {
   if (!item) return null;
-  return lang === 'hi' ? item.nameHi : item.nameEn;
+  return lang === 'hi' ? item.nameHi : displayItemName(item.nameEn);
 }

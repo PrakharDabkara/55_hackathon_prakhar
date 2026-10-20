@@ -88,6 +88,7 @@ export interface ShopStrings {
   replyIn: string;
   minutesShort: (n: number) => string;
   wantsDeliveryLine: string;
+  miscNote: string;
   deliveryStamp: string;
   cashOnDelivery: string;
   answer: string;
@@ -296,6 +297,7 @@ export const shopEn: ShopStrings = {
   replyIn: 'Reply in',
   minutesShort: (n) => `${n}m`,
   wantsDeliveryLine: 'The customer wants this delivered',
+  miscNote: 'May not be your usual stock',
   deliveryStamp: 'Delivery',
   cashOnDelivery: 'Cash on delivery',
   answer: 'Answer',
@@ -506,6 +508,7 @@ export const shopHi: ShopStrings = {
   replyIn: 'Jawab dein',
   minutesShort: (n) => `${n} min`,
   wantsDeliveryLine: 'Grahak ye ghar mangwana chahta hai',
+  miscNote: 'Shayad aapka roz ka maal na ho',
   deliveryStamp: 'Delivery',
   cashOnDelivery: 'Cash on delivery',
   answer: 'Jawab dein',

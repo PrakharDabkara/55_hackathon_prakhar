@@ -34,7 +34,10 @@ export function OrderSlip({ order, now, busy = false, onAccept, onDecline }: Pro
         {order.lines.map((line, i) => (
           <li key={`${line.name}-${i}`} className="sh-parchi__line">
             <span className="sh-parchi__note">
-              {line.count} × {displayItemName(line.name)}
+              {line.count} × {line.displayName ?? displayItemName(line.name)}
+              {line.displayName && (
+                <span className="sh-parchi__alias">{displayItemName(line.name)}</span>
+              )}
             </span>
             <span className="sh-parchi__price">
               {line.pricePaise === null

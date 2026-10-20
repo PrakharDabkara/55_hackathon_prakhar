@@ -120,6 +120,10 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const [busy, setBusy] = useState(false);
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
   const [sheetError, setSheetError] = useState<string | null>(null);
+  /** Find nearby is never disabled: pressing it too early says what is missing and goes there. */
+  const [nudge, setNudge] = useState<'query' | 'address' | null>(null);
+  const queryBox = useRef<HTMLInputElement>(null);
+  const addressBox = useRef<HTMLTextAreaElement>(null);
   const followUpOpen = useRef(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -331,7 +335,18 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   }
 
   function pressFind() {
-    if (!ready) return;
+    if (sending.current || busy) return;
+    if (query.trim() === '') {
+      setNudge('query');
+      queryBox.current?.focus();
+      return;
+    }
+    if (!ready) {
+      setNudge('address');
+      addressBox.current?.focus();
+      return;
+    }
+    setNudge(null);
     if (!loggedIn) {
       sendAfterLogin.current = true;
       setLoginOpen(true);
@@ -415,12 +430,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             <input
               type="text"
               className="cu-find__input"
+              ref={queryBox}
               aria-label={c.findTitle}
+              {...(nudge === 'query' && { 'aria-describedby': 'find-nudge' })}
               autoComplete="off"
               placeholder={c.findHint}
               value={query}
               onChange={(event) => {
                 sent.current = false;
+                setNudge(null);
                 setQuery(event.target.value);
                 setFollowUp(null);
               }}
@@ -467,17 +485,28 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
                   </label>
                   <textarea
                     id="find-address"
+                    ref={addressBox}
+                    {...(nudge === 'address' && { 'aria-describedby': 'find-nudge' })}
                     className="cu-find__textarea"
                     rows={3}
                     maxLength={300}
                     autoComplete="street-address"
                     value={typedAddress}
-                    onChange={(event) => setTypedAddress(event.target.value)}
+                    onChange={(event) => {
+                      setNudge(null);
+                      setTypedAddress(event.target.value);
+                    }}
                   />
                 </div>
                 <p className="sh-helper">{c.findAddressNote}</p>
               </div>
             ))}
+
+          {nudge && (
+            <p id="find-nudge" className="sh-helper" role="status">
+              {nudge === 'query' ? c.findNeedQuery : c.findNeedAddress}
+            </p>
+          )}
 
           {error && (
             <p className="sh-alert" role="alert">
@@ -485,12 +514,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             </p>
           )}
 
-          <Button
-            type="submit"
-            variant="primary"
-            className="sh-btn--block"
-            disabled={!ready || busy}
-          >
+          <Button type="submit" variant="primary" className="sh-btn--block" aria-disabled={busy}>
             {busy ? c.findSubmitting : c.findSubmit}
           </Button>
         </form>

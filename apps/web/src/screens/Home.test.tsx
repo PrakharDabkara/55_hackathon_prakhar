@@ -571,7 +571,7 @@ describe('Find: My orders and the active order strip', () => {
       ]),
     });
     expect(await screen.findByText('You have an order in progress')).toBeTruthy();
-    expect(await screen.findByText('sugar · Waiting for shop')).toBeTruthy();
+    expect(await screen.findByText('Sugar · Waiting for shop')).toBeTruthy();
     expect(screen.getByText('Gupta Store')).toBeTruthy();
     const track = screen.getByRole('link', { name: /Track/ });
     expect(track.getAttribute('href')).toBe('/app/order/new');
@@ -589,7 +589,7 @@ describe('Find: My orders and the active order strip', () => {
         }),
       ]),
     });
-    expect(await screen.findByText('sugar · Out for delivery')).toBeTruthy();
+    expect(await screen.findByText('Sugar · Out for delivery')).toBeTruthy();
     expect(screen.getByText(/Mishra Kirana · by \d/)).toBeTruthy();
   });
 

@@ -23,6 +23,8 @@ export interface FindStrings {
   findChangeAddress: string;
   findAddressNote: string;
   findSubmit: string;
+  findNeedQuery: string;
+  findNeedAddress: string;
   findSubmitting: string;
   findErrandTitle: string;
   findErrandContinue: string;
@@ -94,6 +96,8 @@ export const findEn: FindStrings = {
   findAddressNote:
     "We'll save this address so you don't type it again. You can delete it from My orders.",
   findSubmit: 'Find nearby',
+  findNeedQuery: 'Type what you need',
+  findNeedAddress: 'Add your delivery address',
   findSubmitting: 'Finding…',
   findErrandTitle: 'Plan an errand',
   findErrandContinue: 'Continue your errand',
@@ -163,6 +167,8 @@ export const findHi: FindStrings = {
   findAddressNote:
     'Ye pata hum save kar lenge, dobara nahi likhna padega. Mere orders mein se hata sakte hain.',
   findSubmit: 'Paas mein dhoondho',
+  findNeedQuery: 'Likhein kya chahiye',
+  findNeedAddress: 'Ghar ka pata likhein',
   findSubmitting: 'Dhoondh rahe hain…',
   findErrandTitle: 'Kaam ka plan banayein',
   findErrandContinue: 'Apna kaam jaari rakhein',

@@ -52,8 +52,4 @@ export function formatClock(timestamp: string): string {
   });
 }
 
-/** "cumin seeds" → "Cumin seeds": the first letter up, the rest as it is. Display only; nothing stored changes. */
-export function displayItemName(name: string): string {
-  const [first = ''] = Array.from(name);
-  return first.toLocaleUpperCase() + name.slice(first.length);
-}
+export { displayItemName } from '../../lib/format.js';

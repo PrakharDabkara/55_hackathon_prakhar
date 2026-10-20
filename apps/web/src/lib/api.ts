@@ -29,6 +29,10 @@ export interface ShopPing {
   wantsDelivery: boolean;
   /** This shop delivers that far; false hides "will deliver". */
   canDeliver: boolean;
+  /** What the customer called it, when a catalog word matched ("Maida" for refined flour). */
+  displayName?: string;
+  /** The item could not be filed under a kind of shop: it may not be this shop's usual stock. */
+  misc?: true;
   sentAt: string;
   expiresAt: string;
 }

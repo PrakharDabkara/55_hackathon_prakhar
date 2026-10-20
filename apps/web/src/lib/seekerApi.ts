@@ -59,6 +59,10 @@ export interface SeekerRequest {
     unverified: boolean;
   } | null;
   radiusM: number;
+  /** The customer's own words, as typed (ADR-0047). */
+  typed?: string;
+  /** The everyday catalog word those words matched ("Maida"), when it is not the item's own name. */
+  displayName?: string;
   /** What the customer typed after the item ("2 kg"); the server's parse, unit as the query wrote it. */
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;

@@ -82,6 +82,11 @@ div.sh-parchi__ruled {
   font: 400 17px/24px var(--font-hand);
   overflow-wrap: anywhere;
 }
+.sh-parchi__alias {
+  display: block;
+  color: var(--paper-ink-muted);
+  font: 400 14px/20px var(--font-ui);
+}
 .sh-parchi__foot {
   display: flex;
   flex-direction: column;

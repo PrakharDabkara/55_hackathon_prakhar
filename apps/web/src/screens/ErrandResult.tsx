@@ -1,6 +1,7 @@
 import { formatQuantity } from '@kahanmilega/shared';
 import { useMemo, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
+import { displayItemName } from '../lib/format.js';
 import { PlanMap } from '../components/PlanMap.js';
 import '../customer/errand.css';
 import { useT } from '../i18n/index.js';
@@ -326,7 +327,7 @@ function StopCard({
 function ItemLine({ item, photos }: { item: PlanItem; photos: PhotoApi | undefined }) {
   const { t } = useT();
   const c = t.c;
-  const name = item.itemName ?? item.text;
+  const name = item.itemName ? displayItemName(item.itemName) : item.text;
   const said = name.toLowerCase() !== item.text.toLowerCase();
   const tags = [
     item.isNew && t.newItemTag,
@@ -378,7 +379,7 @@ function ItemLine({ item, photos }: { item: PlanItem; photos: PhotoApi | undefin
 /** An item nobody has: the group it sits in says so; no shop or price. */
 function MissingRow({ item }: { item: PlanItem }) {
   const { t } = useT();
-  const name = item.itemName ?? item.text;
+  const name = item.itemName ? displayItemName(item.itemName) : item.text;
   return (
     <li className="cu-surface">
       <h4 className="sh-body cu-errand-line__name">{name}</h4>

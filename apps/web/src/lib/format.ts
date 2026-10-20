@@ -16,3 +16,9 @@ export function formatCountdown(ms: number): string {
   const seconds = String(total % 60).padStart(2, '0');
   return `${Math.floor(total / 60)}:${seconds}`;
 }
+
+/** "cumin seeds" → "Cumin seeds": the first letter up, the rest as it is. Display only; nothing stored changes. */
+export function displayItemName(name: string): string {
+  const [first = ''] = Array.from(name);
+  return first.toLocaleUpperCase() + name.slice(first.length);
+}

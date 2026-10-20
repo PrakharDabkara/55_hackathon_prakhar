@@ -102,7 +102,7 @@ describe('the request as a parchi', () => {
     );
     const note = screen.getByText('2 kg');
     expect(note.className).toContain('sh-parchi__note');
-    expect(note.previousElementSibling?.textContent).toBe('sugar');
+    expect(note.previousElementSibling?.textContent).toBe('Sugar');
     unmount();
     show(answeredRequest([], { pingStats: { sent: 1, yes: 0, no: 0, pending: 1 } }));
     expect(document.querySelector('.cu-parchi .sh-parchi__note')).toBeNull();
