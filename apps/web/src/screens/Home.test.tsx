@@ -116,7 +116,9 @@ describe('Find', () => {
       expect(second.api.myErrands).not.toHaveBeenCalled();
       second.unmount();
       setup({ myErrands: vi.fn(async () => Promise.reject(new Error('offline'))) });
-      await waitFor(() => expect(screen.getByRole('link', { name: /Plan an errand/ })).toBeTruthy());
+      await waitFor(() =>
+        expect(screen.getByRole('link', { name: /Plan an errand/ })).toBeTruthy(),
+      );
       expect(screen.queryByRole('link', { name: /Continue your errand/ })).toBeNull();
     });
   });

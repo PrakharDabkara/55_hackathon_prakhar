@@ -124,8 +124,25 @@
 }
 .cu-find__errand-text {
   display: flex;
+  flex: 1;
+  min-width: 0;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-1);
+}
+.cu-find__errand--resume {
+  min-height: var(--tap);
+  border-color: var(--brand);
+}
+.cu-find__errand-task {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cu-find__chevron {
+  flex: none;
+  color: var(--ink-muted);
 }
 .cu-find__shop {
   align-self: center;

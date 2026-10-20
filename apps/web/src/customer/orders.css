@@ -189,3 +189,11 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+
+/* An errand in the list: the task is text, so it may wrap to two lines. */
+.cu-order-row__task {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}

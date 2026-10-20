@@ -168,10 +168,12 @@ describe('the errand to continue', () => {
   });
 
   it('picks the newest active errand, or a plan that became ready within a day', () => {
-    const active = row({ id: 'a' });
-    const ready = row({ id: 'r', state: 'PLAN_READY', createdAt: '2026-10-16T08:00:00.000Z' });
+    const active = row({ id: 'a', createdAt: '2026-10-16T11:00:00.000Z' });
+    const ready = row({ id: 'r', state: 'PLAN_READY', createdAt: '2026-10-16T11:30:00.000Z' });
+    const older = row({ id: 'o', state: 'PLAN_READY', createdAt: '2026-10-16T08:00:00.000Z' });
+    expect(resumableErrand([active, ready], now)?.id).toBe('r');
     expect(resumableErrand([ready, active], now)?.id).toBe('r');
-    expect(resumableErrand([active, ready], now)?.id).toBe('a');
+    expect(resumableErrand([older], now)?.id).toBe('o');
     expect(resumableErrand([], now)).toBeNull();
   });
 

@@ -348,9 +348,7 @@ export const shopOrder = (overrides: Partial<ShopOrder> = {}): ShopOrder => ({
 });
 
 /** One row of GET /errands. */
-export const errandListItem = (
-  overrides: Partial<ErrandListItem> = {},
-): ErrandListItem => ({
+export const errandListItem = (overrides: Partial<ErrandListItem> = {}): ErrandListItem => ({
   id: 'errand-1',
   state: 'WAITING_FOR_SHOPS',
   task: 'school things for Riya',

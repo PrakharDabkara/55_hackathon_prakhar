@@ -86,6 +86,15 @@ export interface NewRequest {
   deliveryAddressId?: string;
 }
 
+/** One row of the customer's errand list: just enough to find the way back. */
+export interface ErrandListItem {
+  id: string;
+  state: ErrandState;
+  task: string;
+  createdAt: string;
+  expiresAt: string;
+}
+
 export type ErrandState =
   | 'PLANNING'
   | 'WAITING_FOR_SHOPS'
@@ -239,6 +248,8 @@ export interface SeekerApi
   cancelOrder(id: string, text?: string): Promise<SeekerOrder>;
   /** Every order of the customer (Mere orders). */
   myOrders(): Promise<SeekerOrder[]>;
+  /** The customer's own last 20 errands, newest first. */
+  myErrands(): Promise<ErrandListItem[]>;
   getOrder(id: string): Promise<SeekerOrder>;
   /** The address the customer chose to keep ("Is pate ko yaad rakhein"), if any. */
   savedAddress(): Promise<SavedAddress>;
@@ -324,6 +335,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     cancelOrder: (orderId, text) =>
       call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`, text ? { text } : undefined),
     myOrders: () => call<SeekerOrder[]>('GET', '/orders'),
+    myErrands: () => call<ErrandListItem[]>('GET', '/errands'),
     getOrder: (orderId) => call<SeekerOrder>('GET', `/orders/${id(orderId)}`),
     forgetAddress: async () => {
       await call('DELETE', '/orders/saved-address');

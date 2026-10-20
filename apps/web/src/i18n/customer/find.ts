@@ -25,6 +25,7 @@ export interface FindStrings {
   findSubmit: string;
   findSubmitting: string;
   findErrandTitle: string;
+  findErrandContinue: string;
   findErrandText: string;
   findShopkeepers: string;
   findStripLabel: string;
@@ -94,6 +95,7 @@ export const findEn: FindStrings = {
   findSubmit: 'Find nearby',
   findSubmitting: 'Finding…',
   findErrandTitle: 'Plan an errand',
+  findErrandContinue: 'Continue your errand',
   findErrandText:
     'For several things. Tell us the job; AI drafts the list, you check it, we ask the shops.',
   findShopkeepers: 'For shopkeepers',
@@ -161,6 +163,7 @@ export const findHi: FindStrings = {
   findSubmit: 'Paas mein dhoondho',
   findSubmitting: 'Dhoondh rahe hain…',
   findErrandTitle: 'Kaam ka plan banayein',
+  findErrandContinue: 'Apna kaam jaari rakhein',
   findErrandText:
     'Kai cheezon ke liye. Kaam batayein; AI list banata hai, aap dekhein, hum dukaanon se poochte hain.',
   findShopkeepers: 'Dukaandaaron ke liye',
