@@ -308,12 +308,13 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   async function moveOrder(
     shop: Shop,
     orderId: string,
-    verb: 'accept' | 'decline' | 'out',
+    verb: 'accept' | 'decline' | 'out' | 'ready',
   ): Promise<boolean> {
     const label = {
       accept: 'accepted',
       decline: 'declined',
       out: 'out for delivery',
+      ready: 'ready for pickup',
     }[verb];
     try {
       await client.orderAction(shop.token, orderId, verb, abort.signal);
@@ -331,11 +332,18 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
 
   /** An order for one of our shops: accept (or decline) and set out, with short waits. The customer confirms receipt. */
   function onOrder(data: unknown) {
-    const d = data as { orderId?: unknown; shopId?: unknown; state?: unknown } | null;
+    const d = data as {
+      orderId?: unknown;
+      shopId?: unknown;
+      state?: unknown;
+      fulfilment?: unknown;
+    } | null;
     if (typeof d?.orderId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
     if (!shop) return;
     const orderId = d.orderId;
+    // A pickup is made ready, a delivery sets out (ADR-0055).
+    const last = d.fulfilment === 'pickup' ? 'ready' : 'out';
     const decision = decideOrder(
       shop.profile,
       createRng(hashSeed(seed, d.shopId, orderId)),
@@ -348,7 +356,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         return;
       }
       if (decision.kind === 'dispatch') {
-        await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
+        await later(decision.outMs, async () => void (await moveOrder(shop, orderId, last)));
         return;
       }
       let ok = false;
@@ -357,7 +365,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         async () => void (ok = await moveOrder(shop, orderId, 'accept')),
       );
       if (!ok || stopped) return;
-      await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
+      await later(decision.outMs, async () => void (await moveOrder(shop, orderId, last)));
     })().finally(() => inFlight.delete(run));
     inFlight.add(run);
   }

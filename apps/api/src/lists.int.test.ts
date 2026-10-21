@@ -666,23 +666,32 @@ describe('shopping lists (S35 to S43)', () => {
       });
       expect(ok.status).toBe(201);
       expect(ok.body.list.state).toBe('ORDERED');
-      expect(ok.body.orders).toHaveLength(1);
-      expect(ok.body.orders[0]).toMatchObject({
+      // Every shop of the plan has an order: delivery and pickup (ADR-0055).
+      expect(ok.body.orders).toHaveLength(2);
+      const delivery = ok.body.orders.find((o: Json) => o['shopId'] === grocer.shopId);
+      expect(delivery).toMatchObject({
+        fulfilment: 'delivery',
         state: 'ACCEPTED',
-        shopId: grocer.shopId,
         feePaise: 2500,
         itemsTotalPaise: 4800,
+      });
+      expect(ok.body.orders.find((o: Json) => o['shopId'] === stationer.shopId)).toMatchObject({
+        fulfilment: 'pickup',
+        state: 'ACCEPTED',
+        feePaise: null,
       });
       expect(ok.body.pickups).toEqual([
         expect.objectContaining({ shopId: stationer.shopId, lines: expect.any(Array) }),
       ]);
       expect(ok.body.pickups[0].lines).toHaveLength(2);
-      const row = (await orders())[0];
+      const row = (await orders()).find((r) => r.fulfilment === 'delivery');
       expect(row.list_id).toBe(id);
       expect(row.lines[0]).toMatchObject({ name: 'Sugar', count: 1, pricePaise: 4800 });
       // The customer finds the orders of a list by its id.
       const mine = await request(app).get(`/orders?listId=${id}`).set(auth(seeker));
-      expect(mine.body.map((o: Json) => o['id'])).toEqual([ok.body.orders[0].id]);
+      expect(mine.body.map((o: Json) => o['id']).sort()).toEqual(
+        ok.body.orders.map((o: Json) => o['id']).sort(),
+      );
       expect(mine.body[0].listId).toBe(id);
     });
 

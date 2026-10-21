@@ -42,7 +42,7 @@ export interface Client {
   orderAction(
     token: string,
     orderId: string,
-    verb: 'accept' | 'decline' | 'out',
+    verb: 'accept' | 'decline' | 'out' | 'ready',
     signal?: AbortSignal,
   ): Promise<void>;
   /** Whether a shop token still works. */

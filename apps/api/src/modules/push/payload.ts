@@ -13,6 +13,9 @@ export type PushKind =
   | 'order_accepted'
   | 'order_declined'
   | 'order_out'
+  | 'order_ready'
+  | 'list_answered'
+  | 'list_ready'
   | 'order_chosen'
   | 'order_cancelled_by_shop'
   | 'pickup_ask';
@@ -42,6 +45,9 @@ export interface PushArgs {
   shops?: number;
   /** Other requests still waiting on this shop. */
   more?: number;
+  /** A list answer: how many of the list's lines the shop has, out of how many. */
+  have?: number;
+  total?: number;
 }
 
 const ITEM_MAX = 60;
@@ -73,6 +79,8 @@ interface Words {
   price: string;
   shops: number;
   more: number;
+  have: number;
+  total: number;
 }
 
 interface Copy {
@@ -146,6 +154,30 @@ const COPY: Record<PushKind, Copy> = {
   },
   order_accepted: customerOrder((w) => `${w.shop} accepted your ${w.item} order`),
   order_declined: customerOrder((w) => `${w.shop} declined your ${w.item} order`),
+  order_ready: customerOrder((w) => `${w.shop}: your ${w.item} is ready for pickup`),
+  // One notification per list (ADR-0055): the first answer alerts, the next ones update it quietly,
+  // and the end of the list alerts once more with "ready".
+  list_answered: {
+    title: (w) =>
+      w.shops > 1
+        ? `${w.shops} shops answered your list`
+        : w.have > 0
+          ? `${w.shop} has ${w.have} of your ${w.total}`
+          : `${w.shop} answered your list`,
+    body: 'Tap to see the answers',
+    tag: (id) => `list:${id}`,
+    link: (id) => `/app/list/${id}`,
+    needsId: true,
+    renotify: (w) => w.shops <= 1,
+  },
+  list_ready: {
+    title: (w) => `Your list is ready: ${w.shops} ${w.shops === 1 ? 'shop' : 'shops'} answered`,
+    body: 'Tap to see the answers',
+    tag: (id) => `list:${id}`,
+    link: (id) => `/app/list/${id}`,
+    needsId: true,
+    renotify: () => true,
+  },
   order_out: customerOrder((w) => `${w.shop}: your ${w.item} is on the way`),
   order_cancelled_by_shop: customerOrder((w) => `${w.shop} cancelled your ${w.item} order`),
   // The question itself is on the customer's home screen ("Le liya?", ADR-0035).
@@ -172,6 +204,8 @@ export function buildPayload(kind: PushKind, args: PushArgs): PushPayload {
     price: args.pricePaise === undefined ? '' : rupees(args.pricePaise),
     shops: args.shops ?? 1,
     more: args.more ?? 0,
+    have: args.have ?? 0,
+    total: args.total ?? 0,
   };
   return {
     title: copy.title(words).trim(),

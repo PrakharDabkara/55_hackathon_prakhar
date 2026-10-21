@@ -7,6 +7,8 @@ export const ORDER_STATES = [
   'DELIVERED',
   'CANCELLED',
   'NOT_CONFIRMED',
+  'READY',
+  'COLLECTED',
 ] as const;
 export const ORDER_EVENTS = [
   'ACCEPT',
@@ -17,6 +19,8 @@ export const ORDER_EVENTS = [
   'NOT_CONFIRM',
   'CANCEL',
   'SHOP_CANCEL',
+  'READY',
+  'COLLECT',
 ] as const;
 
 export type OrderState = (typeof ORDER_STATES)[number];
@@ -38,6 +42,7 @@ export const FINAL_ORDER_STATES: readonly OrderState[] = [
   'DECLINED',
   'EXPIRED',
   'DELIVERED',
+  'COLLECTED',
   'CANCELLED',
   'NOT_CONFIRMED',
 ];
@@ -51,8 +56,17 @@ export const isFinalOrderState = (state: OrderState) => FINAL_ORDER_STATES.inclu
  */
 const MOVES: { [S in OrderState]?: { [E in OrderEvent]?: OrderState } } = {
   REQUESTED: { ACCEPT: 'ACCEPTED', DECLINE: 'DECLINED', EXPIRE: 'EXPIRED', CANCEL: 'CANCELLED' },
-  ACCEPTED: { DISPATCH: 'OUT_FOR_DELIVERY', CANCEL: 'CANCELLED', SHOP_CANCEL: 'CANCELLED' },
+  ACCEPTED: {
+    DISPATCH: 'OUT_FOR_DELIVERY',
+    READY: 'READY',
+    CANCEL: 'CANCELLED',
+    SHOP_CANCEL: 'CANCELLED',
+  },
   OUT_FOR_DELIVERY: { RECEIVE: 'DELIVERED', NOT_CONFIRM: 'NOT_CONFIRMED' },
+  // A pickup (ADR-0055): READY is the shop's tap, COLLECT the customer's. Which events fit which
+  // kind of order (DISPATCH and RECEIVE for delivery, READY and COLLECT for pickup) is the service's
+  // check; this table is only the states.
+  READY: { COLLECT: 'COLLECTED', NOT_CONFIRM: 'NOT_CONFIRMED' },
 };
 
 export function orderTransition(state: OrderState, event: OrderEvent): OrderTransition {

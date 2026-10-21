@@ -280,7 +280,7 @@ async function expireIfDue(ctx: OrdersContext, order: OrderRecord): Promise<Orde
   const event =
     order.state === 'REQUESTED'
       ? 'EXPIRE'
-      : order.state === 'OUT_FOR_DELIVERY'
+      : order.state === 'OUT_FOR_DELIVERY' || order.state === 'READY'
         ? 'NOT_CONFIRM'
         : null;
   const deadline = order.state === 'REQUESTED' ? order.expiresAt : order.receiveBy;
@@ -289,7 +289,7 @@ async function expireIfDue(ctx: OrdersContext, order: OrderRecord): Promise<Orde
   const { rowCount } = await ctx.db.query(
     order.state === 'REQUESTED'
       ? `SELECT 1 FROM delivery_orders WHERE id = $1 AND state = 'REQUESTED' AND expires_at <= now()`
-      : `SELECT 1 FROM delivery_orders WHERE id = $1 AND state = 'OUT_FOR_DELIVERY' AND receive_by <= now()`,
+      : `SELECT 1 FROM delivery_orders WHERE id = $1 AND state IN ('OUT_FOR_DELIVERY', 'READY') AND receive_by <= now()`,
     [order.id],
   );
   if (!rowCount) return order;
@@ -351,8 +351,22 @@ export async function listMyOrders(ctx: OrdersContext, userId: string) {
 
 /** The customer confirms the delivery arrived. Only OUT_FOR_DELIVERY, and only before the deadline. */
 export async function receiveOrder(ctx: OrdersContext, userId: string, id: string) {
-  await owned(ctx, userId, id);
+  requireFulfilment(await owned(ctx, userId, id), 'delivery');
   return seekerOrderView(await apply(ctx, id, 'RECEIVE'));
+}
+
+/** The customer collected a READY pickup (ADR-0055). Only a pickup, only before the 3 hours are up. */
+export async function collectOrder(ctx: OrdersContext, userId: string, id: string) {
+  requireFulfilment(await owned(ctx, userId, id), 'pickup');
+  return seekerOrderView(await apply(ctx, id, 'COLLECT'));
+}
+
+/** Delivery has OUT and RECEIVED, pickup has READY and COLLECTED: the other kind's tap is refused. */
+function requireFulfilment(order: OrderRecord, kind: OrderRecord['fulfilment']): void {
+  if (order.fulfilment !== kind)
+    throw new ApiError(409, 'invalid_transition', 'This order cannot do that now', {
+      state: order.state,
+    });
 }
 
 export interface CancelInput {
@@ -443,6 +457,7 @@ const SHOP_EVENTS = {
   accept: 'ACCEPT',
   decline: 'DECLINE',
   out: 'DISPATCH',
+  ready: 'READY',
 } as const;
 export type ShopVerb = keyof typeof SHOP_EVENTS;
 
@@ -452,12 +467,16 @@ export async function shopAct(ctx: OrdersContext, ownerUserId: string, id: strin
   if (!order || order.shopOwnerUserId !== ownerUserId)
     throw new ApiError(404, 'not_found', 'No such order');
   const fresh = await expireIfDue(ctx, order);
+  if (verb === 'out') requireFulfilment(fresh, 'delivery');
+  if (verb === 'ready') requireFulfilment(fresh, 'pickup');
   return shopOrderView(await apply(ctx, fresh.id, SHOP_EVENTS[verb]));
 }
 
 /** What one shop's order from a list is made of (ADR-0055): its lines, fee, and how it starts. */
 export interface ListOrderDraft {
   shopId: string;
+  /** A pickup keeps no address, pin or name (ADR-0055). */
+  fulfilment: 'delivery' | 'pickup';
   lines: OrderLine[];
   feePaise: number | null;
   /** ACCEPTED for an answer that is still binding, else REQUESTED. */
@@ -494,10 +513,12 @@ export async function insertListOrders(
       ? await getSavedAddressById(tx, userId, input.deliveryAddressId)
       : null;
   const addressText = input.addressText ?? picked?.addressText;
-  if (!addressText)
+  // Only a delivery needs somewhere to go.
+  if (!addressText && input.orders.some((o) => o.fulfilment === 'delivery'))
     throw new ApiError(400, 'address_required', 'Tell us where to deliver: the address is needed');
   const records: OrderRecord[] = [];
   for (const draft of input.orders) {
+    const pickup = draft.fulfilment === 'pickup';
     const { totalPaise, unknown } = totalOf(draft.lines);
     const id = await insertOrder(tx, {
       userId,
@@ -510,10 +531,13 @@ export async function insertListOrders(
       unknownPriceCount: unknown,
       feePaise: draft.feePaise,
       feeMinutes: null,
-      addressText,
-      customerFirstName: firstNameOf(input.customerName) ?? picked?.customerName ?? null,
-      lat: input.lat,
-      lng: input.lng,
+      fulfilment: draft.fulfilment,
+      addressText: pickup ? null : (addressText ?? null),
+      customerFirstName: pickup
+        ? null
+        : (firstNameOf(input.customerName) ?? picked?.customerName ?? null),
+      lat: pickup ? null : input.lat,
+      lng: pickup ? null : input.lng,
       note: cleanNote(input.note),
       state: draft.state,
       expiryMinutes: ORDER_EXPIRY_MINUTES,
@@ -521,7 +545,11 @@ export async function insertListOrders(
     if (!id) throw new ApiError(409, 'order_exists', 'An order is already open for this shop');
     records.push((await findOrder(tx, id)) as OrderRecord);
   }
-  if (input.saveAddress === true)
+  if (
+    input.saveAddress === true &&
+    addressText &&
+    input.orders.some((o) => o.fulfilment === 'delivery')
+  )
     await saveAddress(tx, userId, addressText, firstNameOf(input.customerName));
   return records;
 }
@@ -542,7 +570,12 @@ export async function announceOrdersCreated(
         {
           to: { admin: true },
           type: 'order.created',
-          data: { orderId: order.id, shopId: order.shopId, state: order.state },
+          data: {
+            orderId: order.id,
+            shopId: order.shopId,
+            state: order.state,
+            fulfilment: order.fulfilment,
+          },
         },
         ctx.logger,
       );

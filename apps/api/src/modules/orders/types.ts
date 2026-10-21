@@ -31,6 +31,11 @@ export interface OrderRecord {
   /** The shopping list this order came from, if any (ADR-0055). */
   listId: string | null;
   state: OrderState;
+  /** A pickup holds no address, pin or name (ADR-0055). */
+  fulfilment: 'delivery' | 'pickup';
+  /** Where the shop is: a pickup customer walks there. */
+  shopLat: number;
+  shopLng: number;
   lines: OrderLine[];
   /** Left out when no line has a price. Lines without a price are not in it, never ₹0. */
   itemsTotalPaise: number | null;

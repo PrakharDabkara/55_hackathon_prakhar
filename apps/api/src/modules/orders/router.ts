@@ -4,6 +4,7 @@ import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import {
   cancelOrder,
+  collectOrder,
   forgetAddress,
   getSeekerOrder,
   listMyOrders,
@@ -127,6 +128,11 @@ export function ordersRouter(deps: OrdersContext): Router {
     res.json(await receiveOrder(ctxFor(req), authOf(req).user.id, orderId(req)));
   });
 
+  // The customer collected a READY pickup (ADR-0055).
+  router.post('/orders/:id/collected', ...seekerOnly, async (req, res) => {
+    res.json(await collectOrder(ctxFor(req), authOf(req).user.id, orderId(req)));
+  });
+
   router.get('/shops/me/orders', ...shopOnly, async (req, res) => {
     res.json(await listShopOrders(ctxFor(req), authOf(req).user.id));
   });
@@ -138,7 +144,7 @@ export function ordersRouter(deps: OrdersContext): Router {
     res.json(await packLine(ctxFor(req), authOf(req).user.id, orderId(req), index, packed));
   });
 
-  for (const verb of ['accept', 'decline', 'out'] as const satisfies ShopVerb[]) {
+  for (const verb of ['accept', 'decline', 'out', 'ready'] as const satisfies ShopVerb[]) {
     router.post(`/orders/:id/${verb}`, ...shopOnly, async (req, res) => {
       res.json(await shopAct(ctxFor(req), authOf(req).user.id, orderId(req), verb));
     });

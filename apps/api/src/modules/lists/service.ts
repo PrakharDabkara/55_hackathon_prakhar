@@ -762,7 +762,7 @@ export interface OrderListInput extends OrderPlanInput {
 export interface OrderListResult {
   list: ListView;
   orders: SeekerOrderView[];
-  /** Shops the customer will walk to: no order is made for these (as in an errand plan). */
+  /** The shops the customer will walk to, for the route. Each also has an order in `orders`. */
   pickups: {
     shopId: string;
     name: string;
@@ -785,8 +785,8 @@ const REFUSED_PLAN_STATUS = {
  * Orders from several shops at once, all or nothing (ADR-0055 rule 11). Under the list's lock:
  * every assignment must be a line that shop said it has; delivery only where it said canDeliver;
  * a closed shop refuses the call. One delivery order per delivery shop with that shop's prices and
- * fee, born ACCEPTED while the answers are binding and REQUESTED once the list has expired; a shop
- * set to pickup gets no order. The list becomes ORDERED.
+ * fee, born ACCEPTED while the answers are binding and REQUESTED once the list has expired. A shop
+ * set to pickup gets an order too, one that keeps no address, pin or name. The list becomes ORDERED.
  */
 export async function orderFromList(
   ctx: ListsContext,
@@ -824,16 +824,13 @@ export async function orderFromList(
     });
     if (!plan.ok) throw new ApiError(REFUSED_PLAN_STATUS[plan.code], plan.code, plan.message);
 
-    // A closed shop takes no new order (ADR-0039).
-    const deliveryShops = plan.shops.filter((s) => s.mode === 'delivery');
-    if (deliveryShops.length > 0) {
-      const closed = await tx.query(
-        `SELECT 1 FROM shops WHERE id = ANY($1::uuid[]) AND closed_until IS NOT NULL AND closed_until > now()`,
-        [deliveryShops.map((s) => s.shopId)],
-      );
-      if (closed.rows.length > 0)
-        throw new ApiError(409, 'shop_closed', 'A shop on this list just closed');
-    }
+    // A closed shop takes no new order, delivery or pickup (ADR-0039).
+    const closed = await tx.query(
+      `SELECT 1 FROM shops WHERE id = ANY($1::uuid[]) AND closed_until IS NOT NULL AND closed_until > now()`,
+      [plan.shops.map((s) => s.shopId)],
+    );
+    if (closed.rows.length > 0)
+      throw new ApiError(409, 'shop_closed', 'A shop on this list just closed');
 
     const binding = isLive(list.state);
     const byPosition = new Map(lines.map((l) => [l.position, l]));
@@ -850,8 +847,10 @@ export async function orderFromList(
         pricePaise,
       };
     };
-    const drafts: ListOrderDraft[] = deliveryShops.map((s) => ({
+    // Every shop of the plan gets an order: delivery to the address, or pickup that shares none.
+    const drafts: ListOrderDraft[] = plan.shops.map((s) => ({
       shopId: s.shopId,
+      fulfilment: s.mode,
       lines: s.lines.map((l) => orderLine(l.position, l.pricePaise)),
       feePaise: s.feePaise,
       state: binding ? 'ACCEPTED' : 'REQUESTED',

@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR U1 follow-up: pickup orders and list push, ADR-0055)
+
+- A list shop set to pickup now gets an order (`fulfilment: pickup`, migration 028): ACCEPTED, READY (`POST /orders/:id/ready`, the shop; response carries `unpackedCount`), COLLECTED (`POST /orders/:id/collected`, the customer); 3 hours after READY it becomes NOT_CONFIRMED. A pickup keeps no address, pin or name; order views gain `fulfilment` and `shopLocation`. `orders[]` of `POST /lists/:id/order` now holds every shop of the plan; `pickups[]` stays for the route. Customers get "your order is ready for pickup".
+- One customer notification per list (`list:<id>`): first answer, quiet updates, one "Your list is ready" at 8 answers or 15 minutes.
+
 ### Added (PR U1: shopping lists, backend only, ADR-0055)
 
 - Shopping lists. `POST /lists/sort` understands up to 10 typed lines (item, ambiguous with up to 3 options, "other", or refused) with one embedding request and one model call per list; `POST /lists/:id/send` gives each nearby shop ONE parchi with its lines plus the "other" lines; `GET /shops/me/lists` and `POST /list-pings/:id/answer` for shops (per line have + whole-rupee price, `canDeliver`, one fee); `GET /lists/:id` for ranked answers and the default plan (fewest shops that cover everything, exact); `POST /lists/:id/order` orders from several shops in one all-or-nothing call; `POST /lists/:id/stop`. The list stops listening at 8 answers or 15 minutes. Migration 027: `shopping_lists`, `list_lines`, `list_pings`, `list_ping_lines`, `delivery_orders.list_id`.
