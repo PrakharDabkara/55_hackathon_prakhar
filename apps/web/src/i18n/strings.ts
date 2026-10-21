@@ -261,7 +261,7 @@ export interface Strings {
 export const hi: Strings = {
   shop: shopHi,
   c: customerHi,
-  appName: 'KahanMilega',
+  appName: 'AskBuy',
   switchLanguage: 'English',
 
   phoneLabel: 'Aapka mobile number',
@@ -531,7 +531,7 @@ export const hi: Strings = {
 export const en: Strings = {
   shop: shopEn,
   c: customerEn,
-  appName: 'KahanMilega',
+  appName: 'AskBuy',
   switchLanguage: 'हिंदी',
 
   phoneLabel: 'Your mobile number',

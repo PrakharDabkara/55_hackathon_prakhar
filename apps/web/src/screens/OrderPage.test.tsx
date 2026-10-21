@@ -48,7 +48,7 @@ describe('the order page', () => {
     expect(await screen.findByText('From Mishra Kirana')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Your order' })).toBeTruthy();
     expect(api.getOrder).toHaveBeenCalledWith('o-7');
-    expect(screen.getByText(/2 × sugar/)).toBeTruthy();
+    expect(screen.getByText(/2 × Sugar/)).toBeTruthy();
     expect(screen.getByText('Delivery fee')).toBeTruthy();
     expect(screen.getByText('Pay cash ₹120')).toBeTruthy();
     expect(screen.getByText(/Flat 4B/)).toBeTruthy();
@@ -349,7 +349,7 @@ describe('the order page', () => {
 
     it('an English screen shows the English name', async () => {
       setup(cinnamon);
-      expect(await screen.findByText(/1 × cinnamon/)).toBeTruthy();
+      expect(await screen.findByText(/1 × Cinnamon/)).toBeTruthy();
     });
 
     it('a Hindi screen shows the customer’s own word', async () => {

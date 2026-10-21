@@ -142,7 +142,7 @@ describe('the service worker (public/sw.js)', () => {
         string,
         { data: { url: string } },
       ];
-      expect(title).toBe('KahanMilega');
+      expect(title).toBe('AskBuy');
       expect(options.data.url).toBe('/app/');
     });
 

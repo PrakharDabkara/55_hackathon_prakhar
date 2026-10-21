@@ -15,6 +15,12 @@ const kilometres = (metres: number) => String(Math.round(metres / 100) / 10);
 export function RequestParchi({ request }: { request: SeekerRequest }) {
   const { t, lang } = useT();
   const haveIt = request.results.filter((r) => r.source === 'live').length;
+  // The customer's own words lead, exactly as typed; the item they matched is small underneath
+  // when it is not simply the same words (ADR-0047).
+  const own = request.typed?.trim() || null;
+  const item = itemLabel(request.item, lang);
+  const heading = own ?? item ?? t.c.itemFallback;
+  const matched = own && item && own.toLowerCase() !== item.toLowerCase() ? item : null;
   const quantity = request.quantity
     ? formatQuantity({
         amount: request.quantity.quantity,
@@ -30,7 +36,8 @@ export function RequestParchi({ request }: { request: SeekerRequest }) {
         {haveIt > 0 && <span className="sh-stamp sh-stamp--yes">{t.c.haveIt(haveIt)}</span>}
       </div>
       <div className="sh-parchi__ruled">
-        <h2 className="sh-parchi__item">{itemLabel(request.item, lang) ?? t.c.itemFallback}</h2>
+        <h2 className="sh-parchi__item">{heading}</h2>
+        {matched && <p className="sh-parchi__alias">{matched}</p>}
         {quantity && <p className="sh-parchi__note">{quantity}</p>}
       </div>
     </Parchi>

@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { BRAND_NAME } from '../../brand.js';
 import { useT } from '../../i18n/index.js';
 import { ApiError, type ShopApi } from '../../lib/api.js';
+import { BrandMark } from '../../ui/BrandMark.js';
 import { Button } from '../../ui/Button.js';
 import { Field } from '../../ui/Field.js';
-import { Icon } from '../../ui/Icon.js';
 
 export type LoginApi = Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp'>;
 
@@ -68,11 +68,9 @@ export function Login({ api, onLoggedIn }: Props) {
   return (
     <div className="sh-login">
       <header className="sh-login__brand">
-        <span className="sh-mark" aria-hidden="true">
-          <Icon name="pin" size={40} />
-        </span>
+        <BrandMark size={72} />
         <h1 className="sh-display">{BRAND_NAME}</h1>
-        <p className="sh-body sh-muted">{s.forShops}</p>
+        <p className="sh-body sh-muted">{s.forShops(BRAND_NAME)}</p>
       </header>
 
       <form className="sh-login__form" onSubmit={step === 'phone' ? sendCode : verify}>

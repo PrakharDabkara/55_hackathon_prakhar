@@ -10,6 +10,8 @@ export interface OrderLine {
   nameHi?: string;
   /** The customer's own word for it. Only the customer's views carry it; a shop sees `name`. */
   text?: string;
+  /** The everyday catalog word the customer's text matched ("Maida"): a catalog word, so a shop may see it (ADR-0047). */
+  displayName?: string;
   count: number;
   pricePaise: number | null;
 }

@@ -21,8 +21,11 @@ const here = async () => ({ lat: 22.7, lng: 75.8 });
 describe('Login', () => {
   it('shows the brand once, who it is for, a +91 field, a helper and the one primary button', () => {
     renderApp(<Login api={fakeApi()} onLoggedIn={vi.fn()} />, 'en');
-    expect(screen.getByRole('heading', { name: 'KahanMilega' })).toBeTruthy();
-    expect(screen.getByText('For shops')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'AskBuy' })).toBeTruthy();
+    expect(
+      screen.getByText('AskBuy for shops — lift your shutter online in a minute.'),
+    ).toBeTruthy();
+    expect(document.querySelector('.sh-login__brand svg.brand-mark')).toBeTruthy();
     expect(screen.getByLabelText('Mobile number')).toBeTruthy();
     expect(screen.getByText('+91')).toBeTruthy();
     expect(screen.getByText("We'll send a 6-digit code by SMS.")).toBeTruthy();

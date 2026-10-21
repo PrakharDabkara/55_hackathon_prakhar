@@ -8,6 +8,7 @@ import type { EventPublisher } from '../realtime/index.js';
 import type { AiContext } from '../ai/index.js';
 import {
   getItem,
+  normaliseQuery,
   refusalError,
   resolveForCustomer,
   type CatalogItem,
@@ -66,6 +67,8 @@ export interface CreateRequestInput {
    * logs (ADR-0036); it changes nothing else.
    */
   understanding?: 'confirmed' | 'changed' | undefined;
+  /** The customer chose "search exactly what I typed": their words become the item (ADR-0045). */
+  asTyped?: boolean | undefined;
   /** An unused photo of the customer's to attach (ADR-0030). */
   photoId?: string | undefined;
   /** The HTTP request id, so AI calls can be traced to it. */
@@ -86,6 +89,10 @@ export interface RequestView {
   radiusM: number;
   targetPricePaise?: number;
   wantsDelivery: boolean;
+  /** The customer's own words, as typed: their own data, shown back to them (ADR-0047). */
+  typed: string;
+  /** The everyday catalog word the text matched ("Maida"), when it differs from the item's name. */
+  displayName?: string;
   results: RequestResult[];
   /** How the shops have answered this request so far. */
   pingStats: PingStats;
@@ -167,6 +174,11 @@ async function liveAnswers(ctx: RequestsContext, r: RequestRecord): Promise<Live
   }));
 }
 
+const sentenceCase = (text: string): string => {
+  const [first = ''] = Array.from(text);
+  return first.toLocaleUpperCase() + text.slice(first.length);
+};
+
 async function toView(
   ctx: RequestsContext,
   r: RequestRecord,
@@ -186,6 +198,8 @@ async function toView(
     ...(r.targetPricePaise !== null && { targetPricePaise: r.targetPricePaise }),
     radiusM: r.radiusM,
     wantsDelivery: r.wantsDelivery,
+    typed: r.rawQuery,
+    ...(r.matchedAlias && { displayName: sentenceCase(r.matchedAlias) }),
     results: buildResults({
       live,
       learned,
@@ -226,7 +240,8 @@ export async function createRequest(
   const resolution = await resolveForCustomer(ctx.db, input.q, {
     // A plain search is confirmed before any shop is asked; a picked item (itemId) and an errand's
     // own requests are not.
-    confirm: !input.itemId && !input.errandId,
+    confirm: !input.itemId && !input.errandId && !input.asTyped,
+    asTyped: input.asTyped === true,
     userId,
     threshold: ctx.config.trigramThreshold,
     itemId: input.itemId,
@@ -250,6 +265,21 @@ export async function createRequest(
       'deliveryAddressId: choose one of your saved addresses to get delivery',
     );
 
+  // ADR-0046: an item nobody could file under a kind of shop is asked of the nearest open shops.
+  const misc =
+    (
+      await ctx.db.query<{ uncategorised: boolean }>(
+        `SELECT uncategorised FROM items WHERE id = $1`,
+        [resolution.item.id],
+      )
+    ).rows[0]?.uncategorised === true;
+  // ADR-0047: the catalog word that matched, only when it is not simply the item's own name.
+  const matchedAlias =
+    resolution.matchedAlias &&
+    resolution.matchedAlias !== normaliseQuery(resolution.item.nameEn).text
+      ? resolution.matchedAlias
+      : null;
+
   const radiusM = input.radiusM ?? DEFAULT_RADIUS_M;
   const stock = await findLearnedStock(ctx.db, resolution.item.id, input.lat, input.lng, radiusM);
   const event: RequestEvent =
@@ -261,9 +291,9 @@ export async function createRequest(
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO requests (user_id, item_id, raw_query, quantity, location, radius_m,
                              expires_at, idempotency_key, target_price_paise,
-                             wants_delivery, delivery_address_id)
+                             wants_delivery, delivery_address_id, misc, matched_alias)
        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7,
-               now() + make_interval(mins => $8::int), $9, $10, $11, $12)
+               now() + make_interval(mins => $8::int), $9, $10, $11, $12, $13, $14)
        ON CONFLICT (user_id, idempotency_key) DO NOTHING
        RETURNING id`,
       [
@@ -279,6 +309,8 @@ export async function createRequest(
         input.targetPricePaise ?? null,
         wantsDelivery,
         wantsDelivery ? (input.deliveryAddressId ?? null) : null,
+        misc,
+        matchedAlias,
       ],
     );
     const row = inserted.rows[0];

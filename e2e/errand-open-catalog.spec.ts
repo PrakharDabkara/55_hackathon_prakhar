@@ -23,7 +23,9 @@ test('a school-project errand: checklist with extras, a new item, stationery sho
   await page.getByRole('button', { name: 'Make my list' }).click();
 
   // The checklist: the named items ticked, the usual extras offered; the customer adds glue.
-  await expect(page.getByRole('heading', { name: 'Your list' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: /Which of these do you need/ })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(page.getByRole('checkbox', { name: KIT })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'chart paper' })).toBeChecked();
   await expect(page.getByRole('checkbox', { name: 'glue stick' })).not.toBeChecked();

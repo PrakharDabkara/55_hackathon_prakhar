@@ -3,12 +3,13 @@ import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import type { AiContext, ToolCall } from '../ai/index.js';
-import { getItem, resolveForCustomer } from '../catalog/index.js';
+import { getItem, resolveForCustomer, termsOfItems } from '../catalog/index.js';
 import { linkErrandPhoto } from '../photos/index.js';
 import { planRoute } from '../routing/index.js';
 import { findLearnedStock } from '../shops/index.js';
 import { createRequest, type RequestsContext } from '../requests/index.js';
 import { statusForModel } from './bridge.js';
+import { covers, namedFragments, uncovered } from './named.js';
 import { linkRequest, listLinks, type ErrandQuestion } from './persistence.js';
 import {
   askShopsAgentInput,
@@ -59,6 +60,8 @@ export interface RunState {
   epoch: number;
   /** Items the customer ticked in a checklist, or typed under it (see `refusalKey`): a person confirmed them. */
   ticked: Set<string>;
+  /** Options the customer left unticked in a checklist: never asked of shops (ADR-0049). */
+  declined: Set<string>;
 }
 
 export type Refused = 'blocked' | 'unavailable' | 'limit';
@@ -73,6 +76,7 @@ export const newRunState = (): RunState => ({
   questionsAsked: 0,
   refused: new Map(),
   ticked: new Set(),
+  declined: new Set(),
   calls: new Map(),
   epoch: 0,
 });
@@ -94,6 +98,8 @@ export interface ToolEnv {
   requestId: string | null;
   trigramThreshold: number;
   maxItems: number;
+  /** The customer's task, as they wrote it: what they named is worked out from it (ADR-0049). */
+  task: string;
   state: RunState;
 }
 
@@ -108,6 +114,8 @@ export interface ToolOutcome {
   question?: ErrandQuestion;
   /** Set when ask_shops opened (or found) a request: the agent now has something to wait for. */
   asked?: boolean;
+  /** Set when ask_shops was not run because the customer has not confirmed these items yet. */
+  confirm?: string[];
 }
 
 const failure = (message: string): ToolOutcome => ({
@@ -338,6 +346,22 @@ async function askShops(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       asked: true,
     };
   }
+  // ADR-0049: nothing the agent added on its own is asked of shops before the customer confirmed
+  // it. What they named, or ticked in the checklist, is theirs; what they left unticked is not.
+  if (!(await isConfirmed(env, label, itemId))) {
+    if (isDeclined(env, label))
+      return failure(
+        'not run: the customer did not choose this item. Do not ask shops about it; leave it out of the plan.',
+      );
+    return {
+      result: {
+        error:
+          'not run: the customer has not confirmed this item. They will be asked to confirm a list first; do not ask shops until they answer.',
+      },
+      summary: { error: true, needsConfirm: true },
+      confirm: [label],
+    };
+  }
   if (links.length >= env.maxAskShops) {
     return failure(
       `you have already asked shops about ${env.maxAskShops} items, the most allowed. Plan the rest from find_item_nearby and mark unchecked items not_found.`,
@@ -403,7 +427,21 @@ async function askUser(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     );
   }
   env.state.questionsAsked++;
-  const { question, options, multiSelect, preselected } = parsed.data;
+  const { question, multiSelect } = parsed.data;
+  let { options, preselected } = parsed.data;
+  // ADR-0049: a checklist keeps everything the customer named, ticked. A named item the agent left
+  // out is added here, so nothing the customer said can be lost between their words and the list.
+  if (options && multiSelect) {
+    const missing = uncovered(namedFragments(env.task), options).slice(
+      0,
+      MAX_LIST_OPTIONS - options.length,
+    );
+    if (missing.length > 0) {
+      const first = options.length;
+      options = [...options, ...missing];
+      preselected = [...new Set([...(preselected ?? []), ...missing.map((_, i) => first + i)])];
+    }
+  }
   return {
     result: { ok: true, asked: true },
     summary: { asked: true, question },
@@ -413,6 +451,39 @@ async function askUser(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       ...(options && multiSelect && { multiSelect: true }),
       ...(options && multiSelect && preselected && { preselected: [...new Set(preselected)] }),
     },
+  };
+}
+
+/** The most options a checklist may have (the tool's own limit). */
+const MAX_LIST_OPTIONS = 8;
+
+/** The customer named it, or ticked (or typed) it in a checklist: a person confirmed it. */
+async function isConfirmed(env: ToolEnv, label: string, itemId: string): Promise<boolean> {
+  // The model may have said it in other words than the customer ("sugar" for "chini"): the item's
+  // own names and synonyms stand for it too.
+  const names = [label, ...((await termsOfItems(env.db, [itemId])).get(itemId) ?? [])];
+  const theirs = [...namedFragments(env.task), ...env.state.ticked];
+  return theirs.some((word) => names.some((name) => covers(word, name)));
+}
+
+const isDeclined = (env: ToolEnv, label: string): boolean =>
+  [...env.state.declined].some((word) => covers(word, label));
+
+/**
+ * The checklist the server asks when the agent tried to ask shops about items nobody confirmed:
+ * what the customer named first, then what the agent wanted. All start ticked (the customer
+ * unticks what they do not want); nothing is asked of shops until they answer.
+ */
+export function checklistFor(task: string, wanted: string[]): ErrandQuestion {
+  const options: string[] = [];
+  for (const label of [...namedFragments(task), ...wanted])
+    if (!options.some((o) => covers(o, label))) options.push(label);
+  const shown = options.slice(0, MAX_LIST_OPTIONS);
+  return {
+    question: 'Which of these do you need?',
+    options: shown,
+    multiSelect: true,
+    preselected: shown.map((_, i) => i),
   };
 }
 

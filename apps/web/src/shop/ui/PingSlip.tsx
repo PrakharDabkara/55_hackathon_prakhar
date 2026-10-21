@@ -22,6 +22,8 @@ interface Props {
 export function PingSlip({ ping, now, photos, stamp = null, onAnswer }: Props) {
   const { t, lang } = useT();
   const quantity = formatQuantity(ping.quantity);
+  // The catalog name; when the customer's everyday word matched, that word leads and this follows.
+  const own = lang === 'hi' ? ping.item.nameHi : displayItemName(ping.item.nameEn);
   return (
     <Parchi delivery={ping.wantsDelivery}>
       <div className="sh-parchi__meta">
@@ -34,11 +36,11 @@ export function PingSlip({ ping, now, photos, stamp = null, onAnswer }: Props) {
         </span>
       </div>
       <div className="sh-parchi__ruled">
-        <h2 className="sh-parchi__item">
-          {lang === 'hi' ? ping.item.nameHi : displayItemName(ping.item.nameEn)}
-        </h2>
+        <h2 className="sh-parchi__item">{ping.displayName ?? own}</h2>
+        {ping.displayName && <p className="sh-parchi__alias">{own}</p>}
         {quantity && <p className="sh-parchi__note">{quantity}</p>}
         {ping.wantsDelivery && <p className="sh-parchi__note">{t.shop.wantsDeliveryLine}</p>}
+        {ping.misc && <p className="sh-parchi__alias">{t.shop.miscNote}</p>}
       </div>
       {photos && ping.photoId && (
         <div className="sh-photo">

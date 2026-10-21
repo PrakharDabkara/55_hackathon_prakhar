@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 22, PR P: search understands the customer, the AI speaks English, AskBuy, ADR-0045 to ADR-0050)
+
+- Search exactly what I typed: `POST /requests` takes `asTyped`; Did you mean offers it first and "Something else" now searches that text (it used to return to Find). Every safety check still runs. Find nearby is never disabled. Catalog item names are sentence case for customers.
+- Uncategorised items (classifier answer `other`) are misc requests: the nearest 15 open shops of any kind (`MISC_FANOUT_MAX`), catch-up respects the cap; the shop slip says "May not be your usual stock". Migration 025.
+- Everyday names: `requests.matched_alias` (a catalog word only) shows as `displayName` on shop slips and order lines; the customer's parchi shows their own words as typed with the matched item small.
+- The AI speaks English: the resolve prompt, the seed's ambiguous questions, the errand prompt and tool schema text; cached questions are cleared; the client shows the server's question in the sheet and the errand list. The classifier may answer `other`.
+- Errand rule in code: named items are never dropped (checklist and plan are repaired) and nothing the agent adds on its own is asked of shops before the customer confirms a checklist; declined items stay declined. Two new tool-result messages, three dev eval cases (d21 to d23).
+- The app is AskBuy in the UI: `BRAND_NAME`, `index.html`, manifest, service worker, new mark, generated icons (`npm run icons`) and taglines. Code names come next.
+
 ### Changed (Day 21, PR O: UI fixes from the live test, ADR-0044)
 
 - App frame: `html`, `body` and `#root` now paint `--bg` with no margin (the browser's 8px margin and default canvas were the dark seam), both app roots use `--bg` and `100dvh`, and `theme-color` and the manifest follow `--bg`.

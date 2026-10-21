@@ -70,6 +70,14 @@ describe('Find', () => {
     expect(api.createErrand).not.toHaveBeenCalled();
   });
 
+  it('shows the AskBuy mark, name and tagline in the header', () => {
+    setup();
+    const header = document.querySelector('.cu-find__bar') as HTMLElement;
+    expect(within(header).getByText('AskBuy')).toBeTruthy();
+    expect(header.querySelector('svg.brand-mark')).toBeTruthy();
+    expect(screen.getByText('Ask the shops nearby, then buy.')).toBeTruthy();
+  });
+
   it('puts a chevron on the right of the errand card, and the whole card is one link', () => {
     setup();
     const card = screen.getByRole('link', { name: /Plan an errand/ });
@@ -182,13 +190,38 @@ describe('Find', () => {
     );
   });
 
+  it('is never disabled: tapping it on an empty box focuses the box and says what to type', async () => {
+    const { user, api } = setup();
+    const find = screen.getByRole('button', { name: 'Find nearby' }) as HTMLButtonElement;
+    expect(find.disabled).toBe(false);
+    await user.click(find);
+    const box = screen.getByLabelText('What do you need?');
+    expect(document.activeElement).toBe(box);
+    expect(screen.getByText('Type what you need')).toBeTruthy();
+    expect(box.getAttribute('aria-describedby')).toBeTruthy();
+    expect(api.createRequest).not.toHaveBeenCalled();
+    await user.type(box, 'a');
+    expect(screen.queryByText('Type what you need')).toBeNull();
+  });
+
+  it('with delivery on and no address yet, tapping Find nearby focuses the address and asks for it', async () => {
+    const { user, api } = setup();
+    await user.type(screen.getByLabelText('What do you need?'), 'aata');
+    await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(document.activeElement).toBe(screen.getByLabelText('Delivery address'));
+    expect(screen.getByText('Add your delivery address')).toBeTruthy();
+    expect(api.createRequest).not.toHaveBeenCalled();
+  });
+
   it('sends the delivery address it keeps, and reuses a saved one', async () => {
     here();
     const { user, api } = setup();
     await user.type(screen.getByLabelText('What do you need?'), 'aata');
     await user.click(screen.getByRole('switch', { name: 'Deliver to me' }));
     const find = screen.getByRole('button', { name: 'Find nearby' }) as HTMLButtonElement;
-    expect(find.disabled).toBe(true);
+    // Never disabled: with no address yet, tapping it asks for one (see the nudge tests below).
+    expect(find.disabled).toBe(false);
     await user.type(screen.getByLabelText('Delivery address'), '12 MG Road');
     expect(screen.getByText(/We'll save this address so you don't type it again/)).toBeTruthy();
     await user.click(find);
@@ -356,14 +389,13 @@ describe('Find: Did you mean?', () => {
     const createRequest = vi
       .fn()
       .mockRejectedValueOnce(
-        new ApiError(409, 'item_ambiguous', 'x', { question: 'Kaun si chini?', options }),
+        new ApiError(409, 'item_ambiguous', 'x', { question: 'Which sugar do you mean?', options }),
       )
       .mockResolvedValue(seekerRequest());
     const { user, onFound } = setup({ createRequest });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Which one do you mean?' });
-    expect(screen.queryByText('Kaun si chini?')).toBeNull();
+    const sheet = await screen.findByRole('dialog', { name: 'Which sugar do you mean?' });
     await user.click(within(sheet).getByRole('button', { name: 'sugar-free tablets' }));
     await waitFor(() => expect(onFound).toHaveBeenCalled());
     expect(createRequest).toHaveBeenLastCalledWith({
@@ -412,7 +444,7 @@ describe('Find: Did you mean?', () => {
     );
   });
 
-  it('rewrites the query with Something else and sends it as a change', async () => {
+  it('searches the words typed under Something else exactly as typed, as a change', async () => {
     here();
     const createRequest = vi
       .fn()
@@ -421,17 +453,85 @@ describe('Find: Did you mean?', () => {
     const { user } = setup({ createRequest });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Which one do you mean?' });
-    await user.type(within(sheet).getByLabelText('Something else'), 'brown sugar');
-    await user.click(within(sheet).getByRole('button', { name: 'Search again' }));
+    const sheet = await screen.findByRole('dialog');
+    await user.type(within(sheet).getByLabelText('Something else'), 'pencil HB{Enter}');
     await waitFor(() =>
       expect(createRequest).toHaveBeenLastCalledWith({
-        q: 'brown sugar',
+        q: 'pencil HB',
         lat: 12.97,
         lng: 77.59,
         understanding: 'changed',
+        asTyped: true,
       }),
     );
+  });
+
+  it('offers "Search for exactly what I typed" first, and sends the typed text as the item', async () => {
+    here();
+    const details = { item: options[0], alternatives: [options[1]] };
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(409, 'item_confirm', 'x', details))
+      .mockResolvedValue(seekerRequest());
+    const { user } = setup({ createRequest });
+    await user.type(screen.getByLabelText('What do you need?'), 'pencil HB');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Did you mean sugar?' });
+    const buttons = within(sheet).getAllByRole('button');
+    const typed = within(sheet).getByRole('button', {
+      name: 'Search for exactly what I typed: "pencil HB"',
+    });
+    // First choice in the sheet, before the app's own guess (the close button comes first in the DOM).
+    expect(buttons.filter((b) => b.className.includes('cu-find__option'))[0]).toBe(typed);
+    await user.click(typed);
+    await waitFor(() =>
+      expect(createRequest).toHaveBeenLastCalledWith({
+        q: 'pencil HB',
+        lat: 12.97,
+        lng: 77.59,
+        understanding: 'changed',
+        asTyped: true,
+      }),
+    );
+  });
+
+  it('keeps the sheet open and says why when an exact search is refused, instead of dropping to Home', async () => {
+    here();
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(409, 'item_ambiguous', 'x', { question: 'q', options }))
+      .mockRejectedValueOnce(new ApiError(422, 'item_unresolved', 'x'));
+    const { user } = setup({ createRequest });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    const sheet = await screen.findByRole('dialog');
+    await user.type(within(sheet).getByLabelText('Something else'), 'asdfgh');
+    await user.click(within(sheet).getByRole('button', { name: 'Search again' }));
+    const still = await screen.findByRole('dialog');
+    expect(within(still).getByRole('alert').textContent).toMatch(/couldn't understand/i);
+  });
+
+  it('shows the question the server asked as the sheet title, and a fallback without one', async () => {
+    here();
+    const first = setup({
+      createRequest: vi
+        .fn()
+        .mockRejectedValue(
+          new ApiError(422, 'item_ambiguous', 'x', { question: 'Which dal do you mean?', options }),
+        ),
+    });
+    await first.user.type(screen.getByLabelText('What do you need?'), 'dal');
+    await first.user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(await screen.findByRole('dialog', { name: 'Which dal do you mean?' })).toBeTruthy();
+    first.unmount();
+    const second = setup({
+      createRequest: vi
+        .fn()
+        .mockRejectedValue(new ApiError(422, 'item_ambiguous', 'x', { question: '', options })),
+    });
+    await second.user.type(screen.getByLabelText('What do you need?'), 'dal');
+    await second.user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    expect(await screen.findByRole('dialog', { name: 'Which one do you mean?' })).toBeTruthy();
   });
 
   it.each([
@@ -479,7 +579,7 @@ describe('Find: My orders and the active order strip', () => {
       ]),
     });
     expect(await screen.findByText('You have an order in progress')).toBeTruthy();
-    expect(await screen.findByText('sugar · Waiting for shop')).toBeTruthy();
+    expect(await screen.findByText('Sugar · Waiting for shop')).toBeTruthy();
     expect(screen.getByText('Gupta Store')).toBeTruthy();
     const track = screen.getByRole('link', { name: /Track/ });
     expect(track.getAttribute('href')).toBe('/app/order/new');
@@ -497,7 +597,7 @@ describe('Find: My orders and the active order strip', () => {
         }),
       ]),
     });
-    expect(await screen.findByText('sugar · Out for delivery')).toBeTruthy();
+    expect(await screen.findByText('Sugar · Out for delivery')).toBeTruthy();
     expect(screen.getByText(/Mishra Kirana · by \d/)).toBeTruthy();
   });
 

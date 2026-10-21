@@ -47,7 +47,9 @@ export interface ErrandQuestion {
   preselected?: number[];
 }
 /** `ticked`: the options the customer ticked (and words they typed) in a checklist, as they were. */
-export type ErrandAnswer = { text: string; ticked?: string[] } | { timedOut: true };
+export type ErrandAnswer =
+  /** `declined`: the options of a checklist the customer left unticked: never asked of shops (ADR-0049). */
+  { text: string; ticked?: string[]; declined?: string[] } | { timedOut: true };
 export type ResumeReason = 'replies' | 'timer' | 'answered' | 'answer_timeout';
 
 interface Row {

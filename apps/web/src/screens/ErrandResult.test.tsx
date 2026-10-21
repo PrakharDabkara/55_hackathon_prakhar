@@ -128,7 +128,7 @@ describe('the page', () => {
   it('shows the server freshness text and the price on an item line', () => {
     show();
     const stop = screen.getByLabelText('Stop 1: Mishra Kirana');
-    const line = within(stop).getByText('tea leaves').closest('li') as HTMLElement;
+    const line = within(stop).getByText('Tea leaves').closest('li') as HTMLElement;
     expect(within(line).getByText('₹99')).toBeTruthy();
     expect(within(line).getByText('Confirmed 2 min ago')).toBeTruthy();
   });

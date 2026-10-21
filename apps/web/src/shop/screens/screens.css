@@ -86,15 +86,6 @@
   padding-top: var(--space-12);
   text-align: center;
 }
-.sh-mark {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  border-radius: var(--r-lg);
-  background: var(--brand);
-  color: var(--on-brand);
-}
 .sh-login__form {
   display: flex;
   flex-direction: column;

@@ -59,6 +59,10 @@ export interface SeekerRequest {
     unverified: boolean;
   } | null;
   radiusM: number;
+  /** The customer's own words, as typed (ADR-0047). */
+  typed?: string;
+  /** The everyday catalog word those words matched ("Maida"), when it is not the item's own name. */
+  displayName?: string;
   /** What the customer typed after the item ("2 kg"); the server's parse, unit as the query wrote it. */
   quantity?: { quantity: number; unit: string };
   targetPricePaise?: number;
@@ -81,6 +85,8 @@ export interface NewRequest {
   understanding?: 'confirmed' | 'changed';
   /** A photo of what is wanted, uploaded first with POST /photos (optional). */
   photoId?: string;
+  /** "Search for exactly what I typed": the customer's words become the item (ADR-0045). */
+  asTyped?: true;
   /** "Deliver to me": with the id of one of the customer's saved addresses. */
   wantsDelivery?: true;
   deliveryAddressId?: string;

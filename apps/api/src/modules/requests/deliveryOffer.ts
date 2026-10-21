@@ -85,6 +85,9 @@ export async function deliveryOfferForRequest(
         name: asked ? `${name} (${asked.quantity} ${asked.unit})` : name,
         ...(item && { nameHi: item.nameHi }),
         text: request.rawQuery,
+        ...(request.matchedAlias && {
+          displayName: request.matchedAlias.charAt(0).toUpperCase() + request.matchedAlias.slice(1),
+        }),
         count: 1,
         pricePaise: offer.pricePaise,
       },

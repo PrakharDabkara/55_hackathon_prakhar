@@ -1,3 +1,4 @@
+import { covers } from './named.js';
 import type { Queryable } from '../../db/queryable.js';
 import { formConflict, termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
@@ -171,6 +172,8 @@ export async function buildPlan(
     resolved?: Iterable<[string, string]>;
     /** The customer's words (see refusalKey) that were never sent to shops, and why. */
     refused?: Iterable<[string, Refused]>;
+    /** What the customer named in their task (ADR-0049): each is in the plan, found or not. */
+    named?: string[];
   } = {},
 ): Promise<Plan> {
   // Every item the agent resolved is planned, whatever it then claimed (or forgot) in submit_plan.
@@ -213,6 +216,23 @@ export async function buildPlan(
         refPricePaise: r.ref_price_paise,
         unverified: r.unverified,
       });
+  }
+  // Everything the customer named is in the plan: one the agent left out is listed as not found.
+  // The agent may have used other words for it ("rice" for "chawal"): an item's own names and
+  // synonyms stand for it too.
+  if ((options.named ?? []).length > 0) {
+    const terms =
+      itemIds.length > 0 ? await termsOfItems(db, itemIds) : new Map<string, string[]>();
+    const known = [
+      ...claims.map((c) => c.text),
+      ...resolved.values(),
+      ...itemIds.flatMap((id) => [items.get(id)?.name ?? '', ...(terms.get(id) ?? [])]),
+    ].filter(Boolean);
+    for (const fragment of options.named ?? []) {
+      if (claims.length >= MAX_PLAN_ITEMS) break;
+      if (!known.some((text) => covers(fragment, text)))
+        claims.push({ text: fragment.slice(0, 100), status: 'not_found' });
+    }
   }
   // An item whose own name is another product form than the customer's words (itr, not powder)
   // is not the item they asked for, whatever id the model gave: it counts as unknown.

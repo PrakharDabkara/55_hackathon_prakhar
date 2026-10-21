@@ -36,6 +36,13 @@ describe('LoginSheet', () => {
     expect(api.verifyOtp).toHaveBeenCalledWith('9876543210', '123456');
   });
 
+  it('shows the AskBuy mark and tagline above the phone field', () => {
+    open();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('svg.brand-mark')).toBeTruthy();
+    expect(screen.getByText('Ask the shops nearby, then buy.')).toBeTruthy();
+  });
+
   it('fills the demo code from the inbox', async () => {
     const api = fakeSeekerApi({ devInbox: vi.fn(async () => '482913') });
     const { user } = open(api);

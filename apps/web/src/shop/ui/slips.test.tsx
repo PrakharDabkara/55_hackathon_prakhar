@@ -45,6 +45,42 @@ describe('PingSlip', () => {
     expect(screen.queryByText(/delivered/i)).toBeNull();
   });
 
+  it("shows the customer's everyday word large, with the English name small underneath", () => {
+    renderApp(
+      <PingSlip
+        ping={ping({
+          item: { slug: 'maida', nameEn: 'refined flour', nameHi: 'मैदा' },
+          displayName: 'Maida',
+        })}
+        now={NOW}
+        onAnswer={vi.fn()}
+      />,
+      'en',
+    );
+    const large = screen.getByRole('heading', { name: 'Maida' });
+    expect(large.className).toContain('sh-parchi__item');
+    const small = screen.getByText('Refined flour');
+    expect(small.className).toContain('sh-parchi__alias');
+    expect(large.compareDocumentPosition(small) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows only the English name when no everyday word matched', () => {
+    renderApp(<PingSlip ping={ping()} now={NOW} onAnswer={vi.fn()} />, 'en');
+    expect(screen.getByRole('heading', { name: 'Wheat flour' })).toBeTruthy();
+    expect(document.querySelector('.sh-parchi__alias')).toBeNull();
+  });
+
+  it('says "May not be your usual stock" on an uncategorised request, and not otherwise', () => {
+    const first = renderApp(
+      <PingSlip ping={ping({ misc: true })} now={NOW} onAnswer={vi.fn()} />,
+      'en',
+    );
+    expect(screen.getByText('May not be your usual stock')).toBeTruthy();
+    first.unmount();
+    renderApp(<PingSlip ping={ping()} now={NOW} onAnswer={vi.fn()} />, 'en');
+    expect(screen.queryByText('May not be your usual stock')).toBeNull();
+  });
+
   it('opens the answer sheet from the one primary button', async () => {
     const onAnswer = vi.fn();
     const { user } = renderApp(<PingSlip ping={ping()} now={NOW} onAnswer={onAnswer} />, 'en');
@@ -94,6 +130,22 @@ describe('OrderSlip', () => {
     unknownPriceCount: 1,
     feePaise: 3000,
     note: 'Ring the bell twice',
+  });
+
+  it('shows the everyday word of a line large with the English name small', () => {
+    renderApp(
+      <OrderSlip
+        order={shopOrder({
+          lines: [{ name: 'refined flour', displayName: 'Maida', count: 2, pricePaise: 4500 }],
+        })}
+        now={NOW}
+        onAccept={vi.fn()}
+        onDecline={vi.fn()}
+      />,
+      'en',
+    );
+    expect(screen.getByText(/2 × Maida/)).toBeTruthy();
+    expect(screen.getByText('Refined flour').className).toContain('sh-parchi__alias');
   });
 
   it('lists the items with prices, the fee, a dashed rule, the total and the note', () => {

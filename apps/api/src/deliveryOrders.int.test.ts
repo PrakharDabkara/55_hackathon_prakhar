@@ -135,7 +135,7 @@ describe('delivery orders', () => {
       expect(Date.parse(res.body.expiresAt) - Date.now()).toBeLessThanOrEqual(10 * 60_000);
     });
 
-    it("keeps the customer's own word and the Hindi name on each line; the shop sees only the name (PR H)", async () => {
+    it("keeps the customer's own word and the Hindi name on each line; the shop sees the name and the catalog word, never the text (PR H)", async () => {
       const requestId = await answeredRequest();
       const res = await place(requestId);
       expect(res.body.lines[0]).toMatchObject({
@@ -144,7 +144,9 @@ describe('delivery orders', () => {
         text: 'chini',
       });
       const seen = (await shopList()).body[0].lines[0];
-      expect(seen).toEqual({ name: 'sugar', count: 1, pricePaise: 4500 });
+      // A catalog word ("chini") may show next to the name (ADR-0047); the customer's text never does.
+      expect(seen).toEqual({ name: 'sugar', displayName: 'Chini', count: 1, pricePaise: 4500 });
+      expect(seen).not.toHaveProperty('text');
     });
 
     it('is refused if the shop did not offer delivery, did not answer, or the request is not yours', async () => {

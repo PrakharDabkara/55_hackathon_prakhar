@@ -435,9 +435,11 @@ describe('errand agent core (fake model, real database)', () => {
           shopId: "x'; DROP TABLE shops;--",
         },
       ]);
+      // The four claims are all downgraded; "chawal", which the customer named, is listed too (ADR-0049).
       expect(plan.items.map((i: { status: string }) => i.status)).toEqual(
-        Array(4).fill('not_found'),
+        Array(5).fill('not_found'),
       );
+      expect(plan.items[4].text).toBe('chawal');
       expect(plan.items[0].downgraded).toBe('unknown_item');
       expect(plan.items[1].downgraded).toBe('unknown_shop');
       expect(plan.items[2].downgraded).toBe('unknown_item');
@@ -533,9 +535,11 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'rice', itemId: ids['rice'], status: 'likely' }])] },
       ]);
       // aata (wheat flour) only has expired stock: listed, but not_found
+      // "namak" was named but never looked up: it is listed too (ADR-0049).
       expect(plan.items.map((i: { text: string; status: string }) => [i.text, i.status])).toEqual([
         ['rice', 'likely'],
         ['aata', 'not_found'],
+        ['namak', 'not_found'],
       ]);
     });
 

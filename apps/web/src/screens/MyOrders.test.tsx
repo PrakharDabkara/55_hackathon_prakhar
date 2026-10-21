@@ -124,7 +124,7 @@ describe('My orders', () => {
     it('an active row shows logo, item, shop, total with the fee, a status pill and "by" time', async () => {
       setup({ myOrders: mixed() });
       const row = within(await screen.findByRole('link', { name: /Mishra Kirana/ }));
-      expect(row.getByText(/2 × sugar/)).toBeTruthy();
+      expect(row.getByText(/2 × Sugar/)).toBeTruthy();
       expect(row.getByText('₹120')).toBeTruthy();
       expect(row.getByText('Out for delivery')).toBeTruthy();
       expect(row.getByText(`by ${timeAfter('2026-10-16T10:20:00.000Z', 45)}`)).toBeTruthy();

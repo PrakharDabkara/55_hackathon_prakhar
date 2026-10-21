@@ -16,7 +16,8 @@ import {
   rebuildMessages,
   rebuildRunState,
 } from './conversation.js';
-import { executeTool, refusalKey, type RunState } from './executor.js';
+import { checklistFor, executeTool, refusalKey, type RunState } from './executor.js';
+import { namedFragments } from './named.js';
 import {
   claimErrand,
   clearResume,
@@ -186,12 +187,16 @@ async function loop(
   let forced: Forced | null = null;
 
   /** A user-role message the server adds. It is logged too, so a later run sees the same thing. */
-  const note = async (text: string, ticked?: string[]) => {
+  const note = async (text: string, ticked?: string[], declined?: string[]) => {
     messages.push({ role: 'user', text });
     state.epoch++;
     await recordStep(db, errand.id, {
       kind: 'note',
-      payload: { text, ...(ticked && ticked.length > 0 && { ticked }) },
+      payload: {
+        text,
+        ...(ticked && ticked.length > 0 && { ticked }),
+        ...(declined && declined.length > 0 && { declined }),
+      },
     });
   };
   /** Results go into one tool message per model turn, in call order. */
@@ -221,10 +226,13 @@ async function loop(
     const waitOver = errand.waitedMs >= limits.maxWaitMs;
     let text: string;
     let ticked: string[] | undefined;
+    let declined: string[] | undefined;
     if (errand.resumeReason === 'answered') {
       const answer = errand.answer && 'text' in errand.answer ? errand.answer.text : '';
       ticked = errand.answer && 'text' in errand.answer ? errand.answer.ticked : undefined;
       for (const word of ticked ?? []) state.ticked.add(refusalKey(word));
+      declined = errand.answer && 'text' in errand.answer ? errand.answer.declined : undefined;
+      for (const word of declined ?? []) state.declined.add(refusalKey(word));
       text = buildStatusNote(buildAnswerNote(answer), statuses);
     } else if (errand.resumeReason === 'answer_timeout') {
       text = buildStatusNote(NO_ANSWER_NOTE, statuses);
@@ -239,7 +247,7 @@ async function loop(
       forced = 'wait_limit';
       text += `\n${WAIT_NUDGE}`;
     }
-    await note(text, ticked);
+    await note(text, ticked, declined);
     await clearResume(db, errand.id);
     log.info({ reason: errand.resumeReason, waitedMs: errand.waitedMs }, 'errand resumed');
   }
@@ -329,6 +337,7 @@ async function loop(
     let submitted: Plan | undefined;
     let question: ErrandQuestion | undefined;
     let askedShops = 0;
+    const needConfirm: string[] = [];
     for (const call of turn.toolCalls) {
       if (question) {
         // The customer must answer first; this call is not run but still gets its response.
@@ -345,6 +354,19 @@ async function loop(
       }
       if (done.question) question = done.question;
       if (done.asked) askedShops++;
+      for (const label of done.confirm ?? []) needConfirm.push(label);
+    }
+
+    // ADR-0049: the agent tried to ask shops about items the customer has not confirmed. If it did
+    // not ask them itself, the server asks the checklist now, before any shop is asked about them.
+    if (
+      !question &&
+      !submitted &&
+      needConfirm.length > 0 &&
+      state.questionsAsked < limits.maxQuestions
+    ) {
+      state.questionsAsked++;
+      question = checklistFor(errand.task, needConfirm);
     }
 
     if (submitted) {
@@ -468,6 +490,7 @@ async function runTool(
         requestId: errand.requestId,
         trigramThreshold: deps.trigramThreshold,
         maxItems: deps.limits.maxItems,
+        task: errand.task,
         state,
       },
       call,
@@ -492,6 +515,7 @@ async function runTool(
         fewerStopsMaxExtraPaise: deps.limits.fewerStopsMaxExtraPaise,
         resolved: state.resolved,
         refused: state.refused,
+        named: namedFragments(errand.task),
       });
       const confirmed = plan.items.filter((i) => i.status === 'confirmed').length;
       const likely = plan.items.filter((i) => i.status === 'likely').length;
@@ -525,5 +549,11 @@ async function runTool(
     outcome.result,
     Date.now() - started,
   );
-  return { result: outcome.result, plan, question: outcome.question, asked: outcome.asked };
+  return {
+    result: outcome.result,
+    plan,
+    question: outcome.question,
+    asked: outcome.asked,
+    confirm: outcome.confirm,
+  };
 }

@@ -5,7 +5,7 @@ export { errandPlan, errandView, planItem } from './fakes.js';
 
 /** The agent's checklist: three items it suggests, two it does not. The text is model-written. */
 export const listQuestion: ErrandQuestion = {
-  question: 'Ye cheezein chahiye?',
+  question: 'Which of these do you need?',
   options: ['tea leaves', 'sugar', 'milk', 'ginger', 'cardamom'],
   multiSelect: true,
   preselected: [0, 1, 2],

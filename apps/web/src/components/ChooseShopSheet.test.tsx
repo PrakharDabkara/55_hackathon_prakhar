@@ -47,7 +47,7 @@ describe('ChooseShopSheet', () => {
     const dialog = screen.getByRole('dialog', { name: 'Choose this shop' });
     expect(within(dialog).getByText('Sharma Kirana')).toBeTruthy();
     expect(within(dialog).getByText('1.2 km')).toBeTruthy();
-    expect(within(dialog).getByText('sugar · 2 kg')).toBeTruthy();
+    expect(within(dialog).getByText('Sugar · 2 kg')).toBeTruthy();
     expect(within(dialog).getByText('₹45')).toBeTruthy();
   });
 

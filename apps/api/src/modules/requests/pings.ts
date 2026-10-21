@@ -31,6 +31,9 @@ const LATE_ANSWER_HOURS = 24;
 /** Fewest shops worth asking: below this many matching shops, the nearest of any category join. */
 const MIN_TARGETS = 3;
 
+/** The most shops a misc request (an uncategorised item) is sent to, nearest open ones first (ADR-0046). */
+export const MISC_FANOUT_MAX = 15;
+
 /** How many candidates to consider per ping we want to send. */
 const BACKFILL_FACTOR = 3;
 
@@ -75,6 +78,8 @@ export async function fanOutPings(
 
   const item = await getItem(db, request.itemId);
   if (!item) return { targets: 0, sent: 0 };
+  // A misc request ignores the kind of shop and is capped at its own constant, not the normal cap.
+  const cap = request.misc ? MISC_FANOUT_MAX : deps.config.maxPings;
   const [nearby, known] = await Promise.all([
     findShopsWithinRadius(request.lat, request.lng, request.radiusM, db),
     findLearnedStock(db, request.itemId, request.lat, request.lng, request.radiusM),
@@ -89,7 +94,8 @@ export async function fanOutPings(
       // fill up to this many, so a request is never left with nobody to ask (ADR-0028).
       minTargets: MIN_TARGETS,
       // Look past the cap: shops the dedupe refuses are replaced by the next-nearest, up to 3x.
-      max: deps.config.maxPings * BACKFILL_FACTOR,
+      max: cap * BACKFILL_FACTOR,
+      anyCategory: request.misc,
     },
   );
   if (targets.length === 0) {
@@ -105,7 +111,7 @@ export async function fanOutPings(
   const claimed: string[] = [];
   let asked = 0;
   for (const t of targets) {
-    if (claimed.length >= deps.config.maxPings) break;
+    if (claimed.length >= cap) break;
     asked++;
     if (askAgain.has(t.shopId)) await claims.release(t.shopId, request.itemId);
     if (await claims.claim(t.shopId, request.itemId)) claimed.push(t.shopId);
@@ -280,16 +286,17 @@ export async function catchUpShop(
         AND r.expires_at > now() + interval '${CATCH_UP_MIN_LIFE}'
         AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) < $3
         AND ST_DWithin(r.location, s.location, r.radius_m)
-       JOIN items i ON i.id = r.item_id AND i.categories && s.categories
+       JOIN items i ON i.id = r.item_id AND (r.misc OR i.categories && s.categories)
       WHERE s.id = $1
         AND (s.closed_until IS NULL OR s.closed_until <= now())
         AND NOT EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id AND p.shop_id = s.id)
-        AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id) < $2
+        AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id)
+            < (CASE WHEN r.misc THEN $4::int ELSE $2::int END)
         AND NOT EXISTS (SELECT 1 FROM shop_stock st
                          WHERE st.shop_id = s.id AND st.item_id = r.item_id AND st.expires_at > now())
       ORDER BY r.created_at DESC
       LIMIT ${CATCH_UP_MAX_REQUESTS}`,
-    [shopId, deps.config.maxPings, MAX_LIVE_OFFERS],
+    [shopId, deps.config.maxPings, MAX_LIVE_OFFERS, MISC_FANOUT_MAX],
   );
   let total = 0;
   for (const { request_id: requestId, item_id: itemId } of due) {
@@ -346,6 +353,11 @@ export async function catchUpShop(
   return { sent: total };
 }
 
+const sentenceCase = (text: string): string => {
+  const [first = ''] = Array.from(text);
+  return first.toLocaleUpperCase() + text.slice(first.length);
+};
+
 export interface ShopPing {
   id: string;
   item: { slug: string; nameEn: string; nameHi: string };
@@ -360,6 +372,10 @@ export interface ShopPing {
   wantsDelivery: boolean;
   /** This shop can bring it that far (its own limit, if any). */
   canDeliver: boolean;
+  /** What the customer called it, when a catalog word matched ("Maida" for refined flour). Catalog words only (ADR-0047). */
+  displayName?: string;
+  /** The item could not be filed under a kind of shop, so this shop may not usually stock it (ADR-0046). */
+  misc?: true;
   sentAt: Date;
   expiresAt: Date;
 }
@@ -378,6 +394,8 @@ interface ShopPingRow {
   photo_id: string | null;
   wants_delivery: boolean;
   can_deliver: boolean;
+  misc: boolean;
+  matched_alias: string | null;
 }
 
 /**
@@ -393,7 +411,7 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
                 -- a wrong report hides it until the shop answers again
                 AND (st.invalidated_at IS NULL OR st.last_confirmed_at >= st.invalidated_at)) AS last_price_paise,
             (SELECT ph.id FROM photos ph WHERE ph.request_id = r.id) AS photo_id,
-            r.wants_delivery, ${CAN_DELIVER} AS can_deliver
+            r.wants_delivery, ${CAN_DELIVER} AS can_deliver, r.misc, r.matched_alias
        FROM pings p
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
@@ -412,6 +430,8 @@ export async function listShopPings(db: Queryable, ownerUserId: string): Promise
     ...(r.photo_id && { photoId: r.photo_id }),
     wantsDelivery: r.wants_delivery,
     canDeliver: r.can_deliver,
+    ...(r.matched_alias && { displayName: sentenceCase(r.matched_alias) }),
+    ...(r.misc && { misc: true as const }),
     sentAt: r.sent_at,
     expiresAt: r.expires_at,
   }));

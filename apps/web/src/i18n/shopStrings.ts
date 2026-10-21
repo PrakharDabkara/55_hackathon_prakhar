@@ -31,7 +31,8 @@ export interface ShopStrings {
   logout: string;
   poweredBy: string;
   // Login
-  forShops: string;
+  /** The line under the brand on the shop login; the brand name comes from BRAND_NAME. */
+  forShops: (brand: string) => string;
   mobileNumber: string;
   codeHelper: string;
   sendCode: string;
@@ -88,6 +89,7 @@ export interface ShopStrings {
   replyIn: string;
   minutesShort: (n: number) => string;
   wantsDeliveryLine: string;
+  miscNote: string;
   deliveryStamp: string;
   cashOnDelivery: string;
   answer: string;
@@ -239,7 +241,7 @@ export const shopEn: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'For shops',
+  forShops: (brand) => `${brand} for shops — lift your shutter online in a minute.`,
   mobileNumber: 'Mobile number',
   codeHelper: "We'll send a 6-digit code by SMS.",
   sendCode: 'Send code',
@@ -296,6 +298,7 @@ export const shopEn: ShopStrings = {
   replyIn: 'Reply in',
   minutesShort: (n) => `${n}m`,
   wantsDeliveryLine: 'The customer wants this delivered',
+  miscNote: 'May not be your usual stock',
   deliveryStamp: 'Delivery',
   cashOnDelivery: 'Cash on delivery',
   answer: 'Answer',
@@ -449,7 +452,7 @@ export const shopHi: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'Dukaandaar ke liye',
+  forShops: (brand) => `${brand} dukaandaar ke liye — ek minute mein apni dukaan online kholein.`,
   mobileNumber: 'Mobile number',
   codeHelper: 'Hum SMS se 6 ank ka code bhejenge.',
   sendCode: 'Code bhejo',
@@ -506,6 +509,7 @@ export const shopHi: ShopStrings = {
   replyIn: 'Jawab dein',
   minutesShort: (n) => `${n} min`,
   wantsDeliveryLine: 'Grahak ye ghar mangwana chahta hai',
+  miscNote: 'Shayad aapka roz ka maal na ho',
   deliveryStamp: 'Delivery',
   cashOnDelivery: 'Cash on delivery',
   answer: 'Jawab dein',

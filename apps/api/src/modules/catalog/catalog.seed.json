@@ -2676,17 +2676,17 @@
     {
       "terms": ["mirchi", "mirch", "मिर्च", "मिर्ची"],
       "items": ["red-chilli-powder", "green-chilli", "black-pepper"],
-      "question": "Kaunsi mirch chahiye?"
+      "question": "Which chilli or pepper do you mean?"
     },
     {
       "terms": ["daal", "dal", "दाल"],
       "items": ["toor-dal", "moong-dal", "chana-dal", "urad-dal", "masoor-dal"],
-      "question": "Kaunsi daal chahiye?"
+      "question": "Which dal do you mean?"
     },
     {
       "terms": ["tel", "oil", "तेल"],
       "items": ["refined-oil", "mustard-oil", "hair-oil"],
-      "question": "Kaunsa tel chahiye?"
+      "question": "Which oil do you mean?"
     }
   ]
 }

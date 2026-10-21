@@ -458,6 +458,7 @@ export async function answerErrand(
 
   let text: string;
   let ticked: string[] | undefined;
+  let declined: string[] | undefined;
   if (hasSelected) {
     const picks = [...new Set(input.selected)].sort((a, b) => a - b);
     const chosen = picks.map((i) => options[i]);
@@ -467,6 +468,7 @@ export async function answerErrand(
     if (chosen.length === 0 && extra === null)
       throw new ApiError(400, 'invalid_request', 'Pick at least one option or type something');
     ticked = [...(chosen as string[]), ...(extra !== null ? [extra] : [])];
+    declined = options.filter((_, i) => !picks.includes(i));
     text = [
       chosen.length > 0 ? chosen.join(', ') : null,
       extra !== null ? (chosen.length > 0 ? `also: ${extra}` : extra) : null,
@@ -482,7 +484,12 @@ export async function answerErrand(
     text = typed();
   }
 
-  const resumed = await resumeAnswered(ctx.db, id, { text, ...(ticked && { ticked }) }, ctx.events);
+  const resumed = await resumeAnswered(
+    ctx.db,
+    id,
+    { text, ...(ticked && { ticked }), ...(declined && declined.length > 0 && { declined }) },
+    ctx.events,
+  );
   if (resumed !== 'resumed')
     throw new ApiError(
       409,

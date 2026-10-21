@@ -23,6 +23,9 @@ export interface FindStrings {
   findChangeAddress: string;
   findAddressNote: string;
   findSubmit: string;
+  findTagline: string;
+  findNeedQuery: string;
+  findNeedAddress: string;
   findSubmitting: string;
   findErrandTitle: string;
   findErrandContinue: string;
@@ -63,6 +66,7 @@ export interface FindStrings {
   askWhich: string;
   askDidYouMean: (name: string) => string;
   askYes: string;
+  askAsTyped: (query: string) => string;
   askElse: string;
   askElseHint: string;
   askElseGo: string;
@@ -93,6 +97,9 @@ export const findEn: FindStrings = {
   findAddressNote:
     "We'll save this address so you don't type it again. You can delete it from My orders.",
   findSubmit: 'Find nearby',
+  findTagline: 'Ask the shops nearby, then buy.',
+  findNeedQuery: 'Type what you need',
+  findNeedAddress: 'Add your delivery address',
   findSubmitting: 'Finding…',
   findErrandTitle: 'Plan an errand',
   findErrandContinue: 'Continue your errand',
@@ -131,6 +138,7 @@ export const findEn: FindStrings = {
   askWhich: 'Which one do you mean?',
   askDidYouMean: (name) => `Did you mean ${name}?`,
   askYes: 'Yes, this one',
+  askAsTyped: (query) => `Search for exactly what I typed: "${query}"`,
   askElse: 'Something else',
   askElseHint: 'Type what you need',
   askElseGo: 'Search again',
@@ -161,6 +169,9 @@ export const findHi: FindStrings = {
   findAddressNote:
     'Ye pata hum save kar lenge, dobara nahi likhna padega. Mere orders mein se hata sakte hain.',
   findSubmit: 'Paas mein dhoondho',
+  findTagline: 'Paas ki dukaanon se poochho, phir kharido.',
+  findNeedQuery: 'Likhein kya chahiye',
+  findNeedAddress: 'Ghar ka pata likhein',
   findSubmitting: 'Dhoondh rahe hain…',
   findErrandTitle: 'Kaam ka plan banayein',
   findErrandContinue: 'Apna kaam jaari rakhein',
@@ -199,6 +210,7 @@ export const findHi: FindStrings = {
   askWhich: 'Aapka matlab kaun sa hai?',
   askDidYouMean: (name) => `Kya aapka matlab ${name} hai?`,
   askYes: 'Haan, yahi',
+  askAsTyped: (query) => `Jo maine likha wahi dhoondho: "${query}"`,
   askElse: 'Kuch aur',
   askElseHint: 'Likhein kya chahiye',
   askElseGo: 'Phir se dhoondho',

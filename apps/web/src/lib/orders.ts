@@ -1,3 +1,4 @@
+import { displayItemName } from './format.js';
 /** One thing to bring: what the shop said yes to, and its price (null: the shop did not say). */
 export interface OrderLine {
   name: string;
@@ -5,6 +6,8 @@ export interface OrderLine {
   nameHi?: string;
   /** The customer's own word for it (never sent to the shop). */
   text?: string;
+  /** The everyday catalog word the customer's text matched ("Maida"): a shop sees it next to `name`. */
+  displayName?: string;
   count: number;
   pricePaise: number | null;
 }
@@ -14,7 +17,7 @@ export interface OrderLine {
  * screen; the English name on an English one. Lines saved before these fields exist show `name`.
  */
 export function lineName(line: OrderLine, lang: 'hi' | 'en'): string {
-  return lang === 'hi' ? (line.text ?? line.nameHi ?? line.name) : line.name;
+  return lang === 'hi' ? (line.text ?? line.nameHi ?? line.name) : displayItemName(line.name);
 }
 
 export type OrderState =

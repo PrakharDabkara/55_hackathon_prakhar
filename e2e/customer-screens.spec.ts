@@ -244,7 +244,9 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await page.getByLabel("What's the job?").fill('chai banane ka saaman');
   await page.getByRole('button', { name: 'Use demo location (Indore)' }).click();
   await page.getByRole('button', { name: 'Make my list' }).click();
-  await expect(page.getByRole('heading', { name: 'Your list' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('heading', { name: /Which of these do you need/ })).toBeVisible({
+    timeout: 30_000,
+  });
   await look(page, '8b-errand-list');
   await page.getByRole('button', { name: /Ask shops for these \d+/ }).click();
   await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 90_000 });

@@ -33,12 +33,25 @@ export async function resolveForCustomer(
     const item = await getItem(db, opts.itemId);
     if (!item) throw new ApiError(404, 'item_not_found', 'No such item');
     const { text, quantity } = normaliseQuery(q);
+    // The customer picked or confirmed this item for words they typed: if those words are one of
+    // the item's catalog terms ("maida" for refined flour) keep it as the everyday name (ADR-0047).
+    // Read back from the catalog rows, so it is a catalog word and never an echo of the text.
+    const alias = text
+      ? (
+          await db.query<{ term: string }>(
+            `SELECT term FROM item_synonyms WHERE item_id = $1 AND term = $2
+             UNION SELECT term FROM item_defaults WHERE item_id = $1 AND term = $2`,
+            [item.id, text],
+          )
+        ).rows[0]?.term
+      : undefined;
     return {
       normalised: text,
       ...(quantity && { quantity }),
       item,
       matchedBy: null,
       similarity: 1,
+      ...(alias && { matchedAlias: alias }),
     };
   }
 

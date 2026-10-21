@@ -22,6 +22,7 @@
     "test:unit": "vitest run --exclude \"**/*.int.test.ts\" --passWithNoTests",
     "test:integration": "vitest run int.test --passWithNoTests",
     "seed:catalog": "npm run build -w @kahanmilega/shared -w @kahanmilega/api && node --env-file-if-exists=.env apps/api/dist/seedCatalogMain.js",
+    "icons": "node apps/web/scripts/make-icons.ts",
     "push:keys": "node apps/api/scripts/pushKeys.ts",
     "simulate": "node apps/simulator/src/main.ts",
     "test:e2e": "npm run build -w @kahanmilega/shared -w @kahanmilega/api -w @kahanmilega/web && playwright test -c e2e/playwright.config.ts",
