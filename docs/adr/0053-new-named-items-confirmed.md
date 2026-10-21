@@ -20,3 +20,8 @@ Nothing reaches a shop without the customer seeing it in a checklist. When the c
 - Fixes d18 (`no_question`, `missing_item`) by construction; no change to resolve, prompts or tool schemas.
 - A named catalog item is still asked of shops at once even in the same turn that a new item waits for its checklist.
 - The holdout (`evals/errand.holdout.jsonl`) was not opened, read or tuned on.
+
+## Known limitations
+
+- **d18 still fails `not_offered`** (agent dev eval, run 39578262699). The checklist is now asked and every named item is kept, but the agent's extras are only what it resolved that turn, so a helpful extra (glue for a project) may not be offered. Rule 3 does not invent suggestions. d18's expectation is not changed to fit.
+- **d22 failed `repeated_call` once** in the same run. It is a goal-only task with nothing named, so rule 3 cannot act on it and nothing in this ADR changes its path. Watch it in later runs.
