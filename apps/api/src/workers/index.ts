@@ -9,6 +9,7 @@ import {
   sweepErrands,
   type ErrandWaker,
 } from '../modules/errands/index.js';
+import { sweepLists } from '../modules/lists/index.js';
 import { sweepOrderAddresses, sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
 import { sweepPickups } from '../modules/pickups/index.js';
@@ -105,6 +106,8 @@ export function startWorkers({
         lastPhotoSweep = Date.now();
         return (await sweepPhotos({ db, logger }, new Date())).deleted;
       },
+      // Lists past their 15 minutes end, and forgotten drafts go (ADR-0055).
+      () => sweepLists({ db, logger, events }),
       // A shop that did not answer an order in 10 minutes: expire it and tell the customer.
       () => sweepOrders({ db, logger, events }),
       // Address and pin go 30 days after an order ended (ADR-0033); once an hour is plenty.

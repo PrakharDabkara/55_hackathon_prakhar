@@ -12,13 +12,19 @@ const ADDRESS_SHOWN_TO_SHOP: readonly OrderState[] = [
 export interface SeekerOrderView {
   id: string;
   state: OrderState;
+  /** A pickup holds no address: the customer walks to `shopLocation`. */
+  fulfilment: 'delivery' | 'pickup';
+  shopLocation: { lat: number; lng: number };
   shopId: string;
   shopName: string;
   /** The shop's published logo, or null (ADR-0040). */
   logoUrl: string | null;
   requestId: string | null;
   errandId: string | null;
+  listId: string | null;
   lines: OrderLine[];
+  /** How many lines the shop has packed (ADR-0055). */
+  packedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -47,7 +53,12 @@ export interface SeekerOrderView {
 export interface ShopOrderView {
   id: string;
   state: OrderState;
+  fulfilment: 'delivery' | 'pickup';
   lines: OrderLine[];
+  /** "2 of 4 packed": the shop's own count (ADR-0055). Moving on with unpacked lines is allowed. */
+  packedCount: number;
+  lineCount: number;
+  unpackedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -66,16 +77,22 @@ export interface ShopOrderView {
   mapUrl?: string;
 }
 
+const packedCount = (lines: OrderLine[]): number => lines.filter((l) => l.packed === true).length;
+
 export function seekerOrderView(o: OrderRecord): SeekerOrderView {
   return {
     id: o.id,
     state: o.state,
+    fulfilment: o.fulfilment,
+    shopLocation: { lat: o.shopLat, lng: o.shopLng },
     shopId: o.shopId,
     shopName: o.shopName,
     logoUrl: o.logoUrl ?? null,
     requestId: o.requestId,
     errandId: o.errandId,
+    listId: o.listId,
     lines: o.lines,
+    packedCount: packedCount(o.lines),
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,
@@ -87,7 +104,10 @@ export function seekerOrderView(o: OrderRecord): SeekerOrderView {
     payment: 'cash_on_delivery',
     pickupFallback: o.state === 'DECLINED' || o.state === 'EXPIRED',
     note: o.note,
-    receiveBy: o.state === 'OUT_FOR_DELIVERY' && o.receiveBy ? o.receiveBy.toISOString() : null,
+    receiveBy:
+      (o.state === 'OUT_FOR_DELIVERY' || o.state === 'READY') && o.receiveBy
+        ? o.receiveBy.toISOString()
+        : null,
     cancelledBy: o.cancelledBy,
     cancelReason: o.cancelReason,
     cancelText: o.cancelText,
@@ -105,13 +125,18 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
   return {
     id: o.id,
     state: o.state,
+    fulfilment: o.fulfilment,
     // Field by field: the customer's own words stay with the customer.
-    lines: o.lines.map(({ name, displayName, count, pricePaise }) => ({
+    lines: o.lines.map(({ name, displayName, count, pricePaise, packed }) => ({
       name,
       ...(displayName && { displayName }),
       count,
       pricePaise,
+      packed: packed === true,
     })),
+    packedCount: packedCount(o.lines),
+    lineCount: o.lines.length,
+    unpackedCount: o.lines.length - packedCount(o.lines),
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,

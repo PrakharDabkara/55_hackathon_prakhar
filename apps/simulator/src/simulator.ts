@@ -1,5 +1,13 @@
 import { ApiFailure, createClient, type Client } from './client.ts';
-import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.ts';
+import {
+  decide,
+  decideList,
+  decideOrder,
+  makeProfile,
+  type ListAnswerBody,
+  type ListPingInfo,
+  type ShopProfile,
+} from './decision.ts';
 import { createRng, hashSeed } from './rng.ts';
 import { readSse } from './sse.ts';
 import { loadState, matches, saveState } from './state.ts';
@@ -215,6 +223,75 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     timers.add(timer);
   }
 
+  /** A shopping-list parchi for one of our shops: answer every line, same log format plus (list h/t). */
+  function onListPing(data: unknown) {
+    const d = data as Partial<ListPingInfo> | null;
+    if (typeof d?.listPingId !== 'string' || typeof d.shopId !== 'string') return;
+    const shop = shops.get(d.shopId);
+    if (!shop || !Array.isArray(d.lines)) return;
+    const listPingId = d.listPingId;
+    const decision = decideList(
+      shop.profile,
+      {
+        listPingId,
+        shopId: d.shopId,
+        lines: d.lines,
+        wantsDelivery: d.wantsDelivery === true,
+        canDeliver: d.canDeliver !== false,
+        ...(strings(d.shopCategories) && { shopCategories: strings(d.shopCategories) as string[] }),
+      },
+      createRng(hashSeed(seed, d.shopId, listPingId)),
+      speed,
+    );
+    if (decision.kind === 'skip') {
+      stats.skipped++;
+      return;
+    }
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      const task = sendListAnswer(shop, listPingId, decision.body, decision.delayMs).finally(() =>
+        inFlight.delete(task),
+      );
+      inFlight.add(task);
+    }, decision.delayMs);
+    timers.add(timer);
+  }
+
+  async function sendListAnswer(
+    shop: Shop,
+    listPingId: string,
+    body: ListAnswerBody,
+    delayMs: number,
+  ) {
+    const have = body.lines.filter((l) => l.have);
+    const total = have.reduce((sum, l) => sum + (l.priceRupees ?? 0), 0);
+    const detail = [
+      have.length > 0 ? 'yes' : 'no',
+      have.length > 0 ? `₹${total}` : null,
+      `(list ${have.length}/${body.lines.length})`,
+      body.canDeliver ? `delivers ₹${body.deliveryFeeRupees ?? 0}` : null,
+    ]
+      .filter(Boolean)
+      .join('  ');
+    const line = `${clock()}  shop ${short(shop.shopId)}  ${detail}  ping ${short(listPingId)}  +${(delayMs / 1000).toFixed(1)}s`;
+    try {
+      await client.answerList(shop.token, listPingId, { ...body }, abort.signal);
+      stats.answered++;
+      if (have.length > 0) stats.yes++;
+      else stats.no++;
+      log(line);
+    } catch (error) {
+      if (stopped) return;
+      if (error instanceof ApiFailure && (error.status === 409 || error.status === 404)) {
+        stats.late++;
+        log(`${line}  too late (${error.status})`);
+      } else {
+        stats.failed++;
+        log(`${line}  FAILED: ${(error as Error).message}`);
+      }
+    }
+  }
+
   /** Runs `step` after `ms`, unless the simulator stops first. */
   function later(ms: number, step: () => Promise<void>) {
     return new Promise<void>((resolve) => {
@@ -231,12 +308,13 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   async function moveOrder(
     shop: Shop,
     orderId: string,
-    verb: 'accept' | 'decline' | 'out',
+    verb: 'accept' | 'decline' | 'out' | 'ready',
   ): Promise<boolean> {
     const label = {
       accept: 'accepted',
       decline: 'declined',
       out: 'out for delivery',
+      ready: 'ready for pickup',
     }[verb];
     try {
       await client.orderAction(shop.token, orderId, verb, abort.signal);
@@ -254,11 +332,18 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
 
   /** An order for one of our shops: accept (or decline) and set out, with short waits. The customer confirms receipt. */
   function onOrder(data: unknown) {
-    const d = data as { orderId?: unknown; shopId?: unknown; state?: unknown } | null;
+    const d = data as {
+      orderId?: unknown;
+      shopId?: unknown;
+      state?: unknown;
+      fulfilment?: unknown;
+    } | null;
     if (typeof d?.orderId !== 'string' || typeof d.shopId !== 'string') return;
     const shop = shops.get(d.shopId);
     if (!shop) return;
     const orderId = d.orderId;
+    // A pickup is made ready, a delivery sets out (ADR-0055).
+    const last = d.fulfilment === 'pickup' ? 'ready' : 'out';
     const decision = decideOrder(
       shop.profile,
       createRng(hashSeed(seed, d.shopId, orderId)),
@@ -271,7 +356,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         return;
       }
       if (decision.kind === 'dispatch') {
-        await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
+        await later(decision.outMs, async () => void (await moveOrder(shop, orderId, last)));
         return;
       }
       let ok = false;
@@ -280,7 +365,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         async () => void (ok = await moveOrder(shop, orderId, 'accept')),
       );
       if (!ok || stopped) return;
-      await later(decision.outMs, async () => void (await moveOrder(shop, orderId, 'out')));
+      await later(decision.outMs, async () => void (await moveOrder(shop, orderId, last)));
     })().finally(() => inFlight.delete(run));
     inFlight.add(run);
   }
@@ -322,6 +407,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
         backoff = 1000;
         for await (const message of readSse(res.body as unknown as AsyncIterable<Uint8Array>)) {
           if (message.event === 'ping.created') onPing(message.data);
+          else if (message.event === 'listping.created') onListPing(message.data);
           else if (message.event === 'order.created') onOrder(message.data);
         }
       } catch (error) {

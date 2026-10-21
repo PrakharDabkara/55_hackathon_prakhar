@@ -2,6 +2,7 @@ import type { Logger } from 'pino';
 import type { Database } from '../../db/queryable.js';
 import { claimPickupReminders } from '../pickups/index.js';
 import type { RealtimeEvent } from '../realtime/index.js';
+import { MAX_LIST_ANSWERS } from '@askbuy/shared';
 import { distanceBand } from '../requests/index.js';
 import { buildPayload, type PushArgs, type PushKind } from './payload.js';
 import type { RateLimiter } from './rateLimit.js';
@@ -31,6 +32,7 @@ const ORDER_KINDS: Record<string, PushKind> = {
   ACCEPTED: 'order_accepted',
   DECLINED: 'order_declined',
   OUT_FOR_DELIVERY: 'order_out',
+  READY: 'order_ready',
 };
 
 interface Deps {
@@ -107,6 +109,91 @@ export function createNotifier(deps: Deps): Notifier {
       band: distanceBand(row.distance_m),
       more: Math.max(0, row.waiting - 1),
     });
+  }
+
+  /** One push per shop per list: the first line and how many more, a distance band, tagged for the list. */
+  async function onListPing(userId: string, listPingId: string) {
+    const { rows } = await db.query<{
+      list_id: string;
+      is_simulated: boolean;
+      closed: boolean;
+      distance_m: number;
+      names: string[];
+    }>(
+      `SELECT lp.list_id, s.is_simulated,
+              (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed,
+              ST_Distance(s.location, l.location) AS distance_m,
+              array(SELECT coalesce(i.name_en, ll.text)
+                      FROM list_ping_lines lpl
+                      JOIN list_lines ll ON ll.id = lpl.line_id
+                      LEFT JOIN items i ON i.id = ll.item_id
+                     WHERE lpl.list_ping_id = lp.id ORDER BY ll.position) AS names
+         FROM list_pings lp JOIN shops s ON s.id = lp.shop_id JOIN shopping_lists l ON l.id = lp.list_id
+        WHERE lp.id = $1 AND s.owner_user_id = $2`,
+      [listPingId, userId],
+    );
+    const row = rows[0];
+    // Simulated shops are never pushed, and a closed shop is not nagged (its parchi waits in the list).
+    if (!row || row.is_simulated || row.closed) return;
+    const first = row.names[0] ?? '';
+    await notify(userId, 'new_list', {
+      item: row.names.length > 1 ? `${first} +${row.names.length - 1}` : first,
+      band: distanceBand(row.distance_m),
+      id: row.list_id,
+    });
+  }
+
+  /**
+   * The customer's one notification per list (ADR-0055, tag list:<id>). The first answer alerts with
+   * the shop's name and how many lines it has; later ones update it quietly with the count; the
+   * list filling up, or its 15 minutes passing with answers in, alerts once more. Stopping or ordering
+   * is the customer's own doing, and says nothing. Only a shop's name and counts leave.
+   */
+  async function onListUpdated(userId: string, listId: string, state: string) {
+    const { rows } = await db.query<{ answered: number; total: number }>(
+      `SELECT (SELECT count(*)::int FROM list_pings WHERE list_id = l.id AND state = 'ANSWERED') AS answered,
+              (SELECT count(*)::int FROM list_lines WHERE list_id = l.id AND status IN ('item', 'other')) AS total
+         FROM shopping_lists l WHERE l.id = $1 AND l.user_id = $2`,
+      [listId, userId],
+    );
+    const row = rows[0];
+    if (!row || row.answered === 0) return;
+    // A list that filled up already said "ready"; its expiry later is not news.
+    const ready = state === 'FULL' || (state === 'EXPIRED' && row.answered < MAX_LIST_ANSWERS);
+    if (ready) {
+      await notify(
+        userId,
+        'list_ready',
+        { id: listId, shops: row.answered },
+        { key: `list-ready:${listId}` },
+      );
+      return;
+    }
+    if (state !== 'OPEN') return;
+    if (row.answered === 1) {
+      const first = (
+        await db.query<{ name: string; have: number }>(
+          `SELECT s.name, (SELECT count(*)::int FROM list_ping_lines x WHERE x.list_ping_id = lp.id AND x.have) AS have
+             FROM list_pings lp JOIN shops s ON s.id = lp.shop_id
+            WHERE lp.list_id = $1 AND lp.state = 'ANSWERED' ORDER BY lp.answered_at LIMIT 1`,
+          [listId],
+        )
+      ).rows[0];
+      if (!first) return;
+      await notify(
+        userId,
+        'list_answered',
+        { id: listId, shop: first.name, shops: 1, have: first.have, total: row.total },
+        { key: `list-answer:${listId}:1`, delayMs: deps.answerDebounceMs },
+      );
+      return;
+    }
+    await notify(
+      userId,
+      'list_answered',
+      { id: listId, shops: row.answered },
+      { key: `list-answer:${listId}:${row.answered}`, delayMs: deps.answerDebounceMs },
+    );
   }
 
   interface OrderRow {
@@ -224,6 +311,17 @@ export function createNotifier(deps: Deps): Notifier {
       case 'ping.created': {
         const pingId = id('pingId');
         if (pingId) await onPing(userId, pingId);
+        return;
+      }
+      case 'listping.created': {
+        const listPingId = id('listPingId');
+        if (listPingId) await onListPing(userId, listPingId);
+        return;
+      }
+      case 'list.updated': {
+        const listId = id('listId');
+        const state = typeof data['state'] === 'string' ? data['state'] : '';
+        if (listId) await onListUpdated(userId, listId, state);
         return;
       }
       case 'order.created': {

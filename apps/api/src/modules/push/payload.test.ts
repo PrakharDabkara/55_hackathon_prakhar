@@ -3,6 +3,80 @@ import { buildPayload, type PushKind } from './payload.js';
 
 const ID = '3f2b8c1e-5d4a-4b7e-9a10-0c1d2e3f4a5b';
 
+describe('list answer pushes (customer, ADR-0055)', () => {
+  it('the first answer names the shop and how many lines it has, and alerts', () => {
+    expect(
+      buildPayload('list_answered', {
+        id: ID,
+        shop: 'Sharma General Store',
+        shops: 1,
+        have: 4,
+        total: 5,
+      }),
+    ).toEqual({
+      title: 'Sharma General Store has 4 of your 5',
+      body: 'Tap to see the answers',
+      tag: `list:${ID}`,
+      renotify: true,
+      url: `/app/list/${ID}`,
+    });
+  });
+
+  it('a shop with none of the lines is still named, without a count', () => {
+    expect(
+      buildPayload('list_answered', { id: ID, shop: 'Sharma', shops: 1, have: 0, total: 5 }).title,
+    ).toBe('Sharma answered your list');
+  });
+
+  it('later answers update the same notification quietly with the count', () => {
+    const p = buildPayload('list_answered', {
+      id: ID,
+      shop: 'Sharma',
+      shops: 3,
+      have: 1,
+      total: 5,
+    });
+    expect(p).toMatchObject({
+      title: '3 shops answered your list',
+      tag: `list:${ID}`,
+      renotify: false,
+    });
+  });
+
+  it('when the list is done it alerts once more, and says "1 shop" in the singular', () => {
+    expect(buildPayload('list_ready', { id: ID, shops: 8 })).toMatchObject({
+      title: 'Your list is ready: 8 shops answered',
+      tag: `list:${ID}`,
+      renotify: true,
+      url: `/app/list/${ID}`,
+    });
+    expect(buildPayload('list_ready', { id: ID, shops: 1 }).title).toBe(
+      'Your list is ready: 1 shop answered',
+    );
+  });
+
+  it('carries only words: a phone number in a shop name is removed', () => {
+    const p = buildPayload('list_answered', {
+      id: ID,
+      shop: 'Sharma 98765 43210',
+      shops: 1,
+      have: 1,
+      total: 2,
+    });
+    expect(JSON.stringify(p)).not.toMatch(/98765/);
+  });
+});
+
+describe('pickup pushes (ADR-0055)', () => {
+  it('tells the customer their order is ready, with a tag per order', () => {
+    expect(buildPayload('order_ready', { item: 'atta +2', id: ID, shop: 'Sharma' })).toMatchObject({
+      title: 'Sharma: your atta +2 is ready for pickup',
+      tag: `order:${ID}`,
+      url: `/app/order/${ID}`,
+    });
+  });
+});
+
 describe('buildPayload', () => {
   it('names the item and the distance band in a new request, with one tag for the whole shop', () => {
     expect(buildPayload('new_ping', { item: 'atta', band: 'under 1 km' })).toEqual({

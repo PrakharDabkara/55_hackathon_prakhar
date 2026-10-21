@@ -4,7 +4,7 @@ import type { Queryable } from '../../db/queryable.js';
 export async function hasOpenOrder(db: Queryable, userId: string): Promise<boolean> {
   const { rows } = await db.query(
     `SELECT 1 FROM delivery_orders
-      WHERE user_id = $1 AND state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY') LIMIT 1`,
+      WHERE user_id = $1 AND state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY') LIMIT 1`,
     [userId],
   );
   return rows.length > 0;

@@ -1,4 +1,5 @@
 export {
+  DEFAULT_RADIUS_M,
   applyRequestEvent,
   closeRequest,
   createRequest,

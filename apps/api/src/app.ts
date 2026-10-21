@@ -16,6 +16,7 @@ import { pushRouter } from './modules/push/index.js';
 import { errandsAdminRouter, errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
+import { listsRouter } from './modules/lists/index.js';
 import { ordersRouter } from './modules/orders/index.js';
 import { identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
@@ -130,6 +131,15 @@ export function createApp({
       ...(errandHooks && { enqueue: errandHooks.enqueue }),
       events: realtime.events,
       requests: requestsContext,
+    }),
+  );
+  app.use(
+    listsRouter({
+      db,
+      logger,
+      config: { maxPings: config.maxPingsPerRequest, trigramThreshold: config.trigramThreshold },
+      events: realtime.events,
+      ...(ai && { ai }),
     }),
   );
   app.use(

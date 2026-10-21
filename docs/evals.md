@@ -6,11 +6,12 @@ How we measure query understanding (ADR-0021) and keep it from getting worse (AD
 
 Three labelled files in `evals/`, one query per line: `{"q", "kind", "expected"}`. `expected` is a catalog slug, `"ambiguous"` (the seeker should be asked) or `null` (nothing fits).
 
-| File                            | Role                    | Rule                                                                                                                                            |
-| ------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolve.dev.jsonl` (131)       | Tuning set              | We may tune thresholds, prompt and catalog against it. Reported, never gated.                                                                   |
-| `resolve.holdout.jsonl` (62)    | Holdout v1, **retired** | Its runs informed fixes, so it no longer measures anything unseen. Kept for history.                                                            |
-| `resolve.holdout.v2.jsonl` (61) | **The gate**            | Written fresh and committed before any run against it. **Never edited after its results are seen**; a change means a new versioned file (`v3`). |
+| File                               | Role                             | Rule                                                                                                                                                                      |
+| ---------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolve.dev.jsonl` (131)          | Tuning set                       | We may tune thresholds, prompt and catalog against it. Reported, never gated.                                                                                             |
+| `resolve.holdout.jsonl` (62)       | Holdout v1, **retired**          | Its runs informed fixes, so it no longer measures anything unseen. Kept for history.                                                                                      |
+| `resolve.list.dev.jsonl` (8 lists) | Shopping-list sorting (ADR-0055) | Dev only: reported, never gated. A line is an item, `ambiguous`, `other` or `refused`. A list that needs more than one model call or one embedding request fails the run. |
+| `resolve.holdout.v2.jsonl` (61)    | **The gate**                     | Written fresh and committed before any run against it. **Never edited after its results are seen**; a change means a new versioned file (`v3`).                           |
 
 Why two kinds: a score on the data you tuned on is a training score. The holdout is the only number that says how the system does on queries nobody tuned for.
 
@@ -43,7 +44,7 @@ LLM_PROVIDER=gemini EVAL_SET=holdout-v2 EVAL_GATE=1 npm run eval:resolve   # gat
 LLM_PROVIDER=gemini EVAL_DB=testcontainers EVAL_GATE=1 npm run eval:resolve # as CI does (needs Docker)
 ```
 
-Options: `EVAL_SET=dev|holdout-v2|holdout|all` (`all` is dev plus holdout-v2), `EVAL_KINDS=variant,typo`, `EVAL_AI_PAUSE_MS` (default 5000), `EVAL_EMBED_CACHE` (saved catalog vectors, default `evals/.cache/embeddings.json`). Reports go to `evals/reports/` (JSON per set and `summary.md`; git-ignored). Use your own eval Google project, never the live site's key; the budget is one full run per day per project.
+Options: `EVAL_SET=dev|holdout-v2|holdout|list-dev|all` (`all` is dev, holdout-v2 and list-dev), `EVAL_KINDS=variant,typo`, `EVAL_AI_PAUSE_MS` (default 5000), `EVAL_EMBED_CACHE` (saved catalog vectors, default `evals/.cache/embeddings.json`). Reports go to `evals/reports/` (JSON per set and `summary.md`; git-ignored). Use your own eval Google project, never the live site's key; the budget is one full run per day per project.
 
 ## Results
 

@@ -145,7 +145,14 @@ describe('delivery orders', () => {
       });
       const seen = (await shopList()).body[0].lines[0];
       // A catalog word ("chini") may show next to the name (ADR-0047); the customer's text never does.
-      expect(seen).toEqual({ name: 'sugar', displayName: 'Chini', count: 1, pricePaise: 4500 });
+      // `packed` is the shop's own flag (ADR-0055).
+      expect(seen).toEqual({
+        name: 'sugar',
+        displayName: 'Chini',
+        count: 1,
+        pricePaise: 4500,
+        packed: false,
+      });
       expect(seen).not.toHaveProperty('text');
     });
 

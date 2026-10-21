@@ -17,7 +17,11 @@ interface Row {
   shop_owner_user_id: string | null;
   request_id: string | null;
   errand_id: string | null;
+  list_id: string | null;
   state: OrderState;
+  fulfilment: 'delivery' | 'pickup';
+  shop_lat: number;
+  shop_lng: number;
   lines: OrderLine[];
   items_total_paise: number | null;
   unknown_price_count: number;
@@ -42,7 +46,8 @@ interface Row {
 const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name,
        CASE WHEN s.logo_photo_id IS NOT NULL THEN '/photos/' || s.logo_photo_id END AS logo_url,
        s.owner_user_id AS shop_owner_user_id,
-       o.request_id, o.errand_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
+       o.request_id, o.errand_id, o.list_id, o.state, o.fulfilment,
+       ST_Y(s.location::geometry) AS shop_lat, ST_X(s.location::geometry) AS shop_lng, o.lines, o.items_total_paise, o.unknown_price_count,
        o.fee_paise, o.fee_minutes, o.address_text, o.customer_first_name, o.lat, o.lng,
        o.note, o.accepted_at, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
        o.expires_at, o.created_at, o.updated_at
@@ -57,7 +62,11 @@ const toRecord = (r: Row): OrderRecord => ({
   shopOwnerUserId: r.shop_owner_user_id,
   requestId: r.request_id,
   errandId: r.errand_id,
+  listId: r.list_id,
   state: r.state,
+  fulfilment: r.fulfilment,
+  shopLat: r.shop_lat,
+  shopLng: r.shop_lng,
   lines: r.lines,
   itemsTotalPaise: r.items_total_paise,
   unknownPriceCount: r.unknown_price_count,
@@ -84,15 +93,18 @@ export interface NewOrder {
   shopId: string;
   requestId: string | null;
   errandId: string | null;
+  listId?: string | null;
   lines: OrderLine[];
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
   feeMinutes: number | null;
-  addressText: string;
+  /** Pickup: no address, pin or name. */
+  fulfilment?: 'delivery' | 'pickup';
+  addressText: string | null;
   customerFirstName: string | null;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   note: string | null;
   /** ACCEPTED when the customer took a binding offer; otherwise the shop must accept in time. */
   state: 'REQUESTED' | 'ACCEPTED';
@@ -103,14 +115,14 @@ export interface NewOrder {
 export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | null> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO delivery_orders
-       (user_id, shop_id, request_id, errand_id, source_id, lines, items_total_paise,
+       (user_id, shop_id, request_id, errand_id, list_id, fulfilment, source_id, lines, items_total_paise,
         unknown_price_count, fee_paise, fee_minutes, address_text, customer_first_name, lat, lng,
         note, state, expires_at, accepted_at)
-     VALUES ($1, $2, $3::uuid, $4::uuid, COALESCE($3::uuid, $4::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
+     VALUES ($1, $2, $3::uuid, $4::uuid, $17::uuid, $18, COALESCE($3::uuid, $4::uuid, $17::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
              $14, $15, now() + make_interval(mins => $16::int),
              CASE WHEN $15::text = 'ACCEPTED' THEN now() END)
      ON CONFLICT (user_id, shop_id, source_id)
-       WHERE state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY') DO NOTHING
+       WHERE state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY') DO NOTHING
      RETURNING id`,
     [
       o.userId,
@@ -129,6 +141,8 @@ export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | 
       o.note,
       o.state,
       o.expiryMinutes,
+      o.listId ?? null,
+      o.fulfilment ?? 'delivery',
     ],
   );
   return rows[0]?.id ?? null;
@@ -147,8 +161,8 @@ export async function findOpenOrder(
   sourceId: string,
 ): Promise<OrderRecord | null> {
   const { rows } = await db.query<Row>(
-    `${SELECT} WHERE o.user_id = $1 AND o.shop_id = $2 AND COALESCE(o.request_id, o.errand_id) = $3
-        AND o.state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')`,
+    `${SELECT} WHERE o.user_id = $1 AND o.shop_id = $2 AND COALESCE(o.request_id, o.errand_id, o.list_id) = $3
+        AND o.state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY')`,
     [userId, shopId, sourceId],
   );
   return rows[0] ? toRecord(rows[0]) : null;
@@ -157,19 +171,24 @@ export async function findOpenOrder(
 export async function listOrdersForSource(
   db: Queryable,
   userId: string,
-  source: { requestId: string } | { errandId: string },
+  source: { requestId: string } | { errandId: string } | { listId: string },
 ): Promise<OrderRecord[]> {
-  const id = 'requestId' in source ? source.requestId : source.errandId;
+  const id =
+    'requestId' in source
+      ? source.requestId
+      : 'errandId' in source
+        ? source.errandId
+        : source.listId;
   const { rows } = await db.query<Row>(
-    `${SELECT} WHERE o.user_id = $1 AND COALESCE(o.request_id, o.errand_id) = $2
+    `${SELECT} WHERE o.user_id = $1 AND COALESCE(o.request_id, o.errand_id, o.list_id) = $2
       ORDER BY o.created_at DESC`,
     [userId, id],
   );
   return rows.map(toRecord);
 }
 
-const ACTIVE = `('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')`;
-const FINAL = `('DECLINED', 'EXPIRED', 'DELIVERED', 'CANCELLED', 'NOT_CONFIRMED')`;
+const ACTIVE = `('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY')`;
+const FINAL = `('DECLINED', 'EXPIRED', 'DELIVERED', 'COLLECTED', 'CANCELLED', 'NOT_CONFIRMED')`;
 
 /** All the customer's orders: the open ones first, then the finished, each newest first. */
 export async function listOrdersForUser(
@@ -309,7 +328,7 @@ export async function moveOrder(
         SET state = $3, updated_at = now(),
             accepted_at = CASE WHEN $3::text = 'ACCEPTED' THEN now() ELSE accepted_at END,
             out_for_delivery_at = CASE WHEN $4::text = 'DISPATCH' THEN now() ELSE out_for_delivery_at END,
-            receive_by = CASE WHEN $4::text = 'DISPATCH'
+            receive_by = CASE WHEN $4::text IN ('DISPATCH', 'READY')
                               THEN now() + make_interval(hours => $5::int) ELSE receive_by END,
             cancelled_by = COALESCE($6::text, cancelled_by),
             cancel_reason = COALESCE($7::text, cancel_reason),
@@ -347,9 +366,29 @@ export async function findOverdueOrderIds(db: Queryable, limit: number): Promise
 /** Ids of orders out for delivery whose customer did not tap Received in time. */
 export async function findUnconfirmedOrderIds(db: Queryable, limit: number): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
-    `SELECT id FROM delivery_orders WHERE state = 'OUT_FOR_DELIVERY' AND receive_by <= now()
+    `SELECT id FROM delivery_orders WHERE state IN ('OUT_FOR_DELIVERY', 'READY') AND receive_by <= now()
       ORDER BY receive_by LIMIT $1`,
     [limit],
   );
   return rows.map((r) => r.id);
+}
+
+/**
+ * Sets or clears one line's packed flag while the order is not final (ADR-0055 rule 12). Returns
+ * false when there is no such order, it is final, or it has no such line.
+ */
+export async function setLinePacked(
+  db: Queryable,
+  id: string,
+  index: number,
+  packed: boolean,
+): Promise<boolean> {
+  const { rowCount } = await db.query(
+    `UPDATE delivery_orders
+        SET lines = jsonb_set(lines, ARRAY[$2::text, 'packed'], to_jsonb($3::boolean))
+      WHERE id = $1 AND state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY')
+        AND jsonb_array_length(lines) > $2::int`,
+    [id, index, packed],
+  );
+  return rowCount === 1;
 }

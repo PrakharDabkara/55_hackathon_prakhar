@@ -10,8 +10,11 @@ import {
   GATED_SET,
   renderMarkdown,
   scoreCase,
+  scoreListLine,
   summarise,
+  withinListBudget,
   type Case,
+  type ListCase,
   type LlmCall,
   type Row,
   type Step,
@@ -22,6 +25,7 @@ import {
   embedCatalog,
   loadSeedCatalog,
   resolveItem,
+  resolveLines,
   seedCatalog,
 } from './modules/catalog/index.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
@@ -31,8 +35,11 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 // prints accuracy, accuracy by category, which step answered, the LLM fallback rate, tokens and p95
 // latency, and writes one JSON report per set to evals/reports/.
 //
-//   EVAL_SET=dev|holdout-v2|holdout|all   which set(s); default all = dev + holdout-v2 (holdout is
-//                              the retired v1, run only when asked for)
+//   EVAL_SET=dev|holdout-v2|holdout|list-dev|all   which set(s); default all = dev + holdout-v2 +
+//                              list-dev (holdout is the retired v1, run only when asked for;
+//                              list-dev sorts shopping lists, ADR-0055: reported, never gated, but a
+//                              list that needs more than one model call or one embedding request
+//                              fails the run)
 //   EVAL_DB=testcontainers     run in a throwaway Postgres (CI); default is the DATABASE_URL database,
 //                              which is then cleared of cached answers
 //   EVAL_GATE=1                apply the holdout gates and exit 1 if one fails (CI)
@@ -48,9 +55,10 @@ const FILES = {
   dev: 'resolve.dev.jsonl',
   holdout: 'resolve.holdout.jsonl', // v1, retired after informing fixes
   'holdout-v2': 'resolve.holdout.v2.jsonl',
+  'list-dev': 'resolve.list.dev.jsonl',
 } as const;
 type EvalSet = keyof typeof FILES;
-const sets = (which === 'all' ? ['dev', 'holdout-v2'] : which.split(',')) as EvalSet[];
+const sets = (which === 'all' ? ['dev', 'holdout-v2', 'list-dev'] : which.split(',')) as EvalSet[];
 for (const s of sets) {
   if (!(s in FILES)) throw new Error(`EVAL_SET: unknown set "${s}"`);
 }
@@ -141,6 +149,8 @@ const loadCases = (set: string): Case[] =>
     .map((line) => JSON.parse(line) as Case)
     .filter((c) => !only || only.includes(c.kind));
 
+let exitCode = 0;
+
 const aiCallCount = async (): Promise<number> =>
   (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ai_calls`)).rows[0]?.n ?? 0;
 
@@ -161,7 +171,135 @@ const llmCallCount = async (): Promise<number> =>
     )
   ).rows[0]?.n ?? 0;
 
+const loadListCases = (): ListCase[] =>
+  readFileSync(path.join(root, 'evals', FILES['list-dev']), 'utf8')
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => JSON.parse(line) as ListCase)
+    .filter((c) => !only || only.includes(c.kind));
+
+const callsOf = async (purpose: string): Promise<number> =>
+  (
+    await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ai_calls WHERE purpose = $1`, [
+      purpose,
+    ])
+  ).rows[0]?.n ?? 0;
+
+/** Shopping lists (ADR-0055): every line of a list is sorted together, in one model call at most. */
+async function runListSet(set: EvalSet) {
+  const cases = loadListCases();
+  await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms, new_item_attempts');
+  await pool.query('TRUNCATE ai_calls');
+  const rows: Row[] = [];
+  const detail: {
+    q: string;
+    kind: string;
+    expected: string;
+    got: string;
+    step: string | null;
+    correct: boolean;
+    error?: true;
+  }[] = [];
+  let overBudget = 0;
+  for (const [index, c] of cases.entries()) {
+    const userId = (
+      await pool.query<{ id: string }>(
+        `INSERT INTO users (phone, role) VALUES ($1, 'seeker')
+         ON CONFLICT (phone) DO UPDATE SET role = users.role RETURNING id`,
+        [`+9191${String(index).padStart(8, '0')}`],
+      )
+    ).rows[0]?.id as string;
+    const failedBefore = await failedCallCount();
+    const llmBefore = await callsOf('resolve_query');
+    const embedBefore = await callsOf('embed_query');
+    const options = {
+      userId,
+      threshold: config.trigramThreshold,
+      ai,
+      requestId: `eval-${set}`,
+    };
+    const lines = c.lines.map((l) => l.q);
+    let resolved = await resolveLines(pool, lines, options);
+    let errored = false;
+    for (let attempt = 1; (await failedCallCount()) > failedBefore; attempt++) {
+      if (attempt > MODEL_RETRIES) {
+        errored = true;
+        break;
+      }
+      await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
+      resolved = await resolveLines(pool, lines, options);
+    }
+    // The budget is per attempt: the retry above is the runner's, not the pipeline's.
+    const calls = {
+      generate: (await callsOf('resolve_query')) - llmBefore,
+      embed: (await callsOf('embed_query')) - embedBefore,
+    };
+    if (!errored && !withinListBudget(calls)) {
+      overBudget++;
+      console.error(
+        `::error::a list of ${lines.length} lines made ${calls.generate} model calls and ${calls.embed} embedding requests (budget: 1 and 1)`,
+      );
+    }
+    for (const [i, l] of c.lines.entries()) {
+      const r = resolved[i] as Awaited<ReturnType<typeof resolveLines>>[number];
+      const slug =
+        r.kind === 'item'
+          ? ((await pool.query(`SELECT slug FROM items WHERE id = $1`, [r.item.id])).rows[0]
+              .slug as string)
+          : null;
+      const correct = scoreListLine(l.expected, { kind: r.kind, slug });
+      rows.push({
+        kind: c.kind,
+        gotItem: slug !== null,
+        correct,
+        error: errored,
+        step: null,
+        usedLlm: calls.generate > 0,
+      });
+      detail.push({
+        q: l.q,
+        kind: c.kind,
+        expected: l.expected,
+        got: r.kind === 'item' ? (slug as string) : r.kind,
+        step: null,
+        correct,
+        ...(errored && { error: true }),
+      });
+    }
+    if (calls.generate + calls.embed > 0 && aiPauseMs > 0)
+      await new Promise((res) => setTimeout(res, aiPauseMs));
+  }
+  const llmRows = await pool.query<{ tokens: number; latency_ms: number }>(
+    `SELECT input_tokens + output_tokens AS tokens, latency_ms FROM ai_calls
+      WHERE purpose = 'resolve_query' AND outcome = 'ok'`,
+  );
+  const summary = summarise(
+    rows,
+    llmRows.rows.map((r) => ({ tokens: r.tokens, latencyMs: r.latency_ms })),
+  );
+  const at = new Date().toISOString();
+  mkdirSync(path.join(root, 'evals/reports'), { recursive: true });
+  const file = path.join(root, `evals/reports/resolve-${set}-${at.replace(/[:.]/g, '-')}.json`);
+  const wrong = detail.filter((d) => !d.correct && !d.error);
+  const errored = detail.filter((d) => d.error);
+  writeFileSync(
+    file,
+    JSON.stringify(
+      { set, at, provider: config.llmProvider, summary, overBudget, wrong, cases: detail },
+      null,
+      2,
+    ),
+  );
+  print(set, summary, wrong, errored, path.relative(root, file));
+  if (overBudget > 0) {
+    console.error(`${overBudget} list(s) went over the call budget`);
+    exitCode = 1;
+  }
+  return { set, summary };
+}
+
 async function runSet(set: EvalSet) {
+  if (set === 'list-dev') return runListSet(set);
   const cases = loadCases(set);
   // Each set starts from nothing cached, so one set cannot make the other look better.
   await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms, new_item_attempts');
@@ -317,7 +455,6 @@ function print(
   console.log(`report: ${file}`);
 }
 
-let exitCode = 0;
 try {
   await seedCatalog(pool, loadSeedCatalog());
   // Vectors from an earlier run (restored by the CI cache, keyed by the catalog file) are loaded

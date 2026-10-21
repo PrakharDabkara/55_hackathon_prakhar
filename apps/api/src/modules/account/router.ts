@@ -16,6 +16,7 @@ import {
 } from '../identity/index.js';
 import { eraseCustomerAddresses, hasOpenOrder } from '../orders/index.js';
 import { removeAllSubscriptionsOf, removeSubscriptionOf } from '../push/index.js';
+import { hasLiveList } from '../lists/index.js';
 import { hasLiveRequest } from '../requests/index.js';
 import { createAttemptLimiter, type AttemptLimiter } from './attemptLimit.js';
 
@@ -65,6 +66,7 @@ export function accountRouter({
       if (
         (await hasOpenOrder(tx, user.id)) ||
         (await hasLiveRequest(tx, user.id)) ||
+        (await hasLiveList(tx, user.id)) ||
         (await hasLiveErrand(tx, user.id))
       ) {
         throw new ApiError(409, 'open_order', 'Finish or cancel your open order first.');
