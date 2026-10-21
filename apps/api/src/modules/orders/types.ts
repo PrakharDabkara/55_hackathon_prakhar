@@ -14,6 +14,8 @@ export interface OrderLine {
   displayName?: string;
   count: number;
   pricePaise: number | null;
+  /** The shop has packed this line (ADR-0055). Absent means not packed. */
+  packed?: boolean;
 }
 
 /** An order as stored. Only `view.ts` decides who sees which part. */
@@ -26,6 +28,8 @@ export interface OrderRecord {
   shopOwnerUserId: string | null;
   requestId: string | null;
   errandId: string | null;
+  /** The shopping list this order came from, if any (ADR-0055). */
+  listId: string | null;
   state: OrderState;
   lines: OrderLine[];
   /** Left out when no line has a price. Lines without a price are not in it, never ₹0. */

@@ -18,7 +18,10 @@ export interface SeekerOrderView {
   logoUrl: string | null;
   requestId: string | null;
   errandId: string | null;
+  listId: string | null;
   lines: OrderLine[];
+  /** How many lines the shop has packed (ADR-0055). */
+  packedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -48,6 +51,10 @@ export interface ShopOrderView {
   id: string;
   state: OrderState;
   lines: OrderLine[];
+  /** "2 of 4 packed": the shop's own count (ADR-0055). Moving on with unpacked lines is allowed. */
+  packedCount: number;
+  lineCount: number;
+  unpackedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -66,6 +73,8 @@ export interface ShopOrderView {
   mapUrl?: string;
 }
 
+const packedCount = (lines: OrderLine[]): number => lines.filter((l) => l.packed === true).length;
+
 export function seekerOrderView(o: OrderRecord): SeekerOrderView {
   return {
     id: o.id,
@@ -75,7 +84,9 @@ export function seekerOrderView(o: OrderRecord): SeekerOrderView {
     logoUrl: o.logoUrl ?? null,
     requestId: o.requestId,
     errandId: o.errandId,
+    listId: o.listId,
     lines: o.lines,
+    packedCount: packedCount(o.lines),
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,
@@ -106,12 +117,16 @@ export function shopOrderView(o: OrderRecord): ShopOrderView {
     id: o.id,
     state: o.state,
     // Field by field: the customer's own words stay with the customer.
-    lines: o.lines.map(({ name, displayName, count, pricePaise }) => ({
+    lines: o.lines.map(({ name, displayName, count, pricePaise, packed }) => ({
       name,
       ...(displayName && { displayName }),
       count,
       pricePaise,
+      packed: packed === true,
     })),
+    packedCount: packedCount(o.lines),
+    lineCount: o.lines.length,
+    unpackedCount: o.lines.length - packedCount(o.lines),
     itemsTotalPaise: o.itemsTotalPaise,
     unknownPriceCount: o.unknownPriceCount,
     feePaise: o.feePaise,

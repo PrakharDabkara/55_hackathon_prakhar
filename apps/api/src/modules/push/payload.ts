@@ -7,6 +7,7 @@
 export type PushKind =
   | 'new_ping'
   | 'new_order'
+  | 'new_list'
   | 'shop_answered'
   | 'plan_ready'
   | 'order_accepted'
@@ -110,6 +111,15 @@ const COPY: Record<PushKind, Copy> = {
     tag: () => 'shop-requests',
     link: () => '/app/shop',
     needsId: false,
+    renotify: () => true,
+  },
+  // One notification per shop per list (ADR-0055); the tag is the list, so a repeat replaces it.
+  new_list: {
+    title: (w) => `New list: ${w.item} · ${w.band}`,
+    body: 'Open the shop to answer',
+    tag: (id) => `list:${id}`,
+    link: () => '/app/shop',
+    needsId: true,
     renotify: () => true,
   },
   new_order: shopOrder((w) => `New order: ${w.item}`),

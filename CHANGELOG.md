@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR U1: shopping lists, backend only, ADR-0055)
+
+- Shopping lists. `POST /lists/sort` understands up to 10 typed lines (item, ambiguous with up to 3 options, "other", or refused) with one embedding request and one model call per list; `POST /lists/:id/send` gives each nearby shop ONE parchi with its lines plus the "other" lines; `GET /shops/me/lists` and `POST /list-pings/:id/answer` for shops (per line have + whole-rupee price, `canDeliver`, one fee); `GET /lists/:id` for ranked answers and the default plan (fewest shops that cover everything, exact); `POST /lists/:id/order` orders from several shops in one all-or-nothing call; `POST /lists/:id/stop`. The list stops listening at 8 answers or 15 minutes. Migration 027: `shopping_lists`, `list_lines`, `list_pings`, `list_ping_lines`, `delivery_orders.list_id`.
+- Packing: `PUT /orders/:id/lines/:index/packed` (the owning shop, while the order is not final); order views carry `packedCount`, `lineCount`, `unpackedCount`.
+- Push kind `new_list` (one per shop per list). Simulator answers list parchis line by line (log line ends `(list h/t)`).
+- Evals: `evals/resolve.list.dev.jsonl` (8 list cases, `EVAL_SET=list-dev`, part of `all`, never gated; a list that needs more than one model call or embedding request fails the run).
+- Stop asking for a single search is the existing `POST /requests/:id/close`; lists get `POST /lists/:id/stop`; both end what `DELETE /account` checks.
+
 ### Added (PR S: customer Account, ADR-0054)
 
 - Account screen at `/app/account`, opened from a person icon in the Find header (signed out, it opens the login sheet and then Account): the phone partly hidden, the delivery address (add or edit, saved on the server), Reply alerts for this device (browser permission flow; off also deletes the subscription on the server; disabled when the browser blocks them), Appearance System/Light/Dark, My orders, "What shops can see", Log out and Delete my account.

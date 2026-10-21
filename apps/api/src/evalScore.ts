@@ -33,6 +33,35 @@ export function scoreCase(c: Case, got: Outcome): boolean {
   return got.slug === c.expected;
 }
 
+/** One list for the list-sorting evals (ADR-0055): the lines go through together, in one call each. */
+export interface ListCase {
+  /** known, ambiguous, denied, other, nonsense, injection, devanagari or mixed. */
+  kind: string;
+  lines: { q: string; expected: ListExpectation }[];
+}
+
+/** A catalog slug, or what the line should end up as: asked about, text only, or refused. */
+export type ListExpectation = string;
+export const LIST_KINDS = ['ambiguous', 'other', 'refused'] as const;
+
+export interface ListOutcome {
+  kind: 'item' | 'ambiguous' | 'other' | 'refused';
+  /** The catalog slug when the line became an item. */
+  slug: string | null;
+}
+
+/** Right means: that item, or that kind of ending ("ambiguous", "other", "refused"). */
+export function scoreListLine(expected: ListExpectation, got: ListOutcome): boolean {
+  return (LIST_KINDS as readonly string[]).includes(expected)
+    ? got.kind === expected
+    : got.kind === 'item' && got.slug === expected;
+}
+
+/** The budget of one list: at most one embedding request and one model call, whatever its length. */
+export const LIST_CALL_BUDGET = { embed: 1, generate: 1 } as const;
+export const withinListBudget = (calls: { embed: number; generate: number }): boolean =>
+  calls.embed <= LIST_CALL_BUDGET.embed && calls.generate <= LIST_CALL_BUDGET.generate;
+
 export const CATEGORIES = ['plain', 'variant', 'ambiguous', 'nonsense', 'injection'] as const;
 export type Category = (typeof CATEGORIES)[number];
 

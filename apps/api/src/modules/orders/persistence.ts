@@ -17,6 +17,7 @@ interface Row {
   shop_owner_user_id: string | null;
   request_id: string | null;
   errand_id: string | null;
+  list_id: string | null;
   state: OrderState;
   lines: OrderLine[];
   items_total_paise: number | null;
@@ -42,7 +43,7 @@ interface Row {
 const SELECT = `SELECT o.id, o.user_id, o.shop_id, s.name AS shop_name,
        CASE WHEN s.logo_photo_id IS NOT NULL THEN '/photos/' || s.logo_photo_id END AS logo_url,
        s.owner_user_id AS shop_owner_user_id,
-       o.request_id, o.errand_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
+       o.request_id, o.errand_id, o.list_id, o.state, o.lines, o.items_total_paise, o.unknown_price_count,
        o.fee_paise, o.fee_minutes, o.address_text, o.customer_first_name, o.lat, o.lng,
        o.note, o.accepted_at, o.out_for_delivery_at, o.receive_by, o.cancelled_by, o.cancel_reason, o.cancel_text,
        o.expires_at, o.created_at, o.updated_at
@@ -57,6 +58,7 @@ const toRecord = (r: Row): OrderRecord => ({
   shopOwnerUserId: r.shop_owner_user_id,
   requestId: r.request_id,
   errandId: r.errand_id,
+  listId: r.list_id,
   state: r.state,
   lines: r.lines,
   itemsTotalPaise: r.items_total_paise,
@@ -84,6 +86,7 @@ export interface NewOrder {
   shopId: string;
   requestId: string | null;
   errandId: string | null;
+  listId?: string | null;
   lines: OrderLine[];
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
@@ -103,10 +106,10 @@ export interface NewOrder {
 export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | null> {
   const { rows } = await db.query<{ id: string }>(
     `INSERT INTO delivery_orders
-       (user_id, shop_id, request_id, errand_id, source_id, lines, items_total_paise,
+       (user_id, shop_id, request_id, errand_id, list_id, source_id, lines, items_total_paise,
         unknown_price_count, fee_paise, fee_minutes, address_text, customer_first_name, lat, lng,
         note, state, expires_at, accepted_at)
-     VALUES ($1, $2, $3::uuid, $4::uuid, COALESCE($3::uuid, $4::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
+     VALUES ($1, $2, $3::uuid, $4::uuid, $17::uuid, COALESCE($3::uuid, $4::uuid, $17::uuid), $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13,
              $14, $15, now() + make_interval(mins => $16::int),
              CASE WHEN $15::text = 'ACCEPTED' THEN now() END)
      ON CONFLICT (user_id, shop_id, source_id)
@@ -129,6 +132,7 @@ export async function insertOrder(db: Queryable, o: NewOrder): Promise<string | 
       o.note,
       o.state,
       o.expiryMinutes,
+      o.listId ?? null,
     ],
   );
   return rows[0]?.id ?? null;
@@ -147,7 +151,7 @@ export async function findOpenOrder(
   sourceId: string,
 ): Promise<OrderRecord | null> {
   const { rows } = await db.query<Row>(
-    `${SELECT} WHERE o.user_id = $1 AND o.shop_id = $2 AND COALESCE(o.request_id, o.errand_id) = $3
+    `${SELECT} WHERE o.user_id = $1 AND o.shop_id = $2 AND COALESCE(o.request_id, o.errand_id, o.list_id) = $3
         AND o.state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')`,
     [userId, shopId, sourceId],
   );
@@ -157,11 +161,16 @@ export async function findOpenOrder(
 export async function listOrdersForSource(
   db: Queryable,
   userId: string,
-  source: { requestId: string } | { errandId: string },
+  source: { requestId: string } | { errandId: string } | { listId: string },
 ): Promise<OrderRecord[]> {
-  const id = 'requestId' in source ? source.requestId : source.errandId;
+  const id =
+    'requestId' in source
+      ? source.requestId
+      : 'errandId' in source
+        ? source.errandId
+        : source.listId;
   const { rows } = await db.query<Row>(
-    `${SELECT} WHERE o.user_id = $1 AND COALESCE(o.request_id, o.errand_id) = $2
+    `${SELECT} WHERE o.user_id = $1 AND COALESCE(o.request_id, o.errand_id, o.list_id) = $2
       ORDER BY o.created_at DESC`,
     [userId, id],
   );
@@ -352,4 +361,24 @@ export async function findUnconfirmedOrderIds(db: Queryable, limit: number): Pro
     [limit],
   );
   return rows.map((r) => r.id);
+}
+
+/**
+ * Sets or clears one line's packed flag while the order is not final (ADR-0055 rule 12). Returns
+ * false when there is no such order, it is final, or it has no such line.
+ */
+export async function setLinePacked(
+  db: Queryable,
+  id: string,
+  index: number,
+  packed: boolean,
+): Promise<boolean> {
+  const { rowCount } = await db.query(
+    `UPDATE delivery_orders
+        SET lines = jsonb_set(lines, ARRAY[$2::text, 'packed'], to_jsonb($3::boolean))
+      WHERE id = $1 AND state IN ('REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY')
+        AND jsonb_array_length(lines) > $2::int`,
+    [id, index, packed],
+  );
+  return rowCount === 1;
 }

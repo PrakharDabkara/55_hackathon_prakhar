@@ -1,5 +1,5 @@
 import type { Logger } from 'pino';
-import type { Database } from '../../db/queryable.js';
+import type { Database, Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import {
   deliveryOfferForErrand,
@@ -28,10 +28,16 @@ import {
   listOrdersForUser,
   moveOrder,
   saveAddress,
+  setLinePacked,
   type MoveDetails,
 } from './persistence.js';
 import { cleanNote } from './note.js';
-import { OFFER_FRESH_MINUTES, ORDER_EXPIRY_MINUTES, type OrderEvent } from './stateMachine.js';
+import {
+  isFinalOrderState,
+  OFFER_FRESH_MINUTES,
+  ORDER_EXPIRY_MINUTES,
+  type OrderEvent,
+} from './stateMachine.js';
 import {
   SHOP_CANCEL_REASONS,
   type OrderLine,
@@ -331,7 +337,7 @@ export async function getSeekerOrder(ctx: OrdersContext, userId: string, id: str
 export async function listSeekerOrders(
   ctx: OrdersContext,
   userId: string,
-  source: { requestId: string } | { errandId: string },
+  source: { requestId: string } | { errandId: string } | { listId: string },
 ) {
   const orders = await listOrdersForSource(ctx.db, userId, source);
   return (await Promise.all(orders.map((o) => expireIfDue(ctx, o)))).map(seekerOrderView);
@@ -447,4 +453,129 @@ export async function shopAct(ctx: OrdersContext, ownerUserId: string, id: strin
     throw new ApiError(404, 'not_found', 'No such order');
   const fresh = await expireIfDue(ctx, order);
   return shopOrderView(await apply(ctx, fresh.id, SHOP_EVENTS[verb]));
+}
+
+/** What one shop's order from a list is made of (ADR-0055): its lines, fee, and how it starts. */
+export interface ListOrderDraft {
+  shopId: string;
+  lines: OrderLine[];
+  feePaise: number | null;
+  /** ACCEPTED for an answer that is still binding, else REQUESTED. */
+  state: 'REQUESTED' | 'ACCEPTED';
+}
+
+export interface ListOrdersInput {
+  listId: string;
+  /** Where the customer was when they sent the list: the pin each order keeps. */
+  lat: number;
+  lng: number;
+  /** The saved address the list was sent with, used when no address is typed (ADR-0039). */
+  deliveryAddressId: string | null;
+  addressText?: string | undefined;
+  customerName?: string | undefined;
+  note?: string | undefined;
+  saveAddress?: boolean | undefined;
+  orders: ListOrderDraft[];
+}
+
+/**
+ * One delivery order per shop of a list, inside the caller's transaction, so one bad order undoes
+ * them all (ADR-0055 rule 11). Same address, note and name rules as a single order; prices and
+ * fees come from the drafts, which come from the shops' own answers. Tell both sides with
+ * `announceOrdersCreated` after the commit.
+ */
+export async function insertListOrders(
+  tx: Queryable,
+  userId: string,
+  input: ListOrdersInput,
+): Promise<OrderRecord[]> {
+  const picked =
+    input.addressText === undefined && input.deliveryAddressId
+      ? await getSavedAddressById(tx, userId, input.deliveryAddressId)
+      : null;
+  const addressText = input.addressText ?? picked?.addressText;
+  if (!addressText)
+    throw new ApiError(400, 'address_required', 'Tell us where to deliver: the address is needed');
+  const records: OrderRecord[] = [];
+  for (const draft of input.orders) {
+    const { totalPaise, unknown } = totalOf(draft.lines);
+    const id = await insertOrder(tx, {
+      userId,
+      shopId: draft.shopId,
+      requestId: null,
+      errandId: null,
+      listId: input.listId,
+      lines: draft.lines,
+      itemsTotalPaise: totalPaise,
+      unknownPriceCount: unknown,
+      feePaise: draft.feePaise,
+      feeMinutes: null,
+      addressText,
+      customerFirstName: firstNameOf(input.customerName) ?? picked?.customerName ?? null,
+      lat: input.lat,
+      lng: input.lng,
+      note: cleanNote(input.note),
+      state: draft.state,
+      expiryMinutes: ORDER_EXPIRY_MINUTES,
+    });
+    if (!id) throw new ApiError(409, 'order_exists', 'An order is already open for this shop');
+    records.push((await findOrder(tx, id)) as OrderRecord);
+  }
+  if (input.saveAddress === true)
+    await saveAddress(tx, userId, addressText, firstNameOf(input.customerName));
+  return records;
+}
+
+/** After the commit: the shops hear of their new order, and so does the simulator. */
+export async function announceOrdersCreated(
+  ctx: OrdersContext,
+  orders: OrderRecord[],
+): Promise<void> {
+  for (const order of orders) {
+    ctx.logger.info(
+      { orderId: order.id, shopId: order.shopId, listId: order.listId },
+      'delivery order placed',
+    );
+    announce(ctx, order, 'created');
+    if (ctx.events && (await isSimulated(ctx.db, order.shopId)))
+      ctx.events.publish(
+        {
+          to: { admin: true },
+          type: 'order.created',
+          data: { orderId: order.id, shopId: order.shopId, state: order.state },
+        },
+        ctx.logger,
+      );
+  }
+}
+
+/**
+ * The owning shop ticks or clears one line as packed (ADR-0055 rule 12), while the order is not
+ * final. Someone else's order is a 404; a final order 409; a line that is not there 404. The
+ * customer gets a hint (`order.packed`), not an `order.updated`, which would look like a new state.
+ */
+export async function packLine(
+  ctx: OrdersContext,
+  ownerUserId: string,
+  id: string,
+  index: number,
+  packed: boolean,
+) {
+  const order = await findOrder(ctx.db, id);
+  if (!order || order.shopOwnerUserId !== ownerUserId)
+    throw new ApiError(404, 'not_found', 'No such order');
+  const fresh = await expireIfDue(ctx, order);
+  if (isFinalOrderState(fresh.state))
+    throw new ApiError(409, 'order_closed', 'This order has ended: its lines cannot change');
+  const line = fresh.lines[index];
+  if (!line) throw new ApiError(404, 'not_found', 'No such line');
+  if ((line.packed === true) !== packed) {
+    if (!(await setLinePacked(ctx.db, id, index, packed)))
+      throw new ApiError(409, 'order_closed', 'This order has ended: its lines cannot change');
+    ctx.events?.publish(
+      { to: { userId: fresh.userId }, type: 'order.packed', data: { orderId: id } },
+      ctx.logger,
+    );
+  }
+  return shopOrderView((await findOrder(ctx.db, id)) as OrderRecord);
 }

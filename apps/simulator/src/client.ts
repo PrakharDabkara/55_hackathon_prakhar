@@ -31,6 +31,13 @@ export interface Client {
     body: Record<string, unknown>,
     signal?: AbortSignal,
   ): Promise<void>;
+  /** Answers a shopping-list parchi as a shop (ADR-0055). */
+  answerList(
+    token: string,
+    listPingId: string,
+    body: Record<string, unknown>,
+    signal?: AbortSignal,
+  ): Promise<void>;
   /** Moves a delivery order as its shop would: accept, decline or out. */
   orderAction(
     token: string,
@@ -102,6 +109,13 @@ export function createClient(target: string): Client {
     },
     async answer(token, pingId, body, signal) {
       await call('POST', `/pings/${encodeURIComponent(pingId)}/answer`, {
+        token,
+        body,
+        ...(signal && { signal }),
+      });
+    },
+    async answerList(token, listPingId, body, signal) {
+      await call('POST', `/list-pings/${encodeURIComponent(listPingId)}/answer`, {
         token,
         body,
         ...(signal && { signal }),

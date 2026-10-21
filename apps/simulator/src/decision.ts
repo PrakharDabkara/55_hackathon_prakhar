@@ -225,3 +225,84 @@ export function decideOrder(
     outMs: between(rng, 5000, 30_000) / speed,
   };
 }
+
+/** A parchi (ADR-0055): the lines one shop is asked about, as the admin stream announces them. */
+export interface ListPingInfo {
+  listPingId: string;
+  shopId: string;
+  wantsDelivery?: boolean;
+  canDeliver?: boolean;
+  shopCategories?: string[];
+  lines: {
+    lineId: string;
+    name: string;
+    /** The item's category, so a line is priced like its kind. Null for an "other" line. */
+    category: string | null;
+    itemCategories: string[];
+    refPricePaise: number | null;
+    other: boolean;
+  }[];
+}
+
+export interface ListAnswerBody {
+  lines: { lineId: string; have: boolean; priceRupees?: number }[];
+  canDeliver?: boolean;
+  /** One fee for the whole list, in whole rupees (0 is free). */
+  deliveryFeeRupees?: number;
+}
+
+export type ListDecision =
+  { kind: 'skip' } | { kind: 'answer'; delayMs: number; body: ListAnswerBody };
+
+/** About three in four catalog lines are in stock; far fewer of the odd things nobody files. */
+const LIST_HAVE_RATE = 0.75;
+
+const wholeRupees = (paise: number): number => Math.max(1, Math.round(paise / 100));
+
+/**
+ * What a shop does with a parchi: ignore it, or answer every line after a delay (5 to 90 seconds
+ * divided by `speed`). Each line is a yes or a no at random (a kind of shop that does not carry the
+ * item says no), with a plausible whole-rupee price; sometimes the shop can deliver, with one fee.
+ * All randomness comes from `rng`, with one draw per decision in a fixed order, so a seeded run is
+ * repeatable.
+ */
+export function decideList(
+  profile: ShopProfile,
+  ping: ListPingInfo,
+  rng: () => number,
+  speed: number,
+): ListDecision {
+  if (rng() >= profile.replyProbability) return { kind: 'skip' };
+  const delayMs = (MIN_DELAY_MS + rng() * (MAX_DELAY_MS - MIN_DELAY_MS)) / speed;
+  const mine = ping.shopCategories;
+  const lines = ping.lines.map((line) => {
+    // Always the same draws per line, so a no on one line does not shift the next.
+    const chance = rng();
+    const priceDraw = rng();
+    const outsideKind =
+      !line.other &&
+      mine !== undefined &&
+      line.itemCategories.length > 0 &&
+      !line.itemCategories.some((c) => mine.includes(c));
+    const rate = line.other || line.refPricePaise === null ? USER_ITEM_YES_RATE : LIST_HAVE_RATE;
+    if (profile.alwaysNo || outsideKind || chance >= rate)
+      return { lineId: line.lineId, have: false };
+    const paise =
+      line.refPricePaise !== null
+        ? roundPrice(
+            line.refPricePaise * (1 - PRICE_SPREAD + 2 * PRICE_SPREAD * priceDraw),
+            line.refPricePaise,
+          )
+        : priceFromRange(line.category, () => priceDraw);
+    return { lineId: line.lineId, have: true, priceRupees: wholeRupees(paise) };
+  });
+  const body: ListAnswerBody = { lines };
+  // Always two draws, so a seeded run is repeatable; a shop out of range cannot offer (the API refuses).
+  const offers = rng() < (ping.wantsDelivery ? WANTED_DELIVERY_RATE : DELIVERY_RATE);
+  const fee = DELIVERY_FEES_PAISE[Math.floor(rng() * DELIVERY_FEES_PAISE.length)] as number;
+  if (offers && ping.canDeliver !== false && !profile.alwaysNo) {
+    body.canDeliver = true;
+    body.deliveryFeeRupees = fee / 100;
+  }
+  return { kind: 'answer', delayMs, body };
+}

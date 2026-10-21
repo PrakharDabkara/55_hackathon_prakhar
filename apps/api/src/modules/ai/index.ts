@@ -21,6 +21,8 @@ export {
   validateAnswer,
 } from './resolvePrompt.js';
 export type { Candidate, ResolveAnswer, Validated } from './resolvePrompt.js';
+export { buildListResolvePrompt, resolveListAnswerSchema } from './resolveListPrompt.js';
+export type { ListPromptLine, ResolveListAnswer } from './resolveListPrompt.js';
 export { pingAi } from './ping.js';
 export type { PingResult } from './ping.js';
 export { classifyError, sanitiseMessage } from './failure.js';

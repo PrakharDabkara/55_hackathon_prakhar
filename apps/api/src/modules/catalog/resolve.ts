@@ -124,7 +124,7 @@ export interface ResolveOptions {
   };
 }
 
-const toItem = (r: ItemRow): CatalogItem => ({
+export const toItem = (r: ItemRow): CatalogItem => ({
   id: r.id,
   slug: r.slug,
   nameEn: r.name_en,
@@ -141,7 +141,7 @@ const toCandidate = (r: ItemRow): Candidate => ({
   category: r.category,
 });
 
-interface Found {
+export interface Found {
   item: CatalogItem | null;
   matchedBy: MatchedBy | null;
   similarity: number;
@@ -149,13 +149,15 @@ interface Found {
   refused?: Refusal;
   alternatives?: ItemRow[];
   matchedAlias?: string;
+  /** Only with `stopBeforeAi`: the free steps found nothing, here is what the AI steps would need. */
+  pendingAi?: { fuzzy: ItemRow[]; considered: number; similar: number };
 }
 
 /**
  * Leaves out items the query only half names: "phool" for the broom, whose term "phool jhadu" has
  * "jhadu" (the product) as a word of its own. See isModifierOnlyMatch.
  */
-async function withoutModifierOnly(
+export async function withoutModifierOnly(
   db: Queryable,
   text: string,
   rows: ItemRow[],
@@ -168,7 +170,10 @@ async function withoutModifierOnly(
   return rows.filter((r) => !isModifierOnlyMatch(text, terms.get(r.id) ?? []));
 }
 
-const firstAlternatives = (chosenId: string | undefined, ...lists: ItemRow[][]): ItemRow[] => {
+export const firstAlternatives = (
+  chosenId: string | undefined,
+  ...lists: ItemRow[][]
+): ItemRow[] => {
   const seen = new Set<string>(chosenId ? [chosenId] : []);
   const out: ItemRow[] = [];
   for (const row of lists.flat())
@@ -204,7 +209,7 @@ export async function similarItems(
   return firstAlternatives(chosenId, await withoutModifierOnly(db, text, fits)).map(toItem);
 }
 
-const choiceFor = async (
+export const choiceFor = async (
   db: Queryable,
   question: string,
   ids: string[],
@@ -289,11 +294,16 @@ async function openCatalog(
     : { item: toItem(outcome.row), matchedBy: 'trigram', similarity: 1 };
 }
 
-async function findItem(
+/**
+ * Cache, exact synonym, trigram and default, then (unless `stopBeforeAi`) embeddings and the LLM.
+ * A shopping list stops before the AI steps and does them for all its lines at once (ADR-0055).
+ */
+export async function findItem(
   db: Queryable,
   text: string,
   opts: ResolveOptions,
   query: string,
+  { stopBeforeAi = false }: { stopBeforeAi?: boolean } = {},
 ): Promise<Found> {
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
   // An item whose own name is a different product form than the query ("itr" vs "powder") is
@@ -417,6 +427,7 @@ async function findItem(
       ...(usual.term && { matchedAlias: usual.term }),
     };
 
+  if (stopBeforeAi) return { ...none, pendingAi: { fuzzy: fuzzy.rows, ...support } };
   const ai = opts.ai;
   if (!ai) return none;
 
@@ -447,15 +458,8 @@ async function findItem(
       if (!(error instanceof AiUnavailableError)) throw error;
     }
   }
-  const [top, runnerUp] = nearest;
-  // More than half of the words must resemble the catalog; "kuch bhi" style gibberish never resolves.
-  const mostlyWords = support.considered === 0 || support.similar * 2 > support.considered;
-  if (
-    top &&
-    mostlyWords &&
-    (top.sim ?? 0) >= ai.embedThreshold &&
-    (!runnerUp || (top.sim ?? 0) - (runnerUp.sim ?? 0) >= ai.embedMargin)
-  ) {
+  const top = acceptEmbedding(nearest, support, ai);
+  if (top) {
     await writeCache(
       db,
       text,
@@ -480,6 +484,26 @@ async function findItem(
   if (shortlistRows.size === 0) return none;
   if (opts.userId && !(await ai.limiter.allow(opts.userId))) return none;
   return askLlm(db, ai, text, [...shortlistRows.values()], opts.requestId, fits);
+}
+
+/**
+ * The embedding step's rule: the nearest item wins when it is close enough, clearly ahead of the
+ * runner-up, and more than half of the text's words resemble the catalog ("kuch bhi" never
+ * resolves). Shared by a single search and a list line.
+ */
+export function acceptEmbedding(
+  nearest: ItemRow[],
+  support: { considered: number; similar: number },
+  ai: Pick<AiContext, 'embedThreshold' | 'embedMargin'>,
+): ItemRow | null {
+  const [top, runnerUp] = nearest;
+  const mostlyWords = support.considered === 0 || support.similar * 2 > support.considered;
+  return top &&
+    mostlyWords &&
+    (top.sim ?? 0) >= ai.embedThreshold &&
+    (!runnerUp || (top.sim ?? 0) - (runnerUp.sim ?? 0) >= ai.embedMargin)
+    ? top
+    : null;
 }
 
 async function askLlm(

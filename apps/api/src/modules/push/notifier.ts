@@ -109,6 +109,38 @@ export function createNotifier(deps: Deps): Notifier {
     });
   }
 
+  /** One push per shop per list: the first line and how many more, a distance band, tagged for the list. */
+  async function onListPing(userId: string, listPingId: string) {
+    const { rows } = await db.query<{
+      list_id: string;
+      is_simulated: boolean;
+      closed: boolean;
+      distance_m: number;
+      names: string[];
+    }>(
+      `SELECT lp.list_id, s.is_simulated,
+              (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed,
+              ST_Distance(s.location, l.location) AS distance_m,
+              array(SELECT coalesce(i.name_en, ll.text)
+                      FROM list_ping_lines lpl
+                      JOIN list_lines ll ON ll.id = lpl.line_id
+                      LEFT JOIN items i ON i.id = ll.item_id
+                     WHERE lpl.list_ping_id = lp.id ORDER BY ll.position) AS names
+         FROM list_pings lp JOIN shops s ON s.id = lp.shop_id JOIN shopping_lists l ON l.id = lp.list_id
+        WHERE lp.id = $1 AND s.owner_user_id = $2`,
+      [listPingId, userId],
+    );
+    const row = rows[0];
+    // Simulated shops are never pushed, and a closed shop is not nagged (its parchi waits in the list).
+    if (!row || row.is_simulated || row.closed) return;
+    const first = row.names[0] ?? '';
+    await notify(userId, 'new_list', {
+      item: row.names.length > 1 ? `${first} +${row.names.length - 1}` : first,
+      band: distanceBand(row.distance_m),
+      id: row.list_id,
+    });
+  }
+
   interface OrderRow {
     user_id: string;
     state: string;
@@ -224,6 +256,11 @@ export function createNotifier(deps: Deps): Notifier {
       case 'ping.created': {
         const pingId = id('pingId');
         if (pingId) await onPing(userId, pingId);
+        return;
+      }
+      case 'listping.created': {
+        const listPingId = id('listPingId');
+        if (listPingId) await onListPing(userId, listPingId);
         return;
       }
       case 'order.created': {

@@ -8,6 +8,7 @@ import {
   getSeekerOrder,
   listMyOrders,
   listSeekerOrders,
+  packLine,
   listShopOrders,
   keepAddress,
   placeOrder,
@@ -35,9 +36,13 @@ const placeBody = z
 
 // Neither: all of the customer's orders (Mere orders). One of them: the orders of that screen.
 const sourceQuery = z
-  .object({ requestId: z.uuid().optional(), errandId: z.uuid().optional() })
-  .refine((q) => q.requestId === undefined || q.errandId === undefined, {
-    message: 'give a requestId or an errandId, not both',
+  .object({
+    requestId: z.uuid().optional(),
+    errandId: z.uuid().optional(),
+    listId: z.uuid().optional(),
+  })
+  .refine((q) => [q.requestId, q.errandId, q.listId].filter((v) => v !== undefined).length <= 1, {
+    message: 'give a requestId, an errandId or a listId, only one',
   });
 
 /**
@@ -63,11 +68,15 @@ export function ordersRouter(deps: OrdersContext): Router {
 
   router.get('/orders', ...seekerOnly, async (req, res) => {
     const q = parse(sourceQuery, req.query);
-    if (q.requestId === undefined && q.errandId === undefined) {
+    if (q.requestId === undefined && q.errandId === undefined && q.listId === undefined) {
       res.json(await listMyOrders(ctxFor(req), authOf(req).user.id));
       return;
     }
-    const source = q.requestId ? { requestId: q.requestId } : { errandId: q.errandId as string };
+    const source = q.requestId
+      ? { requestId: q.requestId }
+      : q.errandId
+        ? { errandId: q.errandId }
+        : { listId: q.listId as string };
     res.json(await listSeekerOrders(ctxFor(req), authOf(req).user.id, source));
   });
 
@@ -120,6 +129,13 @@ export function ordersRouter(deps: OrdersContext): Router {
 
   router.get('/shops/me/orders', ...shopOnly, async (req, res) => {
     res.json(await listShopOrders(ctxFor(req), authOf(req).user.id));
+  });
+
+  // The shop ticks a line as packed, or clears it, while the order is not final (ADR-0055).
+  router.put('/orders/:id/lines/:index/packed', ...shopOnly, async (req, res) => {
+    const { packed } = parse(z.object({ packed: z.boolean() }), req.body);
+    const index = parse(z.coerce.number().int().min(0).max(1000), req.params['index']);
+    res.json(await packLine(ctxFor(req), authOf(req).user.id, orderId(req), index, packed));
   });
 
   for (const verb of ['accept', 'decline', 'out'] as const satisfies ShopVerb[]) {
