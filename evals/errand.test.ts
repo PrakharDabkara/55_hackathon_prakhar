@@ -29,6 +29,7 @@ describe.each([
       const named = [
         ...(c.expect.required ?? []),
         ...(c.expect.requiredAny ?? []).flat(),
+        ...(c.expect.offeredAny ?? []).flat(),
         ...(c.expect.forbidden ?? []),
         ...(c.expect.found ?? []),
         ...Object.keys(c.expect.status ?? {}),
@@ -110,6 +111,14 @@ describe('evals/errand.dev.jsonl: the open catalog cases (ADR-0027, decided befo
     // The checklist's extras: at least one more stationery item than the customer named.
     expect((c?.expect.requiredAny ?? []).length).toBeGreaterThanOrEqual(1);
     expect(c?.expect.required).toEqual(expect.arrayContaining(['chart-paper', 'sketch-pens']));
+    // Agent extras are offered in the checklist, not pre-ticked, so they are not required in the
+    // plan (ADR-0053).
+    expect(c?.expect.offeredAny).toEqual([
+      ['glue-stick', 'cello-tape', 'double-sided-tape', 'scissors'],
+    ]);
+    expect(c?.expect.requiredAny).toEqual([
+      ['crayons', 'colour-pencils', 'water-colours', 'oil-pastels'],
+    ]);
   });
 
   it('has "ghar ki safai" as a vague goal that must be answered with a checklist', () => {
