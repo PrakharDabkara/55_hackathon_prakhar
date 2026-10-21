@@ -28,9 +28,30 @@ describe('.github/workflows/evals.yml triggers', () => {
     expect(yml).toContain("github.event.label.name == 'evals'");
   });
 
-  it('keeps the schedule and the manual trigger', () => {
-    expect(yml).toMatch(/schedule:/);
+  it('keeps the manual trigger, and has no schedule until it is restored after Oct 30', () => {
+    expect(yml).not.toMatch(/^\s*schedule:/m);
+    expect(yml).not.toMatch(/^\s*- cron:/m);
     expect(yml).toMatch(/workflow_dispatch:/);
+    expect(yml).toMatch(/Oct 30/);
+  });
+});
+
+describe('.github/workflows/evals.yml: a stuck run cannot hold the runner', () => {
+  it.each(['evals', 'agent-evals'])('%s times out after 30 minutes', (name) => {
+    expect(block(name)).toMatch(/timeout-minutes:\s*30\b/);
+  });
+
+  it('one eval run is active per ref: a newer run cancels the older one', () => {
+    expect(yml).toMatch(/concurrency:\s*\n\s*group: evals-\$\{\{ github\.ref \}\}/);
+    expect(yml).toMatch(/cancel-in-progress:\s*true/);
+  });
+
+  it('saves the embeddings with always() in both jobs, so partial work persists', () => {
+    const saves = yml
+      .split(/^ {6}- /m)
+      .filter((step) => /name: Save catalog embeddings/.test(step));
+    expect(saves).toHaveLength(4);
+    for (const step of saves) expect(step).toMatch(/if: .*always\(\)/);
   });
 });
 
