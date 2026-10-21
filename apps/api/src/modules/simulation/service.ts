@@ -51,13 +51,43 @@ export async function createSimulatedShops(
   throw new ApiError(409, 'phones_taken', 'Could not find free phone numbers; use another seed');
 }
 
-/** Removes every simulated shop with its owner user (sessions), pings and stock. */
+/** Deadlock and serialization failures: another transaction was in the way; running again is safe. */
+const RETRYABLE = new Set(['40P01', '40001']);
+const REMOVE_TRIES = 3;
+
+const sqlState = (error: unknown): string | null => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code) ? code : null;
+};
+
+/**
+ * Removes every simulated shop with its owner user (sessions), pings, stock, list pings and
+ * orders (all cascade). Runs again if the database picks it as a deadlock victim; any other
+ * database error becomes a coded ApiError (the SQLSTATE only, never SQL) instead of a bare 500.
+ */
 export async function removeSimulatedShops(
   db: Database,
 ): Promise<{ shops: number; users: number }> {
-  return withTransaction(db, async (tx) => {
-    const owners = await deleteSimulatedShops(tx);
-    const users = owners.length > 0 ? await deleteUsers(tx, owners) : 0;
-    return { shops: owners.length, users };
-  });
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await withTransaction(db, async (tx) => {
+        const owners = await deleteSimulatedShops(tx);
+        const users = owners.length > 0 ? await deleteUsers(tx, owners) : 0;
+        return { shops: owners.length, users };
+      });
+    } catch (error) {
+      const state = sqlState(error);
+      if (state === null) throw error;
+      if (!RETRYABLE.has(state)) {
+        throw new ApiError(500, 'sim_remove_failed', `Could not remove simulated shops (${state})`);
+      }
+      if (attempt >= REMOVE_TRIES) {
+        throw new ApiError(
+          503,
+          'sim_remove_busy',
+          `The database was busy (${state}); try removing again`,
+        );
+      }
+    }
+  }
 }
