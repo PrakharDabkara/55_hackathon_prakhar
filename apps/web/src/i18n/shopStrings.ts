@@ -31,8 +31,8 @@ export interface ShopStrings {
   logout: string;
   poweredBy: string;
   // Login
-  /** The line under the brand on the shop login; the brand name comes from BRAND_NAME. */
-  forShops: (brand: string) => string;
+  /** The line under the brand on the shop login. It does not repeat the brand. */
+  forShops: string;
   mobileNumber: string;
   codeHelper: string;
   sendCode: string;
@@ -241,7 +241,7 @@ export const shopEn: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: (brand) => `${brand} for shops — lift your shutter online in a minute.`,
+  forShops: 'For shops: lift your shutter online in a minute.',
   mobileNumber: 'Mobile number',
   codeHelper: "We'll send a 6-digit code by SMS.",
   sendCode: 'Send code',
@@ -452,7 +452,7 @@ export const shopHi: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: (brand) => `${brand} dukaandaar ke liye — ek minute mein apni dukaan online kholein.`,
+  forShops: 'Dukaandaar ke liye: ek minute mein apni dukaan online kholein.',
   mobileNumber: 'Mobile number',
   codeHelper: 'Hum SMS se 6 ank ka code bhejenge.',
   sendCode: 'Code bhejo',

@@ -70,7 +70,7 @@ export function Login({ api, onLoggedIn }: Props) {
       <header className="sh-login__brand">
         <BrandMark size={72} />
         <h1 className="sh-display">{BRAND_NAME}</h1>
-        <p className="sh-body sh-muted">{s.forShops(BRAND_NAME)}</p>
+        <p className="sh-body sh-muted">{s.forShops}</p>
       </header>
 
       <form className="sh-login__form" onSubmit={step === 'phone' ? sendCode : verify}>
