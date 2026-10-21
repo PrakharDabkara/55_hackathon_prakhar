@@ -22,9 +22,7 @@ describe('Login', () => {
   it('shows the brand once, who it is for, a +91 field, a helper and the one primary button', () => {
     renderApp(<Login api={fakeApi()} onLoggedIn={vi.fn()} />, 'en');
     expect(screen.getByRole('heading', { name: 'AskBuy' })).toBeTruthy();
-    expect(
-      screen.getByText('AskBuy for shops — lift your shutter online in a minute.'),
-    ).toBeTruthy();
+    expect(screen.getByText('For shops: lift your shutter online in a minute.')).toBeTruthy();
     expect(document.querySelector('.sh-login__brand svg.brand-mark')).toBeTruthy();
     expect(screen.getByLabelText('Mobile number')).toBeTruthy();
     expect(screen.getByText('+91')).toBeTruthy();

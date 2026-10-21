@@ -97,6 +97,14 @@ describe('Day 14a catalog gaps and categories', () => {
     }
   });
 
+  it('resolves "brown sugar" to the grocery sweetener, not a blocked term (ADR-0052)', () => {
+    expect(owner('brown sugar')).toBe('brown-sugar');
+    expect(bySlug.get('brown-sugar')?.category).toBe('grocery');
+    for (const term of ['brown cheeni', 'demerara sugar', 'muscovado sugar', 'ब्राउन शुगर'])
+      expect(owner(term), term).toBe('brown-sugar');
+    expect(termsFor(bySlug.get('brown-sugar')!)).not.toContain('khandsari');
+  });
+
   it('knows an earthen lamp is a diya, not a candle', () => {
     expect(owner('diya')).toBe('diya');
     expect(owner('दीया')).toBe('diya');

@@ -15,8 +15,33 @@ describe('checkDenyList (layer 1 of the safety block, ADR-0029)', () => {
     expect(rule('barood')).toBe('explosives');
     expect(rule('cocaine')).toBe('drugs');
     expect(rule('charas')).toBe('drugs');
-    expect(rule('brown sugar')).toBe('drugs');
     expect(rule('fake currency notes')).toBe('counterfeit');
+  });
+
+  it('lets "brown sugar" through: on a kirana marketplace it is the sweetener (ADR-0052)', () => {
+    expect(rule('brown sugar')).toBeNull();
+    expect(rule('1 kg brown sugar')).toBeNull();
+  });
+
+  it('still blocks every unambiguous drug term', () => {
+    for (const term of [
+      'heroin',
+      'smack',
+      'cocaine',
+      'charas',
+      'ganja',
+      'afeem',
+      'opium',
+      'mdma',
+      'lsd',
+      'meth',
+      'marijuana',
+      'hashish',
+      'cannabis',
+      'fentanyl',
+      'mephedrone',
+    ])
+      expect(rule(term), term).toBe('drugs');
   });
 
   it('blocks the same things written in Devanagari', () => {
