@@ -10,6 +10,8 @@ export interface OrderLine {
   displayName?: string;
   count: number;
   pricePaise: number | null;
+  /** The shop has packed this line (ADR-0055). Only on an order as its shop sees it. */
+  packed?: boolean;
 }
 
 /**
@@ -29,6 +31,9 @@ export type OrderState =
   | 'DELIVERED'
   | 'CANCELLED'
   | 'NOT_CONFIRMED';
+
+/** What a shop also sees: a pickup it has packed and set aside, and one the customer collected (ADR-0055). */
+export type ShopOrderState = OrderState | 'READY' | 'COLLECTED';
 
 export type ShopCancelReason = 'out_of_stock' | 'cannot_deliver_now' | 'other';
 
@@ -74,8 +79,14 @@ export interface SeekerOrder {
  */
 export interface ShopOrder {
   id: string;
-  state: OrderState;
+  state: ShopOrderState;
+  /** A pickup holds no address: the customer comes to the shop. */
+  fulfilment: 'delivery' | 'pickup';
   lines: OrderLine[];
+  /** "2 of 4 packed". Moving on with unpacked lines is allowed. */
+  lineCount: number;
+  packedCount: number;
+  unpackedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -105,7 +116,7 @@ export interface NewOrder {
 
 export type OrderSource = { requestId: string } | { errandId: string };
 
-export type ShopOrderVerb = 'accept' | 'decline' | 'out';
+export type ShopOrderVerb = 'accept' | 'decline' | 'out' | 'ready';
 
 /** The order for a shop on this screen: the newest one is the one that counts. */
 export function orderForShop(

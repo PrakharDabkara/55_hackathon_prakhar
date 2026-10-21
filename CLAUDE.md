@@ -50,7 +50,7 @@ npm test -- --passWithNoTests     # while there are no tests yet
 - Every screen has designed empty, loading (skeletons, no spinners over content), error-with-retry and offline states.
 - Motion ≤ 200 ms; with prefers-reduced-motion, no movement (fade or instant).
 - English UI copy: plain, short, verbs on buttons, errors say what to do. No Hinglish in the en table. Keep the hi table in parity (strings.test.ts), but en is the default language.
-- The parchi (paper, handwriting, stamps) appears ONLY on request cards. Nothing else imitates paper.
+- The parchi (paper, handwriting, stamps) appears ONLY on request cards and on packing slips (order cards with 2+ lines). Nothing else imitates paper.
 - The shop app never shows customer identity: no name, phone, raw query text, or address before an order is ACCEPTED.
 - Brand name only from BRAND_NAME (one constant). In the shop app it appears on login and as "Powered by" in the sidebar, nowhere else.
 

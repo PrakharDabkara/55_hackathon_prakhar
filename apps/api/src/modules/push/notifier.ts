@@ -111,16 +111,15 @@ export function createNotifier(deps: Deps): Notifier {
     });
   }
 
-  /** One push per shop per list: the first line and how many more, a distance band, tagged for the list. */
+  /** One push per shop per list: the first line and how many more, a distance band, tagged and linked by the shop's own parchi. */
   async function onListPing(userId: string, listPingId: string) {
     const { rows } = await db.query<{
-      list_id: string;
       is_simulated: boolean;
       closed: boolean;
       distance_m: number;
       names: string[];
     }>(
-      `SELECT lp.list_id, s.is_simulated,
+      `SELECT s.is_simulated,
               (s.closed_until IS NOT NULL AND s.closed_until > now()) AS closed,
               ST_Distance(s.location, l.location) AS distance_m,
               array(SELECT coalesce(i.name_en, ll.text)
@@ -139,7 +138,7 @@ export function createNotifier(deps: Deps): Notifier {
     await notify(userId, 'new_list', {
       item: row.names.length > 1 ? `${first} +${row.names.length - 1}` : first,
       band: distanceBand(row.distance_m),
-      id: row.list_id,
+      id: listPingId,
     });
   }
 

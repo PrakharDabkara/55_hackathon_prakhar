@@ -37,6 +37,37 @@ export interface ShopPing {
   expiresAt: string;
 }
 
+/** One line of a list parchi (ADR-0055): the shop sees the name, how much, and what it charged last. */
+export interface ShopListLine {
+  lineId: string;
+  name: string;
+  /** The customer's everyday word, when it differs from the catalog name ("Chini" for sugar). */
+  displayName?: string;
+  quantity?: { quantity: number; unit: string };
+  /** The line fits no kind of shop: it is asked of many shops, and grouped apart on the card. */
+  other: boolean;
+  lastPricePaise: number | null;
+}
+
+/** A shopping list as one shop sees it: its own lines only, a distance band, never who asked. */
+export interface ShopListParchi {
+  id: string;
+  distanceBand: string;
+  wantsDelivery: boolean;
+  /** This shop reaches the customer; false hides "I can deliver this list". */
+  canDeliver: boolean;
+  sentAt: string;
+  expiresAt: string;
+  lines: ShopListLine[];
+}
+
+/** The answer to a list parchi: every line, yes or no. Whole rupees; one fee for the whole list. */
+export interface ListAnswerBody {
+  lines: { lineId: string; have: boolean; priceRupees?: number }[];
+  canDeliver?: boolean;
+  deliveryFeeRupees?: number;
+}
+
 /** What a shop offers for delivery: a fee and a time, either may be left out (a fee of 0 is free). */
 export interface DeliveryDefaults {
   feePaise?: number;
@@ -115,6 +146,11 @@ export interface ShopApi extends PhotoApi, PushApi {
   createShop(input: NewShop): Promise<MyShop>;
   listPings(): Promise<ShopPing[]>;
   answerPing(id: string, body: AnswerBody): Promise<void>;
+  /** The shopping lists waiting for this shop, one parchi each. */
+  listParchis(): Promise<ShopListParchi[]>;
+  answerList(id: string, body: ListAnswerBody): Promise<void>;
+  /** Ticks or clears one line of an order as packed (`index` is the line's position). */
+  packLine(orderId: string, index: number, packed: boolean): Promise<void>;
   /** The shop's delivery orders: open ones, and finished ones from the last two hours. */
   listOrders(): Promise<ShopOrder[]>;
   /** Accepts or declines an order, or sets it out. Only the customer marks it delivered. */
@@ -248,6 +284,13 @@ export function createApi(options: ClientOptions): ShopApi {
     setShopOpen: (open) => call<MyShop>('PUT', '/shops/me/open', { open }),
     cancelOrder: (id, input) =>
       call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/cancel`, input),
+    listParchis: () => call<ShopListParchi[]>('GET', '/shops/me/lists'),
+    async answerList(id, body) {
+      await call('POST', `/list-pings/${encodeURIComponent(id)}/answer`, body);
+    },
+    async packLine(orderId, index, packed) {
+      await call('PUT', `/orders/${encodeURIComponent(orderId)}/lines/${index}/packed`, { packed });
+    },
     async answerPing(id, body) {
       await call('POST', `/pings/${encodeURIComponent(id)}/answer`, body);
     },

@@ -247,3 +247,377 @@ div.sh-parchi__ruled {
 .sh-deck__front {
   position: relative;
 }
+
+/* A shopping list as a parchi (ADR-0055): the shop answers on the slip itself. */
+/* The strip across a list's top is the one part of the slip that follows the theme: brand-soft with brand ink, as in the app (so not under .sh-parchi, which is paper-locked). */
+.sh-lband {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.sh-lband .sh-label {
+  color: var(--brand);
+}
+.sh-lstamp {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border: 2.5px solid var(--brand);
+  border-radius: var(--r-sm);
+  color: var(--brand);
+  font: 800 13px/16px var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  transform: rotate(-6deg);
+}
+.sh-list .sh-parchi__body {
+  min-height: 0;
+  padding-top: var(--space-4);
+}
+.sh-list__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sh-list__closed {
+  padding: var(--space-8) 0;
+  text-align: center;
+}
+/* Everything interactive on paper is drawn in paper ink: the page's focus colour is too light on it in the dark theme. */
+.km-app .sh-list :focus-visible,
+.km-app .sh-pack :focus-visible {
+  outline: 2px solid var(--paper-ink);
+  outline-offset: 2px;
+}
+.sh-lrows {
+  display: flex;
+  flex-direction: column;
+}
+.sh-lrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-3);
+  border-bottom: 1px solid var(--paper-edge);
+}
+.sh-lrow__tick {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--tap);
+  padding: var(--space-2) 0;
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.sh-lrow__tick:disabled {
+  cursor: default;
+}
+.sh-lrow__tick .sh-tick {
+  margin-top: 1px;
+}
+.sh-tick {
+  flex: none;
+  overflow: visible;
+}
+.sh-tick__box {
+  fill: var(--paper);
+  stroke: var(--paper-ink);
+  stroke-width: 2;
+}
+.sh-tick__mark {
+  fill: none;
+  stroke: var(--stamp-yes);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+  animation: sh-tick-draw 160ms ease-out;
+}
+@keyframes sh-tick-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+.sh-lrow__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sh-lrow__name {
+  font: 700 20px/28px var(--font-hand);
+  overflow-wrap: anywhere;
+}
+.sh-lrow__qty {
+  font-weight: 400;
+}
+.sh-lrow__sub {
+  display: block;
+  color: var(--paper-ink-muted);
+  font: 400 13px/18px var(--font-ui);
+}
+.sh-lrows--other .sh-lrow__name {
+  font-size: 17px;
+  line-height: 24px;
+}
+.sh-lrow__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  min-width: 96px;
+  padding-top: var(--space-1);
+}
+.sh-lrow__hint {
+  min-height: 40px;
+  padding-top: var(--space-2);
+  color: var(--paper-ink-muted);
+  font: 400 13px/20px var(--font-ui);
+  text-align: right;
+}
+.sh-lrow__error {
+  color: var(--stamp-no);
+  font: 600 13px/18px var(--font-ui);
+  text-align: right;
+}
+.sh-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  border-bottom: 2px dotted var(--paper-ink-muted);
+  color: var(--paper-ink);
+}
+.sh-amount:has([aria-invalid='true']) {
+  border-bottom: 2px solid var(--stamp-no);
+}
+.sh-amount__unit {
+  font: 700 20px/28px var(--font-hand);
+}
+.sh-amount__input {
+  width: 72px;
+  min-height: 40px;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: 700 20px/28px var(--font-hand);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sh-amount__input[aria-invalid='true'] {
+  color: var(--stamp-no);
+}
+.km-app .sh-list .sh-amount__input:focus-visible {
+  outline: none; /* the whole amount draws the focus ring (below) */
+}
+.sh-amount:focus-within {
+  outline: 2px solid var(--paper-ink);
+  outline-offset: 2px;
+}
+.sh-ldivider {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 2px dashed var(--paper-ink-muted);
+  color: var(--paper-ink-muted);
+  font: 700 12px/16px var(--font-ui);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sh-ldeliver {
+  display: flex;
+  flex-direction: column;
+}
+.sh-list .sh-switch {
+  color: var(--paper-ink);
+  font: 700 18px/24px var(--font-hand);
+}
+.sh-list .sh-switch__track {
+  background: var(--paper-ink-muted);
+}
+.sh-list .sh-switch[aria-checked='true'] .sh-switch__track {
+  background: var(--stamp-yes);
+}
+.sh-list .sh-switch__thumb {
+  background: var(--paper);
+}
+.sh-ldeliver__label {
+  display: flex;
+  flex-direction: column;
+}
+.sh-ldeliver__fee {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.sh-ldeliver__fee .sh-lrow__error {
+  flex-basis: 100%;
+}
+.sh-lsum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.sh-lnote {
+  text-align: center;
+}
+.sh-lask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 2px dashed var(--paper-ink-muted);
+  border-radius: var(--r-sm);
+}
+.sh-lask:focus {
+  outline: none;
+}
+.sh-lask__buttons {
+  display: flex;
+  gap: var(--space-2);
+}
+.sh-lask__buttons .sh-btn {
+  flex: 1;
+}
+
+/* The packing slip on an order with several lines. */
+.sh-pack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sh-pack__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.sh-pack__count {
+  color: var(--stamp-yes);
+  font: 800 14px/20px var(--font-ui);
+}
+.sh-pack__rows {
+  display: flex;
+  flex-direction: column;
+}
+.sh-pack__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-1) 0;
+  border: 0;
+  border-bottom: 1px solid var(--paper-edge);
+  background: transparent;
+  color: var(--paper-ink);
+  font: 400 19px/26px var(--font-hand);
+  text-align: left;
+  cursor: pointer;
+}
+div.sh-pack__row {
+  cursor: default;
+}
+.sh-pack__name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sh-pack__price {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sh-pack__row.is-packed .sh-pack__name {
+  color: var(--paper-ink-muted);
+  text-decoration: line-through;
+}
+.sh-pack__total {
+  font-weight: 700;
+}
+/* On the Orders screen the slip sits in a card: it grows with its lines instead of scrolling inside itself. */
+.sh-pack-card .sh-parchi__paper {
+  max-height: none;
+  overflow: visible;
+}
+.sh-pack-card .sh-parchi__body {
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-tick__mark {
+    animation: none;
+  }
+}
+
+/* A list card: the lines scroll, the footer (count, total, Send, the promise) stays at the bottom. */
+.sh-list .sh-parchi__paper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100dvh - 270px);
+}
+.sh-list .sh-parchi__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.sh-list__inner {
+  flex: 1;
+  min-height: 0;
+}
+.sh-lscroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.sh-lscroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sh-lscroll-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--paper));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion) ease;
+}
+.sh-lscroll-wrap:has(.has-more)::after {
+  opacity: 1;
+}
+.sh-lfoot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-lscroll-wrap::after {
+    transition: none;
+  }
+}
+
+/* The new-order banner takes room above the deck: the card gives it back. */
+.sh-home--banner .sh-list .sh-parchi__paper {
+  max-height: calc(100dvh - 350px);
+}

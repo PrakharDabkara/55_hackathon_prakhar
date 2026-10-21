@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useT } from '../../i18n/index.js';
-import { ApiError, type AnswerBody, type ShopApi, type ShopPing } from '../../lib/api.js';
+import {
+  ApiError,
+  type AnswerBody,
+  type ListAnswerBody,
+  type ShopApi,
+  type ShopListParchi,
+  type ShopPing,
+} from '../../lib/api.js';
 import type { PushClient } from '../../lib/push.js';
 import { buildDeck } from '../lib/deck.js';
 import { displayItemName } from '../lib/format.js';
@@ -10,6 +17,7 @@ import { Button } from '../../ui/Button.js';
 import { ClosedSign } from '../ui/ClosedSign.js';
 import { Deck } from '../ui/Deck.js';
 import { Icon } from '../../ui/Icon.js';
+import { ListSlip } from '../ui/ListSlip.js';
 import { OrderSlip } from '../ui/OrderSlip.js';
 import { PingSlip } from '../ui/PingSlip.js';
 import { Skeleton } from '../../ui/Skeleton.js';
@@ -23,45 +31,79 @@ interface Props {
   now: number;
   /** For tests: a stand-in for the browser's push side. */
   pushClient?: PushClient;
+  /** A list parchi to open the deck at (a tap on its push notification). */
+  openAt?: string;
 }
 
 /** The stamp lands, then 300 ms later the deck moves on (UI spec C). */
 const STAMP_MS = 300;
+/** An answered list shows its stamp for about a second (the stamp itself does not move under reduced motion). */
+const LIST_STAMP_MS = 1000;
+/** A list that closed stays in front of the shop this long, saying so, then leaves. */
+const CLOSED_MS = 4000;
 
 /** Home: the request deck, the new-order banner, and two numbers to glance at. */
-export function Home({ api, data, now, pushClient }: Props) {
+export function Home({ api, data, now, pushClient, openAt }: Props) {
   const { t } = useT();
   const s = t.shop;
   const toast = useToast();
-  const { shop, pings, orders } = data;
+  const { shop, pings, orders, lists, closedLists } = data;
   const [index, setIndex] = useState(0);
   const [sheetFor, setSheetFor] = useState<ShopPing | null>(null);
   const [stamped, setStamped] = useState<Record<string, 'yes' | 'no'>>({});
   const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  /** Lists this shop found closed when it tried to answer. */
+  const [closedKeys, setClosedKeys] = useState<ReadonlySet<string>>(new Set());
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
   /** Taps already sent, by order, action and state: a double tap sends once. */
   const sentOrder = useRef(new Set<string>());
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const scheduledClosed = useRef(new Set<string>());
+  const opened = useRef(false);
   const today = useDemand(api, 1);
   const push = usePush(api, pushClient);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const slips = useMemo(
-    () => buildDeck(pings ?? [], orders ?? []).filter((slip) => !gone.has(slip.key)),
-    [pings, orders, gone],
+    () =>
+      buildDeck(pings ?? [], orders ?? [], lists ?? [], closedLists).filter(
+        (slip) => !gone.has(slip.key),
+      ),
+    [pings, orders, lists, closedLists, gone],
   );
   const current = Math.min(index, Math.max(0, slips.length - 1));
   const activeOrders = (orders ?? []).filter((order) => !order.final).length;
 
-  function leaveDeck(key: string, after: () => void) {
+  function leaveDeck(key: string, after: () => void, ms = STAMP_MS) {
     timers.current.push(
       setTimeout(() => {
         setGone((all) => new Set(all).add(key));
         after();
-      }, STAMP_MS),
+      }, ms),
     );
   }
+
+  // A list the customer closed: say so for a few seconds, then let it go.
+  useEffect(() => {
+    for (const parchi of closedLists) {
+      const key = `list:${parchi.id}`;
+      if (scheduledClosed.current.has(key)) continue;
+      scheduledClosed.current.add(key);
+      leaveDeck(key, () => data.dismissClosedList(parchi.id), CLOSED_MS);
+    }
+  }, [closedLists]);
+
+  // A push for a list opens the deck at that card, once, and the address is cleaned up.
+  useEffect(() => {
+    if (!openAt || opened.current) return;
+    const at = slips.findIndex((slip) => slip.key === `list:${openAt}`);
+    if (at < 0) return;
+    opened.current = true;
+    setIndex(at);
+    if (location.search.includes('parchi='))
+      history.replaceState(null, '', `${location.pathname}${location.hash}`);
+  }, [openAt, slips]);
 
   async function submitAnswer(ping: ShopPing, body: AnswerBody) {
     try {
@@ -86,6 +128,39 @@ export function Home({ api, data, now, pushClient }: Props) {
       void data.refresh();
       void today.reload();
     });
+  }
+
+  async function submitList(parchi: ShopListParchi, body: ListAnswerBody) {
+    const key = `list:${parchi.id}`;
+    try {
+      await api.answerList(parchi.id, body);
+    } catch (error) {
+      // The customer closed it, or it filled up, while the shop was ticking: say so and let it go.
+      if (error instanceof ApiError && (error.status === 404 || error.code === 'ping_closed')) {
+        setClosedKeys((all) => new Set(all).add(key));
+        leaveDeck(
+          key,
+          () => {
+            data.removeList(parchi.id);
+            void data.refresh();
+          },
+          CLOSED_MS,
+        );
+        return;
+      }
+      throw error;
+    }
+    data.markAnswered(parchi.id);
+    setStamped((all) => ({ ...all, [key]: 'yes' }));
+    leaveDeck(
+      key,
+      () => {
+        data.removeList(parchi.id);
+        void data.refresh();
+        void today.reload();
+      },
+      LIST_STAMP_MS,
+    );
   }
 
   async function actOnOrder(id: string, verb: 'accept' | 'decline') {
@@ -139,7 +214,7 @@ export function Home({ api, data, now, pushClient }: Props) {
 
   return (
     <>
-      <div className="sh-home">
+      <div className={`sh-home${data.banner ? ' sh-home--banner' : ''}`}>
         {data.banner && (
           <div className="sh-banner" role="status">
             <span>{s.orderBanner(displayItemName(data.banner.lines[0]?.name ?? ''))}</span>
@@ -208,7 +283,21 @@ export function Home({ api, data, now, pushClient }: Props) {
                 slides={slips.map((slip) => ({
                   key: slip.key,
                   node:
-                    slip.kind === 'ping' ? (
+                    slip.kind === 'list' ? (
+                      <ListSlip
+                        parchi={slip.parchi}
+                        shop={shop}
+                        now={now}
+                        stamp={
+                          slip.closed || closedKeys.has(slip.key)
+                            ? 'closed'
+                            : stamped[slip.key]
+                              ? 'answered'
+                              : null
+                        }
+                        onSubmit={(body) => submitList(slip.parchi, body)}
+                      />
+                    ) : slip.kind === 'ping' ? (
                       <PingSlip
                         ping={slip.ping}
                         now={now}
@@ -221,6 +310,11 @@ export function Home({ api, data, now, pushClient }: Props) {
                         order={slip.order}
                         now={now}
                         busy={busyOrder !== null}
+                        onPack={(index, packed) =>
+                          void data
+                            .setPacked(slip.order.id, index, packed)
+                            .catch(() => toast(s.packFailed))
+                        }
                         onAccept={() => void actOnOrder(slip.order.id, 'accept')}
                         onDecline={() => void actOnOrder(slip.order.id, 'decline')}
                       />

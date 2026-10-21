@@ -77,6 +77,18 @@ describe('pickup pushes (ADR-0055)', () => {
   });
 });
 
+describe('new_list (ADR-0055, PR U2)', () => {
+  it('opens the shop deck at that parchi, with a tag per parchi', () => {
+    expect(
+      buildPayload('new_list', { item: 'Sugar +2', band: 'under 1 km', id: ID }),
+    ).toMatchObject({
+      title: 'New list: Sugar +2 · under 1 km',
+      tag: `list:${ID}`,
+      url: `/app/shop?parchi=${ID}`,
+    });
+  });
+});
+
 describe('buildPayload', () => {
   it('names the item and the distance band in a new request, with one tag for the whole shop', () => {
     expect(buildPayload('new_ping', { item: 'atta', band: 'under 1 km' })).toEqual({
