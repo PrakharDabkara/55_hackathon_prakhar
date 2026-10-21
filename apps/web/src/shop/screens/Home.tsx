@@ -37,6 +37,8 @@ interface Props {
 
 /** The stamp lands, then 300 ms later the deck moves on (UI spec C). */
 const STAMP_MS = 300;
+/** An answered list shows its stamp for about a second (the stamp itself does not move under reduced motion). */
+const LIST_STAMP_MS = 1000;
 /** A list that closed stays in front of the shop this long, saying so, then leaves. */
 const CLOSED_MS = 4000;
 
@@ -150,11 +152,15 @@ export function Home({ api, data, now, pushClient, openAt }: Props) {
     }
     data.markAnswered(parchi.id);
     setStamped((all) => ({ ...all, [key]: 'yes' }));
-    leaveDeck(key, () => {
-      data.removeList(parchi.id);
-      void data.refresh();
-      void today.reload();
-    });
+    leaveDeck(
+      key,
+      () => {
+        data.removeList(parchi.id);
+        void data.refresh();
+        void today.reload();
+      },
+      LIST_STAMP_MS,
+    );
   }
 
   async function actOnOrder(id: string, verb: 'accept' | 'decline') {
@@ -208,7 +214,7 @@ export function Home({ api, data, now, pushClient, openAt }: Props) {
 
   return (
     <>
-      <div className="sh-home">
+      <div className={`sh-home${data.banner ? ' sh-home--banner' : ''}`}>
         {data.banner && (
           <div className="sh-banner" role="status">
             <span>{s.orderBanner(displayItemName(data.banner.lines[0]?.name ?? ''))}</span>

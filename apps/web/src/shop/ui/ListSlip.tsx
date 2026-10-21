@@ -58,6 +58,9 @@ export function ListSlip({ parchi, shop, now, stamp = null, onSubmit }: Props) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  /** More lines are hidden below the edge of the lines area: show the fade. */
+  const [more, setMore] = useState(false);
   const ask = useRef<HTMLDivElement>(null);
   /** The line just ticked: its price field takes the focus when it appears. */
   const justTicked = useRef<string | null>(null);
@@ -67,6 +70,12 @@ export function ListSlip({ parchi, shop, now, stamp = null, onSubmit }: Props) {
   const category = parchi.lines.filter((line) => !line.other);
   const other = parchi.lines.filter((line) => line.other);
   const hasIssue = Object.keys(issues.lines).length > 0 || issues.fee !== undefined;
+
+  function measure() {
+    const el = scroller.current;
+    if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  }
+  useEffect(measure);
 
   // After a mistake is shown, the keyboard lands on the first field that needs fixing.
   useEffect(() => {
@@ -204,122 +213,128 @@ export function ListSlip({ parchi, shop, now, stamp = null, onSubmit }: Props) {
   return (
     <Parchi band={band} className="sh-list">
       <div ref={root} className="sh-list__inner">
-        <div className="sh-parchi__meta">
-          <span className="sh-caption sh-paper-muted">
-            {t.bands[parchi.distanceBand as keyof typeof t.bands] ?? parchi.distanceBand}
-          </span>
-          <span className="sh-caption sh-paper-muted">{s.tickWhatYouHave}</span>
-        </div>
-        {parchi.wantsDelivery && <p className="sh-parchi__note">{s.wantsDeliveryList}</p>}
-        <div className="sh-lrows" role="group" aria-label={s.orderLines}>
-          {category.map(row)}
-        </div>
-        {other.length > 0 && (
-          <div className="sh-lrows sh-lrows--other" data-group="other">
-            <p className="sh-ldivider">{s.otherDivider}</p>
-            {other.map(row)}
-          </div>
-        )}
+        <div className="sh-lscroll-wrap">
+          <div ref={scroller} className={`sh-lscroll${more ? ' has-more' : ''}`} onScroll={measure}>
+            <div className="sh-parchi__meta">
+              <span className="sh-caption sh-paper-muted">
+                {t.bands[parchi.distanceBand as keyof typeof t.bands] ?? parchi.distanceBand}
+              </span>
+              <span className="sh-caption sh-paper-muted">{s.tickWhatYouHave}</span>
+            </div>
+            {parchi.wantsDelivery && <p className="sh-parchi__note">{s.wantsDeliveryList}</p>}
+            <div className="sh-lrows" role="group" aria-label={s.orderLines}>
+              {category.map(row)}
+            </div>
+            {other.length > 0 && (
+              <div className="sh-lrows sh-lrows--other" data-group="other">
+                <p className="sh-ldivider">{s.otherDivider}</p>
+                {other.map(row)}
+              </div>
+            )}
 
-        {parchi.canDeliver && (
-          <>
-            <hr className="sh-parchi__rule" />
-            <div className="sh-ldeliver">
-              <Switch
-                checked={draft.delivers}
-                disabled={locked}
-                onChange={(delivers) => setDraft({ ...draft, delivers })}
-                label={
-                  <span className="sh-ldeliver__label">
-                    {s.canDeliverList}
-                    <span className="sh-lrow__sub">{s.oneFee}</span>
-                  </span>
-                }
-              />
-              {draft.delivers && (
-                <div className="sh-ldeliver__fee">
-                  <span className="sh-lrow__name" aria-hidden="true">
-                    {s.deliveryFeeLabel}
-                  </span>
-                  <span className="sh-amount">
-                    <span className="sh-amount__unit" aria-hidden="true">
-                      ₹
-                    </span>
-                    <input
-                      className="sh-amount__input"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      aria-label={s.deliveryFeeLabel}
-                      disabled={locked}
-                      value={draft.fee}
-                      {...(issues.fee && {
-                        'aria-invalid': true,
-                        'aria-describedby': `${parchi.id}-fee-error`,
-                      })}
-                      onChange={(event) => {
-                        setDraft({ ...draft, fee: event.target.value });
-                        if (issues.fee) setIssues(clearFee(issues));
-                      }}
-                    />
-                  </span>
-                  {issues.fee && (
-                    <p id={`${parchi.id}-fee-error`} role="alert" className="sh-lrow__error">
-                      {s.feeWholeRupees}
-                    </p>
+            {parchi.canDeliver && (
+              <>
+                <hr className="sh-parchi__rule" />
+                <div className="sh-ldeliver">
+                  <Switch
+                    checked={draft.delivers}
+                    disabled={locked}
+                    onChange={(delivers) => setDraft({ ...draft, delivers })}
+                    label={
+                      <span className="sh-ldeliver__label">
+                        {s.canDeliverList}
+                        <span className="sh-lrow__sub">{s.oneFee}</span>
+                      </span>
+                    }
+                  />
+                  {draft.delivers && (
+                    <div className="sh-ldeliver__fee">
+                      <span className="sh-lrow__name" aria-hidden="true">
+                        {s.deliveryFeeLabel}
+                      </span>
+                      <span className="sh-amount">
+                        <span className="sh-amount__unit" aria-hidden="true">
+                          ₹
+                        </span>
+                        <input
+                          className="sh-amount__input"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          aria-label={s.deliveryFeeLabel}
+                          disabled={locked}
+                          value={draft.fee}
+                          {...(issues.fee && {
+                            'aria-invalid': true,
+                            'aria-describedby': `${parchi.id}-fee-error`,
+                          })}
+                          onChange={(event) => {
+                            setDraft({ ...draft, fee: event.target.value });
+                            if (issues.fee) setIssues(clearFee(issues));
+                          }}
+                        />
+                      </span>
+                      {issues.fee && (
+                        <p id={`${parchi.id}-fee-error`} role="alert" className="sh-lrow__error">
+                          {s.feeWholeRupees}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </>
-        )}
-
-        <hr className="sh-parchi__rule" />
-        <div className="sh-lsum">
-          <span className="sh-parchi__note">{s.youHaveOf(summary.ticked, summary.of)}</span>
-          <span className="sh-parchi__total" aria-label={s.total}>
-            {formatRupees(summary.totalPaise)}
-          </span>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="sh-parchi__foot">
-          {asking ? (
-            <div
-              ref={ask}
-              role="alertdialog"
-              aria-label={s.sendNoneTitle}
-              tabIndex={-1}
-              className="sh-lask"
-            >
-              <p className="sh-parchi__note">{s.sendNoneTitle}</p>
-              <p className="sh-lrow__sub">{s.sendNoneBody}</p>
-              <div className="sh-parchi__foot--two sh-lask__buttons">
-                <Button variant="neutral" onClick={() => setAsking(false)}>
-                  {s.goBack}
-                </Button>
-                <Button
-                  variant="ink"
-                  onClick={() => {
-                    const result = buildListAnswer(parchi, draft);
-                    if (result.ok) void submit(result.body);
-                  }}
-                >
-                  {s.send}
-                </Button>
+        <div className="sh-lfoot">
+          <hr className="sh-parchi__rule" />
+          <div className="sh-lsum">
+            <span className="sh-parchi__note">{s.youHaveOf(summary.ticked, summary.of)}</span>
+            <span className="sh-parchi__total" aria-label={s.total}>
+              {formatRupees(summary.totalPaise)}
+            </span>
+          </div>
+
+          <div className="sh-parchi__foot">
+            {asking ? (
+              <div
+                ref={ask}
+                role="alertdialog"
+                aria-label={s.sendNoneTitle}
+                tabIndex={-1}
+                className="sh-lask"
+              >
+                <p className="sh-parchi__note">{s.sendNoneTitle}</p>
+                <p className="sh-lrow__sub">{s.sendNoneBody}</p>
+                <div className="sh-parchi__foot--two sh-lask__buttons">
+                  <Button variant="neutral" onClick={() => setAsking(false)}>
+                    {s.goBack}
+                  </Button>
+                  <Button
+                    variant="ink"
+                    onClick={() => {
+                      const result = buildListAnswer(parchi, draft);
+                      if (result.ok) void submit(result.body);
+                    }}
+                  >
+                    {s.send}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <>
-              <Button variant="ink" className="sh-btn--block" disabled={locked} onClick={send}>
-                {s.sendAnswer}
-              </Button>
-              <p className="sh-lrow__sub sh-lnote">{s.committedNote}</p>
-            </>
-          )}
-          {formMessage && (
-            <p role="alert" className="sh-lrow__error">
-              {formMessage}
-            </p>
-          )}
+            ) : (
+              <>
+                <Button variant="ink" className="sh-btn--block" disabled={locked} onClick={send}>
+                  {s.sendAnswer}
+                </Button>
+                <p className="sh-lrow__sub sh-lnote">{s.committedNote}</p>
+              </>
+            )}
+            {formMessage && (
+              <p role="alert" className="sh-lrow__error">
+                {formMessage}
+              </p>
+            )}
+          </div>
         </div>
       </div>
       {stamp === 'answered' && (

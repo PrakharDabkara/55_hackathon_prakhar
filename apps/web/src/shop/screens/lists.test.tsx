@@ -102,7 +102,7 @@ describe('Home: list parchis in the deck', () => {
     expect(await screen.findByText('Answered')).toBeTruthy();
     expect(d.markAnswered).toHaveBeenCalledWith('lp-soon');
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(1100);
     });
     expect(d.removeList).toHaveBeenCalledWith('lp-soon');
   });

@@ -12,7 +12,7 @@ interface Props {
 
 /**
  * The paper slip: torn top edge, ruled lines, square bottom. It is the only thing in the shop app
- * that imitates paper, and it is used only for request cards (CLAUDE.md, UI rules).
+ * that imitates paper, and it is used only for request cards and packing slips (CLAUDE.md, UI rules).
  */
 export function Parchi({ delivery = false, band, children, className }: Props) {
   const { t } = useT();

@@ -55,6 +55,17 @@ async function nothingBlocking(page: Page, label: string) {
 }
 
 /** U2_SHOTS_DIR set: the same screenshots at 390 px wide, written there (for the PR). */
+/** The element is on screen and is what a tap at its centre would hit (nothing sticky covers it). */
+async function expectUncovered(target: Locator) {
+  await expect(target).toBeInViewport({ ratio: 1 });
+  const hit = await target.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return top !== null && el.contains(top);
+  });
+  expect(hit).toBe(true);
+}
+
 async function shot(file: string, target?: Locator) {
   const dir = process.env['U2_SHOTS_DIR'];
   if (dir) await shop.setViewportSize({ width: 390, height: 1100 });
@@ -309,4 +320,65 @@ test('S55: pickup order from a list: no address, "Ready for pickup" and then wai
   // The Home tile still counts it as active.
   await goTo(shop, 'requests');
   await expect(shop.getByRole('link', { name: /Active orders/ })).toContainText('2');
+});
+
+test('S57: a 10-line list keeps its footer in view; only the lines scroll', async () => {
+  await goTo(shop, 'requests');
+  const customer = await customerApi();
+  // Six grocery words and four that fit no kind of shop.
+  const id = await sendList(
+    customer,
+    [
+      'chini',
+      'haldi',
+      'atta',
+      'namak',
+      'chawal',
+      'besan',
+      'tractor spare bolt',
+      'garden hose nozzle',
+      'brass door knocker',
+      'bicycle spoke wrench',
+    ],
+    corner,
+  );
+  await expect(card()).toHaveCount(1, { timeout: 30_000 });
+  await expect(card().getByRole('checkbox')).toHaveCount(10);
+  for (const [size, fresh] of [
+    [{ width: 360, height: 740 }, false],
+    [{ width: 390, height: 844 }, false],
+    [{ width: 360, height: 740 }, true],
+    [{ width: 390, height: 844 }, true],
+  ] as const) {
+    // The second pass is a reload: no new-order banner, so the card has more room.
+    if (fresh && size.width === 360) {
+      await shop.reload();
+      await expect(card()).toHaveCount(1, { timeout: 30_000 });
+    }
+    await shop.setViewportSize(size);
+    await shop.waitForTimeout(300);
+    const send = card().getByRole('button', { name: 'Send answer' });
+    // Send and the promise are on screen without scrolling the card or the page, and not covered.
+    await expectUncovered(send);
+    await expect(send).toBeInViewport({ ratio: 1 });
+    await expect(card().getByText("If the customer picks you, you're committed")).toBeInViewport({
+      ratio: 1,
+    });
+    await expect(card().getByText('You have 0 of 10')).toBeInViewport({ ratio: 1 });
+    // The lines area is the one that scrolls, and the fade says more lines are hidden.
+    const scroll = card().locator('.sh-lscroll');
+    expect(await scroll.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+    await expect(card().locator('.sh-lscroll.has-more')).toHaveCount(1);
+    await scroll.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    await expect(card().locator('.sh-lscroll.has-more')).toHaveCount(0);
+    await expect(send).toBeInViewport({ ratio: 1 });
+    await scroll.evaluate((el) => el.scrollTo(0, 0));
+    await shot(`U2-list-10-lines-${size.width}`);
+  }
+  await shop.setViewportSize({ width: 360, height: 740 });
+  // Clean up: "none of these".
+  await card().getByRole('button', { name: 'Send answer' }).click();
+  await shop.getByRole('alertdialog').getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(card()).toHaveCount(0, { timeout: 15_000 });
+  void id;
 });

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (PR U2)
 
+- A list card keeps its footer (count, total, Send answer, the promise) pinned; only the lines scroll, with a soft fade when more are hidden. An answered list shows its stamp for about a second. The parchi rule now covers packing slips too.
 - The `new_list` push now links to `/app/shop?parchi=<parchi id>` and is tagged with the shop's own parchi id (was the list id), so a tap opens the deck at that card. A shop that is also a customer no longer shares a notification tag with its own list.
 
 ### Added (PR U1 follow-up: pickup orders and list push, ADR-0055)

@@ -558,3 +558,66 @@ div.sh-pack__row {
     animation: none;
   }
 }
+
+/* A list card: the lines scroll, the footer (count, total, Send, the promise) stays at the bottom. */
+.sh-list .sh-parchi__paper {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100dvh - 270px);
+}
+.sh-list .sh-parchi__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.sh-list__inner {
+  flex: 1;
+  min-height: 0;
+}
+.sh-lscroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.sh-lscroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sh-lscroll-wrap::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 36px;
+  background: linear-gradient(to bottom, transparent, var(--paper));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion) ease;
+}
+.sh-lscroll-wrap:has(.has-more)::after {
+  opacity: 1;
+}
+.sh-lfoot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sh-lscroll-wrap::after {
+    transition: none;
+  }
+}
+
+/* The new-order banner takes room above the deck: the card gives it back. */
+.sh-home--banner .sh-list .sh-parchi__paper {
+  max-height: calc(100dvh - 350px);
+}
