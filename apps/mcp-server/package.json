@@ -1,10 +1,10 @@
 {
-  "name": "@kahanmilega/mcp-server",
+  "name": "@askbuy/mcp-server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@kahanmilega/shared": "*",
+    "@askbuy/shared": "*",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "zod": "^4.6.7"
   },

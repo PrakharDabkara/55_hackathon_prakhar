@@ -4,8 +4,8 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "paths": {
-      "@kahanmilega/shared": ["./packages/shared/src/index.ts"],
-      "@kahanmilega/shared/tools": ["./packages/shared/src/tools/index.ts"]
+      "@askbuy/shared": ["./packages/shared/src/index.ts"],
+      "@askbuy/shared/tools": ["./packages/shared/src/tools/index.ts"]
     }
   },
   "include": [

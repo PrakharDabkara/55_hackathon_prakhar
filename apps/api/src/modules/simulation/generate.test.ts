@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES } from '@askbuy/shared';
 import { describe, expect, it } from 'vitest';
 import { generateShops } from './generate.js';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toolByName } from '@kahanmilega/shared/tools';
+import { toolByName } from '@askbuy/shared/tools';
 import {
   ApiUnreachableError,
   NotLoggedInError,

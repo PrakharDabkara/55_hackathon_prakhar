@@ -1,5 +1,5 @@
 import { Writable } from 'node:stream';
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES } from '@askbuy/shared';
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';

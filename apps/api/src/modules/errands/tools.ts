@@ -4,7 +4,7 @@ import {
   getRequestStatusTool,
   planRouteTool,
   resolveItemTool,
-} from '@kahanmilega/shared/tools';
+} from '@askbuy/shared/tools';
 import { z } from 'zod';
 import type { ChatTool } from '../ai/index.js';
 

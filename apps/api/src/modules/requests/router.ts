@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { QUANTITY_UNITS } from '@kahanmilega/shared';
+import { QUANTITY_UNITS } from '@askbuy/shared';
 import { z } from 'zod';
 import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';

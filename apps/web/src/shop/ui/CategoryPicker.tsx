@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@askbuy/shared';
 import { useT } from '../../i18n/index.js';
 import { Chip } from '../../ui/Chip.js';
 

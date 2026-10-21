@@ -1,4 +1,4 @@
-import { formatQuantity } from '@kahanmilega/shared';
+import { formatQuantity } from '@askbuy/shared';
 import { useT } from '../i18n/index.js';
 import { formatDistance } from '../lib/format.js';
 import { formatRupees } from '../lib/money.js';

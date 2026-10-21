@@ -36,7 +36,7 @@ npm run db:migrate
 npm run lint && npm run typecheck
 npm run test:unit
 npm run test:integration # needs Docker (Testcontainers)
-npm run dev -w @kahanmilega/api   # build and run the API on PORT (needs .env)
+npm run dev -w @askbuy/api   # build and run the API on PORT (needs .env)
 ```
 
 Deploys and rollbacks: [docs/runbook.md](docs/runbook.md).
@@ -63,7 +63,7 @@ Open **https://kahanmilega-api.onrender.com/app/** (the shop app is at `/app/sho
 npm run simulate -- --target https://kahanmilega-api.onrender.com --admin-phone 98xxxxxxxx --count 200 --speed 10 --centre 22.7196,75.8577
 ```
 
-Run the shop app locally with `npm run dev -w @kahanmilega/web` (API on port 3000).
+Run the shop app locally with `npm run dev -w @askbuy/web` (API on port 3000).
 
 ## Try an errand
 

@@ -1,4 +1,4 @@
-import { formatQuantity } from '@kahanmilega/shared';
+import { formatQuantity } from '@askbuy/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';

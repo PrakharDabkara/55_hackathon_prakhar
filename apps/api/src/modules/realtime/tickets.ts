@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import type { Role } from '@kahanmilega/shared';
+import type { Role } from '@askbuy/shared';
 
 /** A ticket opens one stream within this time. Short, because it travels in a URL. */
 export const TICKET_TTL_SECONDS = 60;

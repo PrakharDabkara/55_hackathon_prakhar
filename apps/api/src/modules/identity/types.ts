@@ -1,4 +1,4 @@
-import type { Role } from '@kahanmilega/shared';
+import type { Role } from '@askbuy/shared';
 
 export interface User {
   id: string;

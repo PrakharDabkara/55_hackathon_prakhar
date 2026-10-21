@@ -1,5 +1,5 @@
 import type { Queryable } from '../../db/queryable.js';
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 import {
   DOUBTFUL_AFTER_REPORTS,
   freshnessLabel,

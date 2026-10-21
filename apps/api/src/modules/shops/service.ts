@@ -1,4 +1,4 @@
-import type { Category } from '@kahanmilega/shared';
+import type { Category } from '@askbuy/shared';
 import type { Queryable } from '../../db/queryable.js';
 
 export interface Shop {

@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { tools } from '@kahanmilega/shared/tools';
+import { tools } from '@askbuy/shared/tools';
 import type { ApiClient } from './apiClient.js';
 import { runTool, ToolError } from './handlers.js';
 

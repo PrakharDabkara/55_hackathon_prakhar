@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@askbuy/shared';
 
 export interface GenerateInput {
   count: number;

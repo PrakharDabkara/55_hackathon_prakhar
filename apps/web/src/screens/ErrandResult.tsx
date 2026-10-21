@@ -1,4 +1,4 @@
-import { formatQuantity } from '@kahanmilega/shared';
+import { formatQuantity } from '@askbuy/shared';
 import { useMemo, useState } from 'react';
 import { AuthPhoto } from '../components/AuthPhoto.js';
 import { displayItemName } from '../lib/format.js';

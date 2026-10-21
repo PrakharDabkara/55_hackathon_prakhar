@@ -27,7 +27,7 @@ Database: migrations are not rolled back with the code. If a migration is the pr
 
 - Render dashboard → `kahanmilega-api` → Logs. One JSON object per line (pino).
 - Every request line has `req.id`, which is the `x-request-id` the caller sent or one we generated, and is echoed in the response header. Search the id in the Logs filter to follow one request.
-- Locally: `docker logs <container>` or the terminal running `npm run dev -w @kahanmilega/api`.
+- Locally: `docker logs <container>` or the terminal running `npm run dev -w @askbuy/api`.
 
 ## What the probes mean
 

@@ -1,4 +1,4 @@
-import { toolByName, type ToolName } from '@kahanmilega/shared/tools';
+import { toolByName, type ToolName } from '@askbuy/shared/tools';
 import {
   ApiUnreachableError,
   NotLoggedInError,

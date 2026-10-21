@@ -1,4 +1,4 @@
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 import { planRoute, type Point, type RoutePlan } from '../routing/index.js';
 
 /**

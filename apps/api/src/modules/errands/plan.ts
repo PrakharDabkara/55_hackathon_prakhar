@@ -2,7 +2,7 @@ import { covers } from './named.js';
 import type { Queryable } from '../../db/queryable.js';
 import { formConflict, termsOfItems } from '../catalog/index.js';
 import { findLearnedStock } from '../shops/index.js';
-import { compareQuantity, type ExactQuantity } from '@kahanmilega/shared';
+import { compareQuantity, type ExactQuantity } from '@askbuy/shared';
 import { refusalKey, type Refused } from './executor.js';
 import { isExpectedMatch } from './matchedAs.js';
 import {

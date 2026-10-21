@@ -1,4 +1,4 @@
-import type { Role } from '@kahanmilega/shared';
+import type { Role } from '@askbuy/shared';
 import type { Request, RequestHandler } from 'express';
 import type { Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
