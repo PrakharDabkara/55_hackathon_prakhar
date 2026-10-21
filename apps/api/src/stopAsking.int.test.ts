@@ -17,7 +17,7 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 const ADDRESS = 'Flat 4B, Sapna Apartments, Vijay Nagar, Indore';
 
 // ADR-0055 rule 13: "stop asking" for a single search and for a list.
-describe('stop asking (S44)', () => {
+describe('stop asking (S45)', () => {
   let testDb: TestDatabase;
   let pool: Pool;
   let app: ReturnType<typeof createApp>;

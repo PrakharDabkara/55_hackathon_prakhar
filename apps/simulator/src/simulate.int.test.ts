@@ -40,7 +40,7 @@ describe('the simulator against a real API', () => {
       workersEnabled: true,
       redisUrl: redis.url,
       // A second admin: a phone may ask for only 3 login codes per 10 minutes.
-      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202', '+919810000204'],
+      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202', '+919810000204', '+919810000206'],
     });
     realtime = createRealtime({ redisUrl: redis.url, logger: quiet, heartbeatMs: 200 });
     workers = startWorkers({
@@ -370,5 +370,55 @@ describe('the simulator against a real API', () => {
     expect(orderLines.join('\n')).toMatch(/out for delivery/);
     expect(orderLines.join('\n')).not.toMatch(/marked delivered|moved .* delivered/);
     expect(lines.join('')).not.toContain('Sapna');
+  }, 60_000);
+
+  it('answers a shopping-list parchi line by line, with (list h/t) in the log (ADR-0055)', async () => {
+    await Promise.all(running.splice(0).map((s) => s.stop()));
+    await endLeftoverRequests();
+    const lines: string[] = [];
+    const sim = await runSimulator({
+      ...options(lines),
+      adminPhone: '9810000206',
+      count: 6,
+      seed: 41,
+      categories: ['grocery'],
+      eager: true,
+      stateFile: path.join(path.dirname(stateFile), 'lists.json'),
+    });
+    running.push(sim);
+    const seeker = await loginAs(app, 'seeker', String(phone++));
+    const auth = { Authorization: `Bearer ${seeker.token}` };
+    const sorted = await request(app)
+      .post('/lists/sort')
+      .set(auth)
+      .send({ lines: ['chini', 'namak', 'tractor spare bolt'] });
+    expect(sorted.status).toBe(201);
+    const sent = await request(app)
+      .post(`/lists/${sorted.body.id}/send`)
+      .set(auth)
+      .send({ lat: ORIGIN.lat, lng: ORIGIN.lng });
+    expect(sent.body.shopsAsked).toBeGreaterThanOrEqual(3);
+
+    const view = await waitFor(
+      async () => (await request(app).get(`/lists/${sorted.body.id}`).set(auth)).body,
+      (b) => b.shopsAnswered >= b.shopsAsked,
+      30_000,
+    );
+    expect(view.shopsAnswered).toBe(view.shopsAsked);
+    // Every answer is whole rupees per line, and a line a shop has carries a price.
+    const stored = await testDb.pool.query<{ have: boolean; price_paise: number | null }>(
+      `SELECT lpl.have, lpl.price_paise FROM list_ping_lines lpl
+         JOIN list_pings lp ON lp.id = lpl.list_ping_id WHERE lp.list_id = $1`,
+      [sorted.body.id],
+    );
+    expect(stored.rowCount).toBeGreaterThan(0);
+    for (const r of stored.rows) {
+      expect(r.have).not.toBeNull();
+      if (r.have) expect((r.price_paise as number) % 100).toBe(0);
+      else expect(r.price_paise).toBeNull();
+    }
+    const listLines = lines.filter((l) => /\(list \d+\/\d+\)/.test(l));
+    expect(listLines.length).toBeGreaterThanOrEqual(view.shopsAsked);
+    expect(listLines[0]).toMatch(/shop [0-9a-f]{8} {2}(yes|no) .*ping [0-9a-f]{8} {2}\+/);
   }, 60_000);
 });

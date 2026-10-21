@@ -13,6 +13,7 @@ const order = (over: Partial<OrderRecord> = {}): OrderRecord => ({
   shopOwnerUserId: 'owner1',
   requestId: 'r1',
   errandId: null,
+  listId: null,
   state: 'REQUESTED',
   lines: [{ name: 'Chini', count: 2, pricePaise: 4500 }],
   itemsTotalPaise: 9000,
@@ -138,5 +139,29 @@ describe('Delivery v2 additions', () => {
       }),
     );
     expect(view).toMatchObject({ note: 'Gate 2', receiveBy: '2026-10-18T13:00:00.000Z' });
+  });
+});
+
+describe('packed lines (ADR-0055)', () => {
+  const lines = [
+    { name: 'Sugar', count: 1, pricePaise: 4800, packed: true },
+    { name: 'Rice', count: 1, pricePaise: 6000 },
+    { name: 'Bolt', count: 1, pricePaise: null, packed: true },
+    { name: 'Pen', count: 1, pricePaise: 1000, packed: false },
+  ];
+
+  it('the shop sees each flag and "2 of 4 packed"', () => {
+    const view = shopOrderView(order({ lines }));
+    expect(view.lines.map((l) => l.packed)).toEqual([true, false, true, false]);
+    expect(view).toMatchObject({ packedCount: 2, lineCount: 4, unpackedCount: 2 });
+  });
+
+  it('the customer sees the same count', () => {
+    expect(seekerOrderView(order({ lines })).packedCount).toBe(2);
+    expect(seekerOrderView(order()).packedCount).toBe(0);
+  });
+
+  it('an order of a list says so', () => {
+    expect(seekerOrderView(order({ listId: 'l1', requestId: null })).listId).toBe('l1');
   });
 });

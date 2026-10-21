@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MAX_LIST_ANSWERS } from '@askbuy/shared';
+import { LIST_HOURLY_LIMIT, MAX_LIST_ANSWERS } from '@askbuy/shared';
 import { createApp } from './app.js';
 import { createAi, createFakeProvider, type FakeProvider } from './modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
@@ -61,7 +61,7 @@ function script(
 }
 
 // ADR-0055: shopping lists. Sorting, fan-out, answers, the customer's view and ordering.
-describe('shopping lists (S35 to S42)', () => {
+describe('shopping lists (S35 to S43)', () => {
   let testDb: TestDatabase;
   let pool: Pool;
   let app: ReturnType<typeof createApp>;
@@ -88,7 +88,15 @@ describe('shopping lists (S35 to S42)', () => {
       client: { backoffMs: 1, retries: 0 },
     });
     realtime.onPublish((e) => events.push(e));
-    app = createApp({ config: testConfig(), logger: quiet, db: pool, realtime, ai });
+    app = createApp({
+      config: testConfig({
+        vapid: { publicKey: 'BPublicKey-for-tests', privateKey: 'p', subject: 'mailto:o@e.com' },
+      }),
+      logger: quiet,
+      db: pool,
+      realtime,
+      ai,
+    });
     seeker = await loginAs(app, 'seeker', String(phone++));
   }, 300_000);
   afterAll(async () => {
@@ -212,6 +220,20 @@ describe('shopping lists (S35 to S42)', () => {
       }));
       const res = await sort(['tractor spare bolt', 'garden hose nozzle']);
       expect(res.body.lines[0]).toMatchObject({ status: 'refused', reason: 'blocked' });
+      expect(res.body.lines[1]).toMatchObject({ status: 'other' });
+    });
+
+    it('the model saying "not a product" refuses the line as unclear; a real product it cannot place stays other', async () => {
+      provider.onGenerate(({ user }) => ({
+        lines: [...user.matchAll(/<<<LINE (\d+)\n([^\n]*)\n/g)].map((m) => ({
+          n: Number(m[1]),
+          itemId: null,
+          needsClarification: false,
+          ...(m[2] === 'tomorrow morning' && { notProduct: true }),
+        })),
+      }));
+      const res = await sort(['tomorrow morning', 'garden hose nozzle']);
+      expect(res.body.lines[0]).toMatchObject({ status: 'refused', reason: 'unclear' });
       expect(res.body.lines[1]).toMatchObject({ status: 'other' });
     });
 
@@ -353,6 +375,18 @@ describe('shopping lists (S35 to S42)', () => {
       const typed = await sort(['mirchi']);
       const asTyped = await send(typed.body.id, { choices: [{ position: 0, asTyped: true }] });
       expect(asTyped.body.lines[0]).toMatchObject({ status: 'other', asTyped: true });
+    });
+
+    it('a customer may send LIST_HOURLY_LIMIT lists an hour, then waits', async () => {
+      await shop('Grocer', 0.3);
+      const me = await loginAs(app, 'seeker', String(phone++));
+      for (let i = 0; i < LIST_HOURLY_LIMIT; i++) {
+        const sorted = await sort(['chini'], me);
+        expect((await send(sorted.body.id, {}, me)).status).toBe(200);
+      }
+      const over = await send((await sort(['chini'], me)).body.id, {}, me);
+      expect(over.status).toBe(429);
+      expect(over.body.error.code).toBe('list_rate_limited');
     });
 
     it('sending twice is one send; a refused line is not sent; nothing sendable is a 422', async () => {
@@ -547,7 +581,7 @@ describe('shopping lists (S35 to S42)', () => {
       return { near, mid, far, id: sorted.body.id as string };
     }
 
-    it('S38: ranks by "have" lines, then distance, then total; each line is have, no or not_sent', async () => {
+    it('S42: ranks by "have" lines, then distance, then total; each line is have, no or not_sent', async () => {
       const { near, mid, far, id } = await threeShops();
       const reply = async (s: Shop, have: Record<string, number | false>) =>
         answer(s, (await parchis(s))[0] as Json, have);
@@ -607,7 +641,7 @@ describe('shopping lists (S35 to S42)', () => {
     const orders = async () =>
       (await pool.query(`SELECT * FROM delivery_orders ORDER BY created_at`)).rows;
 
-    it("S42: orders from several shops at once: one order each with that shop's prices and fee, born ACCEPTED; the list is ORDERED", async () => {
+    it("S43: orders from several shops at once: one order each with that shop's prices and fee, born ACCEPTED; the list is ORDERED", async () => {
       const { grocer, stationer, id } = await twoAnswers();
       const res = await order(id, {
         assignments: [
@@ -636,7 +670,7 @@ describe('shopping lists (S35 to S42)', () => {
       expect(ok.body.orders[0]).toMatchObject({
         state: 'ACCEPTED',
         shopId: grocer.shopId,
-        feePaise: 2000,
+        feePaise: 2500,
         itemsTotalPaise: 4800,
       });
       expect(ok.body.pickups).toEqual([
@@ -646,9 +680,13 @@ describe('shopping lists (S35 to S42)', () => {
       const row = (await orders())[0];
       expect(row.list_id).toBe(id);
       expect(row.lines[0]).toMatchObject({ name: 'Sugar', count: 1, pricePaise: 4800 });
+      // The customer finds the orders of a list by its id.
+      const mine = await request(app).get(`/orders?listId=${id}`).set(auth(seeker));
+      expect(mine.body.map((o: Json) => o['id'])).toEqual([ok.body.orders[0].id]);
+      expect(mine.body[0].listId).toBe(id);
     });
 
-    it('S42: N orders are made together, and one invalid assignment rolls everything back', async () => {
+    it('S43: N orders are made together, and one invalid assignment rolls everything back', async () => {
       const { grocer, stationer, id } = await twoAnswers();
       // The grocer said it does NOT have the bolt: assigning it there is invalid.
       const bad = await order(id, {
@@ -680,7 +718,7 @@ describe('shopping lists (S35 to S42)', () => {
       expect(both.status).toBe(201);
     });
 
-    it('S42: a closed shop, a missing address, and an unknown shop refuse the whole call', async () => {
+    it('S43: a closed shop, a missing address, and an unknown shop refuse the whole call', async () => {
       const { grocer, id } = await twoAnswers();
       await request(app).put('/shops/me/open').set(auth(grocer)).send({ open: false });
       const base = {
@@ -693,7 +731,7 @@ describe('shopping lists (S35 to S42)', () => {
       expect(await orders()).toHaveLength(0);
     });
 
-    it('S42: an expired list can still be ordered from but is not binding; a second order is refused', async () => {
+    it('S43: an expired list can still be ordered from but is not binding; a second order is refused', async () => {
       const { grocer, id } = await twoAnswers();
       await pool.query(`UPDATE shopping_lists SET expires_at = now() - interval '1 minute'`);
       const base = {

@@ -14,7 +14,7 @@ const quiet = pino({ level: 'silent' });
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // ADR-0055 rule 12: the shop ticks lines as packed. Works for any delivery order.
-describe('packing an order (S43)', () => {
+describe('packing an order (S44)', () => {
   let testDb: TestDatabase;
   let pool: Pool;
   let app: ReturnType<typeof createApp>;
