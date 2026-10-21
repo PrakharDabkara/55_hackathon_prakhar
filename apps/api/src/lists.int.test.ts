@@ -593,6 +593,9 @@ describe('shopping lists (S35 to S43)', () => {
       await reply(mid, { Sugar: 40, Rice: 60, 'Tractor spare bolt': false });
       await reply(far, { Sugar: 30, Rice: 55, 'Tractor spare bolt': 12 });
       const v = await view(id);
+      // The owner's own place comes back with the list (the plan's map starts there).
+      expect(v['lat']).toBeTypeOf('number');
+      expect(v['lng']).toBeTypeOf('number');
       expect(v['answers'].map((a: Json) => a['name'])).toEqual(['Far', 'Mid', 'Near']);
       expect(v['answers'][0]).toMatchObject({ haveCount: 3, totalPaise: 9700 });
       expect(v['answers'][2].lines.map((l: Json) => l['status'])).toEqual(['have', 'no', 'no']);

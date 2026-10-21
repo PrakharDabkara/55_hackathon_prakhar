@@ -12,6 +12,8 @@ export function orderCaption(c: CustomerStrings, state: OrderState): string {
     EXPIRED: c.statusExpired,
     CANCELLED: c.statusCancelledYou,
     NOT_CONFIRMED: c.statusNotConfirmed,
+    READY: c.capReady,
+    COLLECTED: c.capCollected,
   }[state];
 }
 

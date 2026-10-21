@@ -118,15 +118,19 @@ export function ErrandOrder({ api, shop, errandId, offer, order, onChange }: Pro
   }
 
   if (order && order.state !== 'CANCELLED') {
-    const message = {
-      REQUESTED: t.orderWaiting,
-      ACCEPTED: t.orderAccepted,
-      OUT_FOR_DELIVERY: t.orderOut,
-      DELIVERED: t.orderDelivered,
-      DECLINED: t.orderDeclined,
-      EXPIRED: t.orderExpired,
-      NOT_CONFIRMED: t.orderNotConfirmed,
-    }[order.state];
+    // An errand order is always a delivery: a pickup's READY and COLLECTED never come here.
+    const message =
+      (
+        {
+          REQUESTED: t.orderWaiting,
+          ACCEPTED: t.orderAccepted,
+          OUT_FOR_DELIVERY: t.orderOut,
+          DELIVERED: t.orderDelivered,
+          DECLINED: t.orderDeclined,
+          EXPIRED: t.orderExpired,
+          NOT_CONFIRMED: t.orderNotConfirmed,
+        } as Partial<Record<typeof order.state, string>>
+      )[order.state] ?? t.orderAccepted;
     const open = order.state === 'REQUESTED' || order.state === 'ACCEPTED';
     const going = open || order.state === 'OUT_FOR_DELIVERY' || order.state === 'DELIVERED';
     return (

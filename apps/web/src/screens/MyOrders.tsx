@@ -50,6 +50,29 @@ interface Props {
   pushClient?: PushClient;
 }
 
+interface ListGroup {
+  kind: 'list';
+  listId: string;
+  orders: SeekerOrder[];
+}
+type Entry = ListGroup | { kind: 'order'; order: SeekerOrder };
+
+/**
+ * Orders that came from the same list become one entry (at the place of the first of them), the
+ * rest stay as they are. Every order of the list is in the entry, whichever section it would be in.
+ */
+function groupLists(shown: readonly SeekerOrder[], all: readonly SeekerOrder[]): Entry[] {
+  const seen = new Set<string>();
+  return shown.flatMap((order): Entry[] => {
+    if (!order.listId) return [{ kind: 'order', order }];
+    if (seen.has(order.listId)) return [];
+    seen.add(order.listId);
+    return [
+      { kind: 'list', listId: order.listId, orders: all.filter((o) => o.listId === order.listId) },
+    ];
+  });
+}
+
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
@@ -111,6 +134,32 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
     }
   }
 
+  /** The orders of one list are one row: "List · 5 items", the shops, and where they stand. */
+  function listRow(group: ListGroup) {
+    const items = group.orders.reduce((sum, o) => sum + o.lines.length, 0);
+    const lead =
+      group.orders.find((o) => o.state === 'READY') ??
+      group.orders.find((o) => o.state === 'OUT_FOR_DELIVERY') ??
+      group.orders.find(isActiveOrder) ??
+      group.orders[0];
+    return (
+      <li key={`list-${group.listId}`}>
+        <a className="cu-order-row" {...appLink(navigate, `/app/list/${group.listId}`)}>
+          <span className="cu-order-row__body">
+            <span className="cu-order-row__shop">{c.myListRow(items)}</span>
+            <span className="cu-order-row__meta">
+              <span>{c.myListShops(group.orders.length)}</span>
+            </span>
+            <span className="cu-order-row__meta">
+              {lead && <span className="cu-pill">{orderCaption(c, lead.state)}</span>}
+            </span>
+          </span>
+          <Icon name="right" size={20} />
+        </a>
+      </li>
+    );
+  }
+
   function row(order: SeekerOrder, active: boolean) {
     const total = orderTotalPaise(order);
     const [first, ...rest] = order.lines;
@@ -145,8 +194,8 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
     );
   }
 
-  const active = orders?.filter(isActiveOrder) ?? [];
-  const earlier = orders?.filter((o) => !isActiveOrder(o)) ?? [];
+  const active = groupLists(orders?.filter(isActiveOrder) ?? [], orders ?? []);
+  const earlier = groupLists(orders?.filter((o) => !isActiveOrder(o)) ?? [], orders ?? []);
 
   return (
     <>
@@ -179,7 +228,9 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
             <h2 id="orders-active" className="sh-caption">
               {c.activeTitle}
             </h2>
-            <ul className="cu-list">{active.map((o) => row(o, true))}</ul>
+            <ul className="cu-list">
+              {active.map((e) => (e.kind === 'list' ? listRow(e) : row(e.order, true)))}
+            </ul>
           </section>
         )}
         {earlier.length > 0 && (
@@ -187,7 +238,9 @@ export function MyOrders({ api, navigate, onBack, pollMs = 15_000, live, pushCli
             <h2 id="orders-earlier" className="sh-caption">
               {c.earlierTitle}
             </h2>
-            <ul className="cu-list">{earlier.map((o) => row(o, false))}</ul>
+            <ul className="cu-list">
+              {earlier.map((e) => (e.kind === 'list' ? listRow(e) : row(e.order, false)))}
+            </ul>
           </section>
         )}
 

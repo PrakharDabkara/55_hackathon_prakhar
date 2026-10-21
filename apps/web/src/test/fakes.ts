@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { MyShop, ShopApi, ShopListParchi, ShopPing } from '../lib/api.js';
+import type { ListView } from '../lib/listApi.js';
 import type { SeekerOrder, ShopOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
 import type { PickupApi } from '../lib/pickupApi.js';
@@ -180,6 +181,26 @@ export const seekerRequest = (overrides: Partial<SeekerRequest> = {}): SeekerReq
   ...overrides,
 });
 
+/** The smallest list the fake API can return; tests that read a list pass their own. */
+const listStub = (id: string, state: ListView['state']): ListView => ({
+  id,
+  state,
+  listening: state === 'OPEN',
+  binding: state === 'OPEN' || state === 'FULL',
+  wantsDelivery: false,
+  maxAnswers: 8,
+  shopsAsked: 0,
+  shopsAnswered: 0,
+  lat: null,
+  lng: null,
+  lines: [],
+  answers: [],
+  plan: null,
+  createdAt: '2026-10-21T10:00:00.000Z',
+  sentAt: null,
+  expiresAt: '2026-10-21T10:15:00.000Z',
+});
+
 /** A SeekerApi where every call is a spy that succeeds; override what a test cares about. */
 export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
   return {
@@ -209,6 +230,16 @@ export function fakeSeekerApi(overrides: Partial<SeekerApi> = {}): SeekerApi {
     logout: vi.fn(async () => undefined),
     deleteAccount: vi.fn(async () => undefined),
     recentWork: vi.fn(async () => []),
+    collectOrder: vi.fn(async () => seekerOrder({ state: 'COLLECTED', fulfilment: 'pickup' })),
+    sortList: vi.fn(async () => listStub('list-1', 'DRAFT')),
+    sendList: vi.fn(async () => listStub('list-1', 'OPEN')),
+    getList: vi.fn(async () => listStub('list-1', 'OPEN')),
+    stopList: vi.fn(async () => listStub('list-1', 'STOPPED')),
+    orderList: vi.fn(async () => ({
+      list: listStub('list-1', 'ORDERED'),
+      orders: [],
+      pickups: [],
+    })),
     ...fakePhotos(),
     ...fakePush(),
     ...fakePickups(),
@@ -311,10 +342,14 @@ export const errandView = (overrides: Partial<ErrandView> = {}): ErrandView => (
 export const seekerOrder = (overrides: Partial<SeekerOrder> = {}): SeekerOrder => ({
   id: 'order-1',
   state: 'REQUESTED',
+  fulfilment: 'delivery',
+  shopLocation: { lat: 22.72, lng: 75.86 },
   shopId: 's1',
   shopName: 'Mishra Kirana',
   requestId: 'req-1',
   errandId: null,
+  listId: null,
+  packedCount: 0,
   lines: [{ name: 'sugar', count: 2, pricePaise: 4500 }],
   itemsTotalPaise: 9000,
   unknownPriceCount: 0,

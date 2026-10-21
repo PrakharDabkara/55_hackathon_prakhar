@@ -41,6 +41,7 @@ function setup(
         }}
         navigate={navigate}
         onFound={onFound}
+        onList={vi.fn()}
       />
     );
   }

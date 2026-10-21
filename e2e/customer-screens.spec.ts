@@ -143,6 +143,10 @@ test('every customer screen is readable and passes the accessibility scan', asyn
     timeout: 30_000,
   });
   await page.getByRole('button', { name: 'Stop asking' }).click();
+  await page
+    .getByRole('dialog', { name: 'Stop asking shops?' })
+    .getByRole('button', { name: 'Stop asking' })
+    .click();
 
   // --- Five more shops in the same quiet corner.
   const a = await shopAt(browser, corner, uniqueName('Seed Alpha Kirana'), true);

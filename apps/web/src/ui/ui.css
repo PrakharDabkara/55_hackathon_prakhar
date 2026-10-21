@@ -578,6 +578,10 @@ body,
   font: 600 14px/20px var(--font-ui);
   cursor: pointer;
 }
+.sh-segmented button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .sh-segmented button[aria-pressed='true'] {
   background: var(--surface);
   color: var(--ink);

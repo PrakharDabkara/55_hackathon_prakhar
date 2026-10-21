@@ -1,6 +1,6 @@
 interface Props<T extends string> {
   label: string;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; disabled?: boolean }[];
   value: T;
   onChange: (value: T) => void;
 }
@@ -14,6 +14,7 @@ export function SegmentedControl<T extends string>({ label, options, value, onCh
           key={option.value}
           type="button"
           aria-pressed={option.value === value}
+          {...(option.disabled && { disabled: true })}
           onClick={() => onChange(option.value)}
         >
           {option.label}

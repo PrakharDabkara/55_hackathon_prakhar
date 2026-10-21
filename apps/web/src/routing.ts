@@ -37,3 +37,10 @@ export function requestIdFromPath(pathname: string): string | null {
 export function isAccountPath(pathname: string): boolean {
   return pathname === '/app/account' || pathname === '/app/account/';
 }
+
+const LIST_PATH = /^\/app\/list\/([\w-]+)\/?$/;
+
+/** The shopping list a reload or a notification should show, from /app/list/<id>. */
+export function listIdFromPath(pathname: string): string | null {
+  return LIST_PATH.exec(pathname)?.[1] ?? null;
+}

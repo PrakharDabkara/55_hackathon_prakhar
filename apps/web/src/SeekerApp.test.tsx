@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SeekerApp, SEEKER_UNAUTHORIZED_EVENT } from './SeekerApp.js';
 import type { Session } from './lib/session.js';
 import { errandView, fakeSeekerApi, result, seekerOrder, seekerRequest } from './test/fakes.js';
+import { openList } from './test/fakesLists.js';
 import { renderApp } from './test/render.js';
 
 vi.mock('./components/PlanMap.js', () => ({
@@ -165,5 +166,23 @@ describe('SeekerApp: addresses of its own', () => {
     expect(location.pathname).toBe('/app/order/o-1');
     await user.click(await screen.findByRole('button', { name: 'Back' }));
     expect(location.pathname).toBe('/app/orders');
+  });
+});
+
+describe('a list push link', () => {
+  afterEach(() => window.history.pushState({}, '', '/'));
+
+  it('/app/list/<id> opens that list’s replies', async () => {
+    window.history.pushState({}, '', '/app/list/list-1');
+    const api = fakeSeekerApi({ getList: vi.fn(async () => openList()) });
+    render(api, memorySession('token'));
+    expect(await screen.findByText('Sent to 6 shops · 5 items')).toBeTruthy();
+    expect(api.getList).toHaveBeenCalledWith('list-1');
+  });
+
+  it('asks for a login first when signed out', async () => {
+    window.history.pushState({}, '', '/app/list/list-1');
+    render();
+    expect(await screen.findByRole('dialog', { name: 'Log in to send your request' })).toBeTruthy();
   });
 });
