@@ -186,6 +186,23 @@ describe('a new item the customer named is confirmed first', () => {
     expect(after.state).not.toBe('WAITING_FOR_SHOPS');
   });
 
+  it('holds a plan submitted in the same turn: the checklist comes first, no plan, no ping', async () => {
+    const id = await start();
+    provider.playChat([
+      {
+        toolCalls: [
+          call('resolve_item', { text: 'bead dazzling kit' }),
+          call('submit_plan', { items: [] }),
+        ],
+      },
+    ]);
+    await runErrand(deps(), id);
+    const after = await row(id);
+    expect(after.state).toBe('NEEDS_INPUT');
+    expect(after.question).toMatchObject({ options: ['bead dazzling kit', 'chart paper'] });
+    expect(await requestedItems()).toEqual([]);
+  });
+
   it('respects the question cap: no checklist once the limit is reached', async () => {
     const id = await start();
     provider.playChat([
