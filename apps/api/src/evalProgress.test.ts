@@ -39,7 +39,9 @@ describe('eval progress lines', () => {
   it('takes only numbers: no case text can reach a line', () => {
     const s = setup(10);
     for (let i = 0; i < 10; i++) s.progress.done(true);
-    expect(s.lines.join('\n')).toMatch(/^progress dev: 10\/10, passes 10, retries 0, elapsed 0:00$/);
+    expect(s.lines.join('\n')).toMatch(
+      /^progress dev: 10\/10, passes 10, retries 0, elapsed 0:00$/,
+    );
   });
 });
 

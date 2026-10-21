@@ -13,6 +13,10 @@ export interface Failure {
   kind: Exclude<FailureKind, 'breaker'>;
   status?: number;
   code?: string;
+  /** On a 429: the wait Google asked for, in seconds. */
+  retryAfterSec?: number;
+  /** On a 429: a per-day quota is used up, so waiting minutes will not help. */
+  perDay?: boolean;
   message: string;
 }
 
@@ -25,6 +29,10 @@ export function classifyError(error: unknown): Failure {
       kind: error.kind,
       ...(error.status !== undefined && { status: error.status }),
       ...(error.code !== undefined && { code: error.code }),
+      ...(error.rateLimit?.retryAfterSec != null && {
+        retryAfterSec: error.rateLimit.retryAfterSec,
+      }),
+      ...(error.rateLimit?.perDay && { perDay: true }),
       message: sanitiseMessage(error.message),
     };
   }

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { pino } from 'pino';
 import { z } from 'zod';
 import { loadConfig } from './config/config.js';
+import { createProgress, isHoldoutSet } from './evalProgress.js';
+import { createQuotaStop } from './evalQuota.js';
 import { loadErrandCases } from './evalErrand/cases.js';
 import { errandEvalEnv } from './evalErrand/model.js';
 import { pacedProvider } from './evalErrand/pace.js';
@@ -74,24 +76,20 @@ if (estimate > MAX_CALLS) {
 
 const quota = new QuotaWatch();
 let testDb: TestDatabase | null = null;
+const stopForQuota = createQuotaStop({
+  title: 'Agent evals',
+  summary: (text) => {
+    if (env['GITHUB_STEP_SUMMARY']) appendFileSync(env['GITHUB_STEP_SUMMARY'], text);
+  },
+  cleanup: () => testDb?.stop(),
+});
 let stopping = false;
-const QUOTA_EXHAUSTED = 'QUOTA_EXHAUSTED — rerun after the daily reset';
-function stopForQuota(reason: string): void {
-  if (stopping) return;
-  stopping = true;
-  console.error(`::error title=QUOTA_EXHAUSTED::${QUOTA_EXHAUSTED}. ${reason}.`);
-  if (env['GITHUB_STEP_SUMMARY'])
-    appendFileSync(
-      env['GITHUB_STEP_SUMMARY'],
-      `### Agent evals: ${QUOTA_EXHAUSTED}\n\nStopped: ${reason}. The eval project's free Gemini quota resets daily. See docs/runbook.md, "QUOTA_EXHAUSTED".\n`,
-    );
-  void Promise.race([testDb?.stop(), new Promise((res) => setTimeout(res, 5000))]).finally(() =>
-    process.exit(3),
-  );
-}
 // Quota is watched on the raw calls; the pacing gap goes outside, so a waiting call is not a failure.
 const wrap = (p: Parameters<typeof watchProvider>[0]) =>
-  pacedProvider(watchProvider(p, quota, stopForQuota), paceMs);
+  pacedProvider(
+    watchProvider(p, quota, (reason) => ((stopping = true), stopForQuota(reason))),
+    paceMs,
+  );
 
 // Preflight: one embedding and one tiny answer, so a spent quota fails in seconds.
 {
@@ -119,19 +117,21 @@ const wrap = (p: Parameters<typeof watchProvider>[0]) =>
 const logger = pino({ level: 'warn' });
 testDb = await startPostgres();
 const pool = testDb.pool;
-// Patient on purpose: a 503 or 429 waits 4, 8, 16 seconds before the call is given up on.
+// Patient but bounded: every request has 30 s, and a call is retried at most 3 times (pauses of 4,
+// 8, 16 s with jitter, or the wait Google asked for, at most 30 s).
+const progress = createProgress({ label: set, total: cases.length });
 const ai = aiFromConfig({
   config,
   db: pool,
   logger,
-  client: { timeoutMs: 60_000, retries: 3, backoffMs: 4000 },
+  client: { timeoutMs: 30_000, retries: 3, backoffMs: 4000, onRetry: () => progress.retried() },
   wrapProvider: wrap,
 });
 const embedder = aiFromConfig({
   config,
   db: pool,
   logger,
-  client: { retries: 3, backoffMs: 20_000 },
+  client: { timeoutMs: 30_000, retries: 3, backoffMs: 5000, onRetry: () => progress.retried() },
   wrapProvider: wrap,
 });
 
@@ -161,10 +161,14 @@ try {
     logger,
     trigramThreshold: config.trigramThreshold,
     modelRetries: 3,
-    onCase: (r) =>
-      console.log(
-        `${r.errored ? 'ERROR' : r.success && r.tool && !r.hallucination ? 'ok   ' : 'FAIL '} ${r.id.padEnd(4)} ${r.kind.padEnd(16)} ${r.state.padEnd(12)} ${(r.durationMs / 1000).toFixed(0).padStart(3)}s ${r.tokens} tok ${r.calls} calls ${r.errored ? `error:${r.errored}` : r.failed.join(',')}`,
-      ),
+    // The holdout is never named: its cases are only counted. The dev set prints one line each.
+    onCase: (r) => {
+      if (!isHoldoutSet(set))
+        console.log(
+          `${r.errored ? 'ERROR' : r.success && r.tool && !r.hallucination ? 'ok   ' : 'FAIL '} ${r.id.padEnd(4)} ${r.kind.padEnd(16)} ${r.state.padEnd(12)} ${(r.durationMs / 1000).toFixed(0).padStart(3)}s ${r.tokens} tok ${r.calls} calls ${r.errored ? `error:${r.errored}` : r.failed.join(',')}`,
+        );
+      progress.done(!r.errored && r.success && r.tool && !r.hallucination);
+    },
   });
   const summary = summariseErrand(run.results);
   const report = {
@@ -182,9 +186,10 @@ try {
   const stamp = report.at.replace(/[:.]/g, '-');
   const file = `evals/reports/errand-${set}-${which}-${stamp}.json`;
   writeFileSync(path.join(root, file), JSON.stringify(report, null, 2));
-  const markdown = renderErrandMarkdown([
-    { model: config.errandModel, set, summary, results: run.results },
-  ]);
+  const markdown = renderErrandMarkdown(
+    [{ model: config.errandModel, set, summary, results: run.results }],
+    { aggregateOnly: isHoldoutSet(set) },
+  );
   const extra = `\nModel call latency (provider only): ${run.modelLatency.calls} calls, p50 ${(run.modelLatency.p50Ms / 1000).toFixed(1)} s, p95 ${(run.modelLatency.p95Ms / 1000).toFixed(1)} s.\n`;
   writeFileSync(
     path.join(root, `evals/reports/errand-${set}-${which}-summary.md`),

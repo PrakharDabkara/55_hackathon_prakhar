@@ -78,9 +78,14 @@ interface Options {
    * can run on a different model from query resolution, whose gate was proven on another one.
    */
   models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
-  /** Extra attempts after the first, only for 429 and 5xx. */
+  /** Extra attempts after the first, only for timeouts, network drops, 429 and 5xx. At most 3. */
   retries?: number;
+  /** The first pause between attempts; it doubles each time, with jitter, up to 30 s. */
   backoffMs?: number;
+  /** A number in [0, 1) for the jitter; tests pass their own. */
+  random?: () => number;
+  /** Called before each retry's pause, so a script can count them. */
+  onRetry?: () => void;
   breaker?: { threshold?: number; cooldownMs?: number };
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
@@ -88,14 +93,36 @@ interface Options {
 }
 
 const DEFAULT_TIMEOUT_MS = 8000;
+/** No call is retried more than this many times, whatever the caller asks for. */
+export const MAX_RETRIES = 3;
+/** The longest pause before a retry, including one Google asked for with Retry-After. */
+export const MAX_PAUSE_MS = 30_000;
+
+/**
+ * The pause before retry number `attempt` (0 for the first): Google's own Retry-After when a 429
+ * carries one, else the backoff doubled each time with jitter (between half and the full step).
+ * Never over 30 s.
+ */
+export function retryPauseMs(
+  failure: Failure,
+  attempt: number,
+  backoffMs: number,
+  random: () => number,
+): number {
+  if (failure.retryAfterSec !== undefined)
+    return Math.min(failure.retryAfterSec * 1000, MAX_PAUSE_MS);
+  const step = Math.min(backoffMs * 2 ** attempt, MAX_PAUSE_MS);
+  return Math.round(step * (0.5 + random() / 2));
+}
 
 /** Timeouts and network drops are worth another try; so are 429 and 5xx. Other 4xx are not. */
 const retryable = (failure: Failure) =>
-  failure.kind === 'timeout' ||
-  failure.kind === 'network' ||
-  (failure.kind === 'http' &&
-    failure.status !== undefined &&
-    (failure.status === 429 || failure.status >= 500));
+  !failure.perDay && // a spent daily quota will not come back in seconds
+  (failure.kind === 'timeout' ||
+    failure.kind === 'network' ||
+    (failure.kind === 'http' &&
+      failure.status !== undefined &&
+      (failure.status === 429 || failure.status >= 500)));
 
 /** What the next attempt should run on: the fallback model after a timeout, 429 or 503. */
 const wantsFallback = (failure: Failure) =>
@@ -118,9 +145,9 @@ function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): P
 
 /**
  * Wraps a provider with what every caller needs: a time limit per purpose (8 s by default), retries
- * with a pause on timeouts, network drops, 429 and 5xx, a fallback model for the attempts after a
+ * with a pause (doubling, with jitter, at most 30 s, or Google's own Retry-After) on timeouts, network drops, 429 and 5xx, a fallback model for the attempts after a
  * timeout, 429 or 503, a circuit breaker per purpose (5 failures in a row: skip AI for 60 seconds,
- * then one trial call), one ai_calls row per call, and one log line per failed attempt with its
+ * then one trial call), at most 3 retries and none for a spent daily quota, one ai_calls row per call, and one log line per failed attempt with its
  * kind, status and code. A failure here is an AiUnavailableError for the caller to absorb.
  */
 export function createAiClient({
@@ -131,6 +158,8 @@ export function createAiClient({
   models = {},
   retries = 1,
   backoffMs = 500,
+  random = Math.random,
+  onRetry,
   breaker: { threshold = 5, cooldownMs = 60_000 } = {},
   now = Date.now,
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -163,8 +192,9 @@ export function createAiClient({
     requestId: string | undefined,
     call: (signal: AbortSignal, model: string | undefined) => Promise<R>,
     limitMs: number,
-    maxRetries: number,
+    requestedRetries: number,
   ): Promise<R & { callId: string | null }> {
+    const maxRetries = Math.min(requestedRetries, MAX_RETRIES);
     const state = breakerFor(purpose);
     const own = models[purpose];
     const primaryModel = own?.model ?? provider.model;
@@ -234,7 +264,8 @@ export function createAiClient({
           state.failures = 0;
         } else if (attempt < maxRetries && retryable(failure)) {
           if (fallbackName && wantsFallback(failure)) useFallback = true;
-          await sleep(backoffMs * 2 ** attempt);
+          onRetry?.();
+          await sleep(retryPauseMs(failure, attempt, backoffMs, random));
           continue;
         } else if (++state.failures >= threshold) {
           state.openUntil = now() + cooldownMs;

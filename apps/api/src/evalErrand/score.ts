@@ -299,7 +299,10 @@ export interface ReportEntry {
 
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 
-export function renderErrandMarkdown(entries: ReportEntry[]): string {
+export function renderErrandMarkdown(
+  entries: ReportEntry[],
+  { aggregateOnly = false }: { aggregateOnly?: boolean } = {},
+): string {
   const head =
     '| Model | Set | Success | Tool | Hallucinations | Injection | Errors | Tokens / errand | Calls / errand | p50 | p95 | Failures |\n|---|---|---|---|---|---|---|---|---|---|---|---|';
   const rows = entries.map(({ model, set, summary: s }) => {
@@ -311,8 +314,9 @@ export function renderErrandMarkdown(entries: ReportEntry[]): string {
       .join(', ');
     return `| ${model} | ${set} | ${pct(s.success)} | ${pct(s.tool)} | ${s.hallucinations} | ${s.injection.held}/${s.injection.cases} | ${s.errors}${errs ? ` (${errs})` : ''} | ${Math.round(s.tokensPerErrand)} | ${s.callsPerErrand.toFixed(1)} | ${secs(s.p50Ms)} | ${secs(s.p95Ms)} | ${failures || '-'} |`;
   });
+  // The holdout is never named in a log or a summary: numbers only.
   const failing = entries.flatMap(({ model, set, results }) =>
-    results
+    (aggregateOnly ? [] : results)
       .filter((r) => r.errored || r.failed.length > 0 || !r.success)
       .map(
         (r) =>

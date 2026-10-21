@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (PR V: reliable evals)
+
+- Eval runs no longer stall: every model and embedding request has a 30 s limit (also the preflight, which had none); retries are capped at 3 with doubling, jittered pauses and Retry-After honoured (max 30 s); a per-day 429 is not retried and ends the run with `QUOTA_EXHAUSTED`. The resolve runner makes one whole-query retry instead of two, so the nested retries no longer multiply.
+- The catalog embeddings are saved after every batch, so a killed run keeps its work.
+- `evals.yml`: 30-minute timeout on both jobs, one run per ref (a newer run cancels the older), the daily schedule paused until Oct 30 (runbook: how to restore).
+- Progress lines every 10 cases (counts only); the holdout is never named in the log or summary.
+
 ### Added (PR U2: shopping lists in the shop app, ADR-0055)
 
 - List parchis in the Home deck, in time order with the single requests. The shop answers on the card: a tick box per line (price prefilled from last time, focus on the price when ticked), the "other" lines under their own divider, "I can deliver this list" with one fee, "You have X of N" and the total, then Send answer. A missing price shows "Add a price" beside the field; sending with nothing ticked asks "Send 'none of these'?" in the page. After sending the card is stamped ANSWERED; a list the customer closed says "This list has closed" and leaves.
