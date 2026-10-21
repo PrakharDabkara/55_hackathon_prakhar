@@ -135,3 +135,12 @@ describe('LIVE_EVENTS (Day 16)', () => {
     expect(onEvent).toHaveBeenCalledWith('ping.closed', { pingId: 'p1', reason: 'enough_answers' });
   });
 });
+
+describe('LIVE_EVENTS (PR U2)', () => {
+  it('includes the list parchi and packing events, so a shop sees them without reloading', async () => {
+    const { LIVE_EVENTS } = await import('./live.js');
+    expect(LIVE_EVENTS).toEqual(
+      expect.arrayContaining(['listping.created', 'listping.closed', 'order.packed']),
+    );
+  });
+});

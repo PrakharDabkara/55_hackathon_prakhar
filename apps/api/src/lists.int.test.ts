@@ -345,7 +345,11 @@ describe('shopping lists (S35 to S43)', () => {
       for (const e of events) notifier.handle(e);
       await notifier.idle();
       expect(jobs).toHaveLength(1);
-      expect(jobs[0]?.payload.tag).toBe(`list:${list['id']}`);
+      // The tag and the link name the shop's own parchi, so a tap opens the deck at that card.
+      const parchiId = (await parchis(g))[0]?.['id'];
+      expect(list['id']).toBeTruthy();
+      expect(jobs[0]?.payload.tag).toBe(`list:${parchiId}`);
+      expect((jobs[0]?.payload as { url?: string }).url).toBe(`/app/shop?parchi=${parchiId}`);
       expect(jobs[0]?.payload.title).toMatch(/^New list: /);
       expect(jobs[0]?.payload.renotify).toBe(true);
       expect(events.filter((e) => e.type === 'listping.created' && 'userId' in e.to)).toHaveLength(

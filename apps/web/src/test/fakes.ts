@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { MyShop, ShopApi, ShopPing } from '../lib/api.js';
+import type { MyShop, ShopApi, ShopListParchi, ShopPing } from '../lib/api.js';
 import type { SeekerOrder, ShopOrder } from '../lib/orders.js';
 import type { PhotoApi } from '../lib/photoApi.js';
 import type { PickupApi } from '../lib/pickupApi.js';
@@ -74,6 +74,9 @@ export function fakeApi(overrides: Partial<ShopApi> = {}): ShopApi {
     createShop: vi.fn(async (input) => shop({ ...input })),
     listPings: vi.fn(async () => []),
     answerPing: vi.fn(async () => undefined),
+    listParchis: vi.fn(async () => []),
+    answerList: vi.fn(async () => undefined),
+    packLine: vi.fn(async () => undefined),
     setShopOpen: vi.fn(async (open: boolean) => shop({ open })),
     listOrders: vi.fn(async () => []),
     orderAction: vi.fn(async () => shopOrder()),
@@ -333,20 +336,44 @@ export const seekerOrder = (overrides: Partial<SeekerOrder> = {}): SeekerOrder =
 });
 
 /** A delivery order as its shop sees it: no address until it has accepted. */
-export const shopOrder = (overrides: Partial<ShopOrder> = {}): ShopOrder => ({
-  id: 'order-1',
-  state: 'REQUESTED',
-  lines: [{ name: 'sugar', count: 2, pricePaise: 4500 }],
-  itemsTotalPaise: 9000,
-  unknownPriceCount: 0,
-  feePaise: 3000,
-  contactName: 'Grahak',
-  final: false,
-  note: null,
-  cancelReason: null,
-  expiresAt: '2026-10-16T10:10:00.000Z',
-  createdAt: '2026-10-16T10:00:00.000Z',
-  updatedAt: '2026-10-16T10:00:00.000Z',
+export const shopOrder = (overrides: Partial<ShopOrder> = {}): ShopOrder => {
+  const lines = overrides.lines ?? [{ name: 'sugar', count: 2, pricePaise: 4500 }];
+  const packed = lines.filter((line) => line.packed === true).length;
+  return {
+    id: 'order-1',
+    state: 'REQUESTED',
+    fulfilment: 'delivery',
+    lines,
+    lineCount: lines.length,
+    packedCount: packed,
+    unpackedCount: lines.length - packed,
+    itemsTotalPaise: 9000,
+    unknownPriceCount: 0,
+    feePaise: 3000,
+    contactName: 'Grahak',
+    final: false,
+    note: null,
+    cancelReason: null,
+    expiresAt: '2026-10-16T10:10:00.000Z',
+    createdAt: '2026-10-16T10:00:00.000Z',
+    updatedAt: '2026-10-16T10:00:00.000Z',
+    ...overrides,
+  };
+};
+
+/** A list parchi as its shop sees it: two category lines (sugar, ball pen) and one "other" line. */
+export const shopListParchi = (overrides: Partial<ShopListParchi> = {}): ShopListParchi => ({
+  id: 'lp-1',
+  distanceBand: 'under 1 km',
+  wantsDelivery: false,
+  canDeliver: true,
+  sentAt: '2026-10-16T10:00:00.000Z',
+  expiresAt: '2026-10-16T10:15:00.000Z',
+  lines: [
+    { lineId: 'l1', name: 'Sugar', displayName: 'Chini', other: false, lastPricePaise: 4500 },
+    { lineId: 'l2', name: 'Ball pen', other: false, lastPricePaise: null },
+    { lineId: 'l3', name: 'Tractor bolt', other: true, lastPricePaise: null },
+  ],
   ...overrides,
 });
 

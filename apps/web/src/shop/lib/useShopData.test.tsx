@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FakeEventSource, fakeApi, ping, shop, shopOrder } from '../../test/fakes.js';
+import {
+  FakeEventSource,
+  fakeApi,
+  ping,
+  shop,
+  shopListParchi,
+  shopOrder,
+} from '../../test/fakes.js';
 import { useShopData } from './useShopData.js';
 
 beforeEach(() => {
@@ -188,5 +195,89 @@ describe('useShopData', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('useShopData: lists and packing', () => {
+  const parchi = (id: string) => shopListParchi({ id });
+  const packingOrder = (packed: boolean[]) =>
+    shopOrder({
+      id: 'o1',
+      state: 'ACCEPTED',
+      lines: packed.map((p, i) => ({ name: `item ${i}`, count: 1, pricePaise: 100, packed: p })),
+    });
+
+  it('loads the list parchis next to the pings', async () => {
+    const api = fakeApi({ listParchis: vi.fn(async () => [parchi('a')]) });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    expect(result.current.lists).toBeNull();
+    await waitFor(() => expect(result.current.lists).toHaveLength(1));
+  });
+
+  it('a list that disappears without this shop answering it is kept as a closed notice', async () => {
+    const listParchis = vi
+      .fn<() => Promise<ReturnType<typeof parchi>[]>>()
+      .mockResolvedValueOnce([parchi('a'), parchi('b')])
+      .mockResolvedValue([parchi('b')]);
+    const api = fakeApi({ listParchis });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    await waitFor(() => expect(result.current.lists).toHaveLength(2));
+    await act(async () => result.current.refresh());
+    expect(result.current.lists?.map((p) => p.id)).toEqual(['b']);
+    expect(result.current.closedLists.map((p) => p.id)).toEqual(['a']);
+    act(() => result.current.dismissClosedList('a'));
+    expect(result.current.closedLists).toEqual([]);
+  });
+
+  it('a list this shop answered is not reported closed', async () => {
+    const listParchis = vi
+      .fn<() => Promise<ReturnType<typeof parchi>[]>>()
+      .mockResolvedValueOnce([parchi('a')])
+      .mockResolvedValue([]);
+    const api = fakeApi({ listParchis });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    await waitFor(() => expect(result.current.lists).toHaveLength(1));
+    act(() => result.current.markAnswered('a'));
+    await act(async () => result.current.refresh());
+    expect(result.current.closedLists).toEqual([]);
+  });
+
+  it('a live listping.created event fetches the new parchi', async () => {
+    const listParchis = vi
+      .fn<() => Promise<ReturnType<typeof parchi>[]>>()
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([parchi('a')]);
+    const api = fakeApi({ listParchis });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    await waitFor(() => expect(FakeEventSource.last()).toBeDefined());
+    act(() => FakeEventSource.last()!.emit('listping.created', { listPingId: 'a' }));
+    await waitFor(() => expect(result.current.lists).toHaveLength(1));
+  });
+
+  it('ticks a line at once, then keeps it when the server agrees', async () => {
+    const api = fakeApi({ listOrders: vi.fn(async () => [packingOrder([false, false])]) });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    await waitFor(() => expect(result.current.orders).toHaveLength(1));
+    await act(async () => result.current.setPacked('o1', 1, true));
+    expect(api.packLine).toHaveBeenCalledWith('o1', 1, true);
+    const order = result.current.orders![0]!;
+    expect(order.lines.map((l) => l.packed)).toEqual([false, true]);
+    expect([order.packedCount, order.unpackedCount]).toEqual([1, 1]);
+  });
+
+  it('puts the tick back and rejects when the server could not take it', async () => {
+    const api = fakeApi({
+      listOrders: vi.fn(async () => [packingOrder([true, false])]),
+      packLine: vi.fn().mockRejectedValue(new Error('offline')),
+    });
+    const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
+    await waitFor(() => expect(result.current.orders).toHaveLength(1));
+    let failed = false;
+    await act(async () => {
+      await result.current.setPacked('o1', 0, false).catch(() => (failed = true));
+    });
+    expect(failed).toBe(true);
+    expect(result.current.orders![0]!.lines.map((l) => l.packed)).toEqual([true, false]);
+    expect(result.current.orders![0]!.packedCount).toBe(1);
   });
 });
