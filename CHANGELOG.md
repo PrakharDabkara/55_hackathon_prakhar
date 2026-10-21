@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 23, PR Q: rename to AskBuy, brown sugar, ADR-0051 and ADR-0052)
+
+- Renamed KahanMilega to AskBuy in code and docs: packages `@askbuy/*`, MCP server `askbuy` (re-register it with `claude mcp add askbuy`), `ASKBUY_*` env names (the old ones still work; the old login file is moved), errand prompt, CI project `askbuy-ci`, local compose project `askbuy` (volumes keep their old names). Kept on purpose: repo and Render service/URL, database and env names, `km-*` storage keys, push setup, the Redis channel and the runner eval cache. See `docs/naming.md`.
+- "brown sugar" is groceries, not a blocked term; seeded as a grocery item (seed v8). Heroin, smack and the other unambiguous drug terms stay blocked.
+- Shop login tagline no longer repeats the brand: "For shops: lift your shutter online in a minute."
+- `evals/naming.test.ts` fails if the old name appears outside the keep list.
+
 ### Changed (Day 22, PR P: search understands the customer, the AI speaks English, AskBuy, ADR-0045 to ADR-0050)
 
 - Search exactly what I typed: `POST /requests` takes `asTyped`; Did you mean offers it first and "Something else" now searches that text (it used to return to Find). Every safety check still runs. Find nearby is never disabled. Catalog item names are sentence case for customers.

@@ -41,7 +41,7 @@ npm run dev -w @askbuy/api   # build and run the API on PORT (needs .env)
 
 Deploys and rollbacks: [docs/runbook.md](docs/runbook.md).
 
-Architecture decisions are in [docs/adr/](docs/adr/).
+Architecture decisions are in [docs/adr/](docs/adr/). Why the product is called AskBuy, and what still carries the old name: [docs/naming.md](docs/naming.md).
 
 ## Try the shop app
 
