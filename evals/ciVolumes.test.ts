@@ -20,4 +20,10 @@ describe('the CI database and Redis volumes', () => {
     expect(e2eJob).toMatch(/PGDATA_VOLUME: askbuy-ci_pgdata/);
     expect(e2eJob).toMatch(/REDISDATA_VOLUME: askbuy-ci_redisdata/);
   });
+
+  it('are emptied before the job starts, in case an earlier job died before cleaning up', () => {
+    const down = e2eJob.indexOf('docker compose down -v');
+    expect(down).toBeGreaterThan(-1);
+    expect(down).toBeLessThan(e2eJob.indexOf('npm run db:up'));
+  });
 });
