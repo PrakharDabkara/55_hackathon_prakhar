@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Day 23, PR R: new named items are confirmed, ADR-0053)
+
+- Errand rule 3: an item the customer named that the catalog does not have is confirmed in a checklist before any shop is asked (named items ticked first, the agent's extras offered unticked). A goal with no named item keeps its pre-ticked list.
+- Errand evals: `offeredAny` expectation (an extra must be among the checklist options); dev case d18 uses it for the glue/tape group. The holdout was not touched.
+
 ### Changed (Day 23, PR Q: rename to AskBuy, brown sugar, ADR-0051 and ADR-0052)
 
 - Renamed KahanMilega to AskBuy in code and docs: packages `@askbuy/*`, MCP server `askbuy` (re-register it with `claude mcp add askbuy`), `ASKBUY_*` env names (the old ones still work; the old login file is moved), errand prompt, CI project `askbuy-ci`, local compose project `askbuy` (volumes keep their old names). Kept on purpose: repo and Render service/URL, database and env names, `km-*` storage keys, push setup, the Redis channel and the runner eval cache. See `docs/naming.md`.

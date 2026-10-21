@@ -135,14 +135,19 @@ describe('a new item the customer named is confirmed first', () => {
     provider.playChat([{ toolCalls: [call('resolve_item', { text: 'bead dazzling kit' })] }]);
     await runErrand(deps(), id);
     expect((await row(id)).state).toBe('NEEDS_INPUT');
-    expect((await row(id)).question).toMatchObject({ options: ['bead dazzling kit', 'chart paper'] });
+    expect((await row(id)).question).toMatchObject({
+      options: ['bead dazzling kit', 'chart paper'],
+    });
   });
 
   it('asks nothing when every named item is in the catalog', async () => {
     const id = await start('chini, namak');
     provider.playChat([
       {
-        toolCalls: [call('resolve_item', { text: 'chini' }), call('resolve_item', { text: 'namak' })],
+        toolCalls: [
+          call('resolve_item', { text: 'chini' }),
+          call('resolve_item', { text: 'namak' }),
+        ],
       },
       { text: 'ok' },
       { toolCalls: [call('submit_plan', { items: [] })] },

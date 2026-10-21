@@ -117,9 +117,9 @@ describe('scoreRun: success', () => {
 describe('scoreRun: offeredAny (ADR-0053)', () => {
   const c = base({ offeredAny: [['glue-stick', 'cello-tape', 'scissors']] });
   it('passes when one slug of the group is among the checklist options, ticked or not', () => {
-    expect(scoreRun(c, seen({ offered: ['chart paper', 'Glue stick'] }), limits, PROMPT).success).toBe(
-      true,
-    );
+    expect(
+      scoreRun(c, seen({ offered: ['chart paper', 'Glue stick'] }), limits, PROMPT).success,
+    ).toBe(true);
     expect(scoreRun(c, seen({ offered: ['cello tape'] }), limits, PROMPT).success).toBe(true);
   });
   it('fails, naming the group, when no option is one of them', () => {

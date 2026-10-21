@@ -287,6 +287,7 @@ export async function runErrandEval(opts: EvalOptions): Promise<EvalRun> {
     const where = c.location ?? DEMO_LOCATION;
     await resetWorld(pool, c.stock);
     const responder = createResponder(pool, logger, c, where, limits.resumeAfterMs + 1500);
+    const offered: string[] = [];
     let state = 'ERROR';
     let failureReason: string | null = null;
     let errandId: string | null = null;
@@ -317,6 +318,7 @@ export async function runErrandEval(opts: EvalOptions): Promise<EvalRun> {
             break;
           }
           if (errand.state === 'NEEDS_INPUT' && errand.question) {
+            offered.push(...(errand.question.options ?? []));
             await answerErrand(
               { db: pool, logger, limits },
               userId,
@@ -358,6 +360,7 @@ export async function runErrandEval(opts: EvalOptions): Promise<EvalRun> {
       startedAt: started,
       requestId,
       slugOf,
+      offered,
     });
     const result = scoreRun(c, observed, limits, systemPrompt);
     results.push(result);
@@ -386,6 +389,7 @@ async function observe(
     startedAt: number;
     requestId: string;
     slugOf: Map<string, string>;
+    offered: string[];
   },
 ): Promise<Observed> {
   const usage = await pool.query<{ calls: number; chat: number; tokens: number }>(
@@ -401,7 +405,7 @@ async function observe(
     calls: usage.rows[0]?.calls ?? 0,
     chatCalls: usage.rows[0]?.chat ?? 0,
   };
-  const base = { ...base0, userItems: 0, misplacedNewItemAsks: 0 };
+  const base = { ...base0, userItems: 0, misplacedNewItemAsks: 0, offered: o.offered };
   if (!o.errandId) {
     return {
       state: o.state,
@@ -477,6 +481,7 @@ async function observe(
     ...base0,
     userItems,
     misplacedNewItemAsks: misplaced.rows[0]?.n ?? 0,
+    offered: o.offered,
   };
 }
 
