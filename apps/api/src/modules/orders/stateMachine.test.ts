@@ -19,12 +19,19 @@ const ALLOWED: Partial<Record<OrderState, Partial<Record<OrderEvent, OrderState>
     EXPIRE: 'EXPIRED',
     CANCEL: 'CANCELLED',
   },
-  ACCEPTED: { DISPATCH: 'OUT_FOR_DELIVERY', CANCEL: 'CANCELLED', SHOP_CANCEL: 'CANCELLED' },
+  ACCEPTED: {
+    DISPATCH: 'OUT_FOR_DELIVERY',
+    READY: 'READY',
+    CANCEL: 'CANCELLED',
+    SHOP_CANCEL: 'CANCELLED',
+  },
   OUT_FOR_DELIVERY: { RECEIVE: 'DELIVERED', NOT_CONFIRM: 'NOT_CONFIRMED' },
+  // A pickup order (ADR-0055): the shop has it ready, the customer collects it or it lapses.
+  READY: { COLLECT: 'COLLECTED', NOT_CONFIRM: 'NOT_CONFIRMED' },
 };
 
 describe('delivery order state machine', () => {
-  it('knows the eight states and the eight events', () => {
+  it('knows the ten states and the ten events', () => {
     expect([...ORDER_STATES]).toEqual([
       'REQUESTED',
       'ACCEPTED',
@@ -34,6 +41,8 @@ describe('delivery order state machine', () => {
       'DELIVERED',
       'CANCELLED',
       'NOT_CONFIRMED',
+      'READY',
+      'COLLECTED',
     ]);
     expect([...ORDER_EVENTS]).toEqual([
       'ACCEPT',
@@ -44,6 +53,8 @@ describe('delivery order state machine', () => {
       'NOT_CONFIRM',
       'CANCEL',
       'SHOP_CANCEL',
+      'READY',
+      'COLLECT',
     ]);
   });
 
@@ -62,24 +73,30 @@ describe('delivery order state machine', () => {
     }
   }
 
-  it('DECLINED, EXPIRED, DELIVERED, CANCELLED and NOT_CONFIRMED never move again', () => {
+  it('DECLINED, EXPIRED, DELIVERED, COLLECTED, CANCELLED and NOT_CONFIRMED never move again', () => {
     for (const state of [
       'DECLINED',
       'EXPIRED',
       'DELIVERED',
+      'COLLECTED',
       'CANCELLED',
       'NOT_CONFIRMED',
     ] as const) {
       expect(isFinalOrderState(state)).toBe(true);
       for (const event of ORDER_EVENTS) expect(orderTransition(state, event).ok).toBe(false);
     }
-    for (const state of ['REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY'] as const)
+    for (const state of ['REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY'] as const)
       expect(isFinalOrderState(state)).toBe(false);
   });
 
   it('once the shop has set out, the customer can no longer cancel', () => {
     expect(orderTransition('OUT_FOR_DELIVERY', 'CANCEL').ok).toBe(false);
     expect(orderTransition('OUT_FOR_DELIVERY', 'SHOP_CANCEL').ok).toBe(false);
+  });
+
+  it('once a pickup is READY, nobody cancels it: the customer collects it or it lapses', () => {
+    expect(orderTransition('READY', 'CANCEL').ok).toBe(false);
+    expect(orderTransition('READY', 'SHOP_CANCEL').ok).toBe(false);
   });
 
   it('a shop can cancel only an ACCEPTED order', () => {
