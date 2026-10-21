@@ -1,4 +1,4 @@
-import type { Category } from '@kahanmilega/shared';
+import type { Category } from '@askbuy/shared';
 import { customerEn, customerHi, type CustomerStrings } from './customerStrings.js';
 import { shopEn, shopHi, type ShopStrings } from './shopStrings.js';
 

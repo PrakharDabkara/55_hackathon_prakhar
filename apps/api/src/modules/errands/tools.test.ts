@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { toolByName } from '@kahanmilega/shared/tools';
+import { toolByName } from '@askbuy/shared/tools';
 import { AGENT_TOOLS, submitPlanInput } from './tools.js';
 
 const UUID = '3f2b8c1e-9a4d-4e6b-8c1d-2a7f5e9b0c11';

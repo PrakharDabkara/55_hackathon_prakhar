@@ -1,4 +1,4 @@
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import type { EventPublisher } from '../realtime/index.js';

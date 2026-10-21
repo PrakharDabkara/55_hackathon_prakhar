@@ -78,7 +78,6 @@ export const DENY_RULES: DenyRule[] = [
       'ganja',
       'afeem',
       'opium',
-      'brown sugar',
       'smack',
       'mdma',
       'lsd',

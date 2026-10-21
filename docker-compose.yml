@@ -1,7 +1,9 @@
+name: askbuy
+
 services:
   postgres:
     build: infra/postgres
-    image: kahanmilega-postgres:18-3.6
+    image: askbuy-postgres:18-3.6
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -28,6 +30,10 @@ services:
       timeout: 3s
       retries: 10
 
+# Explicit names equal to the ones the project used before the rename (it was named after the
+# folder), so existing local data survives. See docs/naming.md.
 volumes:
   pgdata:
+    name: kahanmilega_pgdata
   redisdata:
+    name: kahanmilega_redisdata

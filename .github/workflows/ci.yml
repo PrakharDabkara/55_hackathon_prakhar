@@ -36,7 +36,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       # The web app must build: the Docker image ships its output.
-      - run: npm run build -w @kahanmilega/web
+      - run: npm run build -w @askbuy/web
       - run: npm run test:unit
       - run: npm run test:integration
 
@@ -54,7 +54,7 @@ jobs:
       # Its own compose project and its own host ports, so a self-hosted runner never meets the
       # containers, volumes or ports of a developer's local `npm run db:up` and e2e run (5433,
       # 6379, 3100). Set here, not in .env: the environment wins over the .env file.
-      COMPOSE_PROJECT_NAME: kahanmilega-ci
+      COMPOSE_PROJECT_NAME: askbuy-ci
       POSTGRES_USER: kahanmilega
       POSTGRES_PASSWORD: kahanmilega
       POSTGRES_DB: kahanmilega

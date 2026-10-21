@@ -1,4 +1,4 @@
-import { formatQuantity, unitFromQuery } from '@kahanmilega/shared';
+import { formatQuantity, unitFromQuery } from '@askbuy/shared';
 import { useT } from '../i18n/index.js';
 import { itemLabel } from '../lib/results.js';
 import type { SeekerRequest } from '../lib/seekerApi.js';

@@ -1,4 +1,4 @@
-import { toolByName, type ToolName } from '@kahanmilega/shared/tools';
+import { toolByName, type ToolName } from '@askbuy/shared/tools';
 import {
   ApiUnreachableError,
   NotLoggedInError,
@@ -16,7 +16,7 @@ export class ToolError extends Error {
 }
 
 const LOGIN_HINT =
-  'Not logged in, or the login expired. Run `npm run mcp:login -- --phone <your 10-digit number>` in the KahanMilega folder, then restart this MCP server.';
+  'Not logged in, or the login expired. Run `npm run mcp:login -- --phone <your 10-digit number>` in the AskBuy folder, then restart this MCP server.';
 
 const DAY_MS = 24 * 3_600_000;
 
@@ -37,10 +37,10 @@ function expectOk(res: ApiResponse, { missing }: Shared): void {
   if (res.status === 404) throw new ToolError(missing);
   if (res.status === 400)
     throw new ToolError(`The API rejected the input: ${message ?? 'invalid request'}`);
-  if (res.status === 429) throw new ToolError('Rate limited by KahanMilega. Retry later.');
+  if (res.status === 429) throw new ToolError('Rate limited by AskBuy. Retry later.');
   if (res.status >= 500)
     throw new ToolError(
-      `KahanMilega had a server problem (status ${res.status}). Try again in a minute.`,
+      `AskBuy had a server problem (status ${res.status}). Try again in a minute.`,
     );
   throw new ToolError(message ?? `Unexpected answer from the API (status ${res.status}).`);
 }

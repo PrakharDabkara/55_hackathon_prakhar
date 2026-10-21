@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES } from '@askbuy/shared';
 import { Router } from 'express';
 import type { Logger } from 'pino';
 import { z } from 'zod';

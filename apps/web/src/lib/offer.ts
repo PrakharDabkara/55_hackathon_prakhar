@@ -1,4 +1,4 @@
-import { QUANTITY_UNITS, type QuantityUnit } from '@kahanmilega/shared';
+import { QUANTITY_UNITS, type QuantityUnit } from '@askbuy/shared';
 import { rupeesToPaise } from './money.js';
 
 export { QUANTITY_UNITS };

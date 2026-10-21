@@ -1,4 +1,4 @@
-import { compareQuantity, type ExactQuantity } from '@kahanmilega/shared';
+import { compareQuantity, type ExactQuantity } from '@askbuy/shared';
 import {
   freshnessLabel,
   type DeliveryOffer,

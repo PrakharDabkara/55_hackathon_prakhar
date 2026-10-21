@@ -1,4 +1,4 @@
-import type { QuantityUnit } from '@kahanmilega/shared';
+import type { QuantityUnit } from '@askbuy/shared';
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
 import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';

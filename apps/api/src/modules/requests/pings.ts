@@ -10,7 +10,7 @@ import {
   type QuantityHint,
 } from '../shops/index.js';
 import type { EventPublisher } from '../realtime/index.js';
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 import { attachAnswerPhoto } from '../photos/index.js';
 import { distanceBand } from './distanceBand.js';
 import { announceClosedPings, announceTransition } from './events.js';

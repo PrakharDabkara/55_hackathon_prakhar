@@ -1,4 +1,4 @@
-import type { Category } from '@kahanmilega/shared';
+import type { Category } from '@askbuy/shared';
 import type { ShopCancelReason, ShopOrder, ShopOrderVerb } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 import { createPushApi, type PushApi } from './pushApi.js';

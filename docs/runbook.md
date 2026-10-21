@@ -27,7 +27,7 @@ Database: migrations are not rolled back with the code. If a migration is the pr
 
 - Render dashboard → `kahanmilega-api` → Logs. One JSON object per line (pino).
 - Every request line has `req.id`, which is the `x-request-id` the caller sent or one we generated, and is echoed in the response header. Search the id in the Logs filter to follow one request.
-- Locally: `docker logs <container>` or the terminal running `npm run dev -w @kahanmilega/api`.
+- Locally: `docker logs <container>` or the terminal running `npm run dev -w @askbuy/api`.
 
 ## What the probes mean
 
@@ -159,7 +159,7 @@ One-time prep, on the laptop:
 Things to know:
 
 - The laptop must be on and online during CI. A job waits for a runner and fails after the queue limit if it is off.
-- CI never meets your local dev: the e2e job uses its own compose project (`kahanmilega-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
+- CI never meets your local dev: the e2e job uses its own compose project (`askbuy-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
 - No cache uploads on the laptop: the npm cache (~/.npm is about 12 GB here, 2.9 GB compressed) is skipped on self-hosted, since the disk keeps it. The eval catalog embeddings live in `~/.cache/kahanmilega-evals` there.
 - Back to GitHub's runners: delete the `RUNNER` variable. Nothing else changes.
 

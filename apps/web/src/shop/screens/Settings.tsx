@@ -1,4 +1,4 @@
-import type { Category } from '@kahanmilega/shared';
+import type { Category } from '@askbuy/shared';
 import { useRef, useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi, ShopPatch } from '../../lib/api.js';

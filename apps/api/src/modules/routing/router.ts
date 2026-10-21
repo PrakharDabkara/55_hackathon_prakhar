@@ -1,4 +1,4 @@
-import { planRouteTool } from '@kahanmilega/shared/tools';
+import { planRouteTool } from '@askbuy/shared/tools';
 import { Router } from 'express';
 import type { Queryable } from '../../db/queryable.js';
 import { parse } from '../../http/errors.js';

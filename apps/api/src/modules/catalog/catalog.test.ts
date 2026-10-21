@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@kahanmilega/shared';
+import { CATEGORIES } from '@askbuy/shared';
 import { describe, expect, it } from 'vitest';
 import seed from './catalog.seed.json' with { type: 'json' };
 import { REMOVED_TERMS } from '../../testing/removedTerms.js';
@@ -95,6 +95,14 @@ describe('Day 14a catalog gaps and categories', () => {
     ]) {
       expect(bySlug.has(slug), slug).toBe(true);
     }
+  });
+
+  it('resolves "brown sugar" to the grocery sweetener, not a blocked term (ADR-0052)', () => {
+    expect(owner('brown sugar')).toBe('brown-sugar');
+    expect(bySlug.get('brown-sugar')?.category).toBe('grocery');
+    for (const term of ['brown cheeni', 'demerara sugar', 'muscovado sugar', 'ब्राउन शुगर'])
+      expect(owner(term), term).toBe('brown-sugar');
+    expect(owner('khandsari')).not.toBe('brown-sugar');
   });
 
   it('knows an earthen lamp is a diya, not a candle', () => {

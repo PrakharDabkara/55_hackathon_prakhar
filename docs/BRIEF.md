@@ -1,12 +1,12 @@
-# KahanMilega — Product Brief & Build Plan
+# AskBuy — Product Brief & Build Plan
 
 Oct 12, 2026 · Prakhar · Source of truth for the hackathon build. Working name; final name decided later.
 
 ## Summary
 
-KahanMilega ("where will I find it?") lets a person ask their neighbourhood for an item and see, within minutes, which nearby shops have it and at what price. Shops answer a one-tap ping, and their answers become a living inventory that fades as it ages.
+AskBuy (ask the shops nearby, then buy) lets a person ask their neighbourhood for an item and see, within minutes, which nearby shops have it and at what price. Shops answer a one-tap ping, and their answers become a living inventory that fades as it ages.
 
-KahanMilega works in three layers: Find (ask nearby shops for an item), Plan (an AI errand agent takes a whole task — 'things for my son's school project' — finds every item across shops and returns a shopping plan with a route), and Get (stretch: the shop itself delivers, cash on delivery). The agent is the product's centre: it saves the user the running around.
+AskBuy works in three layers: Find (ask nearby shops for an item), Plan (an AI errand agent takes a whole task — 'things for my son's school project' — finds every item across shops and returns a shopping plan with a route), and Get (stretch: the shop itself delivers, cash on delivery). The agent is the product's centre: it saves the user the running around.
 
 - **Problem:** shoppers often visit stores only to find items unavailable, and have no way to compare local prices. Personal case: a bottle-cleaning brush cost ₹200 on a quick-commerce app and ₹50 at a local shop, but finding that shop meant guessing and asking around.
 - **For:** people new to a city, people with an urgent need, and anyone price-conscious. On the other side, local shops (kiranas, hardware, stationery, electricals) that never put a catalogue online.

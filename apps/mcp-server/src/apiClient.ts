@@ -12,7 +12,7 @@ export interface ApiResponse {
   body: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
-/** The only way the MCP server touches KahanMilega: the public HTTP API. Error statuses are data. */
+/** The only way the MCP server touches AskBuy: the public HTTP API. Error statuses are data. */
 export interface ApiClient {
   call(request: ApiRequest): Promise<ApiResponse>;
 }
@@ -28,7 +28,7 @@ export class NotLoggedInError extends Error {
 /** The API did not answer (network down, DNS, timeout). Names the address, never the token. */
 export class ApiUnreachableError extends Error {
   constructor(baseUrl: string) {
-    super(`Could not reach the KahanMilega API at ${baseUrl}`);
+    super(`Could not reach the AskBuy API at ${baseUrl}`);
     this.name = 'ApiUnreachableError';
   }
 }

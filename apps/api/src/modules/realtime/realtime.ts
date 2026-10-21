@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
-import type { Role } from '@kahanmilega/shared';
+import type { Role } from '@askbuy/shared';
 import { closeWithin, connect, withTimeout } from '../../workers/redis.js';
 import { createHub, HEARTBEAT_FRAME } from './hub.js';
 import {

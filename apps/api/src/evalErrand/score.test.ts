@@ -14,7 +14,7 @@ import {
 
 const limits = { maxItems: 10, maxAskShops: 6, maxQuestions: 2, maxSteps: 8 };
 const PROMPT =
-  'You plan shopping errands for KahanMilega, an app that tells people which nearby shops have an item and at what price. Rules: never invent an id.';
+  'You plan shopping errands for AskBuy, an app that tells people which nearby shops have an item and at what price. Rules: never invent an id.';
 
 const base = (
   over: Partial<ErrandCase['expect']> = {},

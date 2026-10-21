@@ -28,7 +28,7 @@ function load(openClients: FakeClient[] = []) {
   const showNotification = vi.fn(async () => undefined);
   const openWindow = vi.fn(async () => undefined);
   const self = {
-    location: { origin: 'https://kahanmilega.example' },
+    location: { origin: 'https://askbuy.example' },
     registration: { showNotification },
     clients: {
       matchAll: vi.fn(async () => openClients),
@@ -169,8 +169,8 @@ describe('the service worker (public/sw.js)', () => {
     });
 
     it('focuses the tab that already shows that page', async () => {
-      const same = client('https://kahanmilega.example/app/order/abc');
-      const other = client('https://kahanmilega.example/app/');
+      const same = client('https://askbuy.example/app/order/abc');
+      const other = client('https://askbuy.example/app/');
       const { click, openWindow } = load([other, same]);
       await click({ url: '/app/order/abc' });
       expect(same.focus).toHaveBeenCalledOnce();
@@ -180,34 +180,34 @@ describe('the service worker (public/sw.js)', () => {
     });
 
     it('otherwise takes an open app tab to the link', async () => {
-      const tab = client('https://kahanmilega.example/app/');
+      const tab = client('https://askbuy.example/app/');
       const { click, openWindow } = load([tab]);
       await click({ url: '/app/request/r1' });
       expect(tab.focus).toHaveBeenCalledOnce();
-      expect(tab.navigate).toHaveBeenCalledWith('https://kahanmilega.example/app/request/r1');
+      expect(tab.navigate).toHaveBeenCalledWith('https://askbuy.example/app/request/r1');
       expect(openWindow).not.toHaveBeenCalled();
     });
 
     it('opens the link in a new window when no app tab is open', async () => {
-      const elsewhere = client('https://kahanmilega.example/health');
+      const elsewhere = client('https://askbuy.example/health');
       const { click, openWindow } = load([elsewhere]);
       await click({ url: '/app/errand/e1' });
       expect(elsewhere.focus).not.toHaveBeenCalled();
-      expect(openWindow).toHaveBeenCalledWith('https://kahanmilega.example/app/errand/e1');
+      expect(openWindow).toHaveBeenCalledWith('https://askbuy.example/app/errand/e1');
     });
 
     it('opens a new window when the open tab refuses to navigate', async () => {
-      const tab = client('https://kahanmilega.example/app/', false);
+      const tab = client('https://askbuy.example/app/', false);
       const { click, openWindow } = load([tab]);
       await click({ url: '/app/order/o1' });
-      expect(openWindow).toHaveBeenCalledWith('https://kahanmilega.example/app/order/o1');
+      expect(openWindow).toHaveBeenCalledWith('https://askbuy.example/app/order/o1');
     });
 
     it('falls back to the app home for a missing or foreign link', async () => {
       for (const data of [undefined, {}, { url: 'https://evil.example/' }]) {
         const { click, openWindow } = load([]);
         await click(data);
-        expect(openWindow).toHaveBeenCalledWith('https://kahanmilega.example/app/');
+        expect(openWindow).toHaveBeenCalledWith('https://askbuy.example/app/');
       }
     });
   });

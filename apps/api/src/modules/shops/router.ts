@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@askbuy/shared';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { Queryable } from '../../db/queryable.js';

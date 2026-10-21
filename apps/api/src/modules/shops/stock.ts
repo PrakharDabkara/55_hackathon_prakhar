@@ -1,4 +1,4 @@
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 
 export type QuantityHint = 'few' | 'plenty';
 

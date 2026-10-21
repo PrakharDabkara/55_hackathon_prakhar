@@ -1,4 +1,4 @@
-import { resolveItemTool } from '@kahanmilega/shared/tools';
+import { resolveItemTool } from '@askbuy/shared/tools';
 import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';

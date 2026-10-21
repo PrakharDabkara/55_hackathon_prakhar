@@ -6,7 +6,7 @@ import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { tools } from '@kahanmilega/shared/tools';
+import { tools } from '@askbuy/shared/tools';
 import { createApp } from '../../api/src/app.js';
 import { createAi, createFakeProvider } from '../../api/src/modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from '../../api/src/modules/catalog/index.js';

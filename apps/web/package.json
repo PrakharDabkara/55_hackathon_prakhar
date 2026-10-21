@@ -1,12 +1,12 @@
 {
-  "name": "@kahanmilega/web",
+  "name": "@askbuy/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "dependencies": {
     "@fontsource/kalam": "^5.3.0",
     "@fontsource/mukta": "^5.3.0",
-    "@kahanmilega/shared": "*",
+    "@askbuy/shared": "*",
     "leaflet": "^1.9.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

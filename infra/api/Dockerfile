@@ -1,4 +1,4 @@
-# Build from the repo root: docker build -f infra/api/Dockerfile -t kahanmilega-api .
+# Build from the repo root: docker build -f infra/api/Dockerfile -t askbuy-api .
 # Pinned to an exact version and digest; bump with .nvmrc and ADR-0008.
 ARG NODE_IMAGE=node:24.21.0-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 
@@ -15,7 +15,7 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 COPY apps/web apps/web
 # The API serves the web app's build under /app/ (ADR-0017): one image, one deploy.
-RUN npm run build -w @kahanmilega/shared && npm run build -w @kahanmilega/api && npm run build -w @kahanmilega/web
+RUN npm run build -w @askbuy/shared && npm run build -w @askbuy/api && npm run build -w @askbuy/web
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
@@ -25,7 +25,7 @@ COPY apps/mcp-server/package.json apps/mcp-server/
 COPY apps/simulator/package.json apps/simulator/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --omit=dev -w @kahanmilega/api
+RUN npm ci --omit=dev -w @askbuy/api
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { CATEGORIES, type Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@askbuy/shared';
 import { z } from 'zod';
 import { normaliseQuery } from './normalise.js';
 

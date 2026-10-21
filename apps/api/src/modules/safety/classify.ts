@@ -1,4 +1,4 @@
-import { CATEGORIES, type Category } from '@kahanmilega/shared';
+import { CATEGORIES, type Category } from '@askbuy/shared';
 import { z } from 'zod';
 import { AiUnavailableError, sanitiseQuery, type AiContext } from '../ai/index.js';
 

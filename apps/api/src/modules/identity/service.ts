@@ -1,4 +1,4 @@
-import type { Role } from '@kahanmilega/shared';
+import type { Role } from '@askbuy/shared';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import {
   MAX_ATTEMPTS,

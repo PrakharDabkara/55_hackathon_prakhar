@@ -1,6 +1,6 @@
-import type { ExactQuantity } from '@kahanmilega/shared';
+import type { ExactQuantity } from '@askbuy/shared';
 import { ownsSavedAddress } from './deliveryAddress.js';
-import { unitFromQuery } from '@kahanmilega/shared';
+import { unitFromQuery } from '@askbuy/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';

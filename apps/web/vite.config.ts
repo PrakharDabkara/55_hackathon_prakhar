@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     // The shared package is plain TypeScript; use its source and skip a build step.
     alias: {
-      '@kahanmilega/shared': fileURLToPath(
+      '@askbuy/shared': fileURLToPath(
         new URL('../../packages/shared/src/index.ts', import.meta.url),
       ),
     },
@@ -20,7 +20,7 @@ export default defineConfig({
     assetsInlineLimit: 0,
   },
   server: {
-    // `npm run dev -w @kahanmilega/web` against an API on localhost:3000.
+    // `npm run dev -w @askbuy/web` against an API on localhost:3000.
     proxy: Object.fromEntries(
       ['/auth', '/shops', '/pings', '/requests', '/search', '/dev', '/health', '/events'].map(
         (path) => [path, 'http://localhost:3000'],
