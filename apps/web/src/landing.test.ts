@@ -17,10 +17,10 @@ const text = html
 describe('landing.html', () => {
   it('has the head the brief asks for', () => {
     expect(html).toMatch(/<title>AskBuy: lift your shutter online<\/title>/);
-    expect(html).toMatch(/<meta name="description" content="People nearby are asking/);
+    expect(html).toMatch(/<meta\s+name="description"\s+content="People nearby are asking/);
     expect(html).toMatch(/<meta property="og:title" content="AskBuy: lift your shutter online"/);
-    expect(html).toMatch(/<meta property="og:description"/);
-    expect(html).toMatch(/<meta property="og:image" content="[^"]*icon-512\.png"/);
+    expect(html).toMatch(/<meta\s+property="og:description"/);
+    expect(html).toMatch(/<meta\s+property="og:image"\s+content="[^"]*icon-512\.png"/);
     expect(html).toMatch(/<meta name="theme-color"/);
     expect(html).toMatch(/<link rel="manifest"/);
     expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml"/);

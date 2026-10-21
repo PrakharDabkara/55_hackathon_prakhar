@@ -19,9 +19,9 @@ test('the health check, /app/ and /app/shop are untouched', async ({ page, reque
 
 test('every in-page link targets an existing id', async ({ page }) => {
   await page.goto('/');
-  const hrefs = await page.locator('a[href^="#"]').evaluateAll((as) =>
-    as.map((a) => a.getAttribute('href') as string),
-  );
+  const hrefs = await page
+    .locator('a[href^="#"]')
+    .evaluateAll((as) => as.map((a) => a.getAttribute('href') as string));
   expect(hrefs.length).toBeGreaterThan(2);
   for (const href of hrefs) {
     await expect(page.locator(href), href).toHaveCount(1);
