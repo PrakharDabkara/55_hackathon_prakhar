@@ -237,7 +237,7 @@
 .cu-lanswer__head[aria-expanded='true'] .cu-lanswer__chevron {
   transform: rotate(180deg);
 }
-.cu-lanswer__lines {
+.cu-lanswer .cu-lanswer__lines {
   display: flex;
   flex-direction: column;
   margin: 0;

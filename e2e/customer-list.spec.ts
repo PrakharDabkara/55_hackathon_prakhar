@@ -15,6 +15,8 @@ import {
 // Shopping lists in the customer app (ADR-0055, PR U3), in real browsers at 360 px. Part one is a
 // customer at the demo place, where the simulated shops answer. Part two is a quiet corner of its
 // own with two real shops (one delivers, one does not), so prices and modes are known.
+// Part one avoids "chini": the seeker spec asks for it at the same place and needs the simulated
+// shops not to remember it yet.
 // Screenshots go to e2e/screens/customer/ (not committed), or to U3_SHOTS_DIR at 390 px wide.
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(300_000);
@@ -32,6 +34,8 @@ async function nothingBlocking(page: Page, label: string) {
 
 /** Light, dark (the phone's setting) and dark through data-theme, as the Account screen sets it. */
 async function scanBoth(page: Page, label: string) {
+  // A sheet that just opened is still rising for 160 ms: scan it once it has settled.
+  await page.waitForTimeout(300);
   for (const scheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
     await nothingBlocking(page, `${label} in ${scheme}`);
@@ -45,7 +49,7 @@ async function scanBoth(page: Page, label: string) {
 async function shot(page: Page, file: string, scheme: 'light' | 'dark' = 'light') {
   const dir = process.env['U3_SHOTS_DIR'];
   await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
-  if (dir) await page.setViewportSize({ width: 390, height: 1100 });
+  if (dir) await page.setViewportSize({ width: 390, height: 1500 });
   await page.waitForTimeout(400);
   await page.screenshot({
     path: dir ? `${dir}/${file}.png` : `e2e/screens/customer/U3-${file}-360-${scheme}.png`,
@@ -86,7 +90,7 @@ test('S58: build a list with Enter, a paste and a remove', async ({ browser }) =
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Find these nearby' })).toBeDisabled();
 
-  await page.getByRole('textbox', { name: 'Next item' }).fill('chini');
+  await page.getByRole('textbox', { name: 'Next item' }).fill('namak');
   await page.keyboard.press('Enter');
   await page.keyboard.type('haldi');
   await page.keyboard.press('Enter');
@@ -180,7 +184,8 @@ test('S61: Stop asking on a list and on a single search, each asked in the page 
   await scanBoth(page, 'the stop sheet');
   await sheet.getByRole('button', { name: 'Keep waiting' }).click();
   await expect(sheet).toHaveCount(0);
-  await expect(page.getByText(/still listening/)).toBeVisible();
+  // The simulated shops may already have filled the list (8 answers): both read as live.
+  await expect(page.getByText(/still listening|Enough answers/)).toBeVisible();
 
   await page.getByRole('button', { name: 'Stop asking' }).click();
   await sheet.getByRole('button', { name: 'Stop asking' }).click();
