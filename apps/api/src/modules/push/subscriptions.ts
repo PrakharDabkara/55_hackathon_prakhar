@@ -53,6 +53,11 @@ export async function removeSubscriptionOf(
   ]);
 }
 
+/** Every browser of this user: part of deleting an account. */
+export async function removeAllSubscriptionsOf(db: Queryable, userId: string): Promise<void> {
+  await db.query(`DELETE FROM push_subscriptions WHERE user_id = $1`, [userId]);
+}
+
 export async function removeSubscription(db: Queryable, id: string): Promise<void> {
   await db.query(`DELETE FROM push_subscriptions WHERE id = $1`, [id]);
 }

@@ -20,6 +20,15 @@ export interface PushClient {
   resync(): Promise<void>;
 }
 
+/** What the Account screen needs on top: log out and delete end the login, so they carry the endpoint. */
+export interface DevicePushClient extends PushClient {
+  /**
+   * Drops this browser's subscription and returns its endpoint, without telling the server: log out
+   * and delete pass it along in their own call, since the login ends there. Null if none.
+   */
+  forgetDevice(): Promise<string | null>;
+}
+
 /** The browser's side, so the logic above it can be tested without a browser. */
 export interface PushEnv {
   supported: boolean;
@@ -44,7 +53,7 @@ export function urlBase64ToBytes(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-export function createPushClient(api: PushApi, env: PushEnv = browserEnv()): PushClient {
+export function createPushClient(api: PushApi, env: PushEnv = browserEnv()): DevicePushClient {
   const config = () => api.pushConfig().catch(() => ({ enabled: false as const }));
 
   return {
@@ -78,6 +87,10 @@ export function createPushClient(api: PushApi, env: PushEnv = browserEnv()): Pus
       const endpoint = await env.unsubscribe().catch(() => null);
       // If the server cannot be told, its next push to this browser gets a 410 and it forgets it.
       if (endpoint) await api.pushUnsubscribe(endpoint).catch(() => undefined);
+    },
+
+    async forgetDevice() {
+      return env.unsubscribe().catch(() => null);
     },
 
     async resync() {

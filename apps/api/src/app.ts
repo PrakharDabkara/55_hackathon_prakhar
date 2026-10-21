@@ -6,6 +6,7 @@ import { healthRouter } from './http/health.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
+import { accountRouter } from './modules/account/index.js';
 import { aiAdminRouter, type AiContext } from './modules/ai/index.js';
 import { demandRouter } from './modules/demand/index.js';
 import { pickupsRouter } from './modules/pickups/index.js';
@@ -77,6 +78,7 @@ export function createApp({
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
   app.use(webRouter({ distDir: webDistDir, logger }));
   app.use(identityRouter({ db, logger, otpMode: config.otpMode, adminPhones: config.adminPhones }));
+  app.use(accountRouter({ db, logger }));
   app.use(realtimeRouter({ db, realtime }));
   // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
   if (config.adminPhones.length > 0) {

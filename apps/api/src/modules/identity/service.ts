@@ -208,3 +208,31 @@ export async function deleteUsers(db: Queryable, userIds: string[]): Promise<num
   const { rowCount } = await db.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [userIds]);
   return rowCount ?? 0;
 }
+
+/** Locks a live (not deleted) user's row until the transaction ends. False if there is none. */
+export async function lockLiveUser(tx: Queryable, userId: string): Promise<boolean> {
+  const { rows } = await tx.query(
+    `SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+    [userId],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Soft delete (ADR-0054): ends every session, erases the phone and marks the row deleted. The row
+ * stays so requests and orders keep a user to point at; the same phone can register again as a
+ * new row. Run inside the caller's transaction.
+ */
+export async function anonymiseUser(tx: Queryable, userId: string): Promise<void> {
+  await tx.query(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+  await tx.query(`UPDATE users SET phone = NULL, deleted_at = now() WHERE id = $1`, [userId]);
+}
+
+/** The caller's own phone, or null. */
+export async function phoneOf(db: Queryable, userId: string): Promise<string | null> {
+  const { rows } = await db.query<{ phone: string | null }>(
+    `SELECT phone FROM users WHERE id = $1`,
+    [userId],
+  );
+  return rows[0]?.phone ?? null;
+}

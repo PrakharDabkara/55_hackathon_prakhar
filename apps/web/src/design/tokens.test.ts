@@ -26,9 +26,19 @@ const shopCss = [
 
 const light = /:root\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
 const dark =
-  /prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s*\}/.exec(tokens)?.[1] ?? '';
+  /prefers-color-scheme:\s*dark\)\s*\{\s*:root:not\(\[data-theme='light'\]\)\s*\{([\s\S]*?)\n\s*\}/.exec(
+    tokens,
+  )?.[1] ?? '';
+const darkChosen = /:root\[data-theme='dark'\]\s*\{([\s\S]*?)\n\}/.exec(tokens)?.[1] ?? '';
 
 describe('tokens.css', () => {
+  it('has the same dark values for a dark phone and for a person who chose Dark', () => {
+    const pairs = (block: string) =>
+      [...block.matchAll(/(--[\w-]+|color-scheme):\s*([^;]+);/g)].map((m) => `${m[1]}: ${m[2]}`);
+    expect(pairs(darkChosen).length).toBeGreaterThan(10);
+    expect(pairs(darkChosen)).toEqual(pairs(dark));
+  });
+
   const names = (block: string) => [...block.matchAll(/(--[\w-]+):/g)].map((m) => m[1]);
 
   it('has the colour, space, radius and type tokens the rules name', () => {

@@ -48,3 +48,4 @@ A shop that closes ("Dukaan aaj band hai") stops getting **new** pings and order
 - S16: since ADR-0043 up to three shops can offer on one request (before: only the first, unless they answered at the same moment); the one-shop rule is how the customer's choice becomes one order.
 - S27: "Something else" in Did you mean used to run the full resolver again, so a no-match or a fuzzy match sent the customer back to Find; it now searches the text exactly.
 - S2/S3 are decisions rather than fixes: closing keeps commitments in flight (see the note above the table).
+  | S34 | The customer logs out, or deletes the account, from Account | Log out: the old token answers 401 and this browser's alerts are gone. Delete: refused with an open order or live request; otherwise phone, address, alerts and sessions are erased, orders stay without a number, and the same phone can register again | `account.int.test.ts`, `e2e/account.spec.ts` (ADR-0054) |

@@ -132,6 +132,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   const [online, setOnline] = useState(() => navigator.onLine !== false);
   /** Set by "Find nearby" or the photo button: whether the login should end in a send. */
   const sendAfterLogin = useRef(false);
+  /** The header's Account icon was pressed signed out: after the login, go to Account. */
+  const accountAfterLogin = useRef(false);
   const sending = useRef(false);
   /** The request went out and the draft is cleared: do not write it back while the screen closes. */
   const sent = useRef(false);
@@ -360,6 +362,11 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     // The app stores the token first (the api reads it through the session), then the draft goes.
     onLoggedIn(token);
     setLoginOpen(false);
+    if (accountAfterLogin.current) {
+      accountAfterLogin.current = false;
+      navigate('/app/account');
+      return;
+    }
     if (sendAfterLogin.current) {
       sendAfterLogin.current = false;
       void send();
@@ -393,6 +400,25 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             {activeLabel}
           </span>
         )}
+        <a
+          className="sh-icon-btn cu-find__orders"
+          aria-label={c.accountOpen}
+          {...(loggedIn
+            ? appLink(navigate, '/app/account')
+            : {
+                href: '/app/account',
+                onClick(event: MouseEvent<HTMLAnchorElement>) {
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0)
+                    return;
+                  event.preventDefault();
+                  sendAfterLogin.current = false;
+                  accountAfterLogin.current = true;
+                  setLoginOpen(true);
+                },
+              })}
+        >
+          <Icon name="person" />
+        </a>
       </header>
 
       <main className="cu-main cu-find">
@@ -546,6 +572,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
         open={loginOpen}
         onClose={() => {
           sendAfterLogin.current = false;
+          accountAfterLogin.current = false;
           setLoginOpen(false);
         }}
         onLoggedIn={loggedInFromSheet}

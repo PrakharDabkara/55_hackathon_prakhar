@@ -29,3 +29,4 @@ export { errandStats, errandsAdminRouter } from './stats.js';
 export type { ErrandStats } from './stats.js';
 export { ERRAND_EVENTS, ERRAND_STATES } from './stateMachine.js';
 export type { ErrandEvent, ErrandState } from './stateMachine.js';
+export { hasLiveErrand } from './account.js';

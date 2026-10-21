@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskPhone, normalisePhone } from './phone.js';
+import { displayPhone, maskPhone, normalisePhone } from './phone.js';
 
 describe('normalisePhone', () => {
   it.each([
@@ -24,5 +24,11 @@ describe('normalisePhone', () => {
 describe('maskPhone', () => {
   it('keeps only the last 4 digits', () => {
     expect(maskPhone('+919876543210')).toBe('******3210');
+  });
+});
+
+describe('displayPhone', () => {
+  it('shows the country code, two digits and the last three', () => {
+    expect(displayPhone('+919812345210')).toBe('+91 98••• ••210');
   });
 });

@@ -55,8 +55,10 @@
   color-scheme: light;
 }
 
+/* The dark values, twice: for a phone set to dark (unless the person chose Light on the Account
+   screen) and for the person who chose Dark (ADR-0054). Keep the two blocks equal. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0e1412;
     --surface: #17201d;
     --surface-sunk: #0a0f0d;
@@ -75,4 +77,24 @@
     --focus: var(--brand);
     color-scheme: dark;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0e1412;
+  --surface: #17201d;
+  --surface-sunk: #0a0f0d;
+  --line: #2b3833;
+  --ink: #e9edf5;
+  --ink-muted: #9ba7b5;
+  --brand: #4fbf93;
+  --brand-soft: #163a2e;
+  --on-brand: #06140f;
+  --marigold: #f5b334;
+  --paper: #efe6cf;
+  --paper-edge: #d9cdae;
+  --paper-ink-muted: #55596a;
+  --danger: #f2857d;
+  --danger-soft: #3a1a18;
+  --focus: var(--brand);
+  color-scheme: dark;
 }
