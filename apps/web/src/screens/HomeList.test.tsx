@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { fakeSeekerApi } from '../test/fakes.js';
-import { draftList, openList } from '../test/fakesLists.js';
+import { at, draftList, openList } from '../test/fakesLists.js';
 import { renderApp } from '../test/render.js';
 import { Home } from './Home.js';
 
@@ -146,7 +146,7 @@ describe('Find a list', () => {
   });
 
   it('sorts the list and sends it straight away when nothing needs a question', async () => {
-    const sorted = draftList({ lines: [draftList().lines[0]!, draftList().lines[2]!] });
+    const sorted = draftList({ lines: [at(draftList().lines, 0), at(draftList().lines, 2)] });
     const sent = openList();
     const { user, api, onList } = setup({
       sortList: vi.fn(async () => sorted),
@@ -172,7 +172,7 @@ describe('Find a list', () => {
   it('asks for a login first, then sorts by itself', async () => {
     const { user, api, onList } = setup(
       {
-        sortList: vi.fn(async () => draftList({ lines: [draftList().lines[0]!] })),
+        sortList: vi.fn(async () => draftList({ lines: [at(draftList().lines, 0)] })),
         sendList: vi.fn(async () => openList()),
       },
       { loggedIn: false },

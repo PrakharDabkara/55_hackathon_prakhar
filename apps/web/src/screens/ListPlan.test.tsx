@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { fakeSeekerApi } from '../test/fakes.js';
-import { openList } from '../test/fakesLists.js';
+import { openList, planWith } from '../test/fakesLists.js';
 import { renderApp } from '../test/render.js';
 import { ListPlan } from './ListPlan.js';
 
@@ -33,14 +33,7 @@ function setup(overrides: Partial<SeekerApi> = {}, list = openList()) {
   const onOrdered = vi.fn();
   const onBack = vi.fn();
   const utils = renderApp(
-    <ListPlan
-      api={api}
-      list={list}
-      origin={HERE}
-      onBack={onBack}
-      onOrdered={onOrdered}
-      navigate={vi.fn()}
-    />,
+    <ListPlan api={api} list={list} origin={HERE} onBack={onBack} onOrdered={onOrdered} />,
     'en',
   );
   return { api, onOrdered, onBack, ...utils };
@@ -108,7 +101,7 @@ describe('Your plan', () => {
     expect(screen.queryByText('Deliver to')).toBeNull();
     await user.click(within(card('Mishra Kirana')).getByRole('button', { name: 'Deliver · ₹20' }));
     expect(await screen.findByText('Flat 4B, Vijay Nagar')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Change address' }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
     expect(screen.getByLabelText('Delivery address')).toBeTruthy();
     expect(screen.getByLabelText(/Note for the shop/)).toBeTruthy();
   });
@@ -128,16 +121,9 @@ describe('Your plan', () => {
   });
 
   it('shows lines nobody has under "Nobody has this yet"', () => {
-    const base = openList();
     setup(
       {},
-      openList({
-        plan: {
-          ...base.plan!,
-          assignments: base.plan!.assignments.filter((a) => a.position !== 3),
-          missing: [3],
-        },
-      }),
+      planWith((a) => a.position !== 3, [3]),
     );
     expect(screen.getByRole('heading', { name: 'Nobody has this yet' })).toBeTruthy();
     expect(screen.getByText('Tractor spare bolt')).toBeTruthy();
@@ -172,7 +158,7 @@ describe('Your plan', () => {
     await screen.findByText('Flat 4B, Vijay Nagar');
     await user.click(screen.getByRole('button', { name: 'Order from 3 shops · pay cash' }));
     await waitFor(() => expect(api.orderList).toHaveBeenCalled());
-    const first = (api.orderList as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const first = (api.orderList as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(first.modes['shop-m']).toBe('delivery');
     expect(first.addressText).toBeUndefined();
   });
@@ -192,7 +178,7 @@ describe('Your plan', () => {
     expect(order.disabled).toBe(false);
     await user.click(order);
     await waitFor(() => expect(api.orderList).toHaveBeenCalled());
-    const body = (api.orderList as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    const body = (api.orderList as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(body).toMatchObject({ addressText: 'Flat 9, Sapna Apartments', saveAddress: true });
   });
 

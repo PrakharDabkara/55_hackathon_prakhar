@@ -5,7 +5,7 @@ import { ApiError } from '../lib/api.js';
 import type { ListView } from '../lib/listApi.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { FakeEventSource, fakeSeekerApi, seekerOrder } from '../test/fakes.js';
-import { openList } from '../test/fakesLists.js';
+import { at, openList, planWith } from '../test/fakesLists.js';
 import { renderApp } from '../test/render.js';
 import { ListPage } from './ListPage.js';
 
@@ -102,7 +102,7 @@ describe('the list replies screen', () => {
 
   it('says "delivers free" for a zero fee and just "delivers" when no fee was named', async () => {
     const list = openList();
-    list.answers[0]!.deliveryFeePaise = 0;
+    at(list.answers, 0).deliveryFeePaise = 0;
     show(list);
     await screen.findByText('Sent to 6 shops · 5 items');
     expect(screen.getByText('400 m · delivers free')).toBeTruthy();
@@ -132,12 +132,7 @@ describe('the list replies screen', () => {
   });
 
   it('says how many items have a shop so far when some have none', async () => {
-    const base = openList();
-    show(
-      openList({
-        plan: { ...base.plan!, assignments: base.plan!.assignments.slice(0, 3), missing: [3, 4] },
-      }),
-    );
+    show(planWith((a) => a.position < 3, [3, 4]));
     expect(await screen.findByText('3 of 5 items have a shop so far')).toBeTruthy();
   });
 
@@ -254,7 +249,7 @@ describe('an ordered list', () => {
     show(ordered(), { listOrders: vi.fn(async () => orders) });
     expect(await screen.findByRole('heading', { name: 'Your orders' })).toBeTruthy();
     expect(screen.queryByText('Make my plan')).toBeNull();
-    const mishra = screen.getByRole('listitem', { name: 'Mishra Kirana' });
+    const mishra = await screen.findByRole('listitem', { name: 'Mishra Kirana' });
     expect(within(mishra).getByText('Being packed · 1 of 2')).toBeTruthy();
     const gupta = screen.getByRole('listitem', { name: 'Gupta Store' });
     expect(within(gupta).getByText('Ready for pickup')).toBeTruthy();

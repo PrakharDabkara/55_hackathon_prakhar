@@ -164,3 +164,21 @@ export function draftList(overrides: Partial<ListView> = {}): ListView {
     ...overrides,
   };
 }
+
+/** The entry at a place that must exist (a test fixture), without a non-null assertion. */
+export function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`no entry at ${index}`);
+  return item;
+}
+
+/** The open list with its default plan changed: only these assignments, and these lines missing. */
+export function planWith(
+  keep: (a: { position: number }) => boolean,
+  missing: number[],
+  base: ListView = openList(),
+): ListView {
+  const plan = base.plan;
+  if (!plan) throw new Error('the list has no plan');
+  return { ...base, plan: { ...plan, assignments: plan.assignments.filter(keep), missing } };
+}

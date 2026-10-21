@@ -1,5 +1,6 @@
 import type { QuantityUnit } from '@askbuy/shared';
 import { createCaller, type ClientOptions, type ShopApi } from './api.js';
+import { createListApi, type ListApi } from './listApi.js';
 import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 import { createPickupApi, type PickupApi } from './pickupApi.js';
@@ -236,7 +237,8 @@ export interface SeekerApi
     Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'>,
     PhotoApi,
     PickupApi,
-    PushApi {
+    PushApi,
+    ListApi {
   createRequest(input: NewRequest): Promise<SeekerRequest>;
   getRequest(id: string): Promise<SeekerRequest>;
   closeRequest(id: string): Promise<SeekerRequest>;
@@ -263,6 +265,8 @@ export interface SeekerApi
   keepAddress(input: { addressText: string; customerName?: string }): Promise<SavedAddress>;
   /** The customer confirms the delivery arrived. */
   receiveOrder(id: string): Promise<SeekerOrder>;
+  /** The customer picked up a READY pickup order ("Got it"). */
+  collectOrder(id: string): Promise<SeekerOrder>;
   forgetAddress(): Promise<void>;
   /** Who the customer is, as the Account screen may show it: the phone partly hidden. */
   account(): Promise<{ phoneMasked: string | null }>;
@@ -301,6 +305,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     ...createPhotoApi(options),
     ...createPushApi(options),
     ...createPickupApi(options),
+    ...createListApi(options),
     async requestOtp(phone) {
       await call('POST', '/auth/otp/request', { phone });
     },
@@ -342,7 +347,9 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
         'GET',
         'requestId' in source
           ? `/orders?requestId=${id(source.requestId)}`
-          : `/orders?errandId=${id(source.errandId)}`,
+          : 'listId' in source
+            ? `/orders?listId=${id(source.listId)}`
+            : `/orders?errandId=${id(source.errandId)}`,
       ),
     cancelOrder: (orderId, text) =>
       call<SeekerOrder>('POST', `/orders/${id(orderId)}/cancel`, text ? { text } : undefined),
@@ -393,5 +400,6 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     savedAddress: () => call<SavedAddress>('GET', '/orders/saved-address'),
     keepAddress: (input) => call<SavedAddress>('PUT', '/orders/saved-address', input),
     receiveOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/received`),
+    collectOrder: (orderId) => call<SeekerOrder>('POST', `/orders/${id(orderId)}/collected`),
   };
 }

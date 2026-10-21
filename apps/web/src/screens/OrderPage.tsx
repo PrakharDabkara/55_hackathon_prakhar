@@ -13,17 +13,21 @@ import type { LiveOptions } from '../lib/live.js';
 import { formatRupees } from '../lib/money.js';
 import { lineName, orderSourcePath, orderTotalPaise, type SeekerOrder } from '../lib/orders.js';
 import { orderCaption } from '../lib/orderText.js';
+import { directionsUrl } from '../lib/results.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { timeOfDay } from '../lib/time.js';
 import { useLive } from '../lib/useLive.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
-import { Button } from '../ui/Button.js';
+import { Button, LinkButton } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
 import { Icon } from '../ui/Icon.js';
 import { ShopLogo } from '../ui/ShopLogo.js';
 
 interface Props {
-  api: Pick<SeekerApi, 'getOrder' | 'cancelOrder' | 'receiveOrder' | 'eventTicket'>;
+  api: Pick<
+    SeekerApi,
+    'getOrder' | 'cancelOrder' | 'receiveOrder' | 'collectOrder' | 'eventTicket'
+  >;
   orderId: string;
   onBack: () => void;
   /** Goes to the search or plan the order came from. Without it the link is a plain link. */
@@ -37,6 +41,8 @@ const MOVING: readonly SeekerOrder['state'][] = [
   'ACCEPTED',
   'OUT_FOR_DELIVERY',
   'DELIVERED',
+  'READY',
+  'COLLECTED',
 ];
 
 /**
@@ -143,17 +149,31 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
   const sourceProps = source ? (navigate ? appLink(navigate, source) : { href: source }) : null;
   const arrival = arrivalTime(order);
 
-  const reached = { REQUESTED: 0, ACCEPTED: 1, OUT_FOR_DELIVERY: 2, DELIVERED: 3 } as Record<
-    string,
-    number
-  >;
+  const pickup = order.fulfilment === 'pickup';
+  const finished = order.state === 'DELIVERED' || order.state === 'COLLECTED';
+  const reached = {
+    REQUESTED: 0,
+    ACCEPTED: 1,
+    OUT_FOR_DELIVERY: 2,
+    READY: 2,
+    DELIVERED: 3,
+    COLLECTED: 3,
+  } as Record<string, number>;
   const at = reached[order.state] ?? 0;
   const steps: { label: string; time: string | null }[] = [
     { label: c.stepPlaced, time: order.createdAt },
     { label: c.stepAccepted, time: order.acceptedAt ?? null },
-    { label: c.stepOut, time: order.outForDeliveryAt ?? null },
-    { label: c.stepReceived, time: order.state === 'DELIVERED' ? order.updatedAt : null },
+    pickup
+      ? { label: c.stepReady, time: null }
+      : { label: c.stepOut, time: order.outForDeliveryAt ?? null },
+    pickup
+      ? { label: c.stepCollected, time: order.state === 'COLLECTED' ? order.updatedAt : null }
+      : { label: c.stepReceived, time: order.state === 'DELIVERED' ? order.updatedAt : null },
   ];
+  const caption =
+    pickup && order.state === 'ACCEPTED'
+      ? c.listPacked(order.packedCount, order.lines.length)
+      : orderCaption(c, order.state);
 
   const plainHelp: Partial<Record<SeekerOrder['state'], string>> = {
     NOT_CONFIRMED: c.notConfirmedHelp,
@@ -192,7 +212,7 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
         {moving ? (
           <>
             <div className="cu-order-status" role="status">
-              <p className="cu-order-status__caption">{orderCaption(c, order.state)}</p>
+              <p className="cu-order-status__caption">{caption}</p>
               {order.state === 'OUT_FOR_DELIVERY' && (
                 <>
                   {arrival ? (
@@ -210,11 +230,11 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
               {steps.map((step, i) => (
                 <li
                   key={step.label}
-                  className={`cu-step${i < at || order.state === 'DELIVERED' ? ' cu-step--done' : ''}${i === at ? ' cu-step--current' : ''}`}
+                  className={`cu-step${i < at || finished ? ' cu-step--done' : ''}${i === at ? ' cu-step--current' : ''}`}
                   {...(i === at && { 'aria-current': 'step' as const })}
                 >
                   <span className="cu-step__dot" aria-hidden="true">
-                    {(i < at || order.state === 'DELIVERED') && <Icon name="check" size={16} />}
+                    {(i < at || finished) && <Icon name="check" size={16} />}
                   </span>
                   <span className="cu-step__label">{step.label}</span>
                   {step.time && <span className="cu-step__time">{timeOfDay(step.time)}</span>}
@@ -266,18 +286,40 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
             ))}
         </section>
 
-        <section className="cu-section" aria-labelledby="order-address">
-          <h2 id="order-address" className="sh-caption">
-            {c.addressTitle}
-          </h2>
-          <p>{order.addressText ?? c.addressGone}</p>
-          {order.note && (
-            <>
-              <h3 className="sh-caption">{c.noteTitle}</h3>
-              <p>{order.note}</p>
-            </>
-          )}
-        </section>
+        {pickup ? (
+          <section className="cu-section" aria-labelledby="order-pickup">
+            <h2 id="order-pickup" className="sh-caption">
+              {c.pickupShop}
+            </h2>
+            <p>{c.pickupCod}</p>
+            <LinkButton
+              variant="secondary"
+              external
+              href={directionsUrl(order.shopLocation.lat, order.shopLocation.lng)}
+            >
+              {c.directions}
+            </LinkButton>
+            {order.note && (
+              <>
+                <h3 className="sh-caption">{c.noteTitle}</h3>
+                <p>{order.note}</p>
+              </>
+            )}
+          </section>
+        ) : (
+          <section className="cu-section" aria-labelledby="order-address">
+            <h2 id="order-address" className="sh-caption">
+              {c.addressTitle}
+            </h2>
+            <p>{order.addressText ?? c.addressGone}</p>
+            {order.note && (
+              <>
+                <h3 className="sh-caption">{c.noteTitle}</h3>
+                <p>{order.note}</p>
+              </>
+            )}
+          </section>
+        )}
 
         {actionFailed && (
           <p className="sh-alert" role="alert">
@@ -296,6 +338,15 @@ export function OrderPage({ api, orderId, onBack, navigate, pollMs = 15_000, liv
             </Button>
             <p className="sh-helper">{c.cannotCancelOut}</p>
           </>
+        )}
+        {pickup && order.state === 'READY' && (
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() => void act(() => api.collectOrder(orderId))}
+          >
+            {c.pickupFound}
+          </Button>
         )}
         {open && (
           <Button variant="quiet" disabled={busy} onClick={() => setSheet(true)}>

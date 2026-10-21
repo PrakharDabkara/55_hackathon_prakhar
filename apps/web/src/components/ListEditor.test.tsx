@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../test/render.js';
 import { ListEditor, lineTexts } from './ListEditor.js';
+import { at } from '../test/fakesLists.js';
 
 function setup(initial: string[] = ['']) {
   const changes = vi.fn();
@@ -62,7 +63,7 @@ describe('the list editor', () => {
 
   it('Enter in the middle opens a line right after it', async () => {
     const { user } = setup(['atta', 'dal', '']);
-    await user.click(inputs()[0]!);
+    await user.click(at(inputs(), 0));
     await user.keyboard('{Enter}');
     expect(values()).toEqual(['atta', '', 'dal', '']);
     expect(document.activeElement).toBe(inputs()[1]);
@@ -82,7 +83,7 @@ describe('the list editor', () => {
 
   it('Backspace on an empty middle line closes the gap', async () => {
     const { user } = setup(['atta', '', 'dal', '']);
-    await user.click(inputs()[1]!);
+    await user.click(at(inputs(), 1));
     await user.keyboard('{Backspace}');
     expect(values()).toEqual(['atta', 'dal', '']);
     expect(document.activeElement).toBe(inputs()[0]);
@@ -140,10 +141,10 @@ describe('the list editor', () => {
 
   it('drops a line left empty once the cursor leaves it', async () => {
     const { user } = setup(['atta', 'dal', '']);
-    await user.click(inputs()[0]!);
+    await user.click(at(inputs(), 0));
     await user.keyboard('{Enter}');
     expect(values()).toEqual(['atta', '', 'dal', '']);
-    await user.click(inputs()[2]!);
+    await user.click(at(inputs(), 2));
     expect(values()).toEqual(['atta', 'dal', '']);
   });
 

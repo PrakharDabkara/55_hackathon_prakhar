@@ -498,6 +498,22 @@ describe('stop asking', () => {
     expect(onDone).toHaveBeenCalled();
   });
 
+  it('says so and stays when closing fails, so it can be tried again', async () => {
+    const { api, onDone, user } = show(
+      seekerRequest({ state: 'PINGING', pingStats: { sent: 2, yes: 0, no: 0, pending: 2 } }),
+    );
+    (api.closeRequest as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('offline'));
+    await user.click(screen.getByRole('button', { name: 'Stop asking' }));
+    const sheet = screen.getByRole('dialog', { name: 'Stop asking shops?' });
+    await user.click(within(sheet).getByRole('button', { name: 'Stop asking' }));
+    expect((await within(sheet).findByRole('alert')).textContent).toBe(
+      "Couldn't stop. Check your connection and try again.",
+    );
+    expect(onDone).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByRole('button', { name: 'Stop asking' }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
   it('keeps waiting when the customer changes their mind', async () => {
     const { api, onDone, user } = show(
       seekerRequest({ state: 'PINGING', pingStats: { sent: 2, yes: 0, no: 0, pending: 2 } }),

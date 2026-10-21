@@ -64,6 +64,9 @@ export interface ListView {
   /** Answers can still be ordered at once (OPEN or FULL). */
   binding: boolean;
   wantsDelivery: boolean;
+  /** Where the customer sent it from (their own place; null for a draft): the plan's map starts here. */
+  lat: number | null;
+  lng: number | null;
   maxAnswers: number;
   shopsAsked: number;
   shopsAnswered: number;
@@ -270,6 +273,8 @@ export async function buildView(db: Queryable, list: ListRow): Promise<ListView>
     listening: list.state === 'OPEN',
     binding: isLive(list.state),
     wantsDelivery: list.wants_delivery,
+    lat: list.lat,
+    lng: list.lng,
     maxAnswers: MAX_LIST_ANSWERS,
     shopsAsked: counts.asked,
     shopsAnswered: counts.answered,

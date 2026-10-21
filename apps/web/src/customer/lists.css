@@ -1,0 +1,488 @@
+/* Shopping lists in the customer app (ADR-0055). Tokens only. Paper (--paper*) appears only on the
+   list being typed and on the list's request card, which are the list's request cards. */
+
+.cu-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Find: the mode switch and the editor ---- */
+.cu-find__mode .sh-segmented {
+  width: 100%;
+}
+.cu-find__makelist {
+  align-self: flex-start;
+}
+
+.cu-leditor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cu-leditor__paper {
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--brand);
+  border-radius: var(--r-md);
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.cu-leditor__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-leditor__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  border-bottom: 1px solid var(--paper-edge);
+}
+.cu-leditor__row:last-child {
+  border-bottom: 0;
+}
+.cu-leditor__num {
+  flex: none;
+  width: 28px;
+  color: var(--paper-ink-muted);
+  font: 400 20px/28px var(--font-hand);
+  text-align: right;
+}
+.cu-leditor__input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  font: 400 20px/28px var(--font-hand);
+}
+.cu-leditor__input::placeholder {
+  color: var(--paper-ink-muted);
+  opacity: 1;
+}
+.cu-leditor__remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  cursor: pointer;
+}
+/* Everything interactive on paper is drawn in paper ink: the page's focus colour is too light on it in the dark theme. */
+.km-app .cu-leditor__paper :focus-visible {
+  outline: 2px solid var(--paper-ink);
+  outline-offset: 2px;
+}
+.cu-leditor__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.cu-leditor__count {
+  flex: none;
+}
+
+/* ---- Check your list ---- */
+.cu-lcheck {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-lcheck__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cu-lcheck__row--refused {
+  background: var(--surface-sunk);
+  color: var(--ink-muted);
+}
+.cu-lcheck__row--error {
+  border-color: var(--danger);
+}
+.cu-lcheck__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.cu-lcheck__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cu-lcheck__sub {
+  color: var(--ink-muted);
+  font: 400 14px/20px var(--font-ui);
+  overflow-wrap: anywhere;
+}
+.cu-lchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.cu-lchip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: 600 14px/20px var(--font-ui);
+  cursor: pointer;
+}
+.cu-lchip input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.cu-lchip:has(:checked) {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.cu-lchip:has(:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.cu-lcheck__edit {
+  align-self: flex-start;
+}
+
+/* ---- Replies ---- */
+.cu-lanswers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-lanswer {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cu-lanswer__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.cu-lanswer__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.cu-lanswer__name {
+  overflow-wrap: anywhere;
+}
+.cu-lanswer__meta {
+  color: var(--ink-muted);
+  font: 400 14px/20px var(--font-ui);
+}
+.cu-lanswer__figures {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.cu-lanswer__count {
+  color: var(--ink-muted);
+  font: 600 14px/20px var(--font-ui);
+}
+.cu-lanswer__total {
+  font: 700 18px/24px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.cu-lanswer__chevron {
+  flex: none;
+  color: var(--ink-muted);
+  transition: transform var(--motion) ease;
+}
+.cu-lanswer__head[aria-expanded='true'] .cu-lanswer__chevron {
+  transform: rotate(180deg);
+}
+.cu-lanswer__lines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-3);
+  list-style: none;
+}
+.cu-lline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-height: 32px;
+  border-top: 1px solid var(--line);
+  font: 400 16px/24px var(--font-ui);
+}
+.cu-lline__mark {
+  flex: none;
+  width: 20px;
+  font-weight: 800;
+}
+.cu-lline--have .cu-lline__mark {
+  color: var(--brand);
+}
+.cu-lline--no .cu-lline__mark {
+  color: var(--danger);
+}
+.cu-lline__name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cu-lline__price {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cu-lline--no .cu-lline__price,
+.cu-lline--skip .cu-lline__price {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+.cu-lfoot {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cu-lanswer__chevron {
+    transition: none;
+  }
+}
+
+/* ---- The plan ---- */
+.cu-pstats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+}
+.cu-pstat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cu-pstat__label {
+  color: var(--ink-muted);
+  font: 600 13px/18px var(--font-ui);
+}
+.cu-pstat__value {
+  font: 700 22px/28px var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.cu-pshops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-pshop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cu-pshop__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cu-pshop__badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font: 700 16px/24px var(--font-ui);
+}
+.cu-pshop__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.cu-pshop__meta {
+  color: var(--ink-muted);
+  font: 400 14px/20px var(--font-ui);
+}
+.cu-plines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-pline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: 400 16px/24px var(--font-ui);
+  text-align: left;
+}
+button.cu-pline {
+  cursor: pointer;
+}
+.cu-pline__name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cu-pline__price {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cu-pline__hint {
+  flex: none;
+  color: var(--brand);
+}
+.cu-pmissing {
+  padding: var(--space-4);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+}
+.cu-pmove {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-pmove__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.cu-pmove__option[aria-current='true'] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.cu-pdeliver {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---- Orders of a list ---- */
+.cu-lorders {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-lorder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.cu-lorder__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cu-lorder__who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.cu-lorder__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cu-lorder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.cu-lorder__open {
+  align-self: flex-start;
+}

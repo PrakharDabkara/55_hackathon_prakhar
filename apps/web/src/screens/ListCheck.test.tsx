@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
 import { fakeSeekerApi } from '../test/fakes.js';
-import { draftList, itemLine } from '../test/fakesLists.js';
+import { at, draftList, itemLine } from '../test/fakesLists.js';
 import { renderApp } from '../test/render.js';
 import { ListCheck } from './ListCheck.js';
 
@@ -105,13 +105,13 @@ describe('Check your list', () => {
     await user.click(within(row).getByRole('radio', { name: 'As I typed' }));
     await user.click(screen.getByRole('button', { name: 'Ask shops nearby' }));
     await waitFor(() => expect(api.sendList).toHaveBeenCalled());
-    expect((api.sendList as ReturnType<typeof vi.fn>).mock.calls[0]![1].choices).toEqual([
+    expect((api.sendList as ReturnType<typeof vi.fn>).mock.calls[0]?.[1].choices).toEqual([
       { position: 1, asTyped: true },
     ]);
   });
 
   it('cannot send when every line is refused', () => {
-    const list = draftList({ lines: [draftList().lines[3]!] });
+    const list = draftList({ lines: [at(draftList().lines, 3)] });
     show({}, list);
     expect(
       (screen.getByRole('button', { name: 'Ask shops nearby' }) as HTMLButtonElement).disabled,
@@ -131,7 +131,7 @@ describe('Check your list', () => {
           throw new ApiError(status, code, 'x');
         }),
       },
-      draftList({ lines: [itemLine(0, 'atta'), draftList().lines[3]!] }),
+      draftList({ lines: [itemLine(0, 'atta'), at(draftList().lines, 3)] }),
     );
     await user.click(screen.getByRole('button', { name: 'Ask shops nearby' }));
     expect((await screen.findByRole('alert')).textContent).toBe(message);

@@ -18,6 +18,7 @@ export const LIVE_EVENTS = [
   'order.created',
   'order.updated',
   'order.packed',
+  'list.updated',
   'listping.created',
   'listping.closed',
 ] as const;

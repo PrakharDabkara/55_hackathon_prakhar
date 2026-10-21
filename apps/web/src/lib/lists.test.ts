@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { answerOf, draftList, itemLine, openList } from '../test/fakesLists.js';
+import { answerOf, at, draftList, itemLine, openList, planWith } from '../test/fakesLists.js';
 import {
   alternativesFor,
   initialPlan,
@@ -97,11 +98,11 @@ describe('what the device remembers', () => {
 describe('needsCheck', () => {
   it('is true when a line is a question or refused', () => {
     expect(needsCheck(draftList())).toBe(true);
-    expect(needsCheck(draftList({ lines: [draftList().lines[3]!] }))).toBe(true);
+    expect(needsCheck(draftList({ lines: [at(draftList().lines, 3)] }))).toBe(true);
   });
 
   it('is false when every line is understood or "other"', () => {
-    expect(needsCheck(draftList({ lines: [itemLine(0, 'atta'), draftList().lines[2]!] }))).toBe(
+    expect(needsCheck(draftList({ lines: [itemLine(0, 'atta'), at(draftList().lines, 2)] }))).toBe(
       false,
     );
   });
@@ -110,8 +111,8 @@ describe('needsCheck', () => {
 describe('lineLabel', () => {
   it('prefers the everyday word, then the item, then the typed words', () => {
     const list = openList();
-    expect(lineLabel(list.lines[0]!)).toBe('Sugar');
-    expect(lineLabel(list.lines[3]!)).toBe('Tractor spare bolt');
+    expect(lineLabel(at(list.lines, 0))).toBe('Sugar');
+    expect(lineLabel(at(list.lines, 3))).toBe('Tractor spare bolt');
     expect(
       lineLabel(
         itemLine(7, 'rice', {
@@ -236,13 +237,7 @@ describe('the plan recompute', () => {
   });
 
   it('lists lines nobody has as missing and covers the rest', () => {
-    const list = openList({
-      plan: {
-        ...openList().plan!,
-        assignments: openList().plan!.assignments.filter((a) => a.position !== 3),
-        missing: [3],
-      },
-    });
+    const list = planWith((a) => a.position !== 3, [3]);
     const summary = summarizePlan(list, initialPlan(list), HERE);
     expect(summary.missing).toEqual([3]);
     expect(summary.covered).toBe(4);
