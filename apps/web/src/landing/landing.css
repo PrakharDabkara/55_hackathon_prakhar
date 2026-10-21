@@ -1,0 +1,579 @@
+/* The landing page at "/" (ADR-0056): plain CSS, no script. Tokens only; no hex values. */
+@import '../design/tokens.css';
+@import '@fontsource/mukta/latin-400.css';
+@import '@fontsource/mukta/latin-600.css';
+@import '@fontsource/mukta/latin-700.css';
+@import '@fontsource/mukta/latin-800.css';
+@import '@fontsource/mukta/devanagari-400.css';
+@import '@fontsource/mukta/devanagari-700.css';
+@import '@fontsource/kalam/latin-400.css';
+@import '@fontsource/kalam/latin-700.css';
+@import '@fontsource/kalam/devanagari-400.css';
+@import '@fontsource/kalam/devanagari-700.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/24px var(--font-ui);
+}
+h1,
+h2,
+h3,
+p,
+ol,
+ul {
+  margin: 0;
+}
+ol,
+ul {
+  padding: 0;
+  list-style: none;
+}
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.lp-wrap {
+  width: min(1160px, 100% - 2 * var(--space-6));
+  margin: 0 auto;
+}
+@media (max-width: 479px) {
+  .lp-wrap {
+    width: calc(100% - 2 * var(--space-4));
+  }
+}
+
+.lp-skip {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  transform: translateY(-200%);
+}
+.lp-skip:focus {
+  transform: none;
+  z-index: 10;
+}
+
+/* Buttons */
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-6);
+  border: 2px solid transparent;
+  border-radius: var(--r-md);
+  font: 700 16px/24px var(--font-ui);
+  text-align: center;
+  text-decoration: none;
+  transition: background-color var(--motion) ease;
+}
+.lp-btn--primary {
+  background: var(--marigold);
+  color: var(--on-marigold);
+}
+.lp-btn--outline {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.lp-btn--outline:hover {
+  background: var(--brand-soft);
+}
+
+/* Header */
+.lp-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.lp-header__in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  padding: var(--space-2) 0;
+}
+.lp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  font: 800 20px/24px var(--font-ui);
+  text-decoration: none;
+}
+.lp-nav {
+  display: flex;
+  flex: 1;
+  gap: var(--space-1);
+}
+.lp-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border-radius: var(--r-md);
+  font-weight: 600;
+  text-decoration: none;
+}
+.lp-nav a:hover {
+  background: var(--brand-soft);
+}
+.lp-header__cta {
+  margin-left: auto;
+}
+@media (max-width: 639px) {
+  .lp-header__in {
+    gap: 0 var(--space-3);
+  }
+  .lp-nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .lp-header__cta {
+    padding: 0 var(--space-4);
+  }
+}
+
+/* The brand mark, painted by tokens as in the apps (ui.css). */
+.brand-mark {
+  flex: none;
+  display: block;
+}
+.bm-bg {
+  fill: var(--brand);
+}
+.bm-paper {
+  fill: var(--paper);
+}
+.bm-ink {
+  fill: none;
+  stroke: var(--paper-ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.bm-pin {
+  fill: var(--marigold);
+  stroke: var(--brand);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.bm-hole {
+  fill: var(--brand);
+}
+
+/* Type */
+h1 {
+  font: 800 clamp(34px, 6vw, 56px) / 1.08 var(--font-ui);
+  letter-spacing: -0.01em;
+}
+h2 {
+  font: 800 clamp(26px, 4vw, 36px) / 1.15 var(--font-ui);
+}
+h3 {
+  font: 700 19px/26px var(--font-ui);
+}
+.lp-lead {
+  font: 400 19px/30px var(--font-ui);
+  max-width: 56ch;
+}
+.lp-lead--section {
+  margin-top: var(--space-3);
+  color: var(--ink-muted);
+}
+.lp-small {
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+.lp-pill {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font: 800 12px/20px var(--font-ui);
+  letter-spacing: 0.1em;
+}
+.lp-pill--marigold {
+  background: var(--marigold);
+  color: var(--on-marigold);
+}
+
+/* Hero */
+.lp-hero {
+  padding: var(--space-12) 0;
+}
+.lp-hero__in {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  align-items: center;
+  gap: var(--space-12) var(--space-8);
+}
+.lp-hero__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.lp-actions--center {
+  justify-content: center;
+  margin-top: var(--space-6);
+}
+
+/* The phone in the hero */
+.lp-demo {
+  position: relative;
+  width: min(100%, 340px);
+  margin: 0 auto;
+  padding-top: 36px;
+}
+.lp-chip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--panel-dark);
+  color: var(--on-panel-dark);
+  box-shadow: var(--shadow-slip);
+  font-size: 14px;
+  line-height: 18px;
+}
+.lp-chip__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--marigold);
+}
+.lp-chip__text {
+  display: flex;
+  flex-direction: column;
+}
+.lp-phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  padding-top: var(--space-8);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-slip);
+}
+.lp-phone__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.lp-tile,
+.lp-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font: 800 14px/20px var(--font-ui);
+}
+.lp-avatar {
+  border-radius: var(--r-pill);
+}
+.lp-open {
+  margin-left: auto;
+  padding: 0 var(--space-3);
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font: 700 13px/24px var(--font-ui);
+}
+
+/* The parchi slip: paper-locked colours, a zig-zag bottom edge, ruled lines (see parchi.css). */
+.lp-slip {
+  filter: drop-shadow(var(--shadow-slip));
+  transform: rotate(-1.5deg);
+}
+.lp-slip--tilt {
+  transform: rotate(-2deg);
+}
+.lp-slip__paper {
+  background: var(--paper);
+  color: var(--paper-ink);
+  -webkit-mask: conic-gradient(from -45deg at bottom, black 0 90deg, transparent 90deg) 50% / 12px
+    100%;
+  mask: conic-gradient(from -45deg at bottom, black 0 90deg, transparent 90deg) 50% / 12px 100%;
+  padding-bottom: 6px;
+}
+.lp-slip__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--marigold);
+  color: var(--on-marigold);
+  font: 800 12px/20px var(--font-ui);
+  letter-spacing: 0.06em;
+}
+.lp-slip__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.lp-ruled {
+  background: repeating-linear-gradient(to bottom, transparent 0 33px, var(--paper-edge) 33px 34px);
+  background-position: 0 var(--space-3);
+}
+.lp-hand-item {
+  font: 700 30px/34px var(--font-hand);
+}
+.lp-hand-note {
+  font: 400 17px/34px var(--font-hand);
+}
+.lp-slip__alias {
+  color: var(--paper-ink-muted);
+  font: 400 14px/34px var(--font-ui);
+}
+.lp-stamp {
+  position: absolute;
+  right: var(--space-4);
+  bottom: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+  border: 2.5px solid var(--stamp-yes);
+  border-radius: var(--r-sm);
+  color: var(--stamp-yes);
+  font: 800 13px/16px var(--font-ui);
+  letter-spacing: 0.14em;
+  transform: rotate(-6deg);
+}
+
+.lp-answer {
+  display: flex;
+  gap: var(--space-2);
+}
+.lp-choice {
+  flex: 1;
+  padding: var(--space-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  font: 700 15px/24px var(--font-ui);
+  text-align: center;
+}
+.lp-choice--on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.lp-price {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 2px dotted var(--ink-muted);
+  color: var(--ink-muted);
+}
+.lp-price strong {
+  color: var(--ink);
+  font: 700 20px/28px var(--font-ui);
+}
+.lp-send {
+  padding: var(--space-3);
+  border-radius: var(--r-md);
+  background: var(--paper-ink);
+  color: var(--paper);
+  font: 700 16px/24px var(--font-ui);
+  text-align: center;
+}
+
+/* Sections and cards */
+.lp-section {
+  padding: var(--space-12) 0;
+}
+.lp-section--sunk {
+  background: var(--surface-sunk);
+}
+.lp-grid {
+  display: grid;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+.lp-grid--260 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+}
+.lp-grid--240 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+.lp-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.lp-card p {
+  color: var(--ink-muted);
+}
+.lp-steps {
+  counter-reset: step;
+}
+.lp-steps .lp-card::before {
+  counter-increment: step;
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font: 800 18px/24px var(--font-ui);
+}
+
+/* The buyers band */
+.lp-band {
+  padding: var(--space-12) 0;
+  background: var(--brand);
+  color: var(--on-brand);
+}
+.lp-band :focus-visible {
+  outline-color: var(--on-brand);
+}
+.lp-band__in {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  align-items: center;
+  gap: var(--space-12) var(--space-8);
+}
+.lp-band__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+.lp-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  counter-reset: point;
+}
+.lp-points li {
+  position: relative;
+  min-height: 32px;
+  padding-left: 48px;
+  counter-increment: point;
+}
+.lp-points li::before {
+  content: counter(point);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--marigold);
+  color: var(--on-marigold);
+  font: 800 16px/24px var(--font-ui);
+}
+
+.lp-replies {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(100%, 440px);
+  margin: 0 auto;
+}
+.lp-replies .lp-slip__body {
+  min-height: 140px;
+  padding-bottom: var(--space-6);
+}
+.lp-reply {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: var(--space-8);
+  padding: var(--space-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+.lp-reply--best {
+  border-color: var(--marigold);
+}
+.lp-reply__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.lp-reply__text span {
+  color: var(--ink-muted);
+}
+.lp-reply__price {
+  font: 800 20px/28px var(--font-ui);
+}
+
+/* Try it */
+.lp-try .lp-wrap {
+  text-align: center;
+}
+.lp-try .lp-lead {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* Footer */
+.lp-footer {
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-muted);
+}
+.lp-footer__in {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-6);
+}

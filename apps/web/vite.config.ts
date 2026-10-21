@@ -16,6 +16,13 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // Two pages: the app (index.html) and the static landing page served at "/" (ADR-0056).
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        landing: fileURLToPath(new URL('./landing.html', import.meta.url)),
+      },
+    },
     // No data: URIs for small files, and no inline script or style, so the CSP can stay strict.
     assetsInlineLimit: 0,
   },

@@ -36,10 +36,20 @@ const securityHeaders: RequestHandler = (_req, res, next) => {
  * Only GET and HEAD for a path without a file extension fall back to index.html, so a missing
  * script is a 404 and not a page of HTML, and POST /app/... is an ordinary 404.
  * If the app has not been built, /app/ answers 404 and the API is unaffected.
+ * The static landing page (landing.html, ADR-0056) is served at "/" and nowhere else, under the
+ * same headers; its scripts, styles and fonts live in /app/assets with the app's.
  */
 export function webRouter({ distDir, logger }: { distDir: string; logger: Logger }): Router {
   const router = Router();
   const indexPath = path.join(distDir, 'index.html');
+  const landingPath = path.join(distDir, 'landing.html');
+  if (existsSync(landingPath)) {
+    router.get('/', securityHeaders, (_req, res) => {
+      res.sendFile(landingPath, { headers: { 'Cache-Control': 'public, max-age=300' } });
+    });
+  } else {
+    logger.warn({ distDir }, 'landing page is not built; / will answer 404');
+  }
   if (!existsSync(indexPath)) {
     logger.warn({ distDir }, 'web app is not built; /app/ will answer 404');
     return router;

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR T: landing page, ADR-0056)
+
+- `GET /` serves a static, script-free landing page (`apps/web/landing.html`, a second Vite entry) with the app's security headers: shop-first hero, three steps, why shops join, the buyers band, how AI is used, and a demo section. Tests cover the headers, anchors, contrast (axe, light and dark), 360 px, and that no phone number or code appears.
+
 ### Fixed (PR W: simulated shop removal)
 
 - `DELETE /admin/sim/shops` runs again after a deadlock, and a database error now answers `sim_remove_busy` (503) or `sim_remove_failed` (500, with the SQLSTATE) instead of a bare `internal`. A test pins that shops with list pings, answered lines and delivery and pickup list orders are removed, and real shops' list data stays.
