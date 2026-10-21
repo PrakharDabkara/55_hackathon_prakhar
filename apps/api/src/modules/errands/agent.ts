@@ -16,7 +16,13 @@ import {
   rebuildMessages,
   rebuildRunState,
 } from './conversation.js';
-import { checklistFor, executeTool, refusalKey, type RunState } from './executor.js';
+import {
+  checklistFor,
+  executeTool,
+  refusalKey,
+  unconfirmedNew,
+  type RunState,
+} from './executor.js';
 import { namedFragments } from './named.js';
 import {
   claimErrand,
@@ -346,6 +352,20 @@ async function loop(
         await recordToolStep(deps, errand.id, call, { error: true, notRun: true }, result, 0);
         continue;
       }
+      // ADR-0053: a plan is held while a new item the customer named is unconfirmed. Not run; the
+      // checklist below is asked, and the agent plans again after the answer.
+      if (
+        call.name === 'submit_plan' &&
+        state.questionsAsked < limits.maxQuestions &&
+        unconfirmedNew(errand.task, state).length > 0
+      ) {
+        const result = notRun(
+          'the customer must confirm a list first. Do not submit a plan until they answer.',
+        );
+        results.push({ id: call.id, name: call.name, result });
+        await recordToolStep(deps, errand.id, call, { error: true, notRun: true }, result, 0);
+        continue;
+      }
       const done = await runTool(deps, requests, errand, state, call, log);
       results.push({ id: call.id, name: call.name, result: done.result });
       if (done.plan) {
@@ -367,6 +387,21 @@ async function loop(
     ) {
       state.questionsAsked++;
       question = checklistFor(errand.task, needConfirm);
+    }
+
+    // ADR-0053 rule 3: a new item the customer named is confirmed in a checklist before any shop is
+    // asked, even if the agent never tried ask_shops. The named items come first and ticked; the
+    // agent's own items are offered unticked.
+    if (!question && !submitted && state.questionsAsked < limits.maxQuestions) {
+      const pending = unconfirmedNew(errand.task, state);
+      if (pending.length > 0) {
+        const answered = [...state.ticked, ...state.declined];
+        const extras = [...needConfirm, ...state.resolved.values()].filter(
+          (label) => !answered.some((a) => refusalKey(label) === a),
+        );
+        state.questionsAsked++;
+        question = checklistFor(errand.task, extras, { extrasTicked: false });
+      }
     }
 
     if (submitted) {

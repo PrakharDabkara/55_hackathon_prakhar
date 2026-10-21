@@ -13,6 +13,7 @@ import {
 } from './modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import {
+  answerErrand,
   createErrand,
   getErrand,
   limitsFromConfig,
@@ -121,6 +122,13 @@ describe('errand agent core (fake model, real database)', () => {
       requestId: 'req-errand-1',
       ...extra,
     });
+  /** The customer ticks the first option of the checklist; the errand runs on. */
+  const answerAndRun = async (id: string) => {
+    await answerErrand({ db: pool, logger, limits, enqueue: async () => undefined }, userId, id, {
+      selected: [0],
+    });
+    await runErrand(deps(), id);
+  };
   const errandRow = async (id: string) =>
     (await pool.query(`SELECT * FROM errands WHERE id = $1`, [id])).rows[0];
   const stepRows = async (id: string) =>
@@ -572,6 +580,8 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'chandan itr', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
+      // Named and not in the catalog: the customer confirms it first (ADR-0053), then it ends not_found.
+      await answerAndRun(id);
       const told = toolResult(chatCalls()[1]);
       expect(told.unresolved).toBe(true);
       expect(told.item).toBeUndefined();
@@ -802,6 +812,7 @@ describe('errand agent core (fake model, real database)', () => {
         { toolCalls: [submit([{ text: 'clip', status: 'not_found' }])] },
       ]);
       await runErrand(deps(), id);
+      if ((await errandRow(id)).state === 'NEEDS_INPUT') await answerAndRun(id);
       const result = toolResult(chatCalls()[1]);
       // Either the catalog resolves it or asks: both are normal results, never an error.
       expect(result.error).toBeUndefined();

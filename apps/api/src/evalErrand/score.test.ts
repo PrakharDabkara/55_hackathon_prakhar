@@ -58,6 +58,7 @@ const seen = (over: Partial<Observed> = {}): Observed => ({
   chatCalls: 3,
   userItems: 0,
   misplacedNewItemAsks: 0,
+  offered: [],
   ...over,
 });
 
@@ -110,6 +111,30 @@ describe('scoreRun: success', () => {
     const c = base({ noItems: true });
     expect(scoreRun(c, seen({ items: [] }), limits, PROMPT).success).toBe(true);
     expect(scoreRun(c, seen({ items: [item('sugar')] }), limits, PROMPT).success).toBe(false);
+  });
+});
+
+describe('scoreRun: offeredAny (ADR-0053)', () => {
+  const c = base({ offeredAny: [['glue-stick', 'cello-tape', 'scissors']] });
+  it('passes when one slug of the group is among the checklist options, ticked or not', () => {
+    expect(
+      scoreRun(c, seen({ offered: ['chart paper', 'Glue stick'] }), limits, PROMPT).success,
+    ).toBe(true);
+    expect(scoreRun(c, seen({ offered: ['cello tape'] }), limits, PROMPT).success).toBe(true);
+  });
+  it('fails, naming the group, when no option is one of them', () => {
+    const r = scoreRun(c, seen({ offered: ['chart paper', 'colours'] }), limits, PROMPT);
+    expect(r.success).toBe(false);
+    expect(r.failed).toContain('not_offered');
+    expect(r.missing).toContain('glue-stick | cello-tape | scissors');
+    expect(scoreRun(c, seen({ offered: [] }), limits, PROMPT).success).toBe(false);
+  });
+  it('looks at the options only, not at the plan', () => {
+    const planned = seen({ items: [item('glue-stick')], offered: [] });
+    expect(scoreRun(c, planned, limits, PROMPT).success).toBe(false);
+  });
+  it('needs every word of the slug in one option ("tape" alone is not "cello tape")', () => {
+    expect(scoreRun(c, seen({ offered: ['tape'] }), limits, PROMPT).success).toBe(false);
   });
 });
 

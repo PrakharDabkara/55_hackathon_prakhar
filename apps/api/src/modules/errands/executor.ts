@@ -62,6 +62,11 @@ export interface RunState {
   ticked: Set<string>;
   /** Options the customer left unticked in a checklist: never asked of shops (ADR-0049). */
   declined: Set<string>;
+  /**
+   * The customer's words for items resolve_item found new or not at all (not refused): a named one
+   * must be confirmed in a checklist before any shop is asked (ADR-0053).
+   */
+  newItems: Set<string>;
 }
 
 export type Refused = 'blocked' | 'unavailable' | 'limit';
@@ -77,6 +82,7 @@ export const newRunState = (): RunState => ({
   refused: new Map(),
   ticked: new Set(),
   declined: new Set(),
+  newItems: new Set(),
   calls: new Map(),
   epoch: 0,
 });
@@ -218,6 +224,7 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
     });
     if (resolution.refused) return refusedOutcome(env, text, resolution.refused);
     if (!resolution.item) {
+      env.state.newItems.add(refusalKey(text));
       return {
         result: {
           unresolved: true,
@@ -227,6 +234,7 @@ async function resolveItem(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
       };
     }
     const { item } = resolution;
+    if (item.unverified) env.state.newItems.add(refusalKey(text));
     env.state.labels.set(item.id, text);
     if (!env.state.resolved.has(item.id)) env.state.resolved.set(item.id, text);
     return {
@@ -348,7 +356,7 @@ async function askShops(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
   }
   // ADR-0049: nothing the agent added on its own is asked of shops before the customer confirmed
   // it. What they named, or ticked in the checklist, is theirs; what they left unticked is not.
-  if (!(await isConfirmed(env, label, itemId))) {
+  if (!(await isConfirmed(env, label, itemId, item.unverified))) {
     if (isDeclined(env, label))
       return failure(
         'not run: the customer did not choose this item. Do not ask shops about it; leave it out of the plan.',
@@ -458,11 +466,17 @@ async function askUser(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
 const MAX_LIST_OPTIONS = 8;
 
 /** The customer named it, or ticked (or typed) it in a checklist: a person confirmed it. */
-async function isConfirmed(env: ToolEnv, label: string, itemId: string): Promise<boolean> {
+async function isConfirmed(
+  env: ToolEnv,
+  label: string,
+  itemId: string,
+  isNew: boolean,
+): Promise<boolean> {
   // The model may have said it in other words than the customer ("sugar" for "chini"): the item's
   // own names and synonyms stand for it too.
   const names = [label, ...((await termsOfItems(env.db, [itemId])).get(itemId) ?? [])];
-  const theirs = [...namedFragments(env.task), ...env.state.ticked];
+  // ADR-0053: naming a new item is not enough; a person must tick it in a checklist.
+  const theirs = [...(isNew ? [] : namedFragments(env.task)), ...env.state.ticked];
   return theirs.some((word) => names.some((name) => covers(word, name)));
 }
 
@@ -470,20 +484,40 @@ const isDeclined = (env: ToolEnv, label: string): boolean =>
   [...env.state.declined].some((word) => covers(word, label));
 
 /**
- * The checklist the server asks when the agent tried to ask shops about items nobody confirmed:
- * what the customer named first, then what the agent wanted. All start ticked (the customer
- * unticks what they do not want); nothing is asked of shops until they answer.
+ * What the customer named that is a new item and not yet ticked or left unticked in a checklist:
+ * they confirm it before any shop is asked (ADR-0053, rule 3).
  */
-export function checklistFor(task: string, wanted: string[]): ErrandQuestion {
+export function unconfirmedNew(task: string, state: RunState): string[] {
+  const named = namedFragments(task);
+  const answered = [...state.ticked, ...state.declined];
+  return [...state.newItems].filter(
+    (word) => named.some((n) => covers(n, word)) && !answered.some((a) => covers(a, word)),
+  );
+}
+
+/**
+ * The checklist the server asks when the customer must confirm items before any shop is asked:
+ * what the customer named first, then what the agent wanted (ADR-0049). The named ones start
+ * ticked (they unticked what they do not want). The agent's own `wanted` items start ticked only
+ * for a goal with nothing named (rule 2); when the customer named items, they are offered
+ * unticked (rule 3, `extrasTicked: false`). Nothing is asked of shops until they answer.
+ */
+export function checklistFor(
+  task: string,
+  wanted: string[],
+  { extrasTicked = true }: { extrasTicked?: boolean } = {},
+): ErrandQuestion {
+  const named = namedFragments(task);
   const options: string[] = [];
-  for (const label of [...namedFragments(task), ...wanted])
+  for (const label of [...named, ...wanted])
     if (!options.some((o) => covers(o, label))) options.push(label);
   const shown = options.slice(0, MAX_LIST_OPTIONS);
+  const ticked = extrasTicked ? shown.length : Math.min(named.length, shown.length);
   return {
     question: 'Which of these do you need?',
     options: shown,
     multiSelect: true,
-    preselected: shown.map((_, i) => i),
+    preselected: shown.slice(0, ticked).map((_, i) => i),
   };
 }
 

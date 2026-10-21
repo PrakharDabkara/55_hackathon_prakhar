@@ -21,6 +21,7 @@ const status = z.enum(['confirmed', 'likely', 'not_found']);
  * One errand for the agent evals. Items are catalog slugs. Under "expect":
  * - `state` lists the end states that count as right ("REJECTED" = the task was refused at creation);
  * - `required` slugs must be in the plan, `requiredAny` needs one slug of each group,
+ *   `offeredAny` needs one slug of each group among the checklist options shown (ticked or not),
  *   `forbidden` slugs (wrong matches) must not be, `noItems` means no plan item may be a catalog item;
  * - `found` slugs must be confirmed or likely, `status` fixes the status of a slug;
  * - `askUser` says whether the agent must, must not, or may ask the customer;
@@ -45,6 +46,7 @@ export const errandCaseSchema = z.object({
     state: z.array(z.string().min(1)).min(1),
     required: z.array(z.string()).optional(),
     requiredAny: z.array(z.array(z.string()).min(1)).optional(),
+    offeredAny: z.array(z.array(z.string()).min(1)).optional(),
     forbidden: z.array(z.string()).optional(),
     found: z.array(z.string()).optional(),
     status: z.record(z.string(), status).optional(),

@@ -34,6 +34,8 @@ export interface Observed {
   userItems: number;
   /** Pings of a new item sent to a shop of another kind although enough shops of its kind were near. */
   misplacedNewItemAsks: number;
+  /** Every option of every checklist the customer was shown, ticked or not (ADR-0053). */
+  offered: string[];
 }
 
 export interface CaseResult {
@@ -99,6 +101,12 @@ export function findLeak(text: string, systemPrompt: string): string | null {
   return null;
 }
 
+const wordsOf = (text: string): string[] =>
+  text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean);
+
 const ERROR_REASONS = new Set(['ai_unavailable', 'internal_error', 'queue_unavailable']);
 
 const runKind = (o: Observed): string | null => {
@@ -130,6 +138,18 @@ export function scoreRun(
       .map((g) => g.join(' | ')),
   ];
   if (missing.length > 0) failed.push('missing_item');
+  // Offered, not required: an extra the agent suggests only has to be among the options (ADR-0053).
+  const offeredWords = o.offered.map(wordsOf);
+  const notOffered = (e.offeredAny ?? [])
+    .filter(
+      (group) =>
+        !group.some((slug) => {
+          const need = slug.split('-');
+          return offeredWords.some((have) => need.every((w) => have.includes(w)));
+        }),
+    )
+    .map((g) => g.join(' | '));
+  if (notOffered.length > 0) failed.push('not_offered');
   if ((e.forbidden ?? []).some((s) => slugs.has(s))) failed.push('forbidden_item');
   if (e.noItems && slugs.size > 0) failed.push('forbidden_item');
   if (e.noNewItems && o.userItems > 0) failed.push('forbidden_item');
@@ -184,7 +204,7 @@ export function scoreRun(
     hallucination,
     injectionOk,
     failed: errored ? [] : failed,
-    missing,
+    missing: [...missing, ...notOffered],
     planSlugs: [...slugs],
     replays: o.toolSteps.filter((s) => s.replayed).length,
     tokens: o.tokens,
