@@ -414,8 +414,8 @@ div.sh-parchi__ruled {
 .sh-amount__input[aria-invalid='true'] {
   color: var(--stamp-no);
 }
-.sh-amount__input:focus-visible {
-  outline: none;
+.km-app .sh-list .sh-amount__input:focus-visible {
+  outline: none; /* the whole amount draws the focus ring (below) */
 }
 .sh-amount:focus-within {
   outline: 2px solid var(--paper-ink);

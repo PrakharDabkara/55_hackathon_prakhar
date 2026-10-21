@@ -54,11 +54,18 @@ async function nothingBlocking(page: Page, label: string) {
   ).toEqual([]);
 }
 
+/** U2_SHOTS_DIR set: the same screenshots at 390 px wide, written there (for the PR). */
 async function shot(file: string, target?: Locator) {
-  await shop.waitForTimeout(250);
-  const path = `e2e/screens/shop/${file}.png`;
+  const dir = process.env['U2_SHOTS_DIR'];
+  if (dir) await shop.setViewportSize({ width: 390, height: 1100 });
+  await shop.waitForTimeout(400);
+  await shop.evaluate(() =>
+    document.querySelectorAll('.sh-parchi__paper').forEach((el) => el.scrollTo(0, 0)),
+  );
+  const path = dir ? `${dir}/${file.replace('-360', '-390')}.png` : `e2e/screens/shop/${file}.png`;
   if (target) await target.screenshot({ path });
   else await shop.screenshot({ path, fullPage: false });
+  if (dir) await shop.setViewportSize({ width: 360, height: 740 });
 }
 
 /** A fresh customer sends the three lines; resolves when this shop's deck shows it. */
@@ -84,16 +91,17 @@ const firstOrderId = (ordered: Record<string, unknown>): string => {
 
 async function answerEverything() {
   await tick({ Sugar: '48', 'Turmeric powder': '45', 'Tractor spare bolt': '30' });
-  await card()
-    .getByRole('switch', { name: /I can deliver this list/ })
-    .click();
+  // This shop delivers by default, so the switch starts on.
+  await expect(card().getByRole('switch', { name: /I can deliver this list/ })).toBeChecked();
   await card().getByLabel('Delivery fee').fill('25');
   await card().getByRole('button', { name: 'Send answer' }).click();
-  await expect(card().getByText('Answered')).toBeVisible();
+  await expect(card()).toHaveCount(0, { timeout: 15_000 });
 }
 
+let first: { customer: Customer; id: string };
+
 test("S50: one list parchi with only this shop's lines, and the rest under Other", async () => {
-  await newList();
+  first = await newList();
   await expect(card()).toHaveCount(1, { timeout: 30_000 });
   await expect(card().getByText('A list · 3')).toBeVisible();
   await expect(card().getByText('Tick what you have')).toBeVisible();
@@ -127,9 +135,8 @@ test('S51: a missing price shows inline; tick, price and delivery fee, then send
   await tick({ 'Tractor spare bolt': '30' });
   await expect(card().getByText('You have 3 of 3')).toBeVisible();
   await expect(card().getByLabel('Total')).toHaveText('₹123');
-  await card()
-    .getByRole('switch', { name: /I can deliver this list/ })
-    .click();
+  // This shop delivers by default, so the switch starts on.
+  await expect(card().getByRole('switch', { name: /I can deliver this list/ })).toBeChecked();
   const fee = card().getByLabel('Delivery fee');
   await expect(fee).toHaveValue('20'); // from this shop's own delivery settings
   await fee.fill('25');
@@ -147,8 +154,19 @@ test('S51: a missing price shows inline; tick, price and delivery fee, then send
   await shop.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
 
   await card().getByRole('button', { name: 'Send answer' }).click();
-  await expect(card().getByText('Answered')).toBeVisible();
+  // The stamp lands for 300 ms and the deck moves on.
   await expect(shop.getByText('No requests right now')).toBeVisible({ timeout: 15_000 });
+
+  // The customer sees all three lines, ₹123, one fee of ₹25 and delivery offered.
+  const list = await listView(first.customer, first.id);
+  expect(list['answers']).toHaveLength(1);
+  expect(list['answers'][0]).toMatchObject({
+    name: shopName,
+    haveCount: 3,
+    totalPaise: 12_300,
+    canDeliver: true,
+    deliveryFeePaise: 2500,
+  });
 });
 
 test('S52: "none of these" asks in the page first; a closed list says so and leaves', async () => {
@@ -191,8 +209,7 @@ test('S53: a push link opens the deck at that card; "none of these" is sent afte
   for (let left = 2; left > 0; left--) {
     await card().first().getByRole('button', { name: 'Send answer' }).click();
     await shop.getByRole('alertdialog').getByRole('button', { name: 'Send', exact: true }).click();
-    await expect(shop.getByText('Answered').first()).toBeVisible();
-    if (left > 1) await expect(card()).toHaveCount(1, { timeout: 15_000 });
+    await expect(card()).toHaveCount(left - 1, { timeout: 15_000 });
   }
   await expect(shop.getByText('No requests right now')).toBeVisible({ timeout: 15_000 });
 });
@@ -214,9 +231,9 @@ test('S54: delivery order from a list: tick as you pack, it survives a reload, t
   await expect(order.getByText(/₹148/)).toBeVisible(); // 48 + 45 + 30 + fee 25
   await expect(order.getByText(/Sapna Apartments/)).toBeVisible();
 
-  await order.getByRole('checkbox', { name: /Sugar/ }).click();
+  await order.getByRole('checkbox', { name: /Chini/ }).click();
   await expect(order.getByText('1 of 3 packed')).toBeVisible();
-  await expect(order.getByRole('checkbox', { name: /Sugar/ })).toHaveAttribute(
+  await expect(order.getByRole('checkbox', { name: /Chini/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
@@ -228,18 +245,18 @@ test('S54: delivery order from a list: tick as you pack, it survives a reload, t
   await shop.reload();
   const again = shop.locator('article.sh-order').first();
   await expect(again.getByText('1 of 3 packed')).toBeVisible({ timeout: 30_000 });
-  await expect(again.getByRole('checkbox', { name: /Sugar/ })).toHaveAttribute(
+  await expect(again.getByRole('checkbox', { name: /Chini/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
-  await expect(again.getByRole('checkbox', { name: /Turmeric/ })).toHaveAttribute(
+  await expect(again.getByRole('checkbox', { name: /Haldi/ })).toHaveAttribute(
     'aria-checked',
     'false',
   );
   // Un-ticking works too.
-  await again.getByRole('checkbox', { name: /Sugar/ }).click();
+  await again.getByRole('checkbox', { name: /Chini/ }).click();
   await expect(again.getByText('0 of 3 packed')).toBeVisible();
-  await again.getByRole('checkbox', { name: /Sugar/ }).click();
+  await again.getByRole('checkbox', { name: /Chini/ }).click();
   await expect(again.getByText('1 of 3 packed')).toBeVisible();
 
   // Sending it out is allowed with items unpacked (the note says so).
@@ -254,6 +271,7 @@ test('S54: delivery order from a list: tick as you pack, it survives a reload, t
 
 test('S55: pickup order from a list: no address, "Ready for pickup" and then waiting', async () => {
   const { customer, id } = await newList();
+  await goTo(shop, 'requests');
   await expect(card()).toHaveCount(1, { timeout: 30_000 });
   await answerEverything();
   const shopId = await shopIdOf(customer, id);
@@ -271,8 +289,8 @@ test('S55: pickup order from a list: no address, "Ready for pickup" and then wai
     order.getByText('3 items not packed yet. You can still mark it ready'),
   ).toBeVisible();
 
-  await order.getByRole('checkbox', { name: /Sugar/ }).click();
-  await order.getByRole('checkbox', { name: /Turmeric/ }).click();
+  await order.getByRole('checkbox', { name: /Chini/ }).click();
+  await order.getByRole('checkbox', { name: /Haldi/ }).click();
   await expect(order.getByText('2 of 3 packed')).toBeVisible();
   await expect(order.getByText('1 items not packed yet')).toHaveCount(0);
   await expect(order.getByText('1 item not packed yet. You can still mark it ready')).toBeVisible();
