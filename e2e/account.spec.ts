@@ -152,7 +152,22 @@ test('delete my account: refused with an open order, then it erases and logs out
   await customer.getByRole('link', { name: /Account Delete Kirana/ }).click();
   await customer.getByRole('button', { name: 'Cancel order' }).click();
   await customer.getByRole('dialog').getByRole('button', { name: 'Cancel order' }).click();
-  await expect(customer.getByText('Order cancelled').first()).toBeVisible({ timeout: 15_000 });
+  await expect(customer.getByText('You cancelled this order').first()).toBeVisible({
+    timeout: 15_000,
+  });
+
+  // The search itself is live for a few minutes and blocks the delete too. The customer app has no
+  // button to close it, so the test closes it the way the app's own client would (/requests/:id/close).
+  const token = await customer.evaluate(() => localStorage.getItem('km-seeker-token'));
+  const headers = { Authorization: `Bearer ${token}` };
+  const searches = (await (await customer.request.get('/requests', { headers })).json()) as {
+    id: string;
+  }[];
+  for (const search of searches) {
+    expect((await customer.request.post(`/requests/${search.id}/close`, { headers })).ok()).toBe(
+      true,
+    );
+  }
 
   await customer.goto('/app/account');
   await customer.getByRole('button', { name: 'Delete my account' }).click();
@@ -168,4 +183,29 @@ test('delete my account: refused with an open order, then it erases and logs out
   await shopContext.close();
   await customerContext.close();
   void shop;
+});
+
+// Phone-sized pictures for the PR (390 px wide). Only when ACCOUNT_SHOTS_DIR names a folder.
+test('screenshots of Account and the delete sheet at 390 px', async ({ page }) => {
+  const dir = process.env['ACCOUNT_SHOTS_DIR'];
+  test.skip(!dir, 'set ACCOUNT_SHOTS_DIR to write the pictures');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, '/app/');
+  await openAccount(page);
+  await page.getByRole('button', { name: 'Add address' }).click();
+  await page.getByRole('textbox', { name: 'Address' }).fill(ADDRESS);
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText(ADDRESS)).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${dir}/account-${theme}.png`, fullPage: true });
+  }
+  await page.getByRole('button', { name: 'Delete my account' }).click();
+  await expect(page.getByRole('dialog', { name: 'Delete your account?' })).toBeVisible();
+  for (const theme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: `${dir}/delete-sheet-${theme}.png` });
+  }
 });

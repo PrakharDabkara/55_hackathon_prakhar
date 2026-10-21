@@ -264,6 +264,12 @@ export interface SeekerApi
   /** The customer confirms the delivery arrived. */
   receiveOrder(id: string): Promise<SeekerOrder>;
   forgetAddress(): Promise<void>;
+  /** Who the customer is, as the Account screen may show it: the phone partly hidden. */
+  account(): Promise<{ phoneMasked: string | null }>;
+  /** Ends this login on the server, and forgets this browser's alerts if its endpoint is given. */
+  logout(pushEndpoint?: string | null): Promise<void>;
+  /** Soft delete (ADR-0054). 409 while an order or request is open. */
+  deleteAccount(): Promise<void>;
   /** The last 10 searches and errands, newest first ("Haal ke kaam"). */
   recentWork(): Promise<RecentItem[]>;
 }
@@ -376,6 +382,13 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
       ]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, RECENT_COUNT);
+    },
+    account: () => call<{ phoneMasked: string | null }>('GET', '/account'),
+    async logout(pushEndpoint) {
+      await call('POST', '/account/logout', pushEndpoint ? { pushEndpoint } : {});
+    },
+    async deleteAccount() {
+      await call('DELETE', '/account');
     },
     savedAddress: () => call<SavedAddress>('GET', '/orders/saved-address'),
     keepAddress: (input) => call<SavedAddress>('PUT', '/orders/saved-address', input),

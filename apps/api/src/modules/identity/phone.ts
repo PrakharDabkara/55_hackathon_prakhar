@@ -9,3 +9,12 @@ export function normalisePhone(raw: string): string | null {
 export function maskPhone(phone: string): string {
   return `******${phone.slice(-4)}`;
 }
+
+/**
+ * For the person's own Account screen: "+91 98••• ••210". The country code, the first two digits
+ * and the last three, nothing else (ADR-0054). The full number never leaves the server.
+ */
+export function displayPhone(phone: string): string {
+  const digits = phone.slice(3);
+  return `+91 ${digits.slice(0, 2)}••• ••${digits.slice(-3)}`;
+}

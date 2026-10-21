@@ -6,6 +6,7 @@ import {
   orderIdFromPath,
   requestIdFromPath,
   isOrdersPath,
+  isAccountPath,
 } from './routing.js';
 
 describe('isShopPath', () => {
@@ -59,5 +60,14 @@ describe('the paths of PR E (my orders, one order, one search)', () => {
     expect(requestIdFromPath('/app/request/7c1')).toBe('7c1');
     expect(requestIdFromPath('/app/request/')).toBeNull();
     expect(requestIdFromPath('/app/errand/7c1')).toBeNull();
+  });
+});
+
+describe('isAccountPath', () => {
+  it('is the Account screen, with or without a trailing slash', () => {
+    expect(isAccountPath('/app/account')).toBe(true);
+    expect(isAccountPath('/app/account/')).toBe(true);
+    expect(isAccountPath('/app/accounts')).toBe(false);
+    expect(isAccountPath('/app/shop/account')).toBe(false);
   });
 });

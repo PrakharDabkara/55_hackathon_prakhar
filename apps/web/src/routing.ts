@@ -32,3 +32,8 @@ export function orderIdFromPath(pathname: string): string | null {
 export function requestIdFromPath(pathname: string): string | null {
   return REQUEST_PATH.exec(pathname)?.[1] ?? null;
 }
+
+/** The customer's Account screen. */
+export function isAccountPath(pathname: string): boolean {
+  return pathname === '/app/account' || pathname === '/app/account/';
+}

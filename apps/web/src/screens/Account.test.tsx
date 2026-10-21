@@ -2,14 +2,14 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
-import type { PushClient } from '../lib/push.js';
+import type { DevicePushClient } from '../lib/push.js';
 import { fakeSeekerApi } from '../test/fakes.js';
 import { renderApp } from '../test/render.js';
 import { Account } from './Account.js';
 
 afterEach(() => document.documentElement.removeAttribute('data-theme'));
 
-const pushClient = (over: Partial<PushClient> = {}): PushClient => ({
+const pushClient = (over: Partial<DevicePushClient> = {}): DevicePushClient => ({
   status: vi.fn(async () => 'off' as const),
   enable: vi.fn(async () => 'on' as const),
   disable: vi.fn(async () => undefined),
@@ -20,7 +20,7 @@ const pushClient = (over: Partial<PushClient> = {}): PushClient => ({
 
 function setup(
   overrides: Parameters<typeof fakeSeekerApi>[0] = {},
-  client: PushClient = pushClient(),
+  client: DevicePushClient = pushClient(),
 ) {
   const api = fakeSeekerApi({
     account: vi.fn(async () => ({ phoneMasked: '+91 98••• ••210' })),

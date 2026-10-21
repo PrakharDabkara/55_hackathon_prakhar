@@ -5,11 +5,13 @@ import type { Session } from './lib/session.js';
 import type { SeekerApi, SeekerRequest } from './lib/seekerApi.js';
 import {
   errandIdFromPath,
+  isAccountPath,
   isErrandPath,
   isOrdersPath,
   orderIdFromPath,
   requestIdFromPath,
 } from './routing.js';
+import { Account } from './screens/Account.js';
 import { Errand } from './screens/Errand.js';
 import { Home } from './screens/Home.js';
 import { MyOrders } from './screens/MyOrders.js';
@@ -28,6 +30,7 @@ type Screen =
   | { name: 'search' }
   | { name: 'errand'; id: string | null }
   | { name: 'orders' }
+  | { name: 'account' }
   | { name: 'order'; id: string }
   | { name: 'request'; id: string; initial?: SeekerRequest; origin?: Origin };
 
@@ -37,6 +40,7 @@ type Origin = { lat: number; lng: number };
 const screenFor = (pathname: string): Screen => {
   if (isErrandPath(pathname)) return { name: 'errand', id: errandIdFromPath(pathname) };
   if (isOrdersPath(pathname)) return { name: 'orders' };
+  if (isAccountPath(pathname)) return { name: 'account' };
   const orderId = orderIdFromPath(pathname);
   if (orderId) return { name: 'order', id: orderId };
   const requestId = requestIdFromPath(pathname);
@@ -80,6 +84,12 @@ export function SeekerApp({ api, session }: Props) {
     setLoggedIn(false);
   }, [session]);
 
+  /** Logged out or deleted from Account: forget the login here and show Home. */
+  const leftAccount = useCallback(() => {
+    logout();
+    navigate('/app/');
+  }, [logout, navigate]);
+
   const loggedInWith = useCallback(
     (token: string) => {
       session.setToken(token);
@@ -118,6 +128,9 @@ export function SeekerApp({ api, session }: Props) {
             onBack={home}
             navigate={navigate}
           />
+        )}
+        {loggedIn && screen.name === 'account' && (
+          <Account api={api} navigate={navigate} onBack={home} onLoggedOut={leftAccount} />
         )}
         {loggedIn && screen.name === 'orders' && (
           <MyOrders api={api} navigate={navigate} onBack={home} />

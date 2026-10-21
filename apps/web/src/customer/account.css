@@ -1,0 +1,156 @@
+/* The Account screen (ADR-0054). Tokens only. */
+.cu-account {
+  gap: var(--space-6);
+}
+.cu-account__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cu-account__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.cu-account__phone {
+  overflow-wrap: anywhere;
+}
+.cu-account__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.cu-account__grow {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cu-account__setting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cu-account__setting + .cu-account__setting {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+.cu-account__seg {
+  display: flex;
+  padding: var(--space-1);
+  border-radius: var(--r-md);
+  background: var(--surface-sunk);
+}
+.cu-account__seg-option {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+.cu-account__seg-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.cu-account__seg-option span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  border-radius: var(--r-sm);
+  color: var(--ink-muted);
+  font: 600 14px/20px var(--font-ui);
+}
+.cu-account__seg-option input:checked + span {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-slip);
+}
+.cu-account__seg-option input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.cu-account__list {
+  gap: 0;
+  padding-block: 0;
+}
+.cu-account__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.cu-account__row + .cu-account__row {
+  border-top: 1px solid var(--line);
+}
+.cu-account__row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.cu-account__end {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.cu-account__logout {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.cu-account__delete {
+  color: var(--danger);
+  font-weight: 600;
+}
+.cu-account__foot {
+  text-align: center;
+}
+.cu-account__foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--brand);
+  font-weight: 600;
+}
+.cu-account__error,
+.cu-account__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.cu-account__form,
+.cu-account__see {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.cu-account__textarea {
+  min-height: 96px;
+  padding: var(--space-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 16px/24px var(--font-ui);
+  resize: vertical;
+}
+.cu-account__textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

@@ -109,6 +109,19 @@ describe('the browser side of push', () => {
     });
   });
 
+  describe('forgetDevice', () => {
+    it('drops the browser subscription and hands back the endpoint without calling the server', async () => {
+      const api = serverOn();
+      expect(await createPushClient(api, env()).forgetDevice()).toBe(SUB.endpoint);
+      expect(api.pushUnsubscribe).not.toHaveBeenCalled();
+    });
+
+    it('gives null when the browser has nothing or cannot say', async () => {
+      const e = env({ unsubscribe: vi.fn(async () => Promise.reject(new Error('x'))) });
+      expect(await createPushClient(serverOn(), e).forgetDevice()).toBeNull();
+    });
+  });
+
   describe('resync', () => {
     it('tells the server about a subscription the browser already has, with no prompt', async () => {
       const api = serverOn();

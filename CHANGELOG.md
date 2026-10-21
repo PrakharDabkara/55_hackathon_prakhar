@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR S: customer Account, ADR-0054)
+
+- Account screen at `/app/account`, opened from a person icon in the Find header (signed out, it opens the login sheet and then Account): the phone partly hidden, the delivery address (add or edit, saved on the server), Reply alerts for this device (browser permission flow; off also deletes the subscription on the server; disabled when the browser blocks them), Appearance System/Light/Dark, My orders, "What shops can see", Log out and Delete my account.
+- API: `GET /account`, `POST /account/logout` (revokes the session and removes this browser's push subscription), `DELETE /account` (soft delete in one transaction, refused with an open order or live request, 5 tries per hour). Migration 026: `users.phone` can be empty, `users.deleted_at`.
+- Dark and Light override the phone's setting through `data-theme` on `<html>`, set before the first paint by `theme-init.js` (a file, since the CSP allows no inline script). The shop app follows the same stored choice.
+
 ### Fixed (CI e2e isolation)
 
 - The e2e job used the local dev volumes (compose pins their names), so on the self-hosted runner `seeker.spec` met dev stock ("Sent to 0 shops") and failed on main after #49. The job now names its own volumes (`PGDATA_VOLUME`, `REDISDATA_VOLUME`); local defaults are unchanged.
