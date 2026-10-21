@@ -22,8 +22,8 @@ describe('the CI database and Redis volumes', () => {
   });
 
   it('are emptied before the job starts, in case an earlier job died before cleaning up', () => {
-    const down = e2eJob.indexOf('docker compose down -v');
+    const down = e2eJob.indexOf('- run: docker compose down -v');
     expect(down).toBeGreaterThan(-1);
-    expect(down).toBeLessThan(e2eJob.indexOf('npm run db:up'));
+    expect(down).toBeLessThan(e2eJob.indexOf('- run: npm run db:up'));
   });
 });
