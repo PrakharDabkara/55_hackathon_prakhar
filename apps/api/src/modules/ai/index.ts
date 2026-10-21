@@ -5,11 +5,12 @@ import { pingAi, type PingResult } from './ping.js';
 import { createUserLimiter, type RedisCounter, type UserLimiter } from './limiter.js';
 import type { LlmProvider, Purpose } from './types.js';
 
-export { AiUnavailableError, createAiClient, dbRecorder } from './client.js';
+export { AiUnavailableError, createAiClient, dbRecorder, MAX_RETRIES } from './client.js';
 export type { AiCallRow, AiClient, Recorder } from './client.js';
 export { createFakeProvider } from './fake.js';
 export type { FakeCall, FakeChatScript, FakeChatTurn, FakeProvider } from './fake.js';
 export { createGeminiProvider } from './gemini.js';
+export { REQUEST_TIMEOUT_MS, withRequestTimeout } from './timeout.js';
 export { QuotaWatch, rateLimitInfo, watchProvider } from './quota.js';
 export type { RateLimitInfo } from './quota.js';
 export { createUserLimiter } from './limiter.js';
@@ -70,6 +71,7 @@ interface Options {
     models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
+    onRetry?: () => void;
   };
 }
 

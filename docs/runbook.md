@@ -236,7 +236,7 @@ In CI the `agent-evals` job runs when a PR carries the `agent-evals` label (dev 
 
 ## GitHub: the `evals` environment
 
-The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". The `agent-evals` job (see "Agent evals") uses the same environment and key. The resolve job runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow) and every day at 08:30 UTC on `main` (not on push: a merge would spend the day's quota). The scheduled run also refreshes the embedding cache that PRs restore from. Runs never overlap (one concurrency group) and the job times out after 30 minutes. Every job in every workflow runs on `ubuntu-24.04`, pinned so GitHub's move of `ubuntu-latest` to Ubuntu 26 (2026-10-19) changes nothing; bump it on purpose.
+The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API_KEY` secret (Settings, Environments, New environment, add the secret). It must be a key from a **separate Google project** than production's. Without it the job fails with "GEMINI_API_KEY missing". The `agent-evals` job (see "Agent evals") uses the same environment and key. The resolve job runs when a PR carries the `evals` label, by hand (Actions, Evals, Run workflow); the daily 08:30 UTC run on `main` is paused until Oct 30 (see "Evals: timeouts, quota, schedule paused until Oct 30"; never on push: a merge would spend the day's quota). Runs on one ref never overlap (a newer run cancels the older) and each job times out after 30 minutes. Every job in every workflow runs on `ubuntu-24.04`, pinned so GitHub's move of `ubuntu-latest` to Ubuntu 26 (2026-10-19) changes nothing; bump it on purpose.
 
 **Three Google projects, three keys.** Never share one: a quota used in one place must not stop another.
 
@@ -247,6 +247,18 @@ The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API
 | Local dev | your `.env` (git-ignored; never print or commit it) | `npm run eval:resolve`, `ai:embed-catalog`, `errand:smoke` locally |
 
 **`QUOTA_EXHAUSTED — rerun after the daily reset`.** The eval run stopped on purpose, exit code 3, with this message in the step summary. It means the eval project's free Gemini quota is used up for today: either Google answered 429 `RESOURCE_EXHAUSTED` naming a per-day quota, or three 429s in a row asked for a wait of more than 60 s. (An ordinary per-minute 429 is retried as before.) A preflight call (one embedding, one tiny answer) runs before anything starts, so a spent quota fails in seconds, not after 45 minutes of retries. The code does not look broken; do not change it. Rerun after the daily reset, or let the 08:30 UTC schedule do it. The reset is at midnight Pacific time (07:00 or 08:00 UTC depending on the season), so 08:30 UTC is after it. The budget is one full run per day per project: a local `eval:resolve` with the same project's key spends the same quota the schedule needs, so use a separate local-dev project.
+
+## Evals: timeouts, quota, schedule paused until Oct 30
+
+Eval jobs once ran 20 to 78 minutes while a healthy run takes about 8, and one stuck job held the only self-hosted runner. Now:
+
+- **Every model or embedding request has 30 s** (`withRequestTimeout`, applied to the Gemini provider everywhere, so also the preflight calls). A timeout is a failure like any other: it is retried and then tried on the fallback model. Production keeps its own, shorter limits (8 s resolve, `ERRAND_AI_TIMEOUT_MS` errands) on top.
+- **At most 3 retries per call.** The pause doubles each time with jitter, never over 30 s; a 429 that says how long to wait (Retry-After) is obeyed, capped at 30 s. A per-day 429 is not retried at all.
+- **A spent daily quota ends the run at once**: `QUOTA_EXHAUSTED` in the log and job summary, exit code 3 (see "QUOTA_EXHAUSTED" above). Rerun after the reset.
+- **Progress**: one line every 10 cases, counts only: `progress dev: 20/143, passes 17, retries 2, elapsed 4:12`. For a holdout set the log shows these lines and the aggregate table, never a case id, input or expected value. (The JSON report in the uploaded artifact still lists the cases; do not share it.)
+- **Both jobs time out after 30 minutes**, and a newer run on the same ref cancels the older one. The embeddings cache is written after every embedded batch and saved with `always()`, so a killed run keeps what it paid for.
+- **The daily schedule is paused until Oct 30.** To restore it after Oct 30, add `schedule: - cron: '30 8 * * *'` back under `on:` in `.github/workflows/evals.yml` and flip the "no schedule" test in `evals/workflow.test.ts`. Until then the cache is seeded by the first run of each catalog version, and the 08:30 UTC mentions above and below apply only once it is back.
+- **If a job still looks stuck**, cancel it in Actions; the next run picks up the saved embeddings.
 
 ## npm install scripts
 

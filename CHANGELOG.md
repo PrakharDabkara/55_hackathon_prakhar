@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (PR V: reliable evals)
+
+- Eval runs no longer stall: every model and embedding request has a 30 s limit (also the preflight, which had none); retries are capped at 3 with doubling, jittered pauses and Retry-After honoured (max 30 s); a per-day 429 is not retried and ends the run with `QUOTA_EXHAUSTED`. The resolve runner makes one whole-query retry instead of two, so the nested retries no longer multiply.
+- The catalog embeddings are saved after every batch, so a killed run keeps its work.
+- `evals.yml`: 30-minute timeout on both jobs, one run per ref (a newer run cancels the older), the daily schedule paused until Oct 30 (runbook: how to restore).
+- Progress lines every 10 cases (counts only); the holdout is never named in the log or summary.
+
 ### Added (PR U3: shopping lists in the customer app, ADR-0055)
 
 - Find has **One thing / A list** (remembered on the device). The list editor is a paper card with numbered lines in handwriting: Enter or Next adds a line, Backspace on an empty line removes it, a paste or comma list is split, at most 10 ("N of 10"), a ✕ on each line. "Several things? Make it a list" appears when the single box looks like a list. The existing login on first Find applies.

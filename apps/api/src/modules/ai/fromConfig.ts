@@ -4,19 +4,23 @@ import type { Queryable } from '../../db/queryable.js';
 import { connect } from '../../workers/redis.js';
 import { createFakeProvider } from './fake.js';
 import { createGeminiProvider } from './gemini.js';
+import { withRequestTimeout } from './timeout.js';
 import { loadScenario, playScenario } from './scenario.js';
 import { createAi, type AiContext } from './index.js';
 import type { LlmProvider, Purpose } from './types.js';
 
 export function providerFromConfig(config: Config): LlmProvider {
   if (config.llmProvider === 'gemini') {
-    return createGeminiProvider({
-      apiKey: config.geminiApiKey as string,
-      model: config.geminiModel,
-      fallbackModel: config.geminiFallbackModel,
-      embedModel: config.geminiEmbedModel,
-      embedDim: config.embedDim,
-    });
+    // Every request has a hard limit, also one that goes through no client (the evals' preflight).
+    return withRequestTimeout(
+      createGeminiProvider({
+        apiKey: config.geminiApiKey as string,
+        model: config.geminiModel,
+        fallbackModel: config.geminiFallbackModel,
+        embedModel: config.geminiEmbedModel,
+        embedDim: config.embedDim,
+      }),
+    );
   }
   const fake = createFakeProvider({ dim: config.embedDim });
   // A scripted model for end-to-end runs: FAKE_LLM_SCENARIO=<file> (ADR-0024 amendment, Day 14b).
@@ -42,6 +46,7 @@ export function aiFromConfig({
     models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
+    onRetry?: () => void;
   };
   /** Lets a script observe every provider call (the evals watch for an exhausted quota). */
   wrapProvider?: (provider: LlmProvider) => LlmProvider;

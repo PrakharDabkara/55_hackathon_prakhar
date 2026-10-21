@@ -34,6 +34,7 @@ function setup(overrides: Partial<Parameters<typeof createAiClient>[0]> = {}) {
       sleeps.push(ms);
     },
     backoffMs: 250,
+    random: () => 0.999999, // no jitter shortening: the full step
     ...overrides,
   });
   return { client, provider, rows, sleeps, advance: (ms: number) => (clock += ms) };

@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 import { pino } from 'pino';
 import { z } from 'zod';
 import { loadConfig } from './config/config.js';
+import { saveEmbeddings } from './evalEmbeddings.js';
+import { createProgress, isHoldoutSet } from './evalProgress.js';
+import { createQuotaStop } from './evalQuota.js';
 import { createPool } from './db/pool.js';
 import {
   checkGates,
@@ -80,22 +83,16 @@ if (config.llmProvider !== 'gemini' || !config.geminiApiKey) {
 // fails and the summary says why.
 const quota = new QuotaWatch();
 let testDb: TestDatabase | null = null;
-const QUOTA_EXHAUSTED = 'QUOTA_EXHAUSTED — rerun after the daily reset';
 let stopping = false;
-function stopForQuota(reason: string): void {
-  if (stopping) return;
-  stopping = true;
-  console.error(`::error title=QUOTA_EXHAUSTED::${QUOTA_EXHAUSTED}. ${reason}.`);
-  if (env['GITHUB_STEP_SUMMARY'])
-    appendFileSync(
-      env['GITHUB_STEP_SUMMARY'],
-      `### Resolve evals: ${QUOTA_EXHAUSTED}\n\nStopped: ${reason}. The eval project's free Gemini quota resets daily; the scheduled run (08:30 UTC) or a manual run after the reset will work. See docs/runbook.md, "QUOTA_EXHAUSTED".\n`,
-    );
+const stopOnce = createQuotaStop({
+  title: 'Resolve evals',
+  summary: (text) => {
+    if (env['GITHUB_STEP_SUMMARY']) appendFileSync(env['GITHUB_STEP_SUMMARY'], text);
+  },
   // Best effort: the throwaway Postgres goes away with the job anyway (Ryuk removes it).
-  void Promise.race([testDb?.stop(), new Promise((res) => setTimeout(res, 5000))]).finally(() =>
-    process.exit(3),
-  );
-}
+  cleanup: () => testDb?.stop(),
+});
+const stopForQuota = (reason: string) => ((stopping = true), stopOnce(reason));
 const watched = (provider: Parameters<typeof watchProvider>[0]) =>
   watchProvider(provider, quota, stopForQuota);
 
@@ -126,19 +123,21 @@ if (config.llmProvider === 'gemini' && config.geminiApiKey) {
 
 testDb = env['EVAL_DB'] === 'testcontainers' ? await startPostgres() : null;
 const pool = testDb?.pool ?? createPool(config.databaseUrl, pino({ level: 'warn' }));
-// Patient on purpose: a 429 waits 2, 4, 8, 16, 32 seconds before the query is given up on.
+// Patient but bounded: every request has 30 s, and a call is retried at most 3 times (pauses of 2,
+// 4, 8 s with jitter, or the wait Google asked for, at most 30 s). Counts for the progress lines.
+let progress = createProgress({ label: 'resolve', total: 0 });
 const ai = aiFromConfig({
   config,
   db: pool,
   logger: pino({ level: 'warn' }),
-  client: { timeoutMs: 30_000, retries: 5, backoffMs: 2000 },
+  client: { timeoutMs: 30_000, retries: 3, backoffMs: 2000, onRetry: () => progress.retried() },
   wrapProvider: watched,
 });
 const embedder = aiFromConfig({
   config,
   db: pool,
   logger: pino({ level: 'warn' }),
-  client: { retries: 3, backoffMs: 20_000 },
+  client: { timeoutMs: 30_000, retries: 3, backoffMs: 5000, onRetry: () => progress.retried() },
   wrapProvider: watched,
 });
 
@@ -154,7 +153,9 @@ let exitCode = 0;
 const aiCallCount = async (): Promise<number> =>
   (await pool.query<{ n: number }>(`SELECT count(*)::int AS n FROM ai_calls`)).rows[0]?.n ?? 0;
 
-const MODEL_RETRIES = 2;
+// One more try of a whole query, after the client's own 3 (two nested layers made a bad hour last
+// for tens of minutes).
+const MODEL_RETRIES = 1;
 const RETRY_PAUSE_MS = 8000;
 /** Model calls that failed or were refused by the open breaker. */
 const failedCallCount = async (): Promise<number> =>
@@ -188,6 +189,7 @@ const callsOf = async (purpose: string): Promise<number> =>
 /** Shopping lists (ADR-0055): every line of a list is sorted together, in one model call at most. */
 async function runListSet(set: EvalSet) {
   const cases = loadListCases();
+  progress = createProgress({ label: set, total: cases.length });
   await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms, new_item_attempts');
   await pool.query('TRUNCATE ai_calls');
   const rows: Row[] = [];
@@ -226,6 +228,7 @@ async function runListSet(set: EvalSet) {
         errored = true;
         break;
       }
+      progress.retried();
       await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
       resolved = await resolveLines(pool, lines, options);
     }
@@ -266,6 +269,10 @@ async function runListSet(set: EvalSet) {
         ...(errored && { error: true }),
       });
     }
+    progress.done(
+      !errored &&
+        c.lines.every((l, i) => detail[detail.length - c.lines.length + i]?.correct === true),
+    );
     if (calls.generate + calls.embed > 0 && aiPauseMs > 0)
       await new Promise((res) => setTimeout(res, aiPauseMs));
   }
@@ -301,6 +308,7 @@ async function runListSet(set: EvalSet) {
 async function runSet(set: EvalSet) {
   if (set === 'list-dev') return runListSet(set);
   const cases = loadCases(set);
+  progress = createProgress({ label: set, total: cases.length });
   // Each set starts from nothing cached, so one set cannot make the other look better.
   await pool.query('TRUNCATE query_cache, search_queries, suggested_synonyms, new_item_attempts');
   await pool.query('TRUNCATE ai_calls');
@@ -346,6 +354,7 @@ async function runSet(set: EvalSet) {
         errored = true;
         break;
       }
+      progress.retried();
       await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
       r = await resolveItem(pool, c.q, options);
     }
@@ -373,6 +382,7 @@ async function runSet(set: EvalSet) {
       correct,
       ...(errored && { error: true }),
     });
+    progress.done(correct && !errored);
     if (after > before && aiPauseMs > 0) await new Promise((res) => setTimeout(res, aiPauseMs));
   }
 
@@ -443,12 +453,14 @@ function print(
   console.log(
     `LLM fallback    ${(s.llmFallbackRate * 100).toFixed(1)}%  (${s.llm.calls} calls, ${s.llm.totalTokens} tokens, p95 ${s.llm.p95LatencyMs} ms, ${s.errors} errors)`,
   );
-  for (const w of wrong) {
+  // A holdout case is never named in the log: the counts above are all it shows.
+  const quiet = isHoldoutSet(set);
+  for (const w of quiet ? [] : wrong) {
     console.log(
       `  WRONG  ${JSON.stringify(w.q).slice(0, 70).padEnd(72)} expected ${String(w.expected)}  got ${String(w.got)}  (${String(w.step)})`,
     );
   }
-  for (const e of errored)
+  for (const e of quiet ? [] : errored)
     console.log(
       `  ERROR  ${JSON.stringify(e.q).slice(0, 70)} (model failed after retries; not scored)`,
     );
@@ -479,21 +491,23 @@ try {
   let embedded = 0;
   for (let attempt = 1; ; attempt++) {
     try {
-      embedded += (await embedCatalog(pool, embedder, { batchSize: 20, pauseMs: 20_000 })).embedded;
+      embedded += (
+        await embedCatalog(pool, embedder, {
+          batchSize: 20,
+          pauseMs: 20_000,
+          // Saved after every batch: a run that is killed has still kept what it embedded.
+          onBatch: () => saveEmbeddings(pool, vectorFile),
+        })
+      ).embedded;
       break;
     } catch (error) {
-      if (attempt >= 5) throw error;
+      if (attempt >= 3) throw error;
       console.warn(`embedding paused (${(error as Error).message}); retrying in 65 s`);
       await new Promise((res) => setTimeout(res, 65_000));
     }
   }
   if (embedded > 0) console.log(`embedded ${embedded} catalog items`);
-  const stored = await pool.query<{ slug: string; hash: string; vector: string }>(
-    `SELECT slug, embedding_source_hash AS hash, embedding::text AS vector
-       FROM items WHERE embedding IS NOT NULL`,
-  );
-  mkdirSync(path.dirname(vectorFile), { recursive: true });
-  writeFileSync(vectorFile, JSON.stringify(stored.rows));
+  await saveEmbeddings(pool, vectorFile);
 
   const results = [];
   for (const set of sets) results.push(await runSet(set));

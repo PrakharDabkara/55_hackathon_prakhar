@@ -71,7 +71,14 @@ export async function embedCatalog(
     batchSize = 50,
     pauseMs = 1000,
     logger,
-  }: { batchSize?: number; pauseMs?: number; logger?: Logger } = {},
+    onBatch,
+  }: {
+    batchSize?: number;
+    pauseMs?: number;
+    logger?: Logger;
+    /** Runs after each stored batch (the evals save their vector cache here). */
+    onBatch?: () => Promise<void>;
+  } = {},
 ): Promise<EmbedResult> {
   const { total, work } = await outstanding(db, ai);
   const rows = { length: total };
@@ -96,6 +103,7 @@ export async function embedCatalog(
         WHERE i.id = v.id::uuid`,
       [batch.map((w) => w.id), vectors.map((v) => `[${v.join(',')}]`), batch.map((w) => w.hash)],
     );
+    await onBatch?.();
     logger?.info({ done: start + batch.length, of: work.length }, 'embedded catalog items');
     if (pauseMs > 0 && start + batchSize < work.length)
       await new Promise((r) => setTimeout(r, pauseMs));

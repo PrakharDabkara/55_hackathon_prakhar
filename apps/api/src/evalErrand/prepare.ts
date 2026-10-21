@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 import type { Pool } from 'pg';
+import { saveEmbeddings } from '../evalEmbeddings.js';
 import type { AiContext } from '../modules/ai/index.js';
 import { embedCatalog, loadSeedCatalog, seedCatalog } from '../modules/catalog/index.js';
 
@@ -32,7 +32,13 @@ export async function prepareCatalog(
   let embedded = 0;
   for (let attempt = 1; ; attempt++) {
     try {
-      embedded += (await embedCatalog(pool, embedder, { batchSize: 20, pauseMs: 4000 })).embedded;
+      embedded += (
+        await embedCatalog(pool, embedder, {
+          batchSize: 20,
+          pauseMs: 4000,
+          onBatch: () => saveEmbeddings(pool, vectorFile),
+        })
+      ).embedded;
       break;
     } catch (error) {
       if (attempt >= 4) throw error;
@@ -41,10 +47,5 @@ export async function prepareCatalog(
     }
   }
   if (embedded > 0) log(`embedded ${embedded} catalog items`);
-  const stored = await pool.query<{ slug: string; hash: string; vector: string }>(
-    `SELECT slug, embedding_source_hash AS hash, embedding::text AS vector
-       FROM items WHERE embedding IS NOT NULL`,
-  );
-  mkdirSync(path.dirname(vectorFile), { recursive: true });
-  writeFileSync(vectorFile, JSON.stringify(stored.rows));
+  await saveEmbeddings(pool, vectorFile);
 }
