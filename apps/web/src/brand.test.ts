@@ -9,6 +9,7 @@ const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.met
 
 const files: Record<string, string> = {
   'index.html': '../index.html',
+  'landing.html': '../landing.html',
   'public/manifest.json': '../public/manifest.json',
   'public/sw.js': '../public/sw.js',
   'src/i18n/strings.ts': './i18n/strings.ts',

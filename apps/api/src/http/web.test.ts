@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../app.js';
 import { testConfig } from '../testing/config.js';
 
+const LANDING = `<!doctype html><html><head><title>AskBuy: lift your shutter online</title></head><body><h1>Landing</h1></body></html>`;
 const INDEX = `<!doctype html><html><head><title>Shop</title></head><body><div id="root"></div><script type="module" src="/app/assets/index-abc123.js"></script></body></html>`;
 
 describe('the web app served under /app/', () => {
@@ -19,6 +20,7 @@ describe('the web app served under /app/', () => {
     mkdirSync(path.join(dist, 'assets'), { recursive: true });
     writeFileSync(path.join(dist, 'index.html'), INDEX);
     writeFileSync(path.join(dist, 'assets', 'index-abc123.js'), 'console.log("shop");');
+    writeFileSync(path.join(dist, 'landing.html'), LANDING);
     writeFileSync(path.join(dist, 'manifest.json'), '{"name":"AskBuy"}');
     writeFileSync(path.join(dist, 'sw.js'), 'self.addEventListener("push", () => {});');
     writeFileSync(path.join(root, 'secret.txt'), 'top secret');
@@ -77,6 +79,40 @@ describe('the web app served under /app/', () => {
       const res = await request(app).get('/app');
       expect(res.status).toBe(301);
       expect(res.headers['location']).toBe('/app/');
+    });
+  });
+
+  describe('the landing page at / (ADR-0056)', () => {
+    it('serves landing.html with the same strict CSP and a short cache', async () => {
+      const res = await request(app).get('/');
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/html/);
+      expect(res.text).toBe(LANDING);
+      const csp = res.headers['content-security-policy'] ?? '';
+      expect(csp).toContain("script-src 'self'");
+      expect(csp).toContain("style-src 'self'");
+      expect(csp).not.toContain('unsafe-inline');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['cache-control']).toBe('public, max-age=300');
+    });
+
+    it('answers HEAD too, and does not answer other methods or paths with the page', async () => {
+      expect((await request(app).head('/')).status).toBe(200);
+      const post = await request(app).post('/').send({});
+      expect(post.status).toBe(404);
+      expect(post.body.error.code).toBe('not_found');
+      expect((await request(app).get('/landing.html')).status).toBe(404);
+    });
+
+    it('leaves /health and /app/ as they were', async () => {
+      expect((await request(app).get('/health')).status).toBe(200);
+      expect((await request(app).get('/app/')).text).toBe(INDEX);
+    });
+
+    it('answers 404 at / when the landing page is not built', async () => {
+      const res = await request(emptyApp).get('/');
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('not_found');
     });
   });
 
