@@ -352,6 +352,20 @@ async function loop(
         await recordToolStep(deps, errand.id, call, { error: true, notRun: true }, result, 0);
         continue;
       }
+      // ADR-0053: a plan is held while a new item the customer named is unconfirmed. Not run; the
+      // checklist below is asked, and the agent plans again after the answer.
+      if (
+        call.name === 'submit_plan' &&
+        state.questionsAsked < limits.maxQuestions &&
+        unconfirmedNew(errand.task, state).length > 0
+      ) {
+        const result = notRun(
+          'the customer must confirm a list first. Do not submit a plan until they answer.',
+        );
+        results.push({ id: call.id, name: call.name, result });
+        await recordToolStep(deps, errand.id, call, { error: true, notRun: true }, result, 0);
+        continue;
+      }
       const done = await runTool(deps, requests, errand, state, call, log);
       results.push({ id: call.id, name: call.name, result: done.result });
       if (done.plan) {
