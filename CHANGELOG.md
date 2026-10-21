@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (CI e2e isolation)
+
+- The e2e job used the local dev volumes (compose pins their names), so on the self-hosted runner `seeker.spec` met dev stock ("Sent to 0 shops") and failed on main after #49. The job now names its own volumes (`PGDATA_VOLUME`, `REDISDATA_VOLUME`); local defaults are unchanged.
+
 ### Changed (Day 23, PR R: new named items are confirmed, ADR-0053)
 
 - Errand rule 3: an item the customer named that the catalog does not have is confirmed in a checklist before any shop is asked (named items ticked first, the agent's extras offered unticked). A goal with no named item keeps its pre-ticked list.

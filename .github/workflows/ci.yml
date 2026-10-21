@@ -63,6 +63,10 @@ jobs:
       DATABASE_URL: postgres://kahanmilega:kahanmilega@localhost:55432/kahanmilega
       REDIS_URL: redis://localhost:56379
       E2E_PORT: '53100'
+      # Fixed volume names ignore the project name: without these, the job would run on (and a
+      # `down -v` could delete) the local dev data of a self-hosted runner.
+      PGDATA_VOLUME: askbuy-ci_pgdata
+      REDISDATA_VOLUME: askbuy-ci_redisdata
     steps:
       - name: Which runner
         run: echo "Runner ${{ runner.name }} (${{ runner.environment }}), job ${{ github.job }}" >> "$GITHUB_STEP_SUMMARY"
@@ -75,6 +79,8 @@ jobs:
           cache: ${{ runner.environment == 'github-hosted' && 'npm' || '' }}
       - run: npm ci
       - run: cp .env.example .env
+      # Its own volumes only (see PGDATA_VOLUME): clears what an earlier job left if it died early.
+      - run: docker compose down -v
       - run: npm run db:up
       - run: npm run db:migrate
       # Builds the shared package and the API, then loads the catalog.

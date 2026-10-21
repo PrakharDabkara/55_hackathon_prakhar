@@ -32,8 +32,9 @@ services:
 
 # Explicit names equal to the ones the project used before the rename (it was named after the
 # folder), so existing local data survives. See docs/naming.md.
+# CI sets PGDATA_VOLUME and REDISDATA_VOLUME, so its e2e run never shares data with a local stack.
 volumes:
   pgdata:
-    name: kahanmilega_pgdata
+    name: ${PGDATA_VOLUME:-kahanmilega_pgdata}
   redisdata:
-    name: kahanmilega_redisdata
+    name: ${REDISDATA_VOLUME:-kahanmilega_redisdata}
