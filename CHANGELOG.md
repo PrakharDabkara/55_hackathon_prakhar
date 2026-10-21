@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (PR W: simulated shop removal)
+
+- `DELETE /admin/sim/shops` runs again after a deadlock, and a database error now answers `sim_remove_busy` (503) or `sim_remove_failed` (500, with the SQLSTATE) instead of a bare `internal`. A test pins that shops with list pings, answered lines and delivery and pickup list orders are removed, and real shops' list data stays.
+
 ### Fixed (PR V: reliable evals)
 
 - Eval runs no longer stall: every model and embedding request has a 30 s limit (also the preflight, which had none); retries are capped at 3 with doubling, jittered pauses and Retry-After honoured (max 30 s); a per-day 429 is not retried and ends the run with `QUOTA_EXHAUSTED`. The resolve runner makes one whole-query retry instead of two, so the nested retries no longer multiply.

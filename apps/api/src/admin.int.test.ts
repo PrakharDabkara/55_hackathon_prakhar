@@ -320,6 +320,107 @@ describe('admin role and the simulator endpoints', () => {
       await request(app).post(`/requests/${asked.body.id}/close`).set(auth(seeker));
     }, 30_000);
 
+    it('removes list pings, answered list lines and list orders (delivery and pickup) of simulated shops, and leaves a real shop list data alone', async () => {
+      const realShop = await request(app)
+        .post('/shops')
+        .set(auth(await loginAs(app, 'shop', String(phone++))))
+        .send({ name: 'List Survivor', lat: north(0.4), lng: ORIGIN.lng, categories: ['grocery'] });
+      expect(realShop.status).toBe(201);
+      const made = await create({ ...body, count: 4 });
+      const sim = (made.body as { shopId: string }[]).map((s) => s.shopId);
+      const item = (await pool.query<{ id: string }>(`SELECT id FROM items WHERE slug = 'rice'`))
+        .rows[0]?.id;
+      const list = (
+        await pool.query<{ id: string; user_id: string }>(
+          `INSERT INTO shopping_lists (user_id, state, location, radius_m, expires_at, sent_at)
+           VALUES ($3, 'OPEN', ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, 2000,
+                   now() + interval '15 minutes', now())
+           RETURNING id, user_id`,
+          [ORIGIN.lng, ORIGIN.lat, seeker.userId],
+        )
+      ).rows[0] as { id: string; user_id: string };
+      const line = (
+        await pool.query<{ id: string }>(
+          `INSERT INTO list_lines (list_id, position, text, status, item_id)
+           VALUES ($1, 0, 'rice', 'item', $2) RETURNING id`,
+          [list.id, item],
+        )
+      ).rows[0]?.id;
+      const all = [...sim, realShop.body.id as string];
+      const pings = await pool.query<{ id: string; shop_id: string }>(
+        `INSERT INTO list_pings (list_id, shop_id, state, answered_at, can_deliver, delivery_fee_paise)
+         SELECT $1, s, 'ANSWERED', now(), true, 2000 FROM unnest($2::uuid[]) s
+         RETURNING id, shop_id`,
+        [list.id, all],
+      );
+      await pool.query(
+        `INSERT INTO list_ping_lines (list_ping_id, line_id, have, price_paise)
+         SELECT unnest($1::uuid[]), $2, true, 5000`,
+        [pings.rows.map((p) => p.id), line],
+      );
+      // A delivery order and a pickup order from this list on simulated shops; a delivery order
+      // on the real shop.
+      const order = (shopId: string, fulfilment: 'delivery' | 'pickup', state: string) =>
+        pool.query(
+          `INSERT INTO delivery_orders
+             (user_id, shop_id, list_id, source_id, state, lines, fulfilment, address_text, lat, lng,
+              expires_at)
+           VALUES ($1, $2, $3, $3, $4, '[]'::jsonb, $5, $6, $7, $8, now() + interval '1 hour')`,
+          [
+            list.user_id,
+            shopId,
+            list.id,
+            state,
+            fulfilment,
+            fulfilment === 'delivery' ? 'Flat 4B, Sapna Apartments' : null,
+            fulfilment === 'delivery' ? ORIGIN.lat : null,
+            fulfilment === 'delivery' ? ORIGIN.lng : null,
+          ],
+        );
+      await order(sim[0] as string, 'delivery', 'ACCEPTED');
+      await order(sim[1] as string, 'pickup', 'READY');
+      await order(sim[2] as string, 'pickup', 'REQUESTED');
+      await order(realShop.body.id, 'delivery', 'REQUESTED');
+
+      const res = await wipe();
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ shops: 4, users: 4 });
+
+      const n = async (sql: string, args: unknown[]) =>
+        ((await pool.query(sql, args)).rows[0] as { n: number }).n;
+      expect(
+        await n(`SELECT count(*)::int AS n FROM list_pings WHERE shop_id = ANY($1)`, [sim]),
+      ).toBe(0);
+      expect(
+        await n(`SELECT count(*)::int AS n FROM delivery_orders WHERE shop_id = ANY($1)`, [sim]),
+      ).toBe(0);
+      expect(
+        await n(
+          `SELECT count(*)::int AS n FROM list_ping_lines lpl
+             JOIN list_pings lp ON lp.id = lpl.list_ping_id WHERE lp.shop_id = ANY($1)`,
+          [sim],
+        ),
+      ).toBe(0);
+      // The real shop keeps its ping, its answered line and its order; the list and line stay.
+      const realId = realShop.body.id as string;
+      expect(
+        await n(`SELECT count(*)::int AS n FROM list_pings WHERE shop_id = $1`, [realId]),
+      ).toBe(1);
+      expect(
+        await n(
+          `SELECT count(*)::int AS n FROM list_ping_lines lpl
+             JOIN list_pings lp ON lp.id = lpl.list_ping_id WHERE lp.shop_id = $1`,
+          [realId],
+        ),
+      ).toBe(1);
+      expect(
+        await n(`SELECT count(*)::int AS n FROM delivery_orders WHERE shop_id = $1`, [realId]),
+      ).toBe(1);
+      expect(
+        await n(`SELECT count(*)::int AS n FROM shopping_lists WHERE id = $1`, [list.id]),
+      ).toBe(1);
+    }, 30_000);
+
     it('is fine on an empty set', async () => {
       const res = await wipe();
       expect(res.status).toBe(200);
