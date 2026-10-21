@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR U3: shopping lists in the customer app, ADR-0055)
+
+- Find has **One thing / A list** (remembered on the device). The list editor is a paper card with numbered lines in handwriting: Enter or Next adds a line, Backspace on an empty line removes it, a paste or comma list is split, at most 10 ("N of 10"), a ✕ on each line. "Several things? Make it a list" appears when the single box looks like a list. The existing login on first Find applies.
+- **Check your list** (only when a line is a question or cannot be sent): clear items with a category chip, questions as radio chips plus "As I typed", "Other" lines, refused lines with the reason and a way back to edit, and the AI note. A list with nothing to ask goes straight to the shops.
+- **/app/list/<id>** (also the notification link): a request card of what was asked, a live status ("N shops answered · still listening for M min"), the ranked answers (first open), the coverage sentence and **Make my plan**. **Stop asking** with an in-page question; a stopped list shows its answers and says it cannot be ordered.
+- **Your plan**: stats, the route map, a card per shop in nearest-first order with **Pick up | Deliver · fee**, lines you can move to another shop that has them, "Nobody has this yet", the delivery address and note only when a shop is set to Deliver, and **Order from N shops · pay cash**; closed shop, cannot deliver, stopped and similar errors say what to do.
+- **Orders of a list**: a card per shop; a pickup is "Being packed · X of N" (live), then "Ready for pickup" with Directions and **Got it**; a delivery is received as before. The order page follows Placed, Accepted, Ready, Collected for a pickup. My orders shows the orders of one list as one row.
+- **Stop asking** on the single-item replies screen now asks in the page first (and shows an error if closing fails, so the account can still be deleted afterwards).
+
+### Changed (PR U3)
+
+- `GET /lists/:id` (and the other list responses) carry `lat` and `lng`, the place the owner sent the list from (null for a draft). The plan's map and nearest-shop order need it after a reload or a notification.
+- The customer app listens for `list.updated`. Order states `READY` and `COLLECTED` are part of the customer's order type.
+
 ### Added (PR U2: shopping lists in the shop app, ADR-0055)
 
 - List parchis in the Home deck, in time order with the single requests. The shop answers on the card: a tick box per line (price prefilled from last time, focus on the price when ticked), the "other" lines under their own divider, "I can deliver this list" with one fee, "You have X of N" and the total, then Send answer. A missing price shows "Add a price" beside the field; sending with nothing ticked asks "Send 'none of these'?" in the page. After sending the card is stamped ANSWERED; a list the customer closed says "This list has closed" and leaves.

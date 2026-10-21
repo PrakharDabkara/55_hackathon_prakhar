@@ -2,6 +2,7 @@ import { accountEn, accountHi, type AccountStrings } from './customer/account.js
 import { commonEn, commonHi, type CommonStrings } from './customer/common.js';
 import { errandEn, errandHi, type ErrandStrings } from './customer/errand.js';
 import { findEn, findHi, type FindStrings } from './customer/find.js';
+import { listsEn, listsHi, type ListsStrings } from './customer/lists.js';
 import { ordersEn, ordersHi, type OrdersStrings } from './customer/orders.js';
 import { repliesEn, repliesHi, type RepliesStrings } from './customer/replies.js';
 
@@ -13,7 +14,8 @@ export interface CustomerStrings
     RepliesStrings,
     OrdersStrings,
     ErrandStrings,
-    AccountStrings {}
+    AccountStrings,
+    ListsStrings {}
 
 export const customerEn: CustomerStrings = {
   ...commonEn,
@@ -22,6 +24,7 @@ export const customerEn: CustomerStrings = {
   ...ordersEn,
   ...errandEn,
   ...accountEn,
+  ...listsEn,
 };
 export const customerHi: CustomerStrings = {
   ...commonHi,
@@ -30,4 +33,5 @@ export const customerHi: CustomerStrings = {
   ...ordersHi,
   ...errandHi,
   ...accountHi,
+  ...listsHi,
 };

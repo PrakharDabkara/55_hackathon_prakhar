@@ -30,10 +30,13 @@ export type OrderState =
   | 'OUT_FOR_DELIVERY'
   | 'DELIVERED'
   | 'CANCELLED'
-  | 'NOT_CONFIRMED';
+  | 'NOT_CONFIRMED'
+  /** A pickup the shop has packed and set aside; the customer collects it (ADR-0055). */
+  | 'READY'
+  | 'COLLECTED';
 
-/** What a shop also sees: a pickup it has packed and set aside, and one the customer collected (ADR-0055). */
-export type ShopOrderState = OrderState | 'READY' | 'COLLECTED';
+/** What a shop sees: the same states. */
+export type ShopOrderState = OrderState;
 
 export type ShopCancelReason = 'out_of_stock' | 'cannot_deliver_now' | 'other';
 
@@ -41,13 +44,20 @@ export type ShopCancelReason = 'out_of_stock' | 'cannot_deliver_now' | 'other';
 export interface SeekerOrder {
   id: string;
   state: OrderState;
+  /** A pickup holds no address: the customer walks to `shopLocation` (ADR-0055). */
+  fulfilment: 'delivery' | 'pickup';
+  shopLocation: { lat: number; lng: number };
   shopId: string;
   shopName: string;
   /** The shop's published logo, or null. */
   logoUrl?: string | null;
   requestId: string | null;
   errandId: string | null;
+  /** The shopping list this order came from, if any. */
+  listId: string | null;
   lines: OrderLine[];
+  /** How many lines the shop has packed. */
+  packedCount: number;
   itemsTotalPaise: number | null;
   unknownPriceCount: number;
   feePaise: number | null;
@@ -114,7 +124,7 @@ export interface NewOrder {
   saveAddress?: boolean;
 }
 
-export type OrderSource = { requestId: string } | { errandId: string };
+export type OrderSource = { requestId: string } | { errandId: string } | { listId: string };
 
 export type ShopOrderVerb = 'accept' | 'decline' | 'out' | 'ready';
 
@@ -126,7 +136,7 @@ export function orderForShop(
   return orders.find((o) => o.shopId === shopId);
 }
 
-const ACTIVE_STATES: readonly OrderState[] = ['REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY'];
+const ACTIVE_STATES: readonly OrderState[] = ['REQUESTED', 'ACCEPTED', 'OUT_FOR_DELIVERY', 'READY'];
 
 /** Still moving: the shop has not answered, or it is not delivered yet. */
 export const isActiveOrder = (order: Pick<SeekerOrder, 'state'>): boolean =>
@@ -150,5 +160,6 @@ export function orderTotalPaise(order: SeekerOrder): number | null {
 export function orderSourcePath(order: SeekerOrder): string | null {
   if (order.requestId) return `/app/request/${order.requestId}`;
   if (order.errandId) return `/app/errand/${order.errandId}`;
+  if (order.listId) return `/app/list/${order.listId}`;
   return null;
 }

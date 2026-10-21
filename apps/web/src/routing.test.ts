@@ -7,6 +7,7 @@ import {
   requestIdFromPath,
   isOrdersPath,
   isAccountPath,
+  listIdFromPath,
 } from './routing.js';
 
 describe('isShopPath', () => {
@@ -69,5 +70,15 @@ describe('isAccountPath', () => {
     expect(isAccountPath('/app/account/')).toBe(true);
     expect(isAccountPath('/app/accounts')).toBe(false);
     expect(isAccountPath('/app/shop/account')).toBe(false);
+  });
+});
+
+describe('listIdFromPath', () => {
+  it('/app/list/<id> is one shopping list, and the address a list push opens', () => {
+    expect(listIdFromPath('/app/list/3f2a-91')).toBe('3f2a-91');
+    expect(listIdFromPath('/app/list/3f2a-91/')).toBe('3f2a-91');
+    expect(listIdFromPath('/app/list')).toBeNull();
+    expect(listIdFromPath('/app/lists/x')).toBeNull();
+    expect(listIdFromPath('/app/shop/list/x')).toBeNull();
   });
 });

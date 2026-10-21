@@ -128,6 +128,12 @@ describe('LIVE_EVENTS (Day 16)', () => {
     expect(LIVE_EVENTS).toContain('order.updated');
   });
 
+  it('includes the list events, so a list and its packing follow the shops', async () => {
+    const { LIVE_EVENTS } = await import('./live.js');
+    expect(LIVE_EVENTS).toContain('list.updated');
+    expect(LIVE_EVENTS).toContain('order.packed');
+  });
+
   it('hands the payload to the caller as a second argument (a ping.closed says why), still only a hint', async () => {
     const { onEvent } = setup();
     await vi.advanceTimersByTimeAsync(0);

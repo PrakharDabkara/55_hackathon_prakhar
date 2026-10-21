@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChooseShopSheet } from '../components/ChooseShopSheet.js';
 import { ReplyCard, RememberedCard } from '../components/ReplyCard.js';
+import { StopAskingSheet } from '../components/StopAskingSheet.js';
 import { RequestParchi } from '../components/RequestParchi.js';
 import { ResultsMap } from '../components/ResultsMap.js';
 import { ScreenBar } from '../customer/ScreenBar.js';
@@ -51,7 +52,9 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   const [request, setRequest] = useState(initial);
   const [view, setView] = useState<'list' | 'map'>('list');
   const [now, setNow] = useState(() => Date.now());
+  const [asking, setAsking] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [choosing, setChoosing] = useState<ShopResult | null>(null);
   const [showNo, setShowNo] = useState(false);
@@ -115,12 +118,18 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   const status =
     !ended && pending > 0 ? t.c.stillChecking(pending) : ended ? t.c.requestEnded : t.c.allReplied;
 
+  /** Closing is what lets the account be deleted, so a failure is shown and can be tried again. */
   async function finish() {
     setClosing(true);
+    setCloseError(null);
     try {
       await api.closeRequest(request.id);
     } catch {
-      // Closing is a courtesy; the request expires on its own.
+      if (alive.current) {
+        setCloseError(t.c.stopFailed);
+        setClosing(false);
+      }
+      return;
     }
     onDone();
   }
@@ -240,11 +249,23 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
         )}
 
         {!ended && (
-          <Button variant="quiet" disabled={closing} onClick={() => void finish()}>
+          <Button variant="quiet" onClick={() => setAsking(true)}>
             {t.c.stopAsking}
           </Button>
         )}
       </main>
+
+      <StopAskingSheet
+        open={asking}
+        body={t.c.stopBodyRequest}
+        busy={closing}
+        error={closeError}
+        onConfirm={() => void finish()}
+        onClose={() => {
+          setAsking(false);
+          setCloseError(null);
+        }}
+      />
 
       {choosing && (
         <ChooseShopSheet

@@ -4,13 +4,28 @@ import { ErrandResume } from '../components/ErrandResume.js';
 import { FollowUpSheet, type FollowUp, type FollowUpOption } from '../components/FollowUpSheet.js';
 import { LangToggle } from '../components/LangToggle.js';
 import { LoginSheet } from '../components/LoginSheet.js';
+import { ListEditor, lineTexts } from '../components/ListEditor.js';
 import { PhotoPicker } from '../components/PhotoPicker.js';
 import { BRAND_NAME } from '../brand.js';
 import '../customer/find.css';
+import '../customer/lists.css';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
 import { resumableErrand } from '../lib/errand.js';
+import type { ListView } from '../lib/listApi.js';
+import {
+  clearListDraft,
+  editorRows,
+  loadFindMode,
+  loadListDraft,
+  looksLikeSeveral,
+  needsCheck,
+  saveFindMode,
+  saveListDraft,
+  splitItems,
+  type FindMode,
+} from '../lib/lists.js';
 import { isActiveOrder, type SeekerOrder } from '../lib/orders.js';
 import type {
   ErrandListItem,
@@ -24,6 +39,7 @@ import { Button } from '../ui/Button.js';
 import { Field } from '../ui/Field.js';
 import { BrandMark } from '../ui/BrandMark.js';
 import { Icon } from '../ui/Icon.js';
+import { SegmentedControl } from '../ui/SegmentedControl.js';
 import { Skeleton } from '../ui/Skeleton.js';
 import { Switch } from '../ui/Switch.js';
 
@@ -39,6 +55,8 @@ interface Props {
   /** The customer logged in from the sheet here: the app stores the token. */
   onLoggedIn: (token: string) => void;
   onFound: (request: SeekerRequest, origin: { lat: number; lng: number }) => void;
+  /** A list was sorted (to check) or sent: its screen has an address of its own. */
+  onList: (list: ListView, origin: { lat: number; lng: number }) => void;
   /** Goes to another address of the customer app without a page load. */
   navigate: (path: string) => void;
 }
@@ -101,11 +119,13 @@ interface SendOptions {
  * login sheet and, once logged in, sends the draft by itself. The orders and the active-order strip
  * are best effort: if they cannot be fetched Find still works.
  */
-export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
+export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: Props) {
   const { t } = useT();
   const c = t.c;
   const draft = useRef(loadDraft()).current;
   const [query, setQuery] = useState(draft.query);
+  const [mode, setMode] = useState<FindMode>(loadFindMode);
+  const [rows, setRows] = useState<string[]>(() => editorRows(loadListDraft()));
   const [wantsDelivery, setWantsDelivery] = useState(draft.wantsDelivery);
   const [typedAddress, setTypedAddress] = useState(draft.address);
   const [lat, setLat] = useState(draft.lat);
@@ -135,6 +155,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
   /** The header's Account icon was pressed signed out: after the login, go to Account. */
   const accountAfterLogin = useRef(false);
   const sending = useRef(false);
+  /** The list went out and its draft is cleared: do not write it back while the screen closes. */
+  const listSent = useRef(false);
   /** The request went out and the draft is cleared: do not write it back while the screen closes. */
   const sent = useRef(false);
   /** The customer chose "Something else": their next search is a change of what we understood. */
@@ -148,11 +170,17 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     !wantsDelivery ||
     (!checkingAddress && (usingSaved || typedAddress.trim().length >= MIN_ADDRESS));
   const ready = query.trim() !== '' && addressOk;
+  const listLines = lineTexts(rows);
 
   useEffect(() => {
     if (sent.current) return;
     saveDraft({ query, wantsDelivery, address: typedAddress, lat, lng });
   }, [query, wantsDelivery, typedAddress, lat, lng]);
+
+  useEffect(() => {
+    if (listSent.current) return;
+    saveListDraft(rows);
+  }, [rows]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine !== false);
@@ -337,8 +365,83 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     }
   }
 
+  /** Sorts the list; a list that is all clear goes to the shops at once, otherwise the customer checks it first. */
+  async function submitList() {
+    const lines = lineTexts(rows);
+    if (lines.length === 0 || sending.current) return;
+    sending.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      let latValue = coordinate(lat, 90);
+      let lngValue = coordinate(lng, 180);
+      if (latValue === null || lngValue === null) {
+        const found = await locate();
+        if (!found) {
+          setLocationNote(c.findLocationFailed);
+          setLocationOpen(true);
+          setBusy(false);
+          return;
+        }
+        latValue = found.lat;
+        lngValue = found.lng;
+        setLat(String(found.lat));
+        setLng(String(found.lng));
+      }
+      const place = { lat: latValue, lng: lngValue };
+      const sorted = await api.sortList(lines);
+      const next = needsCheck(sorted) ? sorted : await api.sendList(sorted.id, place);
+      if (next.state !== 'DRAFT') {
+        listSent.current = true;
+        clearListDraft();
+      }
+      onList(next, place);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        sendAfterLogin.current = true;
+        setLoginOpen(true);
+      } else {
+        const code = e instanceof ApiError ? e.code : '';
+        setError(
+          code === 'line_too_long'
+            ? c.listErrTooLong
+            : code === 'too_many_lines'
+              ? c.listErrTooMany
+              : code === 'list_rate_limited' || (e instanceof ApiError && e.status === 429)
+                ? c.listErrRate
+                : c.listErrGeneric,
+        );
+      }
+      setBusy(false);
+    } finally {
+      sending.current = false;
+    }
+  }
+
+  function makeList() {
+    setRows(editorRows(splitItems(query, { and: true })));
+    changeMode('list');
+  }
+
+  function changeMode(next: FindMode) {
+    setMode(next);
+    saveFindMode(next);
+    setError(null);
+    setNudge(null);
+  }
+
   function pressFind() {
     if (sending.current || busy) return;
+    if (mode === 'list') {
+      if (listLines.length === 0) return;
+      if (!loggedIn) {
+        sendAfterLogin.current = true;
+        setLoginOpen(true);
+        return;
+      }
+      void submitList();
+      return;
+    }
     if (query.trim() === '') {
       setNudge('query');
       queryBox.current?.focus();
@@ -369,7 +472,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
     }
     if (sendAfterLogin.current) {
       sendAfterLogin.current = false;
-      void send();
+      void (mode === 'list' ? submitList() : send());
     }
   }
 
@@ -442,81 +545,108 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
 
           <h1 className="sh-title">{c.findTitle}</h1>
 
-          <div className="cu-find__box">
-            <input
-              type="text"
-              className="cu-find__input"
-              ref={queryBox}
-              aria-label={c.findTitle}
-              {...(nudge === 'query' && { 'aria-describedby': 'find-nudge' })}
-              autoComplete="off"
-              placeholder={c.findHint}
-              value={query}
-              onChange={(event) => {
-                sent.current = false;
-                setNudge(null);
-                setQuery(event.target.value);
-                setFollowUp(null);
-              }}
+          <div className="cu-find__mode">
+            <SegmentedControl
+              label={c.findModeLabel}
+              value={mode}
+              onChange={changeMode}
+              options={[
+                { value: 'one', label: c.findModeOne },
+                { value: 'list', label: c.findModeList },
+              ]}
             />
-            <div className="cu-find__box-foot">
-              {loggedIn ? (
-                <PhotoPicker api={api} role="request" onChange={setPhotoId} />
-              ) : (
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    sendAfterLogin.current = false;
-                    setLoginOpen(true);
-                  }}
-                >
-                  <Icon name="photo" size={20} />
-                  {c.findAddPhoto}
-                </Button>
-              )}
-            </div>
           </div>
 
-          <div className="cu-find__deliver">
-            <Switch checked={wantsDelivery} onChange={setWantsDelivery} label={c.findDeliver} />
-            <p className="sh-helper">{c.findDeliverHelp}</p>
-          </div>
-          {wantsDelivery &&
-            (checkingAddress ? (
-              <div className="cu-find__saved" aria-busy="true">
-                <Skeleton height="48px" />
-              </div>
-            ) : usingSaved ? (
-              <div className="cu-find__saved">
-                <p className="sh-body">{c.findDeliverTo(saved?.addressText as string)}</p>
-                <Button variant="quiet" onClick={() => setChangingAddress(true)}>
-                  {c.findChangeAddress}
-                </Button>
-              </div>
-            ) : (
-              <div className="cu-find__form">
-                <div className="sh-field">
-                  <label htmlFor="find-address" className="sh-label">
-                    {c.findAddressLabel}
-                  </label>
-                  <textarea
-                    id="find-address"
-                    ref={addressBox}
-                    {...(nudge === 'address' && { 'aria-describedby': 'find-nudge' })}
-                    className="cu-find__textarea"
-                    rows={3}
-                    maxLength={300}
-                    autoComplete="street-address"
-                    value={typedAddress}
-                    onChange={(event) => {
-                      setNudge(null);
-                      setTypedAddress(event.target.value);
-                    }}
-                  />
+          {mode === 'list' ? (
+            <>
+              <ListEditor rows={rows} onChange={setRows} />
+              <p className="sh-helper">{c.listModeNote}</p>
+            </>
+          ) : (
+            <>
+              <div className="cu-find__box">
+                <input
+                  type="text"
+                  className="cu-find__input"
+                  ref={queryBox}
+                  aria-label={c.findTitle}
+                  {...(nudge === 'query' && { 'aria-describedby': 'find-nudge' })}
+                  autoComplete="off"
+                  placeholder={c.findHint}
+                  value={query}
+                  onChange={(event) => {
+                    sent.current = false;
+                    setNudge(null);
+                    setQuery(event.target.value);
+                    setFollowUp(null);
+                  }}
+                />
+                <div className="cu-find__box-foot">
+                  {loggedIn ? (
+                    <PhotoPicker api={api} role="request" onChange={setPhotoId} />
+                  ) : (
+                    <Button
+                      variant="quiet"
+                      onClick={() => {
+                        sendAfterLogin.current = false;
+                        setLoginOpen(true);
+                      }}
+                    >
+                      <Icon name="photo" size={20} />
+                      {c.findAddPhoto}
+                    </Button>
+                  )}
                 </div>
-                <p className="sh-helper">{c.findAddressNote}</p>
               </div>
-            ))}
+
+              <div className="cu-find__deliver">
+                <Switch checked={wantsDelivery} onChange={setWantsDelivery} label={c.findDeliver} />
+                <p className="sh-helper">{c.findDeliverHelp}</p>
+              </div>
+              {wantsDelivery &&
+                (checkingAddress ? (
+                  <div className="cu-find__saved" aria-busy="true">
+                    <Skeleton height="48px" />
+                  </div>
+                ) : usingSaved ? (
+                  <div className="cu-find__saved">
+                    <p className="sh-body">{c.findDeliverTo(saved?.addressText as string)}</p>
+                    <Button variant="quiet" onClick={() => setChangingAddress(true)}>
+                      {c.findChangeAddress}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="cu-find__form">
+                    <div className="sh-field">
+                      <label htmlFor="find-address" className="sh-label">
+                        {c.findAddressLabel}
+                      </label>
+                      <textarea
+                        id="find-address"
+                        ref={addressBox}
+                        {...(nudge === 'address' && { 'aria-describedby': 'find-nudge' })}
+                        className="cu-find__textarea"
+                        rows={3}
+                        maxLength={300}
+                        autoComplete="street-address"
+                        value={typedAddress}
+                        onChange={(event) => {
+                          setNudge(null);
+                          setTypedAddress(event.target.value);
+                        }}
+                      />
+                    </div>
+                    <p className="sh-helper">{c.findAddressNote}</p>
+                  </div>
+                ))}
+
+              {looksLikeSeveral(query) && (
+                <Button variant="quiet" className="cu-find__makelist" onClick={makeList}>
+                  {c.findMakeList}
+                </Button>
+              )}
+            </>
+          )}
 
           {nudge && (
             <p id="find-nudge" className="sh-helper" role="status">
@@ -530,9 +660,21 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, navigate }: Props) {
             </p>
           )}
 
-          <Button type="submit" variant="primary" className="sh-btn--block" aria-disabled={busy}>
-            {busy ? c.findSubmitting : c.findSubmit}
-          </Button>
+          {mode === 'list' ? (
+            <Button
+              type="submit"
+              variant="primary"
+              className="sh-btn--block"
+              disabled={listLines.length === 0}
+              aria-disabled={busy}
+            >
+              {busy ? c.listSorting : c.listFind(listLines.length)}
+            </Button>
+          ) : (
+            <Button type="submit" variant="primary" className="sh-btn--block" aria-disabled={busy}>
+              {busy ? c.findSubmitting : c.findSubmit}
+            </Button>
+          )}
         </form>
 
         {errand && <ErrandResume errand={errand} navigate={navigate} />}

@@ -2,18 +2,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { LoginSheet } from './components/LoginSheet.js';
 import './customer/customer.css';
 import type { Session } from './lib/session.js';
+import type { ListView } from './lib/listApi.js';
 import type { SeekerApi, SeekerRequest } from './lib/seekerApi.js';
 import {
   errandIdFromPath,
   isAccountPath,
   isErrandPath,
   isOrdersPath,
+  listIdFromPath,
   orderIdFromPath,
   requestIdFromPath,
 } from './routing.js';
 import { Account } from './screens/Account.js';
 import { Errand } from './screens/Errand.js';
 import { Home } from './screens/Home.js';
+import { ListPage } from './screens/ListPage.js';
 import { MyOrders } from './screens/MyOrders.js';
 import { OrderPage } from './screens/OrderPage.js';
 import { RequestPage } from './screens/RequestPage.js';
@@ -32,7 +35,8 @@ type Screen =
   | { name: 'orders' }
   | { name: 'account' }
   | { name: 'order'; id: string }
-  | { name: 'request'; id: string; initial?: SeekerRequest; origin?: Origin };
+  | { name: 'request'; id: string; initial?: SeekerRequest; origin?: Origin }
+  | { name: 'list'; id: string; initial?: ListView; origin?: Origin };
 
 type Origin = { lat: number; lng: number };
 
@@ -45,6 +49,8 @@ const screenFor = (pathname: string): Screen => {
   if (orderId) return { name: 'order', id: orderId };
   const requestId = requestIdFromPath(pathname);
   if (requestId) return { name: 'request', id: requestId };
+  const listId = listIdFromPath(pathname);
+  if (listId) return { name: 'list', id: listId };
   return { name: 'search' };
 };
 
@@ -71,6 +77,12 @@ export function SeekerApp({ api, session }: Props) {
   const found = useCallback((request: SeekerRequest, origin: Origin) => {
     window.history.pushState({}, '', `/app/request/${request.id}`);
     setScreen({ name: 'request', id: request.id, initial: request, origin });
+  }, []);
+
+  /** A list was sorted or sent: it has an address of its own (the push link opens the same one). */
+  const listed = useCallback((list: ListView, origin: Origin) => {
+    window.history.pushState({}, '', `/app/list/${list.id}`);
+    setScreen({ name: 'list', id: list.id, initial: list, origin });
   }, []);
 
   useEffect(() => {
@@ -115,6 +127,7 @@ export function SeekerApp({ api, session }: Props) {
             onLoggedIn={loggedInWith}
             navigate={navigate}
             onFound={found}
+            onList={listed}
           />
         )}
         {screen.name !== 'search' && !loggedIn && (
@@ -149,6 +162,17 @@ export function SeekerApp({ api, session }: Props) {
             key={screen.id}
             api={api}
             requestId={screen.id}
+            navigate={navigate}
+            onDone={home}
+            {...(screen.initial && { initial: screen.initial })}
+            {...(screen.origin && { origin: screen.origin })}
+          />
+        )}
+        {loggedIn && screen.name === 'list' && (
+          <ListPage
+            key={screen.id}
+            api={api}
+            listId={screen.id}
             navigate={navigate}
             onDone={home}
             {...(screen.initial && { initial: screen.initial })}
