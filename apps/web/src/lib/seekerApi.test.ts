@@ -107,6 +107,51 @@ describe('createSeekerApi', () => {
     expect(last()[1].method).toBe('POST');
   });
 
+  describe('shopping lists', () => {
+    it('sorts the lines, sends, reads and stops a list', async () => {
+      const { api, last } = setup(() => json(200, { id: 'l/1' }));
+      await api.sortList(['atta', 'rice']);
+      expect(last()[0]).toBe('/lists/sort');
+      expect(last()[1].method).toBe('POST');
+      expect(JSON.parse(last()[1].body as string)).toEqual({ lines: ['atta', 'rice'] });
+      await api.sendList('l/1', { lat: 1, lng: 2, choices: [{ position: 0, asTyped: true }] });
+      expect(last()[0]).toBe('/lists/l%2F1/send');
+      expect(JSON.parse(last()[1].body as string)).toEqual({
+        lat: 1,
+        lng: 2,
+        choices: [{ position: 0, asTyped: true }],
+      });
+      await api.getList('l/1');
+      expect(last()[0]).toBe('/lists/l%2F1');
+      expect(last()[1].method).toBe('GET');
+      await api.stopList('l/1');
+      expect(last()[0]).toBe('/lists/l%2F1/stop');
+      expect(last()[1].method).toBe('POST');
+    });
+
+    it('orders from a list with the plan the customer made', async () => {
+      const { api, last } = setup(() => json(201, { list: {}, orders: [], pickups: [] }));
+      await api.orderList('l1', {
+        assignments: [{ position: 0, shopId: 's1' }],
+        modes: { s1: 'pickup' },
+      });
+      expect(last()[0]).toBe('/lists/l1/order');
+      expect(JSON.parse(last()[1].body as string)).toEqual({
+        assignments: [{ position: 0, shopId: 's1' }],
+        modes: { s1: 'pickup' },
+      });
+    });
+
+    it('lists the orders of one list and collects a pickup', async () => {
+      const { api, last } = setup(() => json(200, []));
+      await api.listOrders({ listId: 'l/1' });
+      expect(last()[0]).toBe('/orders?listId=l%2F1');
+      await api.collectOrder('o/1');
+      expect(last()[0]).toBe('/orders/o%2F1/collected');
+      expect(last()[1].method).toBe('POST');
+    });
+  });
+
   it('asks for an event ticket and returns only the ticket', async () => {
     const { api, last } = setup(() => json(200, { ticket: 'tk', expiresInSeconds: 60 }));
     expect(await api.eventTicket()).toBe('tk');

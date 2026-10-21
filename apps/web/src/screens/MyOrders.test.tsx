@@ -273,3 +273,65 @@ describe('My orders', () => {
     expect(await screen.findByText('Abhi koi order nahi.')).toBeTruthy();
   });
 });
+
+describe('My orders: lists and pickups', () => {
+  const listOrder = (id: string, shop: string, overrides = {}) =>
+    seekerOrder({
+      id,
+      shopName: shop,
+      listId: 'list-1',
+      requestId: null,
+      fulfilment: 'pickup',
+      feePaise: null,
+      lines: [
+        { name: 'sugar', count: 1, pricePaise: 4800 },
+        { name: 'rice', count: 1, pricePaise: 5500 },
+      ],
+      itemsTotalPaise: 10_300,
+      ...overrides,
+    });
+
+  it('groups the orders of one list into one row that opens the list', async () => {
+    const orders = [
+      listOrder('o1', 'Mishra Kirana', { state: 'READY' }),
+      listOrder('o2', 'Gupta Store', { state: 'ACCEPTED' }),
+      seekerOrder({ id: 'o3', shopName: 'Sharma Kirana' }),
+    ];
+    const { user, navigate } = setup({ myOrders: vi.fn(async () => orders) });
+    const row = await screen.findByRole('link', { name: /List · 4 items/ });
+    expect(row.getAttribute('href')).toBe('/app/list/list-1');
+    expect(row.textContent).toContain('2 shops');
+    expect(row.textContent).toContain('Ready for pickup');
+    // The single-search order stays its own row.
+    expect(screen.getByRole('link', { name: /Sharma Kirana/ }).getAttribute('href')).toBe(
+      '/app/order/o3',
+    );
+    expect(screen.queryByRole('link', { name: /Mishra Kirana/ })).toBeNull();
+    await user.click(row);
+    expect(navigate).toHaveBeenCalledWith('/app/list/list-1');
+  });
+
+  it('puts a list whose orders are all finished under Earlier', async () => {
+    const orders = [
+      listOrder('o1', 'Mishra Kirana', { state: 'COLLECTED' }),
+      listOrder('o2', 'Gupta Store', { state: 'DELIVERED', fulfilment: 'delivery' }),
+    ];
+    setup({ myOrders: vi.fn(async () => orders) });
+    const earlier = (await screen.findByRole('heading', { name: 'Earlier' })).closest(
+      'section',
+    ) as HTMLElement;
+    expect(within(earlier).getByRole('link', { name: /List · 4 items/ })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Active' })).toBeNull();
+  });
+
+  it('shows a pickup order with its own state', async () => {
+    const orders = [
+      seekerOrder({ id: 'o9', fulfilment: 'pickup', state: 'READY', feePaise: null }),
+    ];
+    setup({ myOrders: vi.fn(async () => orders) });
+    const active = (await screen.findByRole('heading', { name: 'Active' })).closest(
+      'section',
+    ) as HTMLElement;
+    expect(within(active).getByText('Ready for pickup')).toBeTruthy();
+  });
+});

@@ -490,8 +490,23 @@ describe('stop asking', () => {
       seekerRequest({ state: 'PINGING', pingStats: { sent: 2, yes: 0, no: 0, pending: 2 } }),
     );
     await user.click(screen.getByRole('button', { name: 'Stop asking' }));
+    // An in-app question first, never a browser dialog; nothing is closed yet.
+    const sheet = screen.getByRole('dialog', { name: 'Stop asking shops?' });
+    expect(api.closeRequest).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByRole('button', { name: 'Stop asking' }));
     await waitFor(() => expect(api.closeRequest).toHaveBeenCalledExactlyOnceWith('req-1'));
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it('keeps waiting when the customer changes their mind', async () => {
+    const { api, onDone, user } = show(
+      seekerRequest({ state: 'PINGING', pingStats: { sent: 2, yes: 0, no: 0, pending: 2 } }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Stop asking' }));
+    await user.click(screen.getByRole('button', { name: 'Keep waiting' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.closeRequest).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   it('is not offered once the request is closed', () => {
