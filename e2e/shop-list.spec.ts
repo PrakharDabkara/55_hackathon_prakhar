@@ -76,6 +76,12 @@ async function shopIdOf(customer: Customer, id: string): Promise<string> {
 }
 
 /** Answers the open list card with everything ticked: ₹48 + ₹45 + ₹30, delivery on, fee ₹25. */
+const firstOrderId = (ordered: Record<string, unknown>): string => {
+  const first = (ordered['orders'] as { id: string }[])[0];
+  if (!first) throw new Error('no order was made');
+  return first.id;
+};
+
 async function answerEverything() {
   await tick({ Sugar: '48', 'Turmeric powder': '45', 'Tractor spare bolt': '30' });
   await card()
@@ -241,10 +247,7 @@ test('S54: delivery order from a list: tick as you pack, it survives a reload, t
   await expect(again.getByText('Waiting for the customer to confirm')).toBeVisible({
     timeout: 15_000,
   });
-  const view = await customer.call(
-    'GET',
-    `/orders/${(ordered['orders'] as { id: string }[])[0]!.id}`,
-  );
+  const view = await customer.call('GET', `/orders/${firstOrderId(ordered)}`);
   expect(view.body['state']).toBe('OUT_FOR_DELIVERY');
   expect(view.body['packedCount']).toBe(1);
 });
@@ -255,7 +258,7 @@ test('S55: pickup order from a list: no address, "Ready for pickup" and then wai
   await answerEverything();
   const shopId = await shopIdOf(customer, id);
   const ordered = await orderAll(customer, id, shopId, 3, 'pickup');
-  const orderId = (ordered['orders'] as { id: string }[])[0]!.id;
+  const orderId = firstOrderId(ordered);
 
   await goTo(shop, 'orders');
   const order = shop.locator('article.sh-order').filter({ hasText: 'Pickup · 3 items' });

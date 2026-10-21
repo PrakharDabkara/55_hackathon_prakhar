@@ -121,12 +121,13 @@ const COPY: Record<PushKind, Copy> = {
     needsId: false,
     renotify: () => true,
   },
-  // One notification per shop per list (ADR-0055); the tag is the list, so a repeat replaces it.
+  // One notification per shop per list (ADR-0055). The id is the shop's own parchi, so a repeat
+  // replaces it and a tap opens the deck at that card.
   new_list: {
     title: (w) => `New list: ${w.item} · ${w.band}`,
     body: 'Open the shop to answer',
     tag: (id) => `list:${id}`,
-    link: () => '/app/shop',
+    link: (id) => `/app/shop?parchi=${id}`,
     needsId: true,
     renotify: () => true,
   },

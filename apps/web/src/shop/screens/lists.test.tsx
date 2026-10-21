@@ -2,7 +2,7 @@
 import { act, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api.js';
-import { fakeApi, ping, shop, shopListParchi, shopOrder } from '../../test/fakes.js';
+import { at, fakeApi, ping, shop, shopListParchi, shopOrder } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
 import type { ShopData } from '../lib/useShopData.js';
 import { ToastProvider } from '../../ui/Toast.js';
@@ -76,9 +76,9 @@ describe('Home: list parchis in the deck', () => {
     expect(screen.getByText('3m')).toBeTruthy();
     const slides = document.querySelectorAll('.sh-deck__slide');
     expect(slides).toHaveLength(3);
-    expect(slides[0]!.textContent).toContain('A list · 3');
-    expect(slides[1]!.textContent).toContain('Rice');
-    expect(slides[2]!.textContent).toContain('A list · 3');
+    expect(at([...slides], 0).textContent).toContain('A list · 3');
+    expect(at([...slides], 1).textContent).toContain('Rice');
+    expect(at([...slides], 2).textContent).toContain('A list · 3');
   });
 
   it('opens the deck at the list a push pointed to', () => {
@@ -134,7 +134,7 @@ describe('Home: list parchis in the deck', () => {
     home({
       orders: [
         shopOrder({ id: 'a', state: 'ACCEPTED', fulfilment: 'pickup' }),
-        shopOrder({ id: 'b', state: 'READY' as never, fulfilment: 'pickup' }),
+        shopOrder({ id: 'b', state: 'READY', fulfilment: 'pickup' }),
         shopOrder({ id: 'c', state: 'ACCEPTED' }),
         shopOrder({ id: 'd', state: 'DELIVERED', final: true }),
       ],
@@ -217,6 +217,8 @@ describe('Orders: the packing parchi', () => {
     const all = shopOrder({
       ...delivery,
       lines: lines.map((l) => ({ ...l, packed: true })),
+      packedCount: 3,
+      unpackedCount: 0,
     });
     orders({ orders: [all] });
     expect(screen.queryByText(/not packed yet/)).toBeNull();
@@ -237,7 +239,7 @@ describe('Orders: the packing parchi', () => {
   });
 
   it('a pickup that is READY waits for the customer: no button, no cancel', () => {
-    orders({ orders: [{ ...pickup, state: 'READY' as never }] });
+    orders({ orders: [{ ...pickup, state: 'READY' }] });
     expect(screen.getByText('Ready · waiting for the customer to collect')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Ready for pickup' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cancel order' })).toBeNull();

@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR U2: shopping lists in the shop app, ADR-0055)
+
+- List parchis in the Home deck, in time order with the single requests. The shop answers on the card: a tick box per line (price prefilled from last time, focus on the price when ticked), the "other" lines under their own divider, "I can deliver this list" with one fee, "You have X of N" and the total, then Send answer. A missing price shows "Add a price" beside the field; sending with nothing ticked asks "Send 'none of these'?" in the page. After sending the card is stamped ANSWERED; a list the customer closed says "This list has closed" and leaves.
+- Packing parchi on orders with several lines (Home order request and Orders): "Tick as you pack", "X of N packed", a row per line (optimistic, put back with a short message if it fails, kept after a reload), the total with the fee, then "Out for delivery" or, for a pickup, "Ready for pickup" / "Ready · waiting for the customer to collect". A muted line says how many items are not packed yet. A pickup shows no address. Home's Active orders counts pickups.
+- The shop app listens for `listping.created`, `listping.closed` and `order.packed`.
+
+### Changed (PR U2)
+
+- The `new_list` push now links to `/app/shop?parchi=<parchi id>` and is tagged with the shop's own parchi id (was the list id), so a tap opens the deck at that card. A shop that is also a customer no longer shares a notification tag with its own list.
+
 ### Added (PR U1 follow-up: pickup orders and list push, ADR-0055)
 
 - A list shop set to pickup now gets an order (`fulfilment: pickup`, migration 028): ACCEPTED, READY (`POST /orders/:id/ready`, the shop; response carries `unpackedCount`), COLLECTED (`POST /orders/:id/collected`, the customer); 3 hours after READY it becomes NOT_CONFIRMED. A pickup keeps no address, pin or name; order views gain `fulfilment` and `shopLocation`. `orders[]` of `POST /lists/:id/order` now holds every shop of the plan; `pickups[]` stays for the route. Customers get "your order is ready for pickup".

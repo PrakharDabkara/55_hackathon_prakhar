@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  at,
   FakeEventSource,
   fakeApi,
   ping,
@@ -250,7 +251,7 @@ describe('useShopData: lists and packing', () => {
     const api = fakeApi({ listParchis });
     const { result } = renderHook(() => useShopData(api, shop(), { live: liveOpts }));
     await waitFor(() => expect(FakeEventSource.last()).toBeDefined());
-    act(() => FakeEventSource.last()!.emit('listping.created', { listPingId: 'a' }));
+    act(() => FakeEventSource.last().emit('listping.created', { listPingId: 'a' }));
     await waitFor(() => expect(result.current.lists).toHaveLength(1));
   });
 
@@ -260,7 +261,7 @@ describe('useShopData: lists and packing', () => {
     await waitFor(() => expect(result.current.orders).toHaveLength(1));
     await act(async () => result.current.setPacked('o1', 1, true));
     expect(api.packLine).toHaveBeenCalledWith('o1', 1, true);
-    const order = result.current.orders![0]!;
+    const order = at(result.current.orders ?? [], 0);
     expect(order.lines.map((l) => l.packed)).toEqual([false, true]);
     expect([order.packedCount, order.unpackedCount]).toEqual([1, 1]);
   });
@@ -277,7 +278,7 @@ describe('useShopData: lists and packing', () => {
       await result.current.setPacked('o1', 0, false).catch(() => (failed = true));
     });
     expect(failed).toBe(true);
-    expect(result.current.orders![0]!.lines.map((l) => l.packed)).toEqual([true, false]);
-    expect(result.current.orders![0]!.packedCount).toBe(1);
+    expect(at(result.current.orders ?? [], 0).lines.map((l) => l.packed)).toEqual([true, false]);
+    expect(at(result.current.orders ?? [], 0).packedCount).toBe(1);
   });
 });

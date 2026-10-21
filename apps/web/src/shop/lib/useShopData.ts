@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MyShop, ShopApi, ShopPing } from '../../lib/api.js';
+import type { MyShop, ShopApi, ShopListParchi, ShopPing } from '../../lib/api.js';
 import { canGoLive, connectLive, type LiveOptions } from '../../lib/live.js';
 import type { ShopOrder } from '../../lib/orders.js';
 import { newlyAccepted } from './deck.js';
@@ -10,6 +10,10 @@ export interface ShopData {
   /** null until the first answer from the server. */
   pings: ShopPing[] | null;
   orders: ShopOrder[] | null;
+  /** Shopping lists waiting for this shop (ADR-0055); null until the first answer. */
+  lists: ShopListParchi[] | null;
+  /** Lists that closed in front of the shop without its answer: shown once as "closed", then dismissed. */
+  closedLists: ShopListParchi[];
   /** The first load failed and there is nothing to show yet: show the retry state. */
   loadFailed: boolean;
   /** A refresh failed or the phone is offline, but there is something on screen. */
@@ -22,6 +26,13 @@ export interface ShopData {
   dismissBanner: () => void;
   refresh: () => Promise<void>;
   removePing: (id: string) => void;
+  removeList: (id: string) => void;
+  dismissClosedList: (id: string) => void;
+  /**
+   * Ticks or clears one line of an order as packed. The screen changes at once; when the server
+   * cannot take it the line goes back and this rejects.
+   */
+  setPacked: (orderId: string, index: number, packed: boolean) => Promise<void>;
   /** The shop answered this question itself: its closing is not news. */
   markAnswered: (id: string) => void;
   /** Resolves when the server has the new state; rejects (and changes nothing) when it could not. */
@@ -49,6 +60,8 @@ export function useShopData(
   const [shop, setShop] = useState(initialShop);
   const [pings, setPings] = useState<ShopPing[] | null>(null);
   const [orders, setOrders] = useState<ShopOrder[] | null>(null);
+  const [lists, setLists] = useState<ShopListParchi[] | null>(null);
+  const [closedLists, setClosedLists] = useState<ShopListParchi[]>([]);
   const [pingsFailed, setPingsFailed] = useState(false);
   const [ordersFailed, setOrdersFailed] = useState(false);
   const [browserOffline, setBrowserOffline] = useState(
@@ -59,17 +72,34 @@ export function useShopData(
   const seen = useRef<Set<string> | null>(null);
   const alive = useRef(true);
   const listed = useRef<ShopPing[] | null>(null);
+  const listedLists = useRef<ShopListParchi[] | null>(null);
+  const currentOrders = useRef<ShopOrder[] | null>(null);
   const mine = useRef(new Set<string>());
   const gone = useRef(onPingGone);
   gone.current = onPingGone;
   listed.current = pings;
+  listedLists.current = lists;
+  currentOrders.current = orders;
 
   const refresh = useCallback(async () => {
-    const [pingsResult, ordersResult] = await Promise.allSettled([
+    const [pingsResult, ordersResult, listsResult] = await Promise.allSettled([
       api.listPings(),
       api.listOrders(),
+      api.listParchis(),
     ]);
     if (!alive.current) return;
+    if (listsResult.status === 'fulfilled') {
+      const next = listsResult.value;
+      const kept = new Set(next.map((p) => p.id));
+      // A parchi that vanished without this shop answering it: the customer stopped it, ordered, or
+      // it ran out. Keep it in front of the shop once, as "closed", so it does not just blink away.
+      const closed = (listedLists.current ?? []).filter(
+        (p) => !kept.has(p.id) && !mine.current.has(p.id),
+      );
+      if (closed.length > 0)
+        setClosedLists((all) => [...all, ...closed.filter((p) => !all.some((a) => a.id === p.id))]);
+      setLists(next);
+    }
     if (pingsResult.status === 'fulfilled') {
       setPings(pingsResult.value);
       setPingsFailed(false);
@@ -143,6 +173,40 @@ export function useShopData(
 
   const markAnswered = useCallback((id: string) => void mine.current.add(id), []);
   const dismissBanner = useCallback(() => setBanner(null), []);
+  const removeList = useCallback(
+    (id: string) => setLists((all) => all?.filter((p) => p.id !== id) ?? null),
+    [],
+  );
+  const dismissClosedList = useCallback(
+    (id: string) => setClosedLists((all) => all.filter((p) => p.id !== id)),
+    [],
+  );
+  const setPacked = useCallback(
+    async (orderId: string, index: number, packed: boolean) => {
+      const mark = (value: boolean) =>
+        setOrders(
+          (all) =>
+            all?.map((order) => {
+              if (order.id !== orderId) return order;
+              const lines = order.lines.map((line, i) =>
+                i === index ? { ...line, packed: value } : line,
+              );
+              const packedCount = lines.filter((line) => line.packed === true).length;
+              return { ...order, lines, packedCount, unpackedCount: order.lineCount - packedCount };
+            }) ?? null,
+        );
+      const before =
+        currentOrders.current?.find((order) => order.id === orderId)?.lines[index]?.packed === true;
+      mark(packed);
+      try {
+        await api.packLine(orderId, index, packed);
+      } catch (error) {
+        mark(before);
+        throw error;
+      }
+    },
+    [api],
+  );
   const removePing = useCallback(
     (id: string) => setPings((all) => all?.filter((p) => p.id !== id) ?? null),
     [],
@@ -154,6 +218,8 @@ export function useShopData(
     setShop,
     pings,
     orders,
+    lists,
+    closedLists,
     loadFailed,
     offline: browserOffline || (pingsFailed && pings !== null),
     ordersFailed,
@@ -162,6 +228,9 @@ export function useShopData(
     dismissBanner,
     refresh,
     removePing,
+    removeList,
+    dismissClosedList,
+    setPacked,
     markAnswered,
     setOpen,
   };

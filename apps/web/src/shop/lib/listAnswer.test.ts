@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shop, shopListParchi } from '../../test/fakes.js';
+import { at, shop, shopListParchi } from '../../test/fakes.js';
 import {
   buildListAnswer,
   issuesFromError,
@@ -10,9 +10,9 @@ import {
 } from './listAnswer.js';
 
 const parchi = shopListParchi();
-const sugar = parchi.lines[0]!;
-const pen = parchi.lines[1]!;
-const bolt = parchi.lines[2]!;
+const sugar = at(parchi.lines, 0);
+const pen = at(parchi.lines, 1);
+const bolt = at(parchi.lines, 2);
 
 describe('startDraft', () => {
   it('starts with nothing ticked and no prices', () => {

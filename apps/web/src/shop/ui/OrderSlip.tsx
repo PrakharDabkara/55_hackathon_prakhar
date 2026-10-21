@@ -4,12 +4,15 @@ import type { ShopOrder } from '../../lib/orders.js';
 import { displayItemName } from '../lib/format.js';
 import { Button } from '../../ui/Button.js';
 import { Parchi } from '../../ui/Parchi.js';
+import { PackingSlip } from './PackingSlip.js';
 import { TimeRing } from './TimeRing.js';
 
 interface Props {
   order: ShopOrder;
   now: number;
   busy?: boolean;
+  /** Several lines: the shop ticks them as it packs. Not needed for a single line. */
+  onPack?: (index: number, packed: boolean) => void;
   onAccept: () => void;
   onDecline: () => void;
 }
@@ -18,50 +21,64 @@ interface Props {
  * A customer's order request (a stale offer, ADR-0039): items with prices, the fee, the total, their
  * note, and ten minutes to accept. Who they are stays hidden until the order is accepted.
  */
-export function OrderSlip({ order, now, busy = false, onAccept, onDecline }: Props) {
+export function OrderSlip({ order, now, busy = false, onPack, onAccept, onDecline }: Props) {
   const { t } = useT();
   const fee = order.feePaise ?? 0;
+  const pickup = order.fulfilment === 'pickup';
+  const packing = order.lineCount > 1 && onPack !== undefined;
   return (
-    <Parchi delivery>
+    <Parchi delivery={!pickup}>
       <div className="sh-parchi__meta">
-        <span className="sh-caption sh-paper-muted">{t.shop.orderRequest}</span>
+        <span className="sh-caption sh-paper-muted">
+          {packing
+            ? pickup
+              ? t.shop.tagPickup(order.lineCount)
+              : t.shop.tagDelivery(order.lineCount)
+            : t.shop.orderRequest}
+        </span>
         <span className="sh-parchi__reply">
           <span className="sh-label sh-paper-muted">{t.shop.replyIn}</span>
           <TimeRing startedAt={order.createdAt} expiresAt={order.expiresAt} now={now} />
         </span>
       </div>
-      <ul className="sh-parchi__lines sh-parchi__ruled">
-        {order.lines.map((line, i) => (
-          <li key={`${line.name}-${i}`} className="sh-parchi__line">
-            <span className="sh-parchi__note">
-              {line.count} × {line.displayName ?? displayItemName(line.name)}
-              {line.displayName && (
-                <span className="sh-parchi__alias">{displayItemName(line.name)}</span>
-              )}
-            </span>
-            <span className="sh-parchi__price">
-              {line.pricePaise === null
+      {packing ? (
+        <PackingSlip order={order} onPack={onPack} />
+      ) : (
+        <>
+          <ul className="sh-parchi__lines sh-parchi__ruled">
+            {order.lines.map((line, i) => (
+              <li key={`${line.name}-${i}`} className="sh-parchi__line">
+                <span className="sh-parchi__note">
+                  {line.count} × {line.displayName ?? displayItemName(line.name)}
+                  {line.displayName && (
+                    <span className="sh-parchi__alias">{displayItemName(line.name)}</span>
+                  )}
+                </span>
+                <span className="sh-parchi__price">
+                  {line.pricePaise === null
+                    ? t.shop.priceNotSet
+                    : formatRupees(line.pricePaise * line.count)}
+                </span>
+              </li>
+            ))}
+            {fee > 0 && (
+              <li className="sh-parchi__line">
+                <span className="sh-parchi__note">{t.shop.deliveryLine}</span>
+                <span className="sh-parchi__price">{formatRupees(fee)}</span>
+              </li>
+            )}
+          </ul>
+          <hr className="sh-parchi__rule" />
+          <p className="sh-parchi__line sh-parchi__total">
+            <span>{t.shop.total}</span>
+            <span>
+              {order.itemsTotalPaise === null
                 ? t.shop.priceNotSet
-                : formatRupees(line.pricePaise * line.count)}
+                : formatRupees(order.itemsTotalPaise + fee)}
             </span>
-          </li>
-        ))}
-        {fee > 0 && (
-          <li className="sh-parchi__line">
-            <span className="sh-parchi__note">{t.shop.deliveryLine}</span>
-            <span className="sh-parchi__price">{formatRupees(fee)}</span>
-          </li>
-        )}
-      </ul>
-      <hr className="sh-parchi__rule" />
-      <p className="sh-parchi__line sh-parchi__total">
-        <span>{t.shop.total}</span>
-        <span>
-          {order.itemsTotalPaise === null
-            ? t.shop.priceNotSet
-            : formatRupees(order.itemsTotalPaise + fee)}
-        </span>
-      </p>
+          </p>
+        </>
+      )}
       {order.note && <p className="sh-parchi__note">{t.shop.customerNote(order.note)}</p>}
       <div className="sh-parchi__foot sh-parchi__foot--two">
         <Button variant="neutral" disabled={busy} onClick={onDecline}>

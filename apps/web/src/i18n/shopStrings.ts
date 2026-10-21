@@ -208,6 +208,39 @@ export interface ShopStrings {
   notificationsIos: string;
   notificationsFailed: string;
   notificationsUnavailable: string;
+  listStamp: (count: number) => string;
+  tickWhatYouHave: string;
+  wantsDeliveryList: string;
+  tickToAdd: string;
+  priceFor: (name: string) => string;
+  otherDivider: string;
+  canDeliverList: string;
+  oneFee: string;
+  youHaveOf: (have: number, of: number) => string;
+  sendAnswer: string;
+  committedNote: string;
+  addPrice: string;
+  wholeRupees: string;
+  feeWholeRupees: string;
+  sendNoneTitle: string;
+  sendNoneBody: string;
+  goBack: string;
+  listClosed: string;
+  listTooFar: string;
+  listInvalid: string;
+  tagDelivery: (count: number) => string;
+  tagPickup: (count: number) => string;
+  tickAsYouPack: string;
+  packedOf: (packed: number, of: number) => string;
+  pickupNoAddress: string;
+  readyForPickup: string;
+  readyWaiting: string;
+  notPackedSend: (count: number) => string;
+  notPackedReady: (count: number) => string;
+  packFailed: string;
+  orderLines: string;
+  pickupChip: string;
+  collected: string;
 }
 
 export const shopEn: ShopStrings = {
@@ -419,6 +452,41 @@ export const shopEn: ShopStrings = {
   notificationsFailed: "Couldn't turn on notifications. Try again.",
   notificationsUnavailable:
     "This browser can't show notifications. Keep this page open to see new requests.",
+  listStamp: (count) => `A list · ${count}`,
+  tickWhatYouHave: 'Tick what you have',
+  wantsDeliveryList: 'The customer would like delivery',
+  tickToAdd: 'Tick to add',
+  priceFor: (name) => `Price for ${name}`,
+  otherDivider: 'Other · asked to all shops',
+  canDeliverList: 'I can deliver this list',
+  oneFee: 'One fee for everything',
+  youHaveOf: (have, of) => `You have ${have} of ${of}`,
+  sendAnswer: 'Send answer',
+  committedNote: "If the customer picks you, you're committed to the ticked items.",
+  addPrice: 'Add a price',
+  wholeRupees: 'Use whole rupees, like 45.',
+  feeWholeRupees: 'Use whole rupees, like 20.',
+  sendNoneTitle: "Send 'none of these'?",
+  sendNoneBody: "You haven't ticked anything. The customer will see that you have none of these.",
+  goBack: 'Go back',
+  listClosed: 'This list has closed',
+  listTooFar: 'This customer is too far to deliver to. Switch delivery off and send again.',
+  listInvalid: "That answer didn't look right. Check it and send again.",
+  tagDelivery: (count) => `Delivery · ${count} items`,
+  tagPickup: (count) => `Pickup · ${count} items`,
+  tickAsYouPack: 'Tick as you pack',
+  packedOf: (packed, of) => `${packed} of ${of} packed`,
+  pickupNoAddress: 'The customer will come to pick it up',
+  readyForPickup: 'Ready for pickup',
+  readyWaiting: 'Ready · waiting for the customer to collect',
+  notPackedSend: (count) =>
+    `${count} ${count === 1 ? 'item' : 'items'} not packed yet. You can still send it out`,
+  notPackedReady: (count) =>
+    `${count} ${count === 1 ? 'item' : 'items'} not packed yet. You can still mark it ready`,
+  packFailed: "Couldn't save that tick. Try again.",
+  orderLines: 'Items to pack',
+  pickupChip: 'Pickup',
+  collected: 'Collected',
 };
 
 export const shopHi: ShopStrings = {
@@ -630,4 +698,37 @@ export const shopHi: ShopStrings = {
   notificationsFailed: 'Notification chalu nahi hue. Dobara koshish karein.',
   notificationsUnavailable:
     'Ye browser notification nahi dikha sakta. Naye sawaal dekhne ke liye ye page khula rakhein.',
+  listStamp: (count) => `Ek list · ${count}`,
+  tickWhatYouHave: 'Jo aapke paas hai, tick karein',
+  wantsDeliveryList: 'Grahak ghar mangwana chahta hai',
+  tickToAdd: 'Jodne ke liye tick karein',
+  priceFor: (name) => `${name} ka daam`,
+  otherDivider: 'Baaki · sabhi dukaanon se pucha',
+  canDeliverList: 'Main ye list ghar bhej sakta hoon',
+  oneFee: 'Sabke liye ek delivery daam',
+  youHaveOf: (have, of) => `Aapke paas ${of} mein se ${have}`,
+  sendAnswer: 'Jawab bhejein',
+  committedNote: 'Agar grahak aapko chunta hai, to tick kiye saman ki zimmedari aapki hai.',
+  addPrice: 'Daam daalein',
+  wholeRupees: 'Poore rupaye likhein, jaise 45.',
+  feeWholeRupees: 'Poore rupaye likhein, jaise 20.',
+  sendNoneTitle: "'Inme se kuch nahi' bhejein?",
+  sendNoneBody: 'Aapne kuch tick nahi kiya. Grahak ko dikhega ki inme se kuch aapke paas nahi hai.',
+  goBack: 'Wapas jayein',
+  listClosed: 'Ye list band ho gayi',
+  listTooFar: 'Ye grahak delivery ke liye bahut door hai. Delivery band karke dobara bhejein.',
+  listInvalid: 'Jawab sahi nahi laga. Check karke dobara bhejein.',
+  tagDelivery: (count) => `Delivery · ${count} cheezein`,
+  tagPickup: (count) => `Pickup · ${count} cheezein`,
+  tickAsYouPack: 'Pack karte hue tick karein',
+  packedOf: (packed, of) => `${of} mein se ${packed} pack`,
+  pickupNoAddress: 'Grahak khud lene aayega',
+  readyForPickup: 'Pickup ke liye taiyaar',
+  readyWaiting: 'Taiyaar · grahak ke lene ka intezaar',
+  notPackedSend: (count) => `${count} cheez abhi pack nahi hui. Phir bhi bhej sakte hain`,
+  notPackedReady: (count) => `${count} cheez abhi pack nahi hui. Phir bhi taiyaar bata sakte hain`,
+  packFailed: 'Tick save nahi hua. Dobara koshish karein.',
+  orderLines: 'Pack karne ki cheezein',
+  pickupChip: 'Pickup',
+  collected: 'Le liya',
 };

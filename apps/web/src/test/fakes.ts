@@ -386,3 +386,10 @@ export const errandListItem = (overrides: Partial<ErrandListItem> = {}): ErrandL
   expiresAt: '2099-10-16T10:15:00.000Z',
   ...overrides,
 });
+
+/** The item at `index`, or a clear failure: tests index into arrays without `!`. */
+export function at<T>(list: readonly T[], index: number): T {
+  const item = list[index];
+  if (item === undefined) throw new Error(`no item at ${index}`);
+  return item;
+}

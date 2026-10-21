@@ -38,6 +38,8 @@ export function ShopShell({ api, shop, onLogout, pollMs, live, pushClient }: Pro
   const now = useNow();
   const view = useView();
   const [menu, setMenu] = useState(false);
+  // A tap on a list's push notification lands here with ?parchi=<id>: Home opens the deck at it.
+  const [openAt] = useState(() => new URLSearchParams(location.search).get('parchi') ?? undefined);
   const main = useRef<HTMLElement>(null);
   const first = useRef(true);
 
@@ -52,7 +54,9 @@ export function ShopShell({ api, shop, onLogout, pollMs, live, pushClient }: Pro
   }, [view]);
 
   const pending =
-    (data.pings?.length ?? 0) + (data.orders ?? []).filter((o) => o.state === 'REQUESTED').length;
+    (data.pings?.length ?? 0) +
+    (data.lists?.length ?? 0) +
+    (data.orders ?? []).filter((o) => o.state === 'REQUESTED').length;
   const activeOrders = (data.orders ?? []).filter((o) => !o.final).length;
 
   return (
@@ -71,7 +75,13 @@ export function ShopShell({ api, shop, onLogout, pollMs, live, pushClient }: Pro
           </p>
         )}
         {view === 'requests' && (
-          <Home api={api} data={data} now={now} {...(pushClient && { pushClient })} />
+          <Home
+            api={api}
+            data={data}
+            now={now}
+            {...(pushClient && { pushClient })}
+            {...(openAt && { openAt })}
+          />
         )}
         {view === 'orders' && <Orders api={api} data={data} now={now} />}
         {view === 'insights' && <Insights api={api} />}

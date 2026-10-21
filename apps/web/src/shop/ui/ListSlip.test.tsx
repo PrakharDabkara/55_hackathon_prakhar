@@ -60,7 +60,7 @@ describe('ListSlip: reading it', () => {
   });
 
   it('has no "other" divider when every line is a category line', () => {
-    setup({}, { lines: [shopListParchi().lines[0]!] });
+    setup({}, { lines: shopListParchi().lines.slice(0, 1) });
     expect(screen.queryByText('Other · asked to all shops')).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { shopOrder } from '../../test/fakes.js';
+import { at, shopOrder } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
 import { PackingSlip } from './PackingSlip.js';
 
@@ -29,18 +29,18 @@ describe('PackingSlip', () => {
     renderApp(<PackingSlip order={order} onPack={vi.fn()} />, 'en');
     const rows = screen.getAllByRole('checkbox');
     expect(rows.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
-    expect(rows[0]!.textContent).toContain('Sugar');
-    expect(rows[0]!.textContent).toContain('₹90');
-    expect(rows[2]!.textContent).toContain('Price not set');
-    expect(rows[0]!.className).toContain('is-packed');
+    expect(at(rows, 0).textContent).toContain('Sugar');
+    expect(at(rows, 0).textContent).toContain('₹90');
+    expect(at(rows, 2).textContent).toContain('Price not set');
+    expect(at(rows, 0).className).toContain('is-packed');
   });
 
   it('tapping a row asks to flip it, by its position', async () => {
     const onPack = vi.fn();
     const { user } = renderApp(<PackingSlip order={order} onPack={onPack} />, 'en');
-    await user.click(screen.getAllByRole('checkbox')[1]!);
+    await user.click(at(screen.getAllByRole('checkbox'), 1));
     expect(onPack).toHaveBeenCalledWith(1, true);
-    await user.click(screen.getAllByRole('checkbox')[0]!);
+    await user.click(at(screen.getAllByRole('checkbox'), 0));
     expect(onPack).toHaveBeenCalledWith(0, false);
   });
 

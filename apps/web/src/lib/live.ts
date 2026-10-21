@@ -17,6 +17,9 @@ export const LIVE_EVENTS = [
   'errand.updated',
   'order.created',
   'order.updated',
+  'order.packed',
+  'listping.created',
+  'listping.closed',
 ] as const;
 
 export interface LiveOptions {

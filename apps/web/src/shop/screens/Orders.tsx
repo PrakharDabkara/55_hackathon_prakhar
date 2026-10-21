@@ -9,6 +9,8 @@ import { BottomSheet } from '../../ui/BottomSheet.js';
 import { Button, LinkButton } from '../../ui/Button.js';
 import { Chip } from '../../ui/Chip.js';
 import { Field } from '../../ui/Field.js';
+import { Parchi } from '../../ui/Parchi.js';
+import { PackingSlip } from '../ui/PackingSlip.js';
 import { SegmentedControl } from '../../ui/SegmentedControl.js';
 import { Skeleton } from '../../ui/Skeleton.js';
 import { useToast } from '../../ui/Toast.js';
@@ -82,6 +84,8 @@ export function Orders({ api, data, now }: Props) {
     switch (order.state) {
       case 'DELIVERED':
         return s.delivered;
+      case 'COLLECTED':
+        return s.collected;
       case 'NOT_CONFIRMED':
         return s.notConfirmed;
       case 'CANCELLED':
@@ -93,34 +97,56 @@ export function Orders({ api, data, now }: Props) {
     }
   }
 
+  function pack(order: ShopOrder, index: number, packed: boolean) {
+    void data.setPacked(order.id, index, packed).catch(() => toast(s.packFailed));
+  }
+
   function card(order: ShopOrder) {
     const fee = order.feePaise ?? 0;
     const total = order.itemsTotalPaise === null ? null : order.itemsTotalPaise + fee;
+    const pickup = order.fulfilment === 'pickup';
+    // Several lines on an order still being worked: a packing slip. One line keeps the plain card.
+    const packing = order.lineCount > 1 && !order.final;
+    const tag = packing
+      ? pickup
+        ? s.tagPickup(order.lineCount)
+        : s.tagDelivery(order.lineCount)
+      : pickup
+        ? s.pickupChip
+        : s.deliveryChip;
     return (
-      <article key={order.id} className="sh-card sh-order" aria-label={s.deliveryChip}>
+      <article key={order.id} className="sh-card sh-order" aria-label={tag}>
         <div className="sh-order__top">
-          <span className="sh-tag">{s.deliveryChip}</span>
+          <span className="sh-tag">{tag}</span>
           <span className="sh-label sh-muted">
             {order.state === 'REQUESTED'
               ? s.requestedAt(formatClock(order.createdAt))
               : s.chosenAt(formatClock(order.createdAt))}
           </span>
         </div>
-        <ul className="sh-order__lines">
-          {order.lines.map((line, i) => (
-            <li key={`${line.name}-${i}`} className="sh-body">
-              {line.count} × {displayItemName(line.name)}
-            </li>
-          ))}
-        </ul>
-        <p className="sh-label">
-          {total === null
-            ? s.priceNotSet
-            : fee > 0
-              ? s.inclFee(formatRupees(total), formatRupees(fee))
-              : s.collectCash(formatRupees(total))}
-        </p>
-        {!order.final && order.addressText && (
+        {packing ? (
+          <Parchi className="sh-pack-card">
+            <PackingSlip order={order} onPack={(index, packed) => pack(order, index, packed)} />
+          </Parchi>
+        ) : (
+          <>
+            <ul className="sh-order__lines">
+              {order.lines.map((line, i) => (
+                <li key={`${line.name}-${i}`} className="sh-body">
+                  {line.count} × {displayItemName(line.name)}
+                </li>
+              ))}
+            </ul>
+            <p className="sh-label">
+              {total === null
+                ? s.priceNotSet
+                : fee > 0
+                  ? s.inclFee(formatRupees(total), formatRupees(fee))
+                  : s.collectCash(formatRupees(total))}
+            </p>
+          </>
+        )}
+        {!order.final && !pickup && order.addressText && (
           <div className="sh-order__address">
             <p className="sh-body">{order.addressText}</p>
             <p className="sh-label sh-muted">{s.forName(order.contactName)}</p>
@@ -130,6 +156,9 @@ export function Orders({ api, data, now }: Props) {
               </LinkButton>
             )}
           </div>
+        )}
+        {!order.final && pickup && (
+          <p className="sh-body">{order.state === 'READY' ? s.readyWaiting : s.pickupNoAddress}</p>
         )}
         {order.note && <p className="sh-body sh-muted">{s.customerNote(order.note)}</p>}
         {order.final && <p className="sh-label sh-order__status">{statusText(order)}</p>}
@@ -162,12 +191,20 @@ export function Orders({ api, data, now }: Props) {
             <Button
               variant={order.id === firstAccepted ? 'primary' : 'solid'}
               disabled={busy !== null}
-              onClick={() =>
-                void run(order.id, 'out', order.state, () => api.orderAction(order.id, 'out'))
-              }
+              onClick={() => {
+                const verb = pickup ? 'ready' : 'out';
+                void run(order.id, verb, order.state, () => api.orderAction(order.id, verb));
+              }}
             >
-              {s.outForDelivery}
+              {pickup ? s.readyForPickup : s.outForDelivery}
             </Button>
+            {order.unpackedCount > 0 && order.lineCount > 1 && (
+              <p className="sh-label sh-muted">
+                {pickup
+                  ? s.notPackedReady(order.unpackedCount)
+                  : s.notPackedSend(order.unpackedCount)}
+              </p>
+            )}
             <Button
               variant="quiet"
               disabled={busy !== null}
