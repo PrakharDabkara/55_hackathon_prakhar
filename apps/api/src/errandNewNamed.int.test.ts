@@ -192,7 +192,7 @@ describe('a new item the customer named is confirmed first', () => {
       {
         toolCalls: [
           call('resolve_item', { text: 'bead dazzling kit' }),
-          call('submit_plan', { items: [] }),
+          call('submit_plan', { items: [{ text: 'chart paper', status: 'not_found' }] }),
         ],
       },
     ]);
