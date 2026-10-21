@@ -19,7 +19,7 @@ describe('the web app served under /app/', () => {
     mkdirSync(path.join(dist, 'assets'), { recursive: true });
     writeFileSync(path.join(dist, 'index.html'), INDEX);
     writeFileSync(path.join(dist, 'assets', 'index-abc123.js'), 'console.log("shop");');
-    writeFileSync(path.join(dist, 'manifest.json'), '{"name":"KahanMilega"}');
+    writeFileSync(path.join(dist, 'manifest.json'), '{"name":"AskBuy"}');
     writeFileSync(path.join(dist, 'sw.js'), 'self.addEventListener("push", () => {});');
     writeFileSync(path.join(root, 'secret.txt'), 'top secret');
 
@@ -93,7 +93,7 @@ describe('the web app served under /app/', () => {
     it('serves the manifest', async () => {
       const res = await request(app).get('/app/manifest.json');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ name: 'KahanMilega' });
+      expect(res.body).toEqual({ name: 'AskBuy' });
     });
 
     it('does not answer a missing file with index.html', async () => {

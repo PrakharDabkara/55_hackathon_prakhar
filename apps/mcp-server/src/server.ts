@@ -3,7 +3,7 @@ import { tools } from '@askbuy/shared/tools';
 import type { ApiClient } from './apiClient.js';
 import { runTool, ToolError } from './handlers.js';
 
-export const INSTRUCTIONS = `KahanMilega finds which nearby shops have an item and at what price. The shops answer a one-tap ping; answers are remembered and fade as they age.
+export const INSTRUCTIONS = `AskBuy finds which nearby shops have an item and at what price. The shops answer a one-tap ping; answers are remembered and fade as they age.
 
 Errand workflow:
 1. resolve_item: turn what the user said into an item. If it returns a clarification, ask the user and try again.
@@ -17,7 +17,7 @@ Prices are in paise (100 paise = 1 rupee). Distances are straight-line metres.`;
 /** The MCP server: the shared tool registry, each tool run against the public API with the user's own token. */
 export function createMcpServer({ api }: { api: ApiClient }): McpServer {
   const server = new McpServer(
-    { name: 'kahanmilega', version: '0.1.0' },
+    { name: 'askbuy', version: '0.1.0' },
     { instructions: INSTRUCTIONS },
   );
 

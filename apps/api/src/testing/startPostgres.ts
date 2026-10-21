@@ -8,7 +8,7 @@ import { GenericContainer } from 'testcontainers';
 import { createPool } from '../db/pool.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-const IMAGE = 'kahanmilega-postgres:test';
+const IMAGE = 'askbuy-postgres:test';
 
 export interface TestDatabase {
   pool: Pool;

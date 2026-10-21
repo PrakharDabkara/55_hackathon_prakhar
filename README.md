@@ -1,4 +1,4 @@
-# KahanMilega
+# AskBuy
 
 > "Where will I find it?" Ask your neighbourhood for an item and see which nearby shops have it, and at what price.
 
@@ -77,7 +77,7 @@ An errand is a whole task ("chai banane ka saaman") instead of one item. The age
 
 No Gemini key? `FAKE_LLM_SCENARIO=e2e/errand-scenario.json` with `LLM_PROVIDER=fake` plays a fixed errand (one question, chai patti, adrak, doodh); `npm run test:e2e` uses it. See the runbook.
 
-## Use KahanMilega from Claude
+## Use AskBuy from Claude
 
 An MCP server lets an AI assistant look for an item near you, ask shops, and plan a route, using your own customer login. It talks to the public API only (ADR-0023). Six tools: `resolve_item`, `find_item_nearby`, `ask_shops` (pings real shops), `get_request_status`, `close_request`, `plan_route`.
 
@@ -88,12 +88,12 @@ npm run mcp:build
 npm run mcp:login -- --phone 9876543210   # any customer number; prints only "logged in"
 ```
 
-The login is saved in `apps/mcp-server/.kahanmilega-login.json` (git-ignored, readable only by you). Use a customer number, not a shop's. To point at another server, set `KAHANMILEGA_API_URL` (for example `http://localhost:3000`) for both commands and for the server.
+The login is saved in `apps/mcp-server/.askbuy-login.json` (git-ignored, readable only by you). Use a customer number, not a shop's. To point at another server, set `ASKBUY_API_URL` (for example `http://localhost:3000`) for both commands and for the server.
 
 2. Connect it. **Claude Code**, from the repository folder:
 
 ```sh
-claude mcp add kahanmilega -- node "$(pwd)/apps/mcp-server/dist/main.js"
+claude mcp add askbuy -- node "$(pwd)/apps/mcp-server/dist/main.js"
 ```
 
 **Claude Desktop**: add this to `claude_desktop_config.json` (use your real path) and restart the app:
@@ -101,9 +101,9 @@ claude mcp add kahanmilega -- node "$(pwd)/apps/mcp-server/dist/main.js"
 ```json
 {
   "mcpServers": {
-    "kahanmilega": {
+    "askbuy": {
       "command": "node",
-      "args": ["/absolute/path/to/kahanmilega/apps/mcp-server/dist/main.js"]
+      "args": ["/absolute/path/to/askbuy/apps/mcp-server/dist/main.js"]
     }
   }
 }

@@ -1,4 +1,4 @@
-# Build from the repo root: docker build -f infra/api/Dockerfile -t kahanmilega-api .
+# Build from the repo root: docker build -f infra/api/Dockerfile -t askbuy-api .
 # Pinned to an exact version and digest; bump with .nvmrc and ADR-0008.
 ARG NODE_IMAGE=node:24.21.0-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 

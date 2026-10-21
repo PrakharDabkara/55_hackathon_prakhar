@@ -48,7 +48,7 @@ describe('Web Push settings (ADR-0034)', () => {
   it('turns push off when the subject is not a mailto: or https: address', () => {
     expect(loadConfig({ ...valid, ...vapid, VAPID_SUBJECT: 'ops@example.com' }).vapid).toBeNull();
     expect(
-      loadConfig({ ...valid, ...vapid, VAPID_SUBJECT: 'https://kahanmilega.example' }).vapid,
+      loadConfig({ ...valid, ...vapid, VAPID_SUBJECT: 'https://askbuy.example' }).vapid,
     ).not.toBeNull();
   });
 

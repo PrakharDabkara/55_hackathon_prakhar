@@ -9,7 +9,7 @@
     "zod": "^4.6.7"
   },
   "bin": {
-    "kahanmilega-mcp": "dist/main.js"
+    "askbuy-mcp": "dist/main.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

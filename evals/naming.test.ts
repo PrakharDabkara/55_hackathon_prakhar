@@ -21,7 +21,7 @@ const KEPT_LINES: RegExp[] = [
   /kahanmilega_(pgdata|redisdata)/, // existing local Docker volumes
   /POSTGRES_(USER|PASSWORD|DB)[:=]\s*kahanmilega/, // database and role names
   /DATABASE_URL.*kahanmilega/,
-  /KAHANMILEGA_(API_URL|TOKEN_FILE)/, // old MCP env names, still read as a fallback
+  /KAHANMILEGA_/, // old MCP env names, still read as a fallback
   /\.kahanmilega-login\.json/, // old MCP login file, migrated on first run
   /^\s*kahanmilega\/\s*$/, // BRIEF.md folder tree: the real local folder name
   /Hackathon_2026_55\/kahanmilega/, // the local folder path

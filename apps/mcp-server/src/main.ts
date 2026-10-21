@@ -19,4 +19,4 @@ const server = createMcpServer({
 });
 
 await server.connect(new StdioServerTransport());
-console.error(`kahanmilega MCP server ready (API ${config.apiUrl})`);
+console.error(`askbuy MCP server ready (API ${config.apiUrl})`);

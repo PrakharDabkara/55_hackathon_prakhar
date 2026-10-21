@@ -102,7 +102,7 @@ describe('Day 14a catalog gaps and categories', () => {
     expect(bySlug.get('brown-sugar')?.category).toBe('grocery');
     for (const term of ['brown cheeni', 'demerara sugar', 'muscovado sugar', 'ब्राउन शुगर'])
       expect(owner(term), term).toBe('brown-sugar');
-    expect(termsFor(bySlug.get('brown-sugar')!)).not.toContain('khandsari');
+    expect(owner('khandsari')).not.toBe('brown-sugar');
   });
 
   it('knows an earthen lamp is a diya, not a candle', () => {

@@ -25,6 +25,7 @@ evals/reports/*
 evals/.cache/
 
 # MCP server: the saved customer login (a session token)
+apps/mcp-server/.askbuy-login.json
 apps/mcp-server/.kahanmilega-login.json
 
 # Self-check screenshots of the shop UI (ADR-0041)
