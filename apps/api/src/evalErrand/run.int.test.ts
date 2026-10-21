@@ -244,9 +244,10 @@ describe('errand eval harness (fake model, real database)', () => {
       id: 'c9',
       kind: 'new_item',
       task: 'bead dazzling kit chahiye',
+      // A new item the customer named is confirmed first (ADR-0053); the scripted customer ticks it.
       expect: {
         state: ['PLAN_READY'],
-        askUser: 'never',
+        askUser: 'must',
         newItemsToMatchingShops: true,
       },
     });

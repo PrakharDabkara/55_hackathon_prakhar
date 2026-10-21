@@ -9,6 +9,7 @@ import {
 } from './modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import {
+  answerErrand,
   createErrand,
   getErrand,
   limitsFromConfig,
@@ -78,6 +79,13 @@ describe('errand agent with the open catalog', () => {
         [name, ORIGIN.lng, north(km), categories],
       )
     ).rows[0]?.id as string;
+  /** The customer ticks the first option of the checklist (ADR-0053); the errand runs on. */
+  const tickAndRun = async (id: string) => {
+    await answerErrand({ db: pool, logger, limits, enqueue: async () => undefined }, userId, id, {
+      selected: [0],
+    });
+    await runErrand(deps(), id);
+  };
   const deps = () => ({ db: pool, logger, ai, limits, trigramThreshold: 0.4 });
   const start = async (task: string) =>
     (
@@ -124,6 +132,7 @@ describe('errand agent with the open catalog', () => {
       return (last?.results?.[0] as { result: unknown }).result;
     }
     await runErrand(deps(), id);
+    await tickAndRun(id);
 
     const told = toolResult(1)[0]?.result as { item: Record<string, unknown> };
     expect(told.item).toMatchObject({
@@ -240,6 +249,7 @@ describe('errand agent with the open catalog', () => {
       },
     ]);
     await runErrand(deps(), id);
+    await tickAndRun(id);
     const v = await view(id);
     expect(planItems(v)[0]).toMatchObject({
       status: 'not_found',
