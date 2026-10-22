@@ -371,7 +371,9 @@ function ErrandRun({ api, id, pollMs, live, onBack, onRestart, onNew }: RunProps
       <>
         {bar}
         <main className="cu-main">
-          <p className="sh-alert">{c.errandGone}</p>
+          <p className="sh-alert" role="status">
+            {c.errandGone}
+          </p>
           <Button variant="quiet" onClick={onNew}>
             {c.errandNew}
           </Button>
@@ -499,8 +501,16 @@ function ErrandRun({ api, id, pollMs, live, onBack, onRestart, onNew }: RunProps
             {view.failureReason === 'ai_unavailable' ? c.errandFailedAi : c.errandGeneric}
           </p>
         )}
-        {view.state === 'EXPIRED' && <p className="sh-alert">{c.errandExpired}</p>}
-        {view.state === 'CANCELLED' && <p className="sh-alert">{c.errandCancelled}</p>}
+        {view.state === 'EXPIRED' && (
+          <p className="sh-alert" role="status">
+            {c.errandExpired}
+          </p>
+        )}
+        {view.state === 'CANCELLED' && (
+          <p className="sh-alert" role="status">
+            {c.errandCancelled}
+          </p>
+        )}
         {partial && view.plan && (
           <>
             <p className="cu-errand-status">{c.errandPartial}</p>

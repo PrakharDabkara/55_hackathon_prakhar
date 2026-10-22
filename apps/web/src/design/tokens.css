@@ -23,8 +23,13 @@
   --stamp-delivery: #8a4b00;
   --danger: #b3261e;
   --danger-soft: #fbe3e1;
-  /* Focus is drawn in the brand colour; the dark theme below redefines --brand. */
+  /* Focus is drawn in the brand colour; the dark theme below redefines --brand. On surfaces that
+     stay the same in both themes the brand colour is too weak (light green on paper in the dark
+     theme, dark green on the dark card in the light theme), so they set --focus to one of these
+     two instead. Each is at least 3:1 against its surface in both themes (tokens.test.ts). */
   --focus: var(--brand);
+  --focus-on-paper: var(--paper-ink);
+  --focus-on-dark: var(--on-panel-dark);
   /* The dark status card on order tracking: dark in both themes. */
   --panel-dark: #18223b;
   --on-panel-dark: #f3f6f4;

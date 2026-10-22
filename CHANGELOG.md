@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (PR Q2: quality, ADR-0057)
+
+- Offline: the service worker keeps the app shell (page, script, styles, icons, Latin fonts), so `/app/` and `/app/shop` open with no network. The shop app's error screen now shows the offline banner and loads again when the connection returns. Fonts were already self-hosted. e2e `offline.spec.ts` goes offline after the first load and checks the shell, the banner and the font.
+- Focus ring: new tokens `--focus-on-paper` and `--focus-on-dark` replace the per-screen paper overrides; paper, the dark order card and the map controls keep 3:1 in both themes (`tokens.test.ts` computes it). Map controls draw the ring inside, on their own face.
+- Targets and checks: the Map/List toggle and the price boxes on a slip reach 44 px; Errand notices that are not errors use `role="status"`; `errorsAnnounced.test.ts` keeps every error line a live region.
+- e2e `a11y.ts` runs on every customer and shop screen in light, dark and `data-theme`: axe, focus ring contrast, 44 px targets, reduced motion, no sideways scroll.
+- `/app/` has a meta description (SEO 100).
+
 ### Fixed (PR Q1: flaky tests)
 
 - e2e: the seeker spec no longer depends on earlier specs. Specs that ask at the demo place now forget the learned stock and Redis ping claims they leave behind (`forgetDemoStock` in `e2e/db.ts`), and the seeker waits for the page's own "All shops have replied" instead of a long timeout. The school-project errand spec no longer waits for timeline lines that the plan can replace before they are seen (failed 2 in 12 alone).
