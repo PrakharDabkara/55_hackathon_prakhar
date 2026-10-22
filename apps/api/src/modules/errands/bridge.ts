@@ -4,6 +4,7 @@ import type { AiContext } from '../ai/index.js';
 import type { EventPublisher } from '../realtime/index.js';
 import { closeRequest, getRequestStatus, type RequestsContext } from '../requests/index.js';
 import { listLinks, type RequestLink } from './persistence.js';
+import { shopText } from './shopText.js';
 
 /** The requests module as the errand agent uses it: only its public index (CLAUDE.md rule). */
 
@@ -50,7 +51,10 @@ export interface StatusForModel {
   expiresAt: string;
 }
 
-/** What the model may read about one of its requests: no coordinates, no phones, no user ids. */
+/**
+ * What the model may read about one of its requests: no coordinates, no phones, no user ids, no
+ * shop note; a shop's name is quoted data (ADR-0060).
+ */
 export async function statusForModel(
   ctx: RequestsContext,
   userId: string,
@@ -65,7 +69,7 @@ export async function statusForModel(
     pingStats: view.pingStats,
     results: view.results.slice(0, 8).map((r) => ({
       shopId: r.shopId,
-      name: r.name,
+      name: shopText(r.name),
       distanceM: r.distanceM,
       pricePaise: r.pricePaise,
       source: r.source,

@@ -116,6 +116,20 @@ export async function seedEvalWorld(pool: Pool): Promise<string> {
   return userId as string;
 }
 
+/** Adds `suffix` to every synthetic shop's name; the returned function puts the names back. */
+async function suffixShopNames(pool: Pool, suffix: string): Promise<() => Promise<void>> {
+  const shops = (
+    await pool.query<{ id: string; name: string }>(
+      `SELECT id, name FROM shops WHERE name LIKE 'Eval %'`,
+    )
+  ).rows;
+  await pool.query(`UPDATE shops SET name = name || ' ' || $1 WHERE name LIKE 'Eval %'`, [suffix]);
+  return async () => {
+    for (const shop of shops)
+      await pool.query(`UPDATE shops SET name = $2 WHERE id = $1`, [shop.id, shop.name]);
+  };
+}
+
 /** A clean slate for one case: no earlier errands or requests, and the case's learned stock. */
 async function resetWorld(pool: Pool, stock: ErrandCase['stock']): Promise<void> {
   await truncateKeepingShops(pool, 'errands, requests, new_item_attempts');
@@ -286,6 +300,9 @@ export async function runErrandEval(opts: EvalOptions): Promise<EvalRun> {
     const requestId = `eval-${c.id}`;
     const where = c.location ?? DEMO_LOCATION;
     await resetWorld(pool, c.stock);
+    const restoreNames = c.shopNameSuffix
+      ? await suffixShopNames(pool, c.shopNameSuffix)
+      : async () => undefined;
     const responder = createResponder(pool, logger, c, where, limits.resumeAfterMs + 1500);
     const offered: string[] = [];
     let state = 'ERROR';
@@ -361,7 +378,7 @@ export async function runErrandEval(opts: EvalOptions): Promise<EvalRun> {
       requestId,
       slugOf,
       offered,
-    });
+    }).finally(restoreNames);
     const result = scoreRun(c, observed, limits, systemPrompt);
     results.push(result);
     opts.onCase?.(result);

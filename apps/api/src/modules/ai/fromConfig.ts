@@ -9,7 +9,7 @@ import { loadScenario, playScenario } from './scenario.js';
 import { createAi, type AiContext } from './index.js';
 import type { LlmProvider, Purpose } from './types.js';
 
-export function providerFromConfig(config: Config): LlmProvider {
+export function providerFromConfig(config: Config, logger?: Logger): LlmProvider {
   if (config.llmProvider === 'gemini') {
     // Every request has a hard limit, also one that goes through no client (the evals' preflight).
     return withRequestTimeout(
@@ -19,6 +19,7 @@ export function providerFromConfig(config: Config): LlmProvider {
         fallbackModel: config.geminiFallbackModel,
         embedModel: config.geminiEmbedModel,
         embedDim: config.embedDim,
+        ...(logger && { logger }),
       }),
     );
   }
@@ -56,7 +57,9 @@ export function aiFromConfig({
     ? connect(config.redisUrl, logger, { maxRetriesPerRequest: 1, commandTimeout: 500 })
     : null;
   const ai = createAi({
-    provider: wrapProvider ? wrapProvider(providerFromConfig(config)) : providerFromConfig(config),
+    provider: wrapProvider
+      ? wrapProvider(providerFromConfig(config, logger))
+      : providerFromConfig(config, logger),
     db,
     logger,
     embedThreshold: config.embedThreshold,
