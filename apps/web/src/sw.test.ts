@@ -371,6 +371,52 @@ describe('the service worker (public/sw.js)', () => {
       expect(answered).toBe(false);
     });
 
+    it('never touches the API, the landing page or /health, and never stores their answers', async () => {
+      const { w, h } = setup();
+      await run({}, 'install', h);
+      let answered = false;
+      const before = JSON.stringify([...(shell(w)?.entries() ?? [])]);
+      for (const path of [
+        '/',
+        '/health',
+        '/auth/otp',
+        '/account',
+        '/orders',
+        '/lists',
+        '/requests',
+        '/errands',
+        '/events',
+        '/push',
+        '/dev/otp-inbox',
+        '/app-evil/x',
+      ])
+        for (const mode of ['cors', 'navigate'])
+          h.handlers['fetch']?.({
+            request: { method: 'GET', mode, url: ORIGIN + path },
+            respondWith: () => void (answered = true),
+          });
+      expect(answered).toBe(false);
+      expect(JSON.stringify([...(shell(w)?.entries() ?? [])])).toBe(before);
+    });
+
+    it('asks the network first for a page and keeps the newest copy for offline', async () => {
+      const { w, h } = setup();
+      await run({}, 'install', h);
+      const newer = {
+        ...files,
+        '/app/': PAGE + '<!-- new release -->',
+        '/app/shop': PAGE + '<!-- new release -->',
+      };
+      const live = world(newer);
+      const h2 = load([], { caches: w.caches, fetch: (i: unknown) => live.net.fetch(i) });
+      const request = { method: 'GET', mode: 'navigate', url: `${ORIGIN}/app/shop` };
+      const served = (await run({ request }, 'fetch', h2)) as { body: string };
+      expect(served.body).toContain('new release');
+      live.net.online = false;
+      const offline = (await run({ request }, 'fetch', h2)) as { body: string };
+      expect(offline.body).toContain('new release');
+    });
+
     it('deletes the caches of older versions when it takes over', async () => {
       const { w, h } = setup();
       await w.caches.open('askbuy-shell-0');
