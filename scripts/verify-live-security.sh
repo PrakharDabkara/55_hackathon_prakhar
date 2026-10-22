@@ -8,8 +8,17 @@ B="${1:-https://kahanmilega-api.onrender.com}"
 J='content-type: application/json'
 fail=0
 
-# A fake number in a range nobody owns: 90000 plus five random digits.
-fake_phone() { printf '90000%05d' $((RANDOM % 100000)); }
+# A throwaway number: 98765 plus five random digits. The guard keeps it clear of the demo ranges
+# (90000001xx and 90000002xx), whatever the prefix becomes later.
+fake_phone() {
+  local p
+  while :; do
+    p=$(printf '98765%05d' $((RANDOM % 100000)))
+    case "$p" in 90000001* | 90000002*) continue ;; esac
+    printf '%s' "$p"
+    return
+  done
+}
 # Prints "<status> <retry-after or ->" for a request-code call; $1 is an optional X-Forwarded-For.
 ask() {
   local out
