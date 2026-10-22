@@ -2,7 +2,7 @@
 
 ## Reporting a problem
 
-Please do not open a public issue for a security problem. Use GitHub's private report: the **Security** tab of this repository, **Report a vulnerability**. Say what you found, how to repeat it, and what it lets someone do. Do not test against other people's accounts; the live site is a demo, so use your own.
+Please do not open a public issue for a security problem. Email **prakhar.dabkara@fiftyfivetech.io**. Say what you found, how to repeat it, and what it lets someone do. Do not test against other people's accounts; the live site is a demo, so use your own.
 
 If you find a secret (a key or token) in the repository or its history, say so in the report; do not use it.
 
