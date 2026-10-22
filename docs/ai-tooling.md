@@ -16,8 +16,10 @@ blocks the call and shows stderr to Claude as the reason; exit 0 lets it through
 - **Does:** blocks any `.env` or `.env.*` except `.env.example`, and any path or command that mentions
   `holdout`. File tools are checked by their path fields only; Bash by the command text. The reason
   tells Claude to read `.env.example` or ask you.
-- **Incident:** TODO(Prakhar): name the real incident. The rules it enforces are in `CLAUDE.md`: never
-  read `.env`, and the holdout is run by hand only (a model that has read it can tune against it).
+- **Incident:** the ".env and holdout are off-limits" rule was repeated in every prompt for two weeks
+  and enforced only by the model's goodwill. On Oct 20 an architect-side grep pulled holdout eval case
+  lines into a chat (flagged, not used); on Oct 22 a scratch `ci-env.sh` had to be checked by hand for
+  `.env` values. The hook turns both rules into a gate.
 - **Limits:** command-string matching is a best-effort layer. `cat $(printf '\056env')`, a script that
   builds the name, or `cd apps/api && cat .e*` get past it. A Bash command that only mentions the word
   "holdout" (a commit message, say) is blocked too; put it in a file. `permissions.deny` in
@@ -29,8 +31,9 @@ blocks the call and shows stderr to Claude as the reason; exit 0 lets it through
   pushes, a bare `git push` while on main, `--all`, `--mirror`), any `--no-verify` (and `git commit -n`),
   and `git commit` while the current branch is main. Chains (`a && git push origin main`) and
   `bash -c "..."` are read too. Words inside a quoted commit message do not count.
-- **Incident:** TODO(Prakhar): name the real incident. Why it matters: main deploys to production, and
-  the pre-push hook can be skipped with `--no-verify`.
+- **Incident:** on Oct 22, `gh pr merge` in the same folder switched the working tree to main while a
+  session was mid-task; it avoided committing on main only because it re-checked the branch by hand.
+  "Never push to main" and "no `--no-verify`" were otherwise prompt-only.
 - **Limits:** `$(...)`, variables, aliases and `eval` are not expanded. A commit after `git switch` in the
   same command is allowed because the branch is unknown. GitHub branch protection is the real wall.
 
@@ -39,8 +42,8 @@ blocks the call and shows stderr to Claude as the reason; exit 0 lets it through
 - **Does:** runs Prettier (the repo's version and config, honouring `.prettierignore`) on the file just
   edited, if Prettier handles the extension. Skips images and the like. Always exits 0; prints one line
   only if Prettier failed (for example a syntax error).
-- **Incident:** TODO(Prakhar): name the real incident. `npm run lint` runs `prettier --check`, so an
-  unformatted file fails it.
+- **Incident:** several sessions had to re-run Prettier by hand after edits (for example the errand e2e
+  spec fix on Oct 22) before lint passed.
 - **Limits:** only files edited through Edit and Write; a file changed by a Bash command is not formatted.
 
 ## notify (Notification, Stop)
