@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import { forgetDemoStock } from './db.js';
 import {
   ask,
   customerAt,
@@ -15,8 +16,6 @@ import {
 // Shopping lists in the customer app (ADR-0055, PR U3), in real browsers at 360 px. Part one is a
 // customer at the demo place, where the simulated shops answer. Part two is a quiet corner of its
 // own with two real shops (one delivers, one does not), so prices and modes are known.
-// Part one avoids "chini": the seeker spec asks for it at the same place and needs the simulated
-// shops not to remember it yet.
 // Screenshots go to e2e/screens/customer/ (not committed), or to U3_SHOTS_DIR at 390 px wide.
 test.describe.configure({ mode: 'serial' });
 test.setTimeout(300_000);
@@ -73,6 +72,9 @@ const lineInputs = (page: Page) => page.locator('.cu-leditor__input');
 
 // ---------------------------------------------------------------------------------------------
 // Part one: the demo place, simulated shops.
+
+// Part one asks at the demo place, shared with every other spec: forget what the shops learned.
+test.afterAll(forgetDemoStock);
 
 let demo: { context: BrowserContext; page: Page };
 test.afterAll(async () => {

@@ -12,6 +12,7 @@ import {
   shopContextAt,
   VIEWPORT,
 } from './orderFlow.js';
+import { forgetDemoStock } from './db.js';
 import { uniqueName, uniquePhone } from './unique.js';
 
 // Every customer screen, at phone and desktop width, in light and dark: a screenshot to look at
@@ -22,6 +23,8 @@ import { uniqueName, uniquePhone } from './unique.js';
 // order is out for delivery, one pickup question is open and one errand has a plan.
 // Fail fast: a broken screen must not burn minutes. One try, 90 s.
 test.describe.configure({ retries: 0 });
+// Its errand step asks at the demo place, shared with every other spec: forget what the shops learned.
+test.afterAll(forgetDemoStock);
 test.setTimeout(90_000);
 
 /**

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (PR Q1: flaky tests)
+
+- e2e: the seeker spec no longer depends on earlier specs. Specs that ask at the demo place now forget the learned stock and Redis ping claims they leave behind (`forgetDemoStock` in `e2e/db.ts`), and the seeker waits for the page's own "All shops have replied" instead of a long timeout. The school-project errand spec no longer waits for timeline lines that the plan can replace before they are seen (failed 2 in 12 alone).
+
 ### Added (PR T: landing page, ADR-0056)
 
 - `GET /` serves a static, script-free landing page (`apps/web/landing.html`, a second Vite entry) with the app's security headers: shop-first hero, three steps, why shops join, the buyers band, how AI is used, and a demo section. Tests cover the headers, anchors, contrast (axe, light and dark), 360 px, and that no phone number or code appears.

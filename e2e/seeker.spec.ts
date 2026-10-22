@@ -1,9 +1,14 @@
 import { expect, test } from '@playwright/test';
+import { forgetDemoStock } from './db.js';
 import { ask, useDemoLocation } from './orderFlow.js';
 import { uniquePhone } from './unique.js';
 
 // The first end-to-end test: a real browser, the real API, Postgres, Redis and five simulated
 // grocery shops that answer pings in the background (see global-setup.ts).
+// Specs that ask at the demo place leave learned stock behind: the search must ask the shops, so
+// the test starts with them forgetting it instead of relying on spec order.
+test.beforeEach(forgetDemoStock);
+
 test('a customer asks for sugar and watches simulated shops answer on the map', async ({
   page,
 }) => {
@@ -21,10 +26,9 @@ test('a customer asks for sugar and watches simulated shops answer on the map', 
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
   await expect(page.locator('.sh-parchi')).toBeVisible();
 
-  // Within 30 seconds: a reply with a price and a "N have it" stamp.
-  await expect(page.getByRole('list', { name: 'Replies' }).getByText('₹').first()).toBeVisible({
-    timeout: 30_000,
-  });
+  // Replies arrive as the shops answer; the page says so itself when all have.
+  await expect(page.getByText('All shops have replied.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('list', { name: 'Replies' }).getByText('₹').first()).toBeVisible();
   await expect(page.getByText(/[1-9]\d* have it/i)).toBeVisible();
 
   // The map really is there, with the attribution OpenStreetMap asks for.
