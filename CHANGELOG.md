@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-IP limits on request (10), verify (20) and inbox (30) per 10 minutes, counted in Redis with an in-process fallback, `429` with `Retry-After`; `trust proxy` is one hop (`TRUST_PROXY_HOPS`), so a spoofed `X-Forwarded-For` does not change the bucket.
 - Production refuses to start with empty `DEMO_PHONES`, any `OTP_INBOX_OPEN`, any `ADMIN_PHONES`, or an IP limit above its default. Tests and the e2e run set `OTP_INBOX_OPEN`.
 - The simulator reads `ADMIN_TOKEN` from the environment; `--admin-phone` is gone. The e2e run makes a throwaway token. Runbook and README no longer print a number.
+- `scripts/verify-live-security.sh` checks the live site (inbox closed to other numbers, IP limit with and without a spoofed `X-Forwarded-For`, admin routes 404) and prints status codes only.
 
 ### Changed (PR Q2: quality, ADR-0057)
 
