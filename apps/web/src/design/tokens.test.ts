@@ -64,6 +64,8 @@ describe('tokens.css', () => {
       '--danger',
       '--danger-soft',
       '--focus',
+      '--focus-on-paper',
+      '--focus-on-dark',
       '--space-1',
       '--space-12',
       '--tap',
@@ -98,6 +100,49 @@ describe('tokens.css', () => {
       '--on-marigold',
     ])
       expect(names(dark), name).not.toContain(name);
+  });
+
+  // The focus mark is 2 px beside the control, so it is judged against the surface behind it
+  // (WCAG 1.4.11: 3:1). Dark values replace the light ones, as they do in the browser.
+  describe('focus colours', () => {
+    const value = (block: string, name: string) =>
+      new RegExp(`${name}:\\s*([^;]+);`).exec(block)?.[1]?.trim() ?? '';
+    const resolve = (block: string, name: string): string => {
+      let found = value(block, name) || value(light, name);
+      const ref = /^var\((--[\w-]+)\)$/.exec(found);
+      if (ref?.[1]) found = resolve(block, ref[1]);
+      return found;
+    };
+    const channel = (hex: string, i: number) => {
+      const v = parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16) / 255;
+      return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    };
+    const luminance = (hex: string) =>
+      0.2126 * channel(hex, 0) + 0.7152 * channel(hex, 1) + 0.0722 * channel(hex, 2);
+    const ratio = (a: string, b: string) => {
+      const [hi = 0, lo = 0] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const pairs: [string, string][] = [
+      ['--focus', '--bg'],
+      ['--focus', '--surface'],
+      ['--focus', '--surface-sunk'],
+      ['--focus', '--brand-soft'],
+      ['--focus-on-paper', '--paper'],
+      ['--focus-on-paper', '--marigold'],
+      ['--focus-on-dark', '--panel-dark'],
+    ];
+    for (const [theme, block] of [
+      ['light', ''],
+      ['dark', darkChosen],
+    ] as const)
+      it.each(pairs)(`${theme}: %s on %s is at least 3:1`, (mark, surface) => {
+        const colour = resolve(block, mark);
+        const behind = resolve(block, surface);
+        expect(colour, mark).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(behind, surface).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(ratio(colour, behind)).toBeGreaterThanOrEqual(3);
+      });
   });
 
   it('makes the tap target 48 px', () => {

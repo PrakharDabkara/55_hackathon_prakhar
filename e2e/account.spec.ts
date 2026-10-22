@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { screenProblems } from './a11y.js';
 import { expect, test, type Page } from '@playwright/test';
 import { login, newCorner, noSidewaysScroll, order, setup, sheetLogin } from './orderFlow.js';
 
@@ -11,12 +11,7 @@ async function noSeriousViolations(page: Page, label: string) {
   for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
     await page.waitForTimeout(250);
-    const scan = await new AxeBuilder({ page }).analyze();
-    const bad = scan.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    expect(
-      bad.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
-      `${label} in ${theme}`,
-    ).toEqual([]);
+    expect.soft(await screenProblems(page), `${label} in ${theme}`).toEqual([]);
   }
 }
 

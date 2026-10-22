@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { screenProblems } from './a11y.js';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { forgetDemoStock } from './db.js';
 import {
@@ -23,12 +23,7 @@ test.setTimeout(300_000);
 const DEMO = { latitude: 22.7196, longitude: 75.8577 };
 
 async function nothingBlocking(page: Page, label: string) {
-  const scan = await new AxeBuilder({ page }).analyze();
-  const bad = scan.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-  expect(
-    bad.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
-    label,
-  ).toEqual([]);
+  expect.soft(await screenProblems(page), label).toEqual([]);
 }
 
 /** Light, dark (the phone's setting) and dark through data-theme, as the Account screen sets it. */
