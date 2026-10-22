@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import { createRealtime, type Realtime } from './modules/realtime/index.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { openSse, type SseStream } from './testing/sseClient.js';
@@ -16,19 +16,18 @@ import { startRedis } from './testing/startRedis.js';
 import { waitFor } from './testing/waitFor.js';
 import { startWorkers, type Workers } from './workers/index.js';
 
-const ADMIN_PHONE = '9810000001';
 const quiet = pino({ level: 'silent' });
 
 type User = { token: string; userId: string; role: string };
 
-describe('admin role and the simulator endpoints', () => {
+describe('admin token and the simulator endpoints', () => {
   let testDb: TestDatabase;
   let pool: Pool;
   let redis: Awaited<ReturnType<typeof startRedis>>;
   let realtime: Realtime;
   let workers: Workers;
-  let app: ReturnType<typeof createApp>; // ADMIN_PHONES lists ADMIN_PHONE
-  let closedApp: ReturnType<typeof createApp>; // ADMIN_PHONES is empty
+  let app: ReturnType<typeof createApp>; // ADMIN_TOKEN is set
+  let closedApp: ReturnType<typeof createApp>; // ADMIN_TOKEN is not set
   let server: Server;
   let base: string;
   let admin: User;
@@ -45,13 +44,13 @@ describe('admin role and the simulator endpoints', () => {
     const config = testConfig({
       workersEnabled: true,
       redisUrl: redis.url,
-      adminPhones: [`+91${ADMIN_PHONE}`],
+      adminToken: TEST_ADMIN_TOKEN,
     });
     realtime = createRealtime({ redisUrl: redis.url, logger: quiet, heartbeatMs: 100 });
     workers = startWorkers({ config, db: pool, logger: quiet, events: realtime.events }) as Workers;
     app = createApp({ config, logger: quiet, db: pool, requestHooks: workers.hooks, realtime });
     closedApp = createApp({
-      config: testConfig({ redisUrl: redis.url, adminPhones: [] }),
+      config: testConfig({ redisUrl: redis.url, adminToken: null }),
       logger: quiet,
       db: pool,
       realtime,
@@ -59,7 +58,7 @@ describe('admin role and the simulator endpoints', () => {
     server = app.listen(0);
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-    admin = await loginAs(app, 'seeker', ADMIN_PHONE);
+    admin = { token: TEST_ADMIN_TOKEN, userId: 'admin', role: 'admin' };
     seeker = await loginAs(app, 'seeker', String(phone++));
     shop = await loginAs(app, 'shop', String(phone++));
   }, 300_000);
@@ -123,37 +122,16 @@ describe('admin role and the simulator endpoints', () => {
     });
   });
 
-  describe('the admin role', () => {
-    it('is given on login to a phone in ADMIN_PHONES, whatever role it asked for', async () => {
-      expect(admin.role).toBe('admin');
-      const asShop = await loginAs(app, 'shop', ADMIN_PHONE);
-      expect(asShop.role).toBe('admin');
-    });
-
-    it('is not given to anyone else', () => {
+  describe('phone login never makes an admin', () => {
+    it('gives a seeker or a shop the role it asked for', () => {
       expect(seeker.role).toBe('seeker');
       expect(shop.role).toBe('shop');
     });
 
-    it('is given to an existing user once their phone is added to the list', async () => {
-      const early = await loginAs(closedApp, 'seeker', '9810000002');
-      expect(early.role).toBe('seeker');
-      const later = await loginAs(
-        createApp({
-          config: testConfig({ adminPhones: ['+919810000002'] }),
-          logger: quiet,
-          db: pool,
-        }),
-        'seeker',
-        '9810000002',
-      );
-      expect(later.role).toBe('admin');
-      expect(later.userId).toBe(early.userId);
-    });
-
-    it('is never given when the list is empty', async () => {
-      const user = await loginAs(closedApp, 'shop', '9810000003');
+    it('does not make a phone an admin however it is named, with ADMIN_TOKEN set', async () => {
+      const user = await loginAs(app, 'shop', String(phone++));
       expect(user.role).toBe('shop');
+      expect((await create(body, user)).status).toBe(404);
     });
   });
 
@@ -162,10 +140,13 @@ describe('admin role and the simulator endpoints', () => {
       ['an anonymous caller', null],
       ['a seeker', seeker],
       ['a shop', shop],
+      ['a wrong token', { token: `${TEST_ADMIN_TOKEN}x`, userId: '', role: 'admin' }],
+      ['a token of the right length', { token: 'y'.repeat(TEST_ADMIN_TOKEN.length), userId: '', role: 'admin' }],
+      ['a short token', { token: TEST_ADMIN_TOKEN.slice(0, 10), userId: '', role: 'admin' }],
     ];
 
-    it.each(['create', 'delete', 'events'])(
-      '%s: 404 for anonymous, seeker and shop',
+    it.each(['create', 'delete', 'ticket', 'events'])(
+      '%s: 404 for anyone without the token',
       async (what) => {
         for (const [label, who] of wrongCallers()) {
           const res =
@@ -173,7 +154,11 @@ describe('admin role and the simulator endpoints', () => {
               ? await create(body, who)
               : what === 'delete'
                 ? await wipe(who)
-                : await request(app).get('/admin/sim/events').query({ ticket: 'x' });
+                : what === 'ticket'
+                  ? await (who
+                      ? request(app).post('/admin/sim/ticket').set(auth(who))
+                      : request(app).post('/admin/sim/ticket'))
+                  : await request(app).get('/admin/sim/events').query({ ticket: 'x' });
           expect(res.status, `${what} as ${label}`).toBe(404);
           expect(res.body.error.code).toBe('not_found');
         }
@@ -187,22 +172,35 @@ describe('admin role and the simulator endpoints', () => {
       );
     });
 
-    it('fails closed: with ADMIN_PHONES empty, even a stored admin gets 404 everywhere', async () => {
+    it('answers with the right token', async () => {
+      const res = await create({ ...body, count: 2 });
+      expect(res.status).toBe(201);
+      expect((await wipe()).status).toBe(200);
+    });
+
+    it('fails closed: with ADMIN_TOKEN unset, even the usual token gets 404 everywhere', async () => {
       expect((await create(body, admin, closedApp)).status).toBe(404);
       expect((await wipe(admin, closedApp)).status).toBe(404);
+      expect((await request(closedApp).post('/admin/sim/ticket').set(auth(admin))).status).toBe(
+        404,
+      );
       expect(
         (await request(closedApp).get('/admin/sim/events').query({ ticket: 'x' })).status,
       ).toBe(404);
       expect(await simulatedCount()).toBe(0);
     });
 
-    it('a stored admin whose phone left the list loses access at once', async () => {
-      const other = createApp({
-        config: testConfig({ adminPhones: ['+919810000099'] }),
-        logger: quiet,
-        db: pool,
-      });
-      expect((await create(body, admin, other)).status).toBe(404);
+    it('other admin routes check the same token', async () => {
+      for (const route of ['/admin/ai/stats', '/admin/errands/stats']) {
+        expect((await request(app).get(route)).status, route).toBe(404);
+        expect((await request(app).get(route).set(auth(seeker))).status, route).toBe(404);
+        expect(
+          (await request(app).get(route).set(auth({ token: `${TEST_ADMIN_TOKEN}x` }))).status,
+          route,
+        ).toBe(404);
+        expect((await request(app).get(route).set(auth(admin))).status, route).toBe(200);
+        expect((await request(closedApp).get(route).set(auth(admin))).status, route).toBe(404);
+      }
     });
   });
 
@@ -429,8 +427,10 @@ describe('admin role and the simulator endpoints', () => {
   });
 
   describe('GET /admin/sim/events', () => {
+    // An admin gets a ticket from the admin route; a user from the ordinary one.
     const ticketFor = async (u: User) => {
-      const res = await fetch(`${base}/events/ticket`, { method: 'POST', headers: auth(u) });
+      const path = u === admin ? '/admin/sim/ticket' : '/events/ticket';
+      const res = await fetch(`${base}${path}`, { method: 'POST', headers: auth(u) });
       return ((await res.json()) as { ticket: string }).ticket;
     };
 
@@ -443,7 +443,7 @@ describe('admin role and the simulator endpoints', () => {
       expect((await openSse(`${base}/admin/sim/events?ticket=made-up`)).status).toBe(404);
     });
 
-    it('opens for an admin ticket, once', async () => {
+    it('opens for a ticket from the admin route, once', async () => {
       const ticket = await ticketFor(admin);
       const stream = await openSse(`${base}/admin/sim/events?ticket=${ticket}`);
       streams.push(stream);
