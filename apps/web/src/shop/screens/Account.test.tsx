@@ -238,19 +238,21 @@ describe('Settings', () => {
   const mine = shop({ name: 'Sharma Kirana', categories: ['grocery'], logoUrl: '/photos/old' });
   const setup = (current = mine, api = fakeApi()) => {
     const onSaved = vi.fn();
+    const onLoggedOut = vi.fn();
     const view = renderApp(
       <ToastProvider>
         <Settings
           api={api}
           shop={current}
           onSaved={onSaved}
+          onLoggedOut={onLoggedOut}
           prepareLogo={async (f) => f}
           locate={here}
         />
       </ToastProvider>,
       'en',
     );
-    return { api, onSaved, ...view };
+    return { api, onSaved, onLoggedOut, ...view };
   };
 
   it('shows the logo as a tappable circle with a quiet remove link, or just the circle when there is none', () => {
@@ -265,6 +267,35 @@ describe('Settings', () => {
     setup(shop({ logoUrl: null }));
     expect(screen.getByRole('button', { name: 'Change logo' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull();
+  });
+
+  it('has a quiet "Log out on all devices" that asks first (ADR-0060)', async () => {
+    const { user, api, onLoggedOut } = setup();
+    const open = screen.getByRole('button', { name: 'Log out on all devices' });
+    expect(open.className).not.toContain('sh-btn--primary');
+    await user.click(open);
+    const sheet = screen.getByRole('dialog', { name: 'Log out on all devices?' });
+    await user.click(within(sheet).getByRole('button', { name: 'Stay logged in' }));
+    expect(api.logoutAll).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Log out on all devices' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out everywhere' }),
+    );
+    await waitFor(() => expect(onLoggedOut).toHaveBeenCalled());
+    expect(api.logoutAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays logged in and says what to do when logging out everywhere fails', async () => {
+    const api = fakeApi({ logoutAll: vi.fn(async () => Promise.reject(new Error('offline'))) });
+    const { user, onLoggedOut } = setup(mine, api);
+    await user.click(screen.getByRole('button', { name: 'Log out on all devices' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out everywhere' }),
+    );
+    expect(
+      await screen.findByText("Couldn't log out everywhere. Check your connection and try again."),
+    ).toBeTruthy();
+    expect(onLoggedOut).not.toHaveBeenCalled();
   });
 
   it('opens the file picker when the circle is tapped', async () => {

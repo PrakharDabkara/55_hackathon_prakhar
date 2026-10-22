@@ -9,6 +9,8 @@ export interface SseStream {
   contentType: string | null;
   events: SseEvent[];
   comments: string[];
+  /** True once the server has ended the stream (not when the test closed it). */
+  ended: boolean;
   /** Resolves with the first event (not yet returned) matching, or rejects after `ms`. */
   waitForEvent(type: string, ms?: number): Promise<SseEvent>;
   close(): void;
@@ -22,6 +24,7 @@ export async function openSse(url: string): Promise<SseStream> {
     contentType: res.headers.get('content-type'),
     events: [],
     comments: [],
+    ended: false,
     waitForEvent: async (type, ms = 10_000) => {
       const deadline = Date.now() + ms;
       for (;;) {
@@ -62,6 +65,7 @@ export async function openSse(url: string): Promise<SseStream> {
           if (data) stream.events.push({ type, data: JSON.parse(data) as Record<string, unknown> });
         }
       }
+      if (!abort.signal.aborted) stream.ended = true;
     } catch {
       // closed by the test
     }

@@ -120,6 +120,57 @@ describe('realtime over SSE', () => {
     (await request(app).get('/shops/me/pings').set(auth(shop))).body as { id: string }[];
   const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
 
+  describe('log out on all devices (ADR-0060)', () => {
+    const logoutAll = (u: User, via = app) =>
+      request(via).post('/account/logout-all').set(auth(u)).send({});
+
+    it('closes every open stream of that user, on every API instance, and only theirs', async () => {
+      const mine = await loginAs(app, 'seeker', String(phone++));
+      const bystander = await loginAs(app, 'seeker', String(phone++));
+      const open = async (u: User, via: string) => {
+        const { ticket } = await ticketFor(u, via);
+        const s = await openSse(`${via}/events?ticket=${ticket}`);
+        expect(s.status).toBe(200);
+        streams.push(s);
+        return s;
+      };
+      const here = await open(mine, base);
+      const there = await open(mine, shortBase);
+      const other = await open(bystander, base);
+      expect((await logoutAll(mine)).status).toBe(204);
+      await waitFor(
+        async () => here.ended && there.ended,
+        (done) => done,
+        3000,
+      );
+      await settle();
+      expect(other.ended).toBe(false);
+      expect(other.comments.length).toBeGreaterThan(0);
+      // the bystander is still served
+      expect((await request(app).get('/account').set(auth(bystander))).status).toBe(200);
+    });
+
+    it('works through the other instance too (the close travels over Redis)', async () => {
+      const u = await loginAs(app, 'seeker', String(phone++));
+      const { ticket } = await ticketFor(u, base);
+      const s = await openSse(`${base}/events?ticket=${ticket}`);
+      streams.push(s);
+      expect((await logoutAll(u, shortApp)).status).toBe(204);
+      await waitFor(
+        async () => s.ended,
+        (done) => done,
+        3000,
+      );
+    });
+
+    it('a ticket asked for before the logout cannot open a stream after it', async () => {
+      const u = await loginAs(app, 'seeker', String(phone++));
+      const { ticket } = await ticketFor(u);
+      await logoutAll(u);
+      expect((await openSse(`${base}/events?ticket=${ticket}`)).status).toBe(401);
+    });
+  });
+
   describe('tickets', () => {
     it('go to any logged-in user and never to an anonymous caller', async () => {
       expect((await request(app).post('/events/ticket')).status).toBe(401);

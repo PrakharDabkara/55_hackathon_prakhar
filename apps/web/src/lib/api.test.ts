@@ -179,6 +179,16 @@ describe('createApi: delivery orders (ADR-0031)', () => {
     expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
   });
 
+  it('logs out on all devices with one empty POST', async () => {
+    const { api, fetchImpl } = setup(() => json(204));
+    await api.logoutAll();
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/account/logout-all');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(String(init.body))).toEqual({});
+    expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
+  });
+
   it('removes the logo', async () => {
     const { api, fetchImpl } = setup(() => json(204));
     await api.deleteLogo();

@@ -26,6 +26,7 @@ function setup(
     account: vi.fn(async () => ({ phoneMasked: '+91 98••• ••210' })),
     logout: vi.fn(async () => undefined),
     deleteAccount: vi.fn(async () => undefined),
+    logoutAll: vi.fn(async () => undefined),
     ...overrides,
   });
   const navigate = vi.fn();
@@ -168,6 +169,44 @@ describe('Account', () => {
     });
     await user.click(await screen.findByRole('button', { name: 'Log out' }));
     await waitFor(() => expect(onLoggedOut).toHaveBeenCalled());
+  });
+
+  it('has a quiet "Log out on all devices" that asks first, and cancel changes nothing', async () => {
+    const { user, api, onLoggedOut } = setup();
+    const open = await screen.findByRole('button', { name: 'Log out on all devices' });
+    expect(open.className).not.toContain('sh-btn--primary');
+    await user.click(open);
+    const sheet = screen.getByRole('dialog', { name: 'Log out on all devices?' });
+    expect(within(sheet).getByText(/every phone and browser/i)).toBeTruthy();
+    await user.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(api.logoutAll).not.toHaveBeenCalled();
+    expect(onLoggedOut).not.toHaveBeenCalled();
+  });
+
+  it('logs out everywhere: one call, this browser forgets its alerts, then leaves', async () => {
+    const { user, api, onLoggedOut, client } = setup();
+    await user.click(await screen.findByRole('button', { name: 'Log out on all devices' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out everywhere' }),
+    );
+    await waitFor(() => expect(onLoggedOut).toHaveBeenCalled());
+    expect(api.logoutAll).toHaveBeenCalledTimes(1);
+    expect(client.forgetDevice).toHaveBeenCalled();
+  });
+
+  it('when the server cannot be reached it says so and stays logged in, never claiming it worked', async () => {
+    const { user, onLoggedOut } = setup({
+      logoutAll: vi.fn(async () => Promise.reject(new Error('offline'))),
+    });
+    await user.click(await screen.findByRole('button', { name: 'Log out on all devices' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Log out everywhere' }),
+    );
+    expect(
+      await screen.findByText("Couldn't log out everywhere. Check your connection and try again."),
+    ).toBeTruthy();
+    expect(onLoggedOut).not.toHaveBeenCalled();
   });
 
   it('asks before deleting, and cancel changes nothing', async () => {
