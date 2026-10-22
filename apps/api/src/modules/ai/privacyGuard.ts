@@ -7,8 +7,8 @@ const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
 const EMAIL_ONE = new RegExp(EMAIL.source);
 /** A run of digits that may be split by single spaces or dashes (a phone is written many ways). */
-const DIGIT_RUN = /(?<![\d.])\+?\d(?:[ -]?\d)*(?!\d)/g;
-const COORDINATES = /(-?\d{1,3}\.\d{3,})\s*[,;/]?\s*(-?\d{1,3}\.\d{3,})/g;
+const DIGIT_RUN = /(?<![\d.,])\+?\d(?:[ -]?\d)*(?![\d]|[.,]\d)/g;
+const COORDINATES = /(-?\d{1,3}\.\d{4,})\s*[,;/]?\s*(-?\d{1,3}\.\d{4,})/g;
 /** JSON keys and labels that only ever hold a person's contact, home or location. */
 const FIELD_NAME =
   /(?<![A-Za-z0-9_])["']?(?:lat|lng|lon|latitude|longitude|address|address_?line_?\d?|address_?text|delivery_?address(?:_?id)?|address_?id|pin_?code|landmark|phone|phone_?number|mobile|email|user_?id|owner_?user_?id)["']?\s*[:=]/i;

@@ -88,6 +88,19 @@ describe('resolveList passes the model privacy guard (ADR-0060)', () => {
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
 
+  it('a 5-line shopping list with quantities, sizes and prices goes through', async () => {
+    generateContent.mockClear();
+    generateContent.mockResolvedValueOnce({ text: '{"lines":[]}' });
+    await call([
+      'rice 1.5 kg',
+      '2.25 kg sugar, 1.75 l oil',
+      'chart paper 10 sheets',
+      'pincode 452010 wala stamp',
+      'dal 2.5 kg under ₹1200',
+    ]);
+    expect(generateContent).toHaveBeenCalledTimes(1);
+  });
+
   it('a planted phone number or email on one line blocks the whole call', async () => {
     generateContent.mockClear();
     await expect(call([...lines, 'ring 9876543210'])).rejects.toBeInstanceOf(PrivacyGuardError);
