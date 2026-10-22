@@ -23,19 +23,23 @@ interface IdentityDeps {
 
 export const IP_LIMIT_WINDOW_MS = 10 * 60_000;
 
-const phoneField = z.string().transform((raw, ctx) => {
-  const phone = normalisePhone(raw);
-  if (!phone) ctx.addIssue({ code: 'custom', message: 'must be an Indian mobile number' });
-  return phone ?? z.NEVER;
-});
+// Longer than any phone number written with spaces, dashes and a country code; shorter than a body.
+const phoneField = z
+  .string()
+  .max(32)
+  .transform((raw, ctx) => {
+    const phone = normalisePhone(raw);
+    if (!phone) ctx.addIssue({ code: 'custom', message: 'must be an Indian mobile number' });
+    return phone ?? z.NEVER;
+  });
 
-const requestBody = z.object({ phone: phoneField });
-const verifyBody = z.object({
+const requestBody = z.strictObject({ phone: phoneField });
+const verifyBody = z.strictObject({
   phone: phoneField,
   code: z.string().regex(/^\d{6}$/, 'must be 6 digits'),
   role: z.enum(['seeker', 'shop']),
 });
-const inboxQuery = z.object({ phone: phoneField });
+const inboxQuery = z.strictObject({ phone: phoneField });
 
 export function identityRouter({
   db,

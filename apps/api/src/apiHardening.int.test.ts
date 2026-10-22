@@ -28,6 +28,7 @@ describe('API hardening (SEC2)', () => {
   let testDb: TestDatabase;
   let pool: Pool;
   let app: ReturnType<typeof createApp>;
+  let limitedApp: ReturnType<typeof createApp>;
   let phone = 9_700_000_000;
   const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.token}` });
 
@@ -70,14 +71,15 @@ describe('API hardening (SEC2)', () => {
     testDb = await startPostgres();
     pool = testDb.pool;
     await seedCatalog(pool, loadSeedCatalog());
-    const config = testConfig({ adminToken: TEST_ADMIN_TOKEN, pickupAskAfterMinutes: 0 });
-    // Wide open per-IP baseline: this suite makes thousands of calls from one address.
-    app = createApp({
-      config,
-      logger: quiet,
-      db: pool,
-      rateLimits: { apiPerIpPerMinute: 10_000_000 },
+    const config = testConfig({
+      adminToken: TEST_ADMIN_TOKEN,
+      pickupAskAfterMinutes: 0,
+      vapid: { publicKey: 'BPublicKey-for-tests', privateKey: 'p', subject: 'mailto:o@e.com' },
     });
+    // testConfig lifts every rate limit (x1000): this suite makes thousands of calls from one
+    // address. The last block makes its own app at the real numbers.
+    app = createApp({ config, logger: quiet, db: pool });
+    limitedApp = createApp({ config: { ...config, rateLimitScale: 1 }, logger: quiet, db: pool });
     custA = await loginAs(app, 'seeker', String(phone++));
     custB = await loginAs(app, 'seeker', String(phone++));
     shopA = await newShop('Hardening A', 0.2);
@@ -107,6 +109,16 @@ describe('API hardening (SEC2)', () => {
     expect(answered.status).toBe(200);
     const itemId = (await pool.query(`SELECT item_id FROM requests WHERE id = $1`, [requestA]))
       .rows[0].item_id as string;
+
+    // Before the order: a pickup question is never recorded for a shop the customer ordered from.
+    const visit = await request(app)
+      .post('/pickups')
+      .set(auth(custA))
+      .send({ shopId: shopA.shopId, itemId, requestId: requestA });
+    expect(visit.status).toBe(204);
+    const pickupId = (
+      await pool.query(`SELECT id FROM pickup_visits WHERE user_id = $1`, [custA.userId])
+    ).rows[0]?.id as string;
 
     const placed = await request(app)
       .post('/orders')
@@ -150,13 +162,6 @@ describe('API hardening (SEC2)', () => {
         .send(await jpeg())
     ).body.id as string;
 
-    const visit = await request(app)
-      .post('/pickups')
-      .set(auth(custA))
-      .send({ shopId: shopA.shopId, itemId, requestId: requestA });
-    expect(visit.status).toBe(204);
-    const pending = (await request(app).get('/pickups/pending').set(auth(custA))).body as Json[];
-
     w = {
       addressA,
       requestA,
@@ -171,7 +176,7 @@ describe('API hardening (SEC2)', () => {
       errandA: errand.id,
       photoA,
       photoShopA,
-      pickupA: pending[0]?.['id'],
+      pickupA: pickupId,
     };
     for (const [name, value] of Object.entries(w)) {
       expect(value, `fixture ${name}`).toBeTruthy();
@@ -513,7 +518,8 @@ describe('API hardening (SEC2)', () => {
       expect(order.rows[0].state).toBe('ACCEPTED');
       expect(list.rows[0].state).not.toBe('STOPPED');
       expect(errand.rows[0].state).not.toBe('CANCELLED');
-      expect(['QUEUED', 'SENT']).toContain(ping.rows[0].state);
+      // Withdrawn (NO_REPLY) when the customer ordered from shop A; never answered.
+      expect(['QUEUED', 'SENT', 'NO_REPLY']).toContain(ping.rows[0].state);
       expect(pickup.rows[0].answer).toBeNull();
     });
 
@@ -654,6 +660,21 @@ describe('API hardening (SEC2)', () => {
           }
         }
       });
+    });
+
+    it('answers that need a login are never stored by a browser or a cache (no-store), private photos included', async () => {
+      for (const [path, user] of [
+        [`/requests/${w.requestA}`, custA],
+        [`/orders/${w.orderA}`, custA],
+        [`/photos/${w.photoA}`, custA],
+        [`/photos/${w.photoShopA}`, shopA],
+        ['/shops/me', shopA],
+        ['/account', custA],
+      ] as const) {
+        const res = await request(app).get(path).set(auth(user));
+        expect(res.status, path).toBe(200);
+        expect(res.headers['cache-control'], path).toMatch(/no-store/);
+      }
     });
 
     describe('the owner is not locked out', () => {
@@ -1000,7 +1021,7 @@ describe('API hardening (SEC2)', () => {
           : who === 'admin'
             ? { Authorization: `Bearer ${TEST_ADMIN_TOKEN}` }
             : {};
-    const call = (i: Input, over: { body?: Json; query?: Json }) => {
+    const call = (i: Input, over: { body?: Json | undefined; query?: Json | undefined }) => {
       let r = request(app)[i.method](i.path());
       if (i.who !== 'none') r = r.set(as(i.who));
       if (over.query) r = r.query(over.query);
@@ -1011,7 +1032,10 @@ describe('API hardening (SEC2)', () => {
       describe(i.route, () => {
         if (i.body) {
           it('rejects a field it does not know in the body', async () => {
-            const res = await call(i, { body: { ...i.body!(), surprise: 1 }, query: i.query?.() });
+            const res = await call(i, {
+              body: { ...(i.body?.() ?? {}), surprise: 1 },
+              query: i.query?.(),
+            });
             expect(res.status).toBe(400);
             expect(res.body.error.code).toBe('invalid_request');
             expect(res.body.error.message).toMatch(/Unrecognized key/i);
@@ -1019,16 +1043,24 @@ describe('API hardening (SEC2)', () => {
         }
         if (i.query) {
           it('rejects a query parameter it does not know', async () => {
-            const res = await call(i, { query: { ...i.query!(), surprise: 1 }, body: i.body?.() });
+            const res = await call(i, {
+              query: { ...(i.query?.() ?? {}), surprise: 1 },
+              body: i.body?.(),
+            });
             expect(res.status).toBe(400);
             expect(res.body.error.code).toBe('invalid_request');
           });
         }
         for (const l of i.long ?? []) {
           it(`rejects ${l.field} past its limit (${l.length || 'custom'})`, async () => {
-            const valid = i.body?.() ?? {};
-            const body = l.at ? l.at(valid) : { ...valid, [l.field]: text(l.length) };
-            const res = await call(i, { body, query: i.query?.() });
+            // Text goes where the route reads it: the body, or the query string of a GET.
+            const inQuery = i.body === undefined;
+            const valid = (inQuery ? i.query?.() : i.body?.()) ?? {};
+            const stuffed = l.at ? l.at(valid) : { ...valid, [l.field]: text(l.length) };
+            const res = await call(
+              i,
+              inQuery ? { query: stuffed } : { body: stuffed, query: i.query?.() },
+            );
             expect(res.status).toBe(400);
             expect(res.body.error.code).toMatch(/invalid|too_|long/);
           });
@@ -1057,7 +1089,7 @@ describe('API hardening (SEC2)', () => {
     let nthIp = 0;
     const ip = () => `10.20.30.${++nthIp}`;
     const ipHeader = (address: string) => ({ 'X-Forwarded-For': address });
-    const fresh = async (role: Role = 'seeker') => loginAs(app, role, String(phone++));
+    const fresh = async (role: Role = 'seeker') => loginAs(limitedApp, role, String(phone++));
     const limited = (
       count: number,
       call: (n: number) => request.Test,
@@ -1073,7 +1105,7 @@ describe('API hardening (SEC2)', () => {
       const b = await fresh();
       const address = ip();
       const search = (u: User) =>
-        request(app)
+        request(limitedApp)
           .get('/search')
           .query({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng })
           .set(auth(u))
@@ -1091,7 +1123,7 @@ describe('API hardening (SEC2)', () => {
       const users = await Promise.all([fresh(), fresh(), fresh(), fresh()]);
       const address = ip();
       const search = (u: User) =>
-        request(app)
+        request(limitedApp)
           .get('/search')
           .query({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng })
           .set(auth(u))
@@ -1099,14 +1131,14 @@ describe('API hardening (SEC2)', () => {
       for (const u of users.slice(0, 2)) {
         for (let n = 0; n < 30; n++) expect((await search(u)).status).toBe(200);
       }
-      const third = await search(users[2]!);
+      const third = await search(users[2] as User);
       expect(third.status).toBe(429);
       expect(third.headers['retry-after']).toBeDefined();
       // Another address is untouched.
-      const elsewhere = await request(app)
+      const elsewhere = await request(limitedApp)
         .get('/search')
         .query({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng })
-        .set(auth(users[3]!))
+        .set(auth(users[3] as User))
         .set(ipHeader(ip()));
       expect(elsewhere.status).toBe(200);
     }, 180_000);
@@ -1115,7 +1147,7 @@ describe('API hardening (SEC2)', () => {
       const a = await fresh();
       const address = ip();
       const resolve = () =>
-        request(app)
+        request(limitedApp)
           .post('/items/resolve')
           .set(auth(a))
           .set(ipHeader(address))
@@ -1129,7 +1161,7 @@ describe('API hardening (SEC2)', () => {
       const a = await fresh();
       const address = ip();
       const sort = () =>
-        request(app)
+        request(limitedApp)
           .post('/lists/sort')
           .set(auth(a))
           .set(ipHeader(address))
@@ -1145,7 +1177,7 @@ describe('API hardening (SEC2)', () => {
       const a = await fresh();
       const address = ip();
       const plan = () =>
-        request(app)
+        request(limitedApp)
           .post('/route/plan')
           .set(auth(a))
           .set(ipHeader(address))
@@ -1161,7 +1193,8 @@ describe('API hardening (SEC2)', () => {
     it('POST /requests: 20 an hour per user (refused tries count too)', async () => {
       const a = await fresh();
       const address = ip();
-      const ask = () => request(app).post('/requests').set(auth(a)).set(ipHeader(address)).send({});
+      const ask = () =>
+        request(limitedApp).post('/requests').set(auth(a)).set(ipHeader(address)).send({});
       const first = await limited(20, ask);
       expect(first.every((r) => r.status === 400)).toBe(true);
       const over = await ask();
@@ -1173,7 +1206,7 @@ describe('API hardening (SEC2)', () => {
       const a = await fresh();
       const address = ip();
       const upload = () =>
-        request(app)
+        request(limitedApp)
           .post('/photos')
           .query({ role: 'bad' })
           .set(auth(a))
@@ -1189,13 +1222,13 @@ describe('API hardening (SEC2)', () => {
       const a = await fresh();
       const address = ip();
       for (let n = 0; n < 11; n++) {
-        await request(app)
+        await request(limitedApp)
           .post('/lists/sort')
           .set(auth(a))
           .set(ipHeader(address))
           .send({ lines: [] });
       }
-      const search = await request(app)
+      const search = await request(limitedApp)
         .get('/search')
         .query({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng })
         .set(auth(a))
@@ -1205,24 +1238,24 @@ describe('API hardening (SEC2)', () => {
 
     it('the limit belongs to the user, not to the token: a second login does not reset it', async () => {
       const phoneNumber = String(phone++);
-      const first = await loginAs(app, 'seeker', phoneNumber);
+      const first = await loginAs(limitedApp, 'seeker', phoneNumber);
       const address = ip();
       const sort = (u: User) =>
-        request(app)
+        request(limitedApp)
           .post('/lists/sort')
           .set(auth(u))
           .set(ipHeader(address))
           .send({ lines: ['chini'] });
       await limited(10, () => sort(first));
       expect((await sort(first)).status).toBe(429);
-      const again = await loginAs(app, 'seeker', phoneNumber);
+      const again = await loginAs(limitedApp, 'seeker', phoneNumber);
       expect(again.userId).toBe(first.userId);
       expect((await sort(again)).status).toBe(429);
     }, 60_000);
 
     it('the broad per-IP baseline covers every API route, and /health is exempt', async () => {
       const tight = createApp({
-        config: testConfig(),
+        config: testConfig({ rateLimitScale: 1 }),
         logger: quiet,
         db: pool,
         rateLimits: { apiPerIpPerMinute: 5 },
@@ -1246,7 +1279,11 @@ describe('API hardening (SEC2)', () => {
     });
 
     it('the default baseline is 300 a minute per IP', async () => {
-      const dflt = createApp({ config: testConfig(), logger: quiet, db: pool });
+      const dflt = createApp({
+        config: testConfig({ rateLimitScale: 1 }),
+        logger: quiet,
+        db: pool,
+      });
       const address = ipHeader(ip());
       let first429 = 0;
       for (let n = 1; n <= 305 && !first429; n++) {

@@ -20,7 +20,7 @@ import { hasLiveList } from '../lists/index.js';
 import { hasLiveRequest } from '../requests/index.js';
 import { createAttemptLimiter, type AttemptLimiter } from './attemptLimit.js';
 
-const logoutBody = z.object({ pushEndpoint: z.string().min(1).max(2048).optional() });
+const logoutBody = z.strictObject({ pushEndpoint: z.string().min(1).max(2048).optional() });
 
 /** The customer's account (ADR-0054): who they are, log out, and delete. Every route is the caller's own. */
 export function accountRouter({

@@ -159,11 +159,13 @@ describe('the web app served under /app/', () => {
   });
 
   describe('the API is unaffected', () => {
-    it('serves API routes where they were, without the page CSP', async () => {
+    it('serves API routes where they were, with the locked-down API policy and not the page CSP', async () => {
       const health = await request(app).get('/health');
       expect(health.status).toBe(200);
       expect(health.body.status).toBe('ok');
-      expect(health.headers['content-security-policy']).toBeUndefined();
+      expect(health.headers['content-security-policy']).toBe(
+        "default-src 'none'; frame-ancestors 'none'",
+      );
 
       const bad = await request(app).post('/auth/otp/request').send({ phone: '123' });
       expect(bad.status).toBe(400);
@@ -172,7 +174,7 @@ describe('the web app served under /app/', () => {
       const missing = await request(app).get('/nope');
       expect(missing.status).toBe(404);
       expect(missing.body.error.code).toBe('not_found');
-      expect(missing.headers['content-security-policy']).toBeUndefined();
+      expect(missing.headers['content-security-policy']).not.toContain('script-src');
     });
   });
 

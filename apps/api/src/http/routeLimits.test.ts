@@ -172,6 +172,8 @@ describe('the rules the API ships with (SEC2)', () => {
     ['POST', '/requests', 20, undefined, HOUR],
     ['POST', '/photos', 20, undefined, HOUR],
   ])('%s %s: %s per user, %s per IP', (method, path, perUser, perIp, windowMs) => {
-    expect(find(method, path)).toMatchObject({ perUser, perIp, windowMs });
+    const rule = find(method, path);
+    expect(rule).toMatchObject({ perUser, windowMs });
+    expect(rule?.perIp).toBe(perIp);
   });
 });

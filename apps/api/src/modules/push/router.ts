@@ -6,14 +6,17 @@ import { authOf, createRequireAuth } from '../identity/index.js';
 import { removeSubscriptionOf, saveSubscription } from './subscriptions.js';
 
 /**
- * The push services of the four browser families. The server later posts to the endpoint a client
- * hands it, so anything else (a private address, a metadata service, another site) is refused.
+ * The push services of the four browser families, and no others. The server later posts to the
+ * endpoint a client hands it, so anything else (a private address, a metadata service, another
+ * site, even another Google service: anyone can own a storage.googleapis.com bucket) is refused.
+ * A `*.` host needs at least one label before it. Only names are allowed, never an IP.
  */
 const PUSH_SERVICE_HOSTS = [
-  /(^|\.)googleapis\.com$/, // Chrome, Edge, Brave, Opera: fcm.googleapis.com
-  /(^|\.)push\.services\.mozilla\.com$/, // Firefox
-  /(^|\.)push\.apple\.com$/, // Safari and the iPhone Home Screen app
-  /(^|\.)notify\.windows\.com$/, // older Edge
+  /^fcm\.googleapis\.com$/, // Chrome, Edge, Brave, Opera
+  /^([a-z0-9-]+\.)+push\.services\.mozilla\.com$/, // Firefox
+  /^([a-z0-9-]+\.)+notify\.windows\.com$/, // older Edge
+  /^web\.push\.apple\.com$/, // Safari
+  /^([a-z0-9-]+\.)+push\.apple\.com$/, // Safari and the iPhone Home Screen app
 ];
 
 export function isPushEndpoint(raw: string): boolean {
@@ -37,11 +40,11 @@ const endpoint = z
   .max(2048)
   .refine(isPushEndpoint, 'must be an https address of a browser push service');
 
-const subscribeBody = z.object({
+const subscribeBody = z.strictObject({
   endpoint,
-  keys: z.object({ p256dh: z.string().min(1).max(256), auth: z.string().min(1).max(256) }),
+  keys: z.strictObject({ p256dh: z.string().min(1).max(256), auth: z.string().min(1).max(256) }),
 });
-const unsubscribeBody = z.object({ endpoint: z.string().min(1).max(2048) });
+const unsubscribeBody = z.strictObject({ endpoint: z.string().min(1).max(2048) });
 
 export function pushRouter({
   db,

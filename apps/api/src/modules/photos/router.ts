@@ -7,7 +7,7 @@ import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import { logoUrl, readLogo, removeLogo, replaceLogo } from './logo.js';
 import { isPhotoId, MAX_UPLOAD_BYTES, readPhotoFor, storePhoto } from './service.js';
 
-const uploadQuery = z.object({
+const uploadQuery = z.strictObject({
   role: z.enum(['request', 'answer']),
   errandId: z.uuid().optional(),
   label: z.string().trim().min(1).max(100).optional(),
@@ -109,8 +109,8 @@ export function photosRouter({
       .status(200)
       .set({
         'Content-Type': photo.mime,
-        // Only the browser of the person who asked may keep it; never a shared cache.
-        'Cache-Control': 'private, max-age=3600',
+        // Shown to the people in the loop only: no browser or shared cache keeps a copy.
+        'Cache-Control': 'private, no-store',
         'X-Content-Type-Options': 'nosniff',
         'Content-Disposition': 'inline',
         'Content-Length': String(photo.data.length),

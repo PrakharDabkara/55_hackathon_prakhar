@@ -12,7 +12,7 @@ const DEFAULT_RADIUS_M = 2000;
 const MAX_RADIUS_M = 5000;
 
 const query = z
-  .object({
+  .strictObject({
     q: z.string().trim().min(1).max(200).optional(),
     lat: z.coerce.number().min(-90).max(90),
     lng: z.coerce.number().min(-180).max(180),
@@ -24,7 +24,7 @@ const query = z
     path: ['q'],
   });
 
-const resolveBody = z.object({ q: z.string().trim().min(1).max(200) });
+const resolveBody = z.strictObject({ q: z.string().trim().min(1).max(200) });
 
 interface SearchDeps {
   db: Queryable;

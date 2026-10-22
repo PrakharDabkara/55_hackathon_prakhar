@@ -22,7 +22,7 @@ import {
 import { seekerOrderView } from './view.js';
 
 const placeBody = z
-  .object({
+  .strictObject({
     shopId: z.uuid(),
     requestId: z.uuid().optional(),
     errandId: z.uuid().optional(),
@@ -37,7 +37,7 @@ const placeBody = z
 
 // Neither: all of the customer's orders (Mere orders). One of them: the orders of that screen.
 const sourceQuery = z
-  .object({
+  .strictObject({
     requestId: z.uuid().optional(),
     errandId: z.uuid().optional(),
     listId: z.uuid().optional(),
@@ -88,7 +88,7 @@ export function ordersRouter(deps: OrdersContext): Router {
 
   router.put('/orders/saved-address', ...seekerOnly, async (req, res) => {
     const body = parse(
-      z.object({
+      z.strictObject({
         addressText: z.string().trim().min(5).max(300),
         customerName: z.string().trim().max(60).optional(),
       }),
@@ -115,7 +115,7 @@ export function ordersRouter(deps: OrdersContext): Router {
   // Either side cancels here; who the caller is to this order decides which rules apply.
   router.post('/orders/:id/cancel', requireAuth, async (req, res) => {
     const body = parse(
-      z.object({
+      z.strictObject({
         reason: z.string().trim().max(140).optional(),
         text: z.string().trim().max(140).optional(),
       }),
@@ -139,7 +139,7 @@ export function ordersRouter(deps: OrdersContext): Router {
 
   // The shop ticks a line as packed, or clears it, while the order is not final (ADR-0055).
   router.put('/orders/:id/lines/:index/packed', ...shopOnly, async (req, res) => {
-    const { packed } = parse(z.object({ packed: z.boolean() }), req.body);
+    const { packed } = parse(z.strictObject({ packed: z.boolean() }), req.body);
     const index = parse(z.coerce.number().int().min(0).max(1000), req.params['index']);
     res.json(await packLine(ctxFor(req), authOf(req).user.id, orderId(req), index, packed));
   });

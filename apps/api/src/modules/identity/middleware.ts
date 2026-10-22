@@ -9,12 +9,31 @@ import type { AuthContext } from './types.js';
 /** 401 unless the request carries a live bearer token; sets `req.auth`. */
 export function createRequireAuth(db: Queryable): RequestHandler {
   return async (req, _res, next) => {
+    // Already looked up by the rate limiter in front of the routes (createIdentify): once is enough.
+    if (req.auth) {
+      next();
+      return;
+    }
     const header = req.headers.authorization ?? '';
     const match = /^Bearer (\S+)$/.exec(header);
     const auth = match?.[1] ? await authenticate(db, match[1]) : null;
     if (!auth) throw new ApiError(401, 'unauthorized', 'Log in to continue');
     req.auth = auth;
     next();
+  };
+}
+
+/**
+ * Who is calling, as a user id, or null: for code that runs before the routes (rate limits). Keeps
+ * the lookup on `req.auth`, so `requireAuth` does not ask the database a second time. It never
+ * throws: a bad token or a broken database is "nobody", and `requireAuth` then answers properly.
+ */
+export function createIdentify(db: Queryable): (req: Request) => Promise<string | null> {
+  return async (req) => {
+    const match = /^Bearer (\S+)$/.exec(req.headers.authorization ?? '');
+    const auth = match?.[1] ? await authenticate(db, match[1]).catch(() => null) : null;
+    if (auth) req.auth = auth;
+    return auth?.user.id ?? null;
   };
 }
 

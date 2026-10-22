@@ -72,6 +72,9 @@ const schema = z
     OTP_IP_REQUEST_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.request),
     OTP_IP_VERIFY_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.verify),
     OTP_IP_INBOX_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.inbox),
+    // Multiplies every API rate limit (the ones in http/routeLimits.ts and the per-IP baseline), so
+    // a test run or a load test can lift them. Production refuses a value above 1 (ADR-0059).
+    RATE_LIMIT_SCALE: z.coerce.number().positive().default(1),
     // Proxies in front of the API that set X-Forwarded-For. Render is one hop. 0 trusts no header.
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
     // Which model answers when the dictionary cannot (ADR-0020). Default fake outside production,
@@ -162,6 +165,13 @@ const schema = z
           message: 'no longer exists (admin is ADMIN_TOKEN only): unset it',
         });
       }
+      if (env.RATE_LIMIT_SCALE > 1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['RATE_LIMIT_SCALE'],
+          message: 'cannot be above 1 in production',
+        });
+      }
       const limits = [
         ['OTP_IP_REQUEST_MAX', env.OTP_IP_REQUEST_MAX, DEFAULT_OTP_IP_LIMITS.request],
         ['OTP_IP_VERIFY_MAX', env.OTP_IP_VERIFY_MAX, DEFAULT_OTP_IP_LIMITS.verify],
@@ -241,6 +251,8 @@ export interface Config {
   /** Most requests one IP may make in 10 minutes to request, verify and the demo inbox. */
   otpIpLimits: { request: number; verify: number; inbox: number };
   /** Proxy hops whose X-Forwarded-For is believed (`trust proxy`). */
+  /** Multiplies the API rate limits; 1 in production (ADR-0059). */
+  rateLimitScale: number;
   trustProxyHops: number;
   llmProvider: 'gemini' | 'fake';
   /** A file of scripted turns for the fake provider (end-to-end runs only). */
@@ -335,6 +347,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       verify: e.OTP_IP_VERIFY_MAX,
       inbox: e.OTP_IP_INBOX_MAX,
     },
+    rateLimitScale: e.RATE_LIMIT_SCALE,
     trustProxyHops: e.TRUST_PROXY_HOPS,
     llmProvider: e.LLM_PROVIDER ?? 'fake',
     fakeLlmScenario: e.FAKE_LLM_SCENARIO ?? null,

@@ -1,4 +1,4 @@
-import type { RequestHandler } from 'express';
+import type { RequestHandler, Response } from 'express';
 import { isIPv6 } from 'node:net';
 import { withTimeout } from '../workers/redis.js';
 import { ApiError } from './errors.js';
@@ -111,9 +111,25 @@ export function createRedisStore(
 }
 
 /**
+ * Counts one hit on `key` and throws 429 with Retry-After once it passes `max` in the window. If
+ * the store itself breaks the request is refused: these limits guard the dear routes, so they never
+ * fail open.
+ */
+export async function enforceLimit(
+  res: Response,
+  store: IpLimitStore,
+  key: string,
+  { max, windowMs }: { max: number; windowMs: number },
+): Promise<void> {
+  const hit = await store.hit(key, windowMs).catch(() => null);
+  if (hit && hit.count <= max) return;
+  res.set('Retry-After', String(Math.max(1, Math.ceil((hit?.retryAfterMs ?? windowMs) / 1000))));
+  throw new ApiError(429, 'rate_limited', 'Too many attempts. Wait a few minutes and try again');
+}
+
+/**
  * 429 with Retry-After once one IP has made more than `max` requests in the window. Needs
- * `trust proxy` set so `req.ip` is the real client. If the store itself breaks the request is
- * refused: this guards sign-in, so it never fails open.
+ * `trust proxy` set so `req.ip` is the real client. Never fails open (see `enforceLimit`).
  */
 export function createIpLimiter({
   name,
@@ -127,12 +143,7 @@ export function createIpLimiter({
   store: IpLimitStore;
 }): RequestHandler {
   return async (req, res, next) => {
-    const hit = await store.hit(`rl:${name}:${ipKey(req.ip)}`, windowMs).catch(() => null);
-    if (hit && hit.count <= max) {
-      next();
-      return;
-    }
-    res.set('Retry-After', String(Math.max(1, Math.ceil((hit?.retryAfterMs ?? windowMs) / 1000))));
-    throw new ApiError(429, 'rate_limited', 'Too many attempts. Wait a few minutes and try again');
+    await enforceLimit(res, store, `rl:${name}:${ipKey(req.ip)}`, { max, windowMs });
+    next();
   };
 }

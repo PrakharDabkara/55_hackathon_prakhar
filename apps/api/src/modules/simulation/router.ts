@@ -8,9 +8,9 @@ import { createRequireAdmin } from '../identity/index.js';
 import type { Realtime } from '../realtime/index.js';
 import { createSimulatedShops, removeSimulatedShops } from './service.js';
 
-const createBody = z.object({
+const createBody = z.strictObject({
   count: z.number().int().min(1).max(500),
-  centre: z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
+  centre: z.strictObject({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
   radiusM: z.number().int().min(100).max(20_000),
   seed: z
     .number()
