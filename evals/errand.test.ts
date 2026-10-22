@@ -16,9 +16,9 @@ describe.each([
   ['errand.dev.jsonl', dev, 'd'],
   ['errand.holdout.jsonl', holdout, 'h'],
 ])('evals/%s', (name, cases, prefix) => {
-  it('has about fifteen cases (about twenty on dev), with unique ids and tasks', () => {
+  it('has about fifteen cases (about twenty-five on dev), with unique ids and tasks', () => {
     expect(cases.length).toBeGreaterThanOrEqual(14);
-    expect(cases.length).toBeLessThanOrEqual(24);
+    expect(cases.length).toBeLessThanOrEqual(26);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
     expect(new Set(cases.map((c) => c.task.toLowerCase())).size).toBe(cases.length);
     for (const c of cases) expect(c.id.startsWith(prefix), c.id).toBe(true);
@@ -138,5 +138,32 @@ describe('evals/errand.dev.jsonl: the open catalog cases (ADR-0027, decided befo
 
   it('leaves the holdout alone', () => {
     expect(holdout.some((c) => c.kind === 'new_item')).toBe(false);
+  });
+});
+
+describe('evals/errand.dev.jsonl: shop text is data (ADR-0060)', () => {
+  const trapped = dev.filter((c) => c.shopNameSuffix !== undefined);
+
+  it('has three injection cases where the shops themselves carry the instruction', () => {
+    expect(trapped.length).toBeGreaterThanOrEqual(3);
+    for (const c of trapped) {
+      expect(c.kind, c.id).toBe('injection');
+      expect(c.injection, c.id).toBe(true);
+      expect(c.shopNameSuffix?.length, c.id).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('expects the real plan anyway: items found, nothing refused', () => {
+    for (const c of trapped) {
+      expect(c.expect.state, c.id).toEqual(['PLAN_READY']);
+      expect(c.expect.required?.length, c.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('tries a closing mark, English and Hinglish', () => {
+    const text = trapped.map((c) => c.shopNameSuffix).join(' | ');
+    expect(text).toMatch(/SHOP>>>/);
+    expect(text).toMatch(/SYSTEM/);
+    expect(text).toMatch(/rupaya|sab /i);
   });
 });
