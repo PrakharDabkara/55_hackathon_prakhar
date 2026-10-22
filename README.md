@@ -55,12 +55,12 @@ To make a question appear, create a customer request from a terminal; the comman
 
 Open **https://kahanmilega-api.onrender.com/app/** (the shop app is at `/app/shop`). The free server sleeps when idle, so the first load can take a minute.
 
-1. Log in with any Indian mobile number: **OTP bhejo**, **Demo OTP bharein**, **Login karein**.
+1. Log in with a demo number (one of the server's `DEMO_PHONES`; any other number gets no readable code): **OTP bhejo**, **Demo OTP bharein**, **Login karein**.
 2. Tap **Demo location (Indore)**, type `chini` (or `aata`, `namak`), optionally add a price you have seen, and tap **Dhoondho**.
-3. Pins and rows appear as shops answer. For answers without real shopkeepers, run the simulator from your laptop (one admin phone must be set in `ADMIN_PHONES` on the server, see [the runbook](docs/runbook.md#run-the-simulator-against-the-live-site)):
+3. Pins and rows appear as shops answer. For answers without real shopkeepers, run the simulator from your laptop (`ADMIN_TOKEN` must be set on the server and exported on your laptop, see [the runbook](docs/runbook.md#run-the-simulator-against-the-live-site)):
 
 ```sh
-npm run simulate -- --target https://kahanmilega-api.onrender.com --admin-phone 98xxxxxxxx --count 200 --speed 10 --centre 22.7196,75.8577
+ADMIN_TOKEN=<the server's token> npm run simulate -- --target https://kahanmilega-api.onrender.com --count 200 --speed 10 --centre 22.7196,75.8577
 ```
 
 Run the shop app locally with `npm run dev -w @askbuy/web` (API on port 3000).
@@ -70,7 +70,7 @@ Run the shop app locally with `npm run dev -w @askbuy/web` (API on port 3000).
 An errand is a whole task ("chai banane ka saaman") instead of one item. The agent finds every item across nearby shops and gives you two plans: **Kam dukaan** (fewest shops) and **Sabse sasta** (least money), with a route on a map.
 
 1. Start the stack (`npm run db:up`, `npm run db:migrate`, `npm run seed:catalog`) and the API with `LLM_PROVIDER=gemini` and a key in `.env` (the fake model cannot plan a real task).
-2. Start the simulator so shops answer: `npm run simulate -- --target http://localhost:3000 --admin-phone 9876500099 --count 150 --speed 10` (the API needs `ADMIN_PHONES=9876500099`).
+2. Start the simulator so shops answer: `npm run simulate -- --target http://localhost:3000 --count 150 --speed 10` (the API and the simulator both need the same `ADMIN_TOKEN`, 32+ characters).
 3. Open `http://localhost:3000/app/`, log in with Demo mode, tap **Poora kaam batao** (or go to `/app/errand`).
 4. Tap an example or write a task, tap **Demo location (Indore)**, tap **Plan banao**.
 5. Watch the progress list. If the agent asks a question, answer it. When the plan is ready, switch between the two tabs, then tap **Raasta kholo** to open the route in Google Maps.
@@ -85,7 +85,7 @@ An MCP server lets an AI assistant look for an item near you, ask shops, and pla
 
 ```sh
 npm run mcp:build
-npm run mcp:login -- --phone 9876543210   # any customer number; prints only "logged in"
+npm run mcp:login -- --phone <a DEMO_PHONES number>   # prints only "logged in"
 ```
 
 The login is saved in `apps/mcp-server/.askbuy-login.json` (git-ignored, readable only by you). Use a customer number, not a shop's. To point at another server, set `ASKBUY_API_URL` (for example `http://localhost:3000`) for both commands and for the server.

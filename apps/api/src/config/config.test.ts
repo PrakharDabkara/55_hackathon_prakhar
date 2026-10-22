@@ -104,7 +104,12 @@ describe('loadConfig', () => {
     });
 
     it('must be set explicitly in production (fails closed)', () => {
-      const prod = { ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated', DEMO_PHONES: '9000000001' };
+      const prod = {
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        DEMO_PHONES: '9000000001',
+      };
       expect(() => loadConfig(prod)).toThrowError(/LLM_PROVIDER/);
       expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(/fake.*production/i);
       expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).llmProvider).toBe(
@@ -259,15 +264,12 @@ describe('loadConfig', () => {
 
     it('refuses an empty DEMO_PHONES', () => {
       expect(() => loadConfig({ ...prod, DEMO_PHONES: '' })).toThrowError(/DEMO_PHONES/);
-      const { DEMO_PHONES: _unset, ...without } = prod;
-      expect(() => loadConfig(without)).toThrowError(/DEMO_PHONES/);
+      expect(() => loadConfig({ ...prod, DEMO_PHONES: undefined })).toThrowError(/DEMO_PHONES/);
     });
 
     it('refuses OTP_INBOX_OPEN, whatever its value', () => {
       expect(() => loadConfig({ ...prod, OTP_INBOX_OPEN: 'true' })).toThrowError(/OTP_INBOX_OPEN/);
-      expect(() => loadConfig({ ...prod, OTP_INBOX_OPEN: 'false' })).toThrowError(
-        /OTP_INBOX_OPEN/,
-      );
+      expect(() => loadConfig({ ...prod, OTP_INBOX_OPEN: 'false' })).toThrowError(/OTP_INBOX_OPEN/);
     });
 
     it('refuses ADMIN_PHONES, which no longer exists', () => {

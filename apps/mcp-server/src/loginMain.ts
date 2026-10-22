@@ -5,7 +5,7 @@ import { resolveConfig } from './config.js';
 import { loginWithDemoOtp } from './login.js';
 import { saveToken } from './tokenStore.js';
 
-// `npm run mcp:login -- --phone 9876543210`. Prints "logged in" and nothing else: never the token.
+// `npm run mcp:login -- --phone <a number in the server DEMO_PHONES>`. Prints "logged in" and nothing else: never the token.
 const { values } = parseArgs({ options: { phone: { type: 'string' } } });
 const phone = values.phone?.replace(/[\s-]/g, '');
 if (!phone || !/^(?:\+?91|0)?[6-9]\d{9}$/.test(phone)) {

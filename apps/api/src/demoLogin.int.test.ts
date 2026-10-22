@@ -27,8 +27,16 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
       adminToken: TEST_ADMIN_TOKEN,
       demoPhones: [`+91${DEMO}`, `+91${DEMO_LOGIN}`],
     };
-    app = createApp({ config: testConfig({ ...base, otpInboxOpen: false }), logger: quiet, db: pool });
-    open = createApp({ config: testConfig({ ...base, otpInboxOpen: true }), logger: quiet, db: pool });
+    app = createApp({
+      config: testConfig({ ...base, otpInboxOpen: false }),
+      logger: quiet,
+      db: pool,
+    });
+    open = createApp({
+      config: testConfig({ ...base, otpInboxOpen: true }),
+      logger: quiet,
+      db: pool,
+    });
   }, 300_000);
 
   afterAll(async () => {
@@ -40,8 +48,11 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
   const inbox = (target: typeof app, phone: string) =>
     request(target).get('/dev/otp-inbox').query({ phone });
   const devCodes = async (phone: string) =>
-    (await pool.query('SELECT dev_code, code_hash FROM otp_codes WHERE phone = $1', [`+91${phone}`]))
-      .rows;
+    (
+      await pool.query('SELECT dev_code, code_hash FROM otp_codes WHERE phone = $1', [
+        `+91${phone}`,
+      ])
+    ).rows;
 
   it('shows a demo phone its code', async () => {
     expect((await ask(app, DEMO)).status).toBe(202);

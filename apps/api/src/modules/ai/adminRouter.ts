@@ -73,21 +73,21 @@ async function windowStats(db: Queryable, interval: string): Promise<Window> {
 /** `GET /admin/ai/stats`: how the resolution pipeline is doing. Admin only; 404 for everyone else. */
 export function aiAdminRouter({
   db,
-  adminPhones,
+  adminToken,
   ai,
 }: {
   db: Queryable;
-  adminPhones: readonly string[];
+  adminToken: string;
   ai?: AiContext | undefined;
 }): Router {
   const router = Router();
-  router.get('/admin/ai/stats', createRequireAdmin(db, adminPhones), async (_req, res) => {
+  router.get('/admin/ai/stats', createRequireAdmin(adminToken), async (_req, res) => {
     const [day, week] = await Promise.all([windowStats(db, '24 hours'), windowStats(db, '7 days')]);
     res.json({ '24h': day, '7d': week });
   });
 
   // The demo-day check: is the model up, which model, how fast, and if not, why.
-  router.get('/admin/ai/ping', createRequireAdmin(db, adminPhones), async (_req, res) => {
+  router.get('/admin/ai/ping', createRequireAdmin(adminToken), async (_req, res) => {
     if (!ai) throw new ApiError(503, 'ai_not_configured', 'No AI provider is configured');
     const results = await ai.ping();
     res.json({ provider: ai.client.providerName, ok: results.every((r) => r.ok), results });

@@ -3,7 +3,8 @@ import { parseArgs } from 'node:util';
 
 export interface CliOptions {
   target: string;
-  adminPhone: string;
+  /** From the ADMIN_TOKEN environment variable, never from the command line. */
+  adminToken: string;
   count: number;
   speed: number;
   seed: number;
@@ -13,17 +14,19 @@ export interface CliOptions {
   reset: boolean;
 }
 
-export const USAGE = `Usage: npm run simulate -- --target <url> --admin-phone <phone> [options]
+export const USAGE = `Usage: ADMIN_TOKEN=<token> npm run simulate -- --target <url> [options]
 
   --target <url>        API to run against, e.g. https://kahanmilega-api.onrender.com
-  --admin-phone <phone> a phone listed in ADMIN_PHONES on that server
+
   --count <n>           shops to simulate, 1-500 (default 100)
   --speed <x>           time multiplier; 10 makes replies 10x faster (default 1)
   --centre <lat,lng>    middle of the shops (default 22.7196,75.8577, Indore)
   --radius <metres>     how far from the centre they spread (default 3000)
   --seed <n>            same seed, same shops and same behaviour (default 1)
   --state-file <path>   where shop tokens are kept between runs (default apps/simulator/.sim-state.json)
-  --reset               ignore the state file and make the shops again`;
+  --reset               ignore the state file and make the shops again
+
+The admin token is read from the ADMIN_TOKEN environment variable and must equal the server's.`;
 
 const DEFAULT_STATE_FILE = fileURLToPath(new URL('../.sim-state.json', import.meta.url));
 
@@ -36,14 +39,16 @@ const whole = (raw: string, name: string, min: number, max: number): number => {
 };
 
 /** Reads the command line; returns `{ error }` with a message for the person, never throws. */
-export function parseCli(argv: string[]): CliOptions | { error: string } {
+export function parseCli(
+  argv: string[],
+  env: Record<string, string | undefined> = process.env,
+): CliOptions | { error: string } {
   try {
     const { values } = parseArgs({
       args: argv,
       strict: true,
       options: {
         target: { type: 'string' },
-        'admin-phone': { type: 'string' },
         count: { type: 'string', default: '100' },
         speed: { type: 'string', default: '1' },
         seed: { type: 'string', default: '1' },
@@ -55,7 +60,8 @@ export function parseCli(argv: string[]): CliOptions | { error: string } {
     });
 
     if (!values.target) throw new Error('--target is required');
-    if (!values['admin-phone']) throw new Error('--admin-phone is required');
+    const adminToken = env['ADMIN_TOKEN']?.trim();
+    if (!adminToken) throw new Error('set the ADMIN_TOKEN environment variable');
     const url = new URL(values.target);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       throw new Error('--target must start with http:// or https://');
@@ -80,7 +86,7 @@ export function parseCli(argv: string[]): CliOptions | { error: string } {
 
     return {
       target: values.target.replace(/\/+$/, ''),
-      adminPhone: values['admin-phone'],
+      adminToken,
       count: whole(values.count as string, 'count', 1, 500),
       speed,
       seed: whole(values.seed as string, 'seed', 0, 2 ** 31),

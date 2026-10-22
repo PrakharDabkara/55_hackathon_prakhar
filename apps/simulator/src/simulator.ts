@@ -1,4 +1,4 @@
-import { ApiFailure, createClient, type Client } from './client.ts';
+import { ApiFailure, createClient } from './client.ts';
 import {
   decide,
   decideList,
@@ -14,7 +14,8 @@ import { loadState, matches, saveState } from './state.ts';
 
 export interface SimulatorOptions {
   target: string;
-  adminPhone: string;
+  /** The server's ADMIN_TOKEN. Read from the environment by the caller, never printed. */
+  adminToken: string;
   count: number;
   /** Replies come this many times faster than real life. */
   speed: number;
@@ -28,8 +29,6 @@ export interface SimulatorOptions {
   categories?: string[];
   /** Every shop answers every ping with a yes: for tests and demos that must not depend on luck. */
   eager?: boolean;
-  /** A session token from an earlier run: used instead of an OTP login while it still works. */
-  adminToken?: string;
   log?: (line: string) => void;
 }
 
@@ -45,8 +44,6 @@ export interface Stats {
 }
 
 export interface Simulator {
-  /** The admin session this run used, to keep for the next one. */
-  adminToken: string;
   stats(): Stats;
   /** Stops listening, cancels answers not yet sent and waits for the stream to close. Safe to repeat. */
   stop(): Promise<void>;
@@ -68,19 +65,8 @@ const short = (id: string) => id.slice(0, 8);
 const clock = () => new Date().toTimeString().slice(0, 8);
 const rupees = (paise: number) => `₹${(paise / 100).toFixed(paise % 100 === 0 ? 0 : 2)}`;
 
-/** True when a kept session token is still accepted by the server (any signed-in call will do). */
-export async function tokenWorks(client: Client, token: string | undefined): Promise<boolean> {
-  if (!token) return false;
-  try {
-    await client.ticket(token);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Fake shops that answer real pings. It logs in as the admin, makes (or reuses) the shops on the
+ * Fake shops that answer real pings. It uses the admin token, makes (or reuses) the shops on the
  * server, opens ONE admin stream that carries every simulated shop's pings, and answers each as
  * that shop through the same POST /pings/:id/answer the shop app uses.
  */
@@ -94,21 +80,17 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
   const stats: Stats = { answered: 0, yes: 0, no: 0, skipped: 0, late: 0, failed: 0 };
   let stopped = false;
 
-  let admin: { token: string; role: string };
+  const admin = { token: options.adminToken };
   try {
-    admin = (await tokenWorks(client, options.adminToken))
-      ? { token: options.adminToken as string, role: 'admin' }
-      : await client.login(options.adminPhone, abort.signal);
+    // Fails now, with a clear message, instead of at the first shop request.
+    await client.adminTicket(admin.token, abort.signal);
   } catch (error) {
-    if (error instanceof ApiFailure && error.code === 'rate_limited') {
-      throw new Error('Too many OTP requests for this phone. Wait about 10 minutes and try again.');
+    if (error instanceof ApiFailure && error.status === 404) {
+      throw new Error(
+        `${target} did not accept ADMIN_TOKEN. It must equal the server's ADMIN_TOKEN, and the server needs one set.`,
+      );
     }
     throw error;
-  }
-  if (admin.role !== 'admin') {
-    throw new Error(
-      `${options.adminPhone} is not an admin on ${target}. Put it in ADMIN_PHONES on the server and restart it.`,
-    );
   }
 
   const shops = new Map<string, Shop>();
@@ -392,7 +374,7 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     let backoff = 1000;
     while (!stopped) {
       try {
-        const ticket = await client.ticket(admin.token, abort.signal);
+        const ticket = await client.adminTicket(admin.token, abort.signal);
         const res = await fetch(client.streamUrl(ticket), {
           signal: abort.signal,
           headers: { accept: 'text/event-stream' },
@@ -445,5 +427,5 @@ export async function runSimulator(options: SimulatorOptions): Promise<Simulator
     await stop();
     throw error;
   }
-  return { adminToken: admin.token, stats: () => ({ ...stats }), stop };
+  return { stats: () => ({ ...stats }), stop };
 }

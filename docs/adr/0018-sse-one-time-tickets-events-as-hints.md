@@ -1,6 +1,6 @@
 # 0018. SSE with one-time tickets; events as hints
 
-Status: Accepted · 2026-10-15
+Status: Accepted · 2026-10-15. The admin part is amended by [ADR-0058](0058-demo-login-allowlist.md): admin is `ADMIN_TOKEN`, not `ADMIN_PHONES`, and the simulator stream ticket comes from `POST /admin/sim/ticket`.
 
 ## Context
 

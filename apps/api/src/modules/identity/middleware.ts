@@ -2,6 +2,7 @@ import type { Role } from '@askbuy/shared';
 import type { Request, RequestHandler } from 'express';
 import type { Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
+import { tokenMatches } from './adminToken.js';
 import { authenticate } from './service.js';
 import type { AuthContext } from './types.js';
 
@@ -18,20 +19,16 @@ export function createRequireAuth(db: Queryable): RequestHandler {
 }
 
 /**
- * Admin only, and invisible to everyone else: anything but a live admin session answers 404, as if
- * the route did not exist. Fails closed twice over: an empty ADMIN_PHONES list admits nobody, and a
- * stored admin whose phone left the list loses access immediately.
+ * Admin only, and invisible to everyone else: anything but the exact ADMIN_TOKEN as a bearer token
+ * answers 404, as if the route did not exist. No user or session is involved, so no phone login
+ * can ever reach it (ADR-0058).
  */
-export function createRequireAdmin(db: Queryable, adminPhones: readonly string[]): RequestHandler {
-  const notFound = () => new ApiError(404, 'not_found', 'No such route');
-  return async (req, _res, next) => {
-    if (adminPhones.length === 0) throw notFound();
+export function createRequireAdmin(adminToken: string): RequestHandler {
+  return (req, _res, next) => {
     const match = /^Bearer (\S+)$/.exec(req.headers.authorization ?? '');
-    const auth = match?.[1] ? await authenticate(db, match[1]) : null;
-    if (!auth || auth.user.role !== 'admin' || !adminPhones.includes(auth.user.phone)) {
-      throw notFound();
+    if (!match?.[1] || !tokenMatches(match[1], adminToken)) {
+      throw new ApiError(404, 'not_found', 'No such route');
     }
-    req.auth = auth;
     next();
   };
 }

@@ -141,7 +141,10 @@ describe('admin token and the simulator endpoints', () => {
       ['a seeker', seeker],
       ['a shop', shop],
       ['a wrong token', { token: `${TEST_ADMIN_TOKEN}x`, userId: '', role: 'admin' }],
-      ['a token of the right length', { token: 'y'.repeat(TEST_ADMIN_TOKEN.length), userId: '', role: 'admin' }],
+      [
+        'a token of the right length',
+        { token: 'y'.repeat(TEST_ADMIN_TOKEN.length), userId: '', role: 'admin' },
+      ],
       ['a short token', { token: TEST_ADMIN_TOKEN.slice(0, 10), userId: '', role: 'admin' }],
     ];
 
@@ -195,7 +198,11 @@ describe('admin token and the simulator endpoints', () => {
         expect((await request(app).get(route)).status, route).toBe(404);
         expect((await request(app).get(route).set(auth(seeker))).status, route).toBe(404);
         expect(
-          (await request(app).get(route).set(auth({ token: `${TEST_ADMIN_TOKEN}x` }))).status,
+          (
+            await request(app)
+              .get(route)
+              .set(auth({ token: `${TEST_ADMIN_TOKEN}x` }))
+          ).status,
           route,
         ).toBe(404);
         expect((await request(app).get(route).set(auth(admin))).status, route).toBe(200);

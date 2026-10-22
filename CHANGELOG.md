@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (PR SEC1: demo login closed to strangers, ADR-0058)
+
+- `/dev/otp-inbox` shows a code only for the numbers in `DEMO_PHONES`; for anyone else request still answers `202` but no readable code is stored, so a stranger can no longer log in as another account.
+- Admin is `ADMIN_TOKEN` (32+ characters, bearer, constant-time compare), not a phone. `ADMIN_PHONES` is retired; migration 029 turns existing admin users into seekers, ends their sessions, forbids `admin` in `users.role` and wipes stored plain codes. Admin routes are mounted only when the token is set. New `POST /admin/sim/ticket` for the simulator stream.
+- Per-IP limits on request (10), verify (20) and inbox (30) per 10 minutes, counted in Redis with an in-process fallback, `429` with `Retry-After`; `trust proxy` is one hop (`TRUST_PROXY_HOPS`), so a spoofed `X-Forwarded-For` does not change the bucket.
+- Production refuses to start with empty `DEMO_PHONES`, any `OTP_INBOX_OPEN`, any `ADMIN_PHONES`, or an IP limit above its default. Tests and the e2e run set `OTP_INBOX_OPEN`.
+- The simulator reads `ADMIN_TOKEN` from the environment; `--admin-phone` is gone. The e2e run makes a throwaway token. Runbook and README no longer print a number.
+
 ### Changed (PR Q2: quality, ADR-0057)
 
 - Offline: the service worker keeps the app shell (page, script, styles, icons, Latin fonts), so `/app/` and `/app/shop` open with no network. The shop app's error screen now shows the offline banner and loads again when the connection returns. Fonts were already self-hosted. e2e `offline.spec.ts` goes offline after the first load and checks the shell, the banner and the font.

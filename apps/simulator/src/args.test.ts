@@ -20,9 +20,9 @@ describe('parseCli', () => {
   });
 
   it('has no --admin-phone and no --admin-token: a secret does not belong on a command line', () => {
-    expect(parseCli([...base, '--admin-phone', '9000000001'], { ADMIN_TOKEN: TOKEN })).toHaveProperty(
-      'error',
-    );
+    expect(
+      parseCli([...base, '--admin-phone', '9000000001'], { ADMIN_TOKEN: TOKEN }),
+    ).toHaveProperty('error');
     const withFlag = parseCli([...base, '--admin-token', TOKEN], { ADMIN_TOKEN: TOKEN });
     expect(withFlag).toHaveProperty('error');
     expect(JSON.stringify(withFlag)).not.toContain(TOKEN);
@@ -64,9 +64,7 @@ describe('parseCli', () => {
   });
 
   it('drops a trailing slash from the target', () => {
-    expect(ok(['--target', 'http://localhost:3000/']).target).toBe(
-      'http://localhost:3000',
-    );
+    expect(ok(['--target', 'http://localhost:3000/']).target).toBe('http://localhost:3000');
   });
 
   it.each([

@@ -3,7 +3,6 @@ export {
   anonymiseUser,
   createShopUsers,
   deleteUsers,
-  isAdminUser,
   lockLiveUser,
   phoneOf,
   revokeSession,

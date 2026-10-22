@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import type { Config } from './config/config.js';
 import { healthRouter } from './http/health.js';
+import { createMemoryStore, type IpLimitStore } from './http/ipLimit.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
@@ -41,6 +42,8 @@ interface AppDeps {
   };
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
+  /** Counts the per-IP sign-in limits. Default: in this process; production passes a Redis one. */
+  ipLimitStore?: IpLimitStore;
 }
 
 export function createApp({
@@ -53,9 +56,14 @@ export function createApp({
   ai,
   errandHooks,
   webDistDir = DEFAULT_WEB_DIST,
+  ipLimitStore = createMemoryStore(),
 }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
+  // Render is one proxy hop: believe the address it appended to X-Forwarded-For and nothing left of
+  // it, so a client cannot choose its own req.ip (the per-IP limits key on it). A bare `true`
+  // would trust every hop and let a spoofed header through (ADR-0058).
+  app.set('trust proxy', config.trustProxyHops);
 
   app.use(
     pinoHttp({
@@ -78,23 +86,33 @@ export function createApp({
   app.use(express.json({ limit: '10kb' }));
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
   app.use(webRouter({ distDir: webDistDir, logger }));
-  app.use(identityRouter({ db, logger, otpMode: config.otpMode, adminPhones: config.adminPhones }));
+  app.use(
+    identityRouter({
+      db,
+      logger,
+      otpMode: config.otpMode,
+      demoPhones: config.demoPhones,
+      inboxOpen: config.otpInboxOpen,
+      ipLimits: config.otpIpLimits,
+      ipLimitStore,
+    }),
+  );
   app.use(accountRouter({ db, logger }));
   app.use(realtimeRouter({ db, realtime }));
-  // Without ADMIN_PHONES there is no admin, so these routes are not mounted at all (404).
-  if (config.adminPhones.length > 0) {
+  // Without ADMIN_TOKEN there is no admin, so these routes are not mounted at all (404).
+  if (config.adminToken) {
     app.use(
       simulationRouter({
         db,
         logger,
         realtime,
-        adminPhones: config.adminPhones,
+        adminToken: config.adminToken,
         ...(requestHooks && { hooks: requestHooks }),
       }),
     );
-    app.use(aiAdminRouter({ db, adminPhones: config.adminPhones, ai }));
-    app.use(cacheAdminRouter({ db, adminPhones: config.adminPhones }));
-    app.use(errandsAdminRouter({ db, adminPhones: config.adminPhones }));
+    app.use(aiAdminRouter({ db, adminToken: config.adminToken, ai }));
+    app.use(cacheAdminRouter({ db, adminToken: config.adminToken }));
+    app.use(errandsAdminRouter({ db, adminToken: config.adminToken }));
   }
   app.use(pushRouter({ db, vapidPublicKey: config.vapid?.publicKey ?? null }));
   app.use(photosRouter({ db, logger, capMb: config.photoStorageCapMb }));

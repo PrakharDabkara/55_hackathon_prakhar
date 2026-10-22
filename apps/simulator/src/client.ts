@@ -10,8 +10,6 @@ export class ApiFailure extends Error {
 }
 
 export interface Client {
-  /** Simulated OTP login: request a code, read it from the demo inbox, verify. */
-  login(phone: string, signal?: AbortSignal): Promise<{ token: string; role: string }>;
   createShops(
     token: string,
     body: {
@@ -23,7 +21,8 @@ export interface Client {
     },
   ): Promise<{ shopId: string; token: string }[]>;
   removeShops(token: string): Promise<void>;
-  ticket(token: string, signal?: AbortSignal): Promise<string>;
+  /** A one-time ticket for the admin stream, from the admin route (404 if the token is wrong). */
+  adminTicket(token: string, signal?: AbortSignal): Promise<string>;
   /** Answers a ping as a shop, through the same endpoint the shop app uses. */
   answer(
     token: string,
@@ -81,27 +80,12 @@ export function createClient(target: string): Client {
   }
 
   return {
-    async login(phone, signal) {
-      const withSignal = signal ? { signal } : {};
-      await call('POST', '/auth/otp/request', { body: { phone }, ...withSignal });
-      const { code } = await call<{ code: string }>(
-        'GET',
-        `/dev/otp-inbox?phone=${encodeURIComponent(phone)}`,
-        withSignal,
-      );
-      const result = await call<{ token: string; user: { role: string } }>(
-        'POST',
-        '/auth/otp/verify',
-        { body: { phone, code, role: 'shop' }, ...withSignal },
-      );
-      return { token: result.token, role: result.user.role };
-    },
     createShops: (token, body) => call('POST', '/admin/sim/shops', { token, body }),
     async removeShops(token) {
       await call('DELETE', '/admin/sim/shops', { token });
     },
-    async ticket(token, signal) {
-      const r = await call<{ ticket: string }>('POST', '/events/ticket', {
+    async adminTicket(token, signal) {
+      const r = await call<{ ticket: string }>('POST', '/admin/sim/ticket', {
         token,
         ...(signal && { signal }),
       });

@@ -18,6 +18,10 @@ services:
       # Demo login: the code is read from /dev/otp-inbox. Only 'simulated' exists (ADR-0013).
       - key: OTP_MODE
         value: simulated
+      # The only phones that get a code in that inbox (ADR-0058). No value here on purpose: set it
+      # by hand in the dashboard. Production will not start without at least one.
+      - key: DEMO_PHONES
+        sync: false
       # Requests: answered from learned stock at this many shops, else pinged; 15 minute deadline.
       - key: MIN_STOCK_RESULTS
         value: '3'
@@ -32,9 +36,9 @@ services:
       # deadline and lazy expiry on read are the truth; the queue only makes expiry timely (ADR-0015).
       - key: WORKERS_ENABLED
         value: 'true'
-      # Phones that become admin on login (for the shop simulator). No value here on purpose: set it
-      # by hand in the dashboard. Empty means no admin exists and the admin endpoints answer 404.
-      - key: ADMIN_PHONES
+      # Opens the admin endpoints (the shop simulator, AI stats), 32+ characters. No value here on
+      # purpose: set it by hand in the dashboard. Unset means no admin and the endpoints answer 404.
+      - key: ADMIN_TOKEN
         sync: false
       # AI query understanding (ADR-0020). Free-tier prompts may be reviewed by Google: only query
       # text and catalog item names are sent. The key is set by hand in the dashboard.
