@@ -19,14 +19,12 @@ const categories = z
 const DEFAULT_CATEGORIES: Category[] = ['grocery'];
 
 /** A standing delivery offer: a fee and a time, either may be left out. */
-const delivery = z
-  .object({
-    feePaise: z.number().int().min(0).max(1_000_000).optional(),
-    minutes: z.number().int().min(1).max(1440).optional(),
-  })
-  .strict();
+const delivery = z.strictObject({
+  feePaise: z.number().int().min(0).max(1_000_000).optional(),
+  minutes: z.number().int().min(1).max(1440).optional(),
+});
 
-const createBody = z.object({
+const createBody = z.strictObject({
   name,
   lat,
   lng,
@@ -35,7 +33,7 @@ const createBody = z.object({
 });
 
 const patchBody = z
-  .object({
+  .strictObject({
     name: name.optional(),
     lat: lat.optional(),
     lng: lng.optional(),
@@ -92,7 +90,7 @@ export function shopsRouter({ db, hooks }: { db: Queryable; hooks?: ShopHooks })
   // "Dukaan aaj band hai": closed shops get no pings and are left out of learned stock until the
   // end of the day, or until the owner opens again (ADR-0031).
   router.put('/shops/me/open', ...shopOnly, async (req, res) => {
-    const { open } = parse(z.object({ open: z.boolean() }), req.body);
+    const { open } = parse(z.strictObject({ open: z.boolean() }), req.body);
     const shop = await setShopOpen(db, authOf(req).user.id, open);
     if (!shop) throw new ApiError(404, 'not_found', 'You have not created a shop yet');
     if (open) catchUp(shop.id);

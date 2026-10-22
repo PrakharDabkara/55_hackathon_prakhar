@@ -298,7 +298,15 @@ describe('loadConfig', () => {
       expect(loadConfig({ ...prod, OTP_IP_REQUEST_MAX: '5' }).otpIpLimits.request).toBe(5);
     });
 
+    it('refuses a looser API rate limit in production, accepts a tighter one', () => {
+      expect(() => loadConfig({ ...prod, RATE_LIMIT_SCALE: '2' })).toThrowError(/RATE_LIMIT_SCALE/);
+      expect(loadConfig({ ...prod, RATE_LIMIT_SCALE: '0.5' }).rateLimitScale).toBe(0.5);
+      expect(loadConfig({ ...prod }).rateLimitScale).toBe(1);
+      expect(() => loadConfig({ ...prod, RATE_LIMIT_SCALE: '0' })).toThrowError(/RATE_LIMIT_SCALE/);
+    });
+
     it('allows the looser limits and the open inbox outside production (tests)', () => {
+      expect(loadConfig({ ...valid, RATE_LIMIT_SCALE: '1000' }).rateLimitScale).toBe(1000);
       const config = loadConfig({ ...valid, OTP_IP_REQUEST_MAX: '10000', OTP_INBOX_OPEN: 'true' });
       expect(config.otpIpLimits.request).toBe(10000);
     });

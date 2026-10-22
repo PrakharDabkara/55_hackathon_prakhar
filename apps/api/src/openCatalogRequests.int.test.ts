@@ -194,13 +194,13 @@ describe('open catalog over HTTP', () => {
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
   });
 
-  it('GET /search ignores a create flag: a GET never creates data', async () => {
+  it('GET /search refuses a create flag (unknown query field, ADR-0059): a GET never creates data', async () => {
     const res = await request(app)
       .get('/search')
       .set(auth(seeker))
       .query({ q: 'foam glitter sheet', lat: ORIGIN.lat, lng: ORIGIN.lng, create: 'true' });
-    expect(res.status).toBe(200);
-    expect(res.body.item).toBeNull();
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('invalid_request');
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
   });
 

@@ -47,6 +47,9 @@ export default defineConfig({
       OTP_IP_REQUEST_MAX: '100000',
       OTP_IP_VERIFY_MAX: '100000',
       OTP_IP_INBOX_MAX: '100000',
+      // The browser, the simulated shops and five specs' worth of logins all come from this one
+      // machine, far above the API rate limits meant for one person (ADR-0059).
+      RATE_LIMIT_SCALE: '1000',
       LOG_LEVEL: 'warn',
       WORKERS_ENABLED: 'true',
       // "Le liya?" asks at once in tests; in life it waits 15 minutes (ADR-0035).

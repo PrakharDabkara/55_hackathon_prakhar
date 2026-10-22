@@ -24,7 +24,11 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join('; ');
 
-const securityHeaders: RequestHandler = (_req, res, next) => {
+/**
+ * The page's own policy, over the one every response gets (securityHeaders.ts). The two plain
+ * headers are repeated so this router is safe to mount without that middleware.
+ */
+const pageHeaders: RequestHandler = (_req, res, next) => {
   res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -44,7 +48,7 @@ export function webRouter({ distDir, logger }: { distDir: string; logger: Logger
   const indexPath = path.join(distDir, 'index.html');
   const landingPath = path.join(distDir, 'landing.html');
   if (existsSync(landingPath)) {
-    router.get('/', securityHeaders, (_req, res) => {
+    router.get('/', pageHeaders, (_req, res) => {
       res.sendFile(landingPath, { headers: { 'Cache-Control': 'public, max-age=300' } });
     });
   } else {
@@ -55,7 +59,7 @@ export function webRouter({ distDir, logger }: { distDir: string; logger: Logger
     return router;
   }
 
-  router.use('/app', securityHeaders);
+  router.use('/app', pageHeaders);
 
   // Without a trailing slash relative URLs would resolve against the wrong folder.
   router.use('/app', (req, res, next) => {

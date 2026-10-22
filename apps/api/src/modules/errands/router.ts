@@ -17,7 +17,7 @@ const RECENT_LIMIT = 20;
 export function errandsRouter(deps: ErrandsContext): Router {
   const router = Router();
   const requireAuth = createRequireAuth(deps.db);
-  const createBody = z.object({
+  const createBody = z.strictObject({
     task: z.string().trim().min(1).max(deps.limits.taskMaxChars),
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
@@ -54,7 +54,7 @@ export function errandsRouter(deps: ErrandsContext): Router {
   });
 
   // Owner only: pickup or delivery for one shop of the finished plan (ADR-0031).
-  const modeBody = z.object({ shopId: z.uuid(), mode: z.enum(['pickup', 'delivery']) });
+  const modeBody = z.strictObject({ shopId: z.uuid(), mode: z.enum(['pickup', 'delivery']) });
   router.post('/errands/:id/modes', requireAuth, requireRole('seeker'), async (req, res) => {
     const { shopId, mode } = parse(modeBody, req.body);
     const view = await chooseDeliveryMode(
@@ -69,8 +69,8 @@ export function errandsRouter(deps: ErrandsContext): Router {
   });
 
   // Owner only. Exactly one of text, optionIndex or selected (selected may carry text); checked in the service so every caller gets the same rules.
-  const answerBody = z.object({
-    text: z.string().optional(),
+  const answerBody = z.strictObject({
+    text: z.string().max(deps.limits.taskMaxChars).optional(),
     optionIndex: z.number().int().min(0).max(10).optional(),
     /** For a multi-select question: the indexes of the ticked options; `text` is then "Kuch aur?". */
     selected: z.array(z.number().int().min(0).max(10)).max(10).optional(),

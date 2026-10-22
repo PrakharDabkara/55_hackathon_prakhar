@@ -115,8 +115,10 @@ export function createClient(target: string): Client {
       try {
         await call('GET', '/shops/me', { token });
         return true;
-      } catch {
-        return false;
+      } catch (error) {
+        // Only "who are you?" and "no such shop" mean it is gone. A rate limit (429) or an outage
+        // says nothing about the shop, and saying "gone" would throw away shops that still work.
+        return error instanceof ApiFailure && ![401, 403, 404].includes(error.status);
       }
     },
     streamUrl: (ticket) => `${target}/admin/sim/events?ticket=${encodeURIComponent(ticket)}`,

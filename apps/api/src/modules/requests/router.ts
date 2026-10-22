@@ -15,7 +15,7 @@ import {
 const RECENT_LIMIT = 10;
 
 const createBody = z
-  .object({
+  .strictObject({
     q: z.string().trim().min(1).max(200).optional(),
     lat: z.number().min(-90).max(90),
     lng: z.number().min(-180).max(180),
@@ -41,9 +41,9 @@ const createBody = z
     path: ['asTyped'],
   });
 
-const viewQuery = z.object({ sort: z.enum(['distance', 'price']).optional() });
+const viewQuery = z.strictObject({ sort: z.enum(['distance', 'price']).optional() });
 
-const answerBody = z.object({
+const answerBody = z.strictObject({
   answer: z.enum(['yes', 'no']),
   pricePaise: z.number().int().min(0).max(10_000_000).optional(),
   quantityHint: z.enum(['few', 'plenty']).optional(),
@@ -51,16 +51,14 @@ const answerBody = z.object({
   photoId: z.uuid().optional(),
   /** An exact quantity next to the price, only with a yes (ADR-0031). */
   quantity: z
-    .object({ amount: z.number().positive().max(100_000), unit: z.enum(QUANTITY_UNITS) })
-    .strict()
+    .strictObject({ amount: z.number().positive().max(100_000), unit: z.enum(QUANTITY_UNITS) })
     .optional(),
   /** "Ghar bhej denge": present means the shop delivers; a fee and a time are optional. */
   delivery: z
-    .object({
+    .strictObject({
       feePaise: z.number().int().min(0).max(1_000_000).optional(),
       minutes: z.number().int().min(1).max(1440).optional(),
     })
-    .strict()
     .optional(),
 });
 

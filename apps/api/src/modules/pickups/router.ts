@@ -5,7 +5,7 @@ import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import { answerPickup, listPendingPickups, recordPickup, type PickupsContext } from './service.js';
 
 const newBody = z
-  .object({
+  .strictObject({
     shopId: z.uuid(),
     itemId: z.uuid(),
     requestId: z.uuid().optional(),
@@ -14,7 +14,7 @@ const newBody = z
   .refine((b) => (b.requestId === undefined) !== (b.errandId === undefined), {
     message: 'give a requestId or an errandId, not both',
   });
-const answerBody = z.object({ answer: z.enum(['found', 'not_there', 'not_gone']) });
+const answerBody = z.strictObject({ answer: z.enum(['found', 'not_there', 'not_gone']) });
 
 /**
  * "Le liya?" (ADR-0035). Customers only, and only their own visits; the shop side has no route

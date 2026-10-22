@@ -21,6 +21,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   demoPhones: [],
   otpInboxOpen: true,
   trustProxyHops: 1,
+  // The tests make far more calls than a person would; the ones about the limits set this to 1.
+  rateLimitScale: 1000,
   otpIpLimits: { request: 100_000, verify: 100_000, inbox: 100_000 },
   llmProvider: 'fake',
   fakeLlmScenario: null,

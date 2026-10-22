@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import type { Queryable } from '../../db/queryable.js';
+import { parse } from '../../http/errors.js';
 import { createRequireAdmin } from '../identity/index.js';
 
 export interface ErrandStats {
@@ -83,8 +85,17 @@ export function errandsAdminRouter({
 }): Router {
   const router = Router();
   router.get('/admin/errands/stats', createRequireAdmin(adminToken), async (req, res) => {
-    const asked = Number(req.query['hours']);
-    const hours = Number.isInteger(asked) && asked >= 1 && asked <= 24 * 90 ? asked : 24;
+    const { hours } = parse(
+      z.strictObject({
+        hours: z.coerce
+          .number()
+          .int()
+          .min(1)
+          .max(24 * 90)
+          .default(24),
+      }),
+      req.query,
+    );
     res.json(await errandStats(db, { hours }));
   });
   return router;

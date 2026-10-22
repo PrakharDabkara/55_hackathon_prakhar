@@ -1,4 +1,10 @@
-export { authOf, createRequireAdmin, createRequireAuth, requireRole } from './middleware.js';
+export {
+  authOf,
+  createIdentify,
+  createRequireAdmin,
+  createRequireAuth,
+  requireRole,
+} from './middleware.js';
 export {
   anonymiseUser,
   createShopUsers,

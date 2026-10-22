@@ -13,10 +13,10 @@ import {
   type ListsContext,
 } from './service.js';
 
-const sortBody = z.object({ lines: z.array(z.string().max(1000)).max(100) });
+const sortBody = z.strictObject({ lines: z.array(z.string().max(1000)).max(100) });
 
 const choice = z
-  .object({
+  .strictObject({
     position: z.number().int().min(0).max(9),
     itemId: z.uuid().optional(),
     asTyped: z.literal(true).optional(),
@@ -25,7 +25,7 @@ const choice = z
     message: 'give an itemId or asTyped, not both',
   });
 
-const sendBody = z.object({
+const sendBody = z.strictObject({
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   radiusM: z.number().int().min(1).max(5000).optional(),
@@ -34,9 +34,9 @@ const sendBody = z.object({
   choices: z.array(choice).max(10).optional(),
 });
 
-const orderBody = z.object({
+const orderBody = z.strictObject({
   assignments: z
-    .array(z.object({ position: z.number().int().min(0).max(9), shopId: z.uuid() }))
+    .array(z.strictObject({ position: z.number().int().min(0).max(9), shopId: z.uuid() }))
     .max(10),
   modes: z.record(z.uuid(), z.enum(['pickup', 'delivery'])).default({}),
   addressText: z.string().trim().min(5).max(300).optional(),
@@ -46,10 +46,10 @@ const orderBody = z.object({
 });
 
 /** Whole rupees: the shop types a number, we keep paise. */
-const answerBody = z.object({
+const answerBody = z.strictObject({
   lines: z
     .array(
-      z.object({
+      z.strictObject({
         lineId: z.uuid(),
         have: z.boolean(),
         priceRupees: z.number().int().min(0).max(100_000).optional(),

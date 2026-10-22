@@ -3,7 +3,9 @@ import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 import type { Config } from './config/config.js';
 import { healthRouter } from './http/health.js';
-import { createMemoryStore, type IpLimitStore } from './http/ipLimit.js';
+import { createIpLimiter, createMemoryStore, type IpLimitStore } from './http/ipLimit.js';
+import { createRouteLimits, ROUTE_RULES, scaleRules } from './http/routeLimits.js';
+import { securityHeaders } from './http/securityHeaders.js';
 import { errorHandler, notFound } from './http/errors.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
@@ -19,7 +21,7 @@ import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
 import { listsRouter } from './modules/lists/index.js';
 import { ordersRouter } from './modules/orders/index.js';
-import { identityRouter } from './modules/identity/index.js';
+import { createIdentify, identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
 import { simulationRouter } from './modules/simulation/index.js';
 import { searchRouter } from './modules/search/index.js';
@@ -42,9 +44,14 @@ interface AppDeps {
   };
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
-  /** Counts the per-IP sign-in limits. Default: in this process; production passes a Redis one. */
+  /** Counts the per-IP and per-user limits. Default: in this process; production passes a Redis one. */
   ipLimitStore?: IpLimitStore;
+  /** Tests only: a different budget for the broad per-IP limit. */
+  rateLimits?: { apiPerIpPerMinute?: number };
 }
+
+/** Every API route, per IP, on top of the tighter limits on the dear ones (ADR-0059). */
+export const API_IP_LIMIT_PER_MINUTE = 300;
 
 export function createApp({
   config,
@@ -57,6 +64,7 @@ export function createApp({
   errandHooks,
   webDistDir = DEFAULT_WEB_DIST,
   ipLimitStore = createMemoryStore(),
+  rateLimits = {},
 }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
@@ -83,9 +91,30 @@ export function createApp({
       },
     }),
   );
-  app.use(express.json({ limit: '10kb' }));
+  // On every response from here on, errors and 429s included.
+  app.use(securityHeaders);
+  // Health checks and the static web app are not counted: they cost nothing and a load balancer
+  // polls the first. Everything below is the API.
   app.use(healthRouter({ gitSha: config.gitSha, db, logger, readyTimeoutMs }));
   app.use(webRouter({ distDir: webDistDir, logger }));
+  app.use(
+    createIpLimiter({
+      name: 'api',
+      max:
+        rateLimits.apiPerIpPerMinute ??
+        Math.max(1, Math.ceil(API_IP_LIMIT_PER_MINUTE * config.rateLimitScale)),
+      windowMs: 60_000,
+      store: ipLimitStore,
+    }),
+  );
+  app.use(
+    createRouteLimits({
+      rules: scaleRules(ROUTE_RULES, config.rateLimitScale),
+      store: ipLimitStore,
+      identify: createIdentify(db),
+    }),
+  );
+  app.use(express.json({ limit: '10kb' }));
   app.use(
     identityRouter({
       db,

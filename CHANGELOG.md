@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (PR SEC2: API hardening, ADR-0059)
+
+- Rate limits per user and per IP on the dear routes, `429` with `Retry-After`: `/search` and `/items/resolve` 30/min per user and 60/min per IP, `/lists/sort` 10/min, `/route/plan` 20/min, `POST /requests` and `POST /photos` 20/hour per user; plus 300/min per IP on every API route (`/health` and the web app are exempt). Counted in Redis with the in-process fallback, never fail open. A user's limit survives a new login.
+- Security headers on every response, API errors and 429s included: HSTS (1 year, no preload), `nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` and CSP `frame-ancestors 'none'`, a `Permissions-Policy` that allows only geolocation and camera for this origin, COOP and CORP `same-origin`. API answers are `Cache-Control: no-store`; private photos too.
+- Push subscriptions only accept the real push hosts (`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.notify.windows.com`, `web.push.apple.com`, `*.push.apple.com`). Before, any `*.googleapis.com` host (including buckets anyone can own) passed.
+- Every request schema rejects unknown fields (`z.strictObject`, guarded by a test that scans the route files). `text` on an errand answer, the phone, `/route/plan` stops and the admin queries gained limits or schemas.
+- Tests: an authorization matrix (two customers, two shops, every route with an `:id`), no CORS headers and no cookie auth, bare `{error:{code,message}}` bodies with no stack or internals, headers on every response.
+- The simulator no longer treats `429` or a 5xx at start-up as "this shop is gone". Measured: 10 simulated shops in a busy 3-minute demo peak at 17 calls a minute from their address (the baseline is 300), so no exemption was added; `apps/simulator/src/rate.int.test.ts` re-measures on demand (`MEASURE_SIM_RATE=1`).
+
 ### Security (PR SEC1: demo login closed to strangers, ADR-0058)
 
 - `/dev/otp-inbox` shows a code only for the numbers in `DEMO_PHONES`; for anyone else request still answers `202` but no readable code is stored, so a stranger can no longer log in as another account.

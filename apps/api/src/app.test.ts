@@ -21,6 +21,7 @@ const config: Config = {
   demoPhones: [],
   otpInboxOpen: true,
   trustProxyHops: 1,
+  rateLimitScale: 1,
   otpIpLimits: { request: 100_000, verify: 100_000, inbox: 100_000 },
   llmProvider: 'fake',
   geminiApiKey: null,
