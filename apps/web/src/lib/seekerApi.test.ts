@@ -34,6 +34,16 @@ describe('createSeekerApi', () => {
     });
   });
 
+  it('logs out on all devices with one empty POST', async () => {
+    const { api, last } = setup(() => json(204));
+    await api.logoutAll();
+    const [url, init] = last();
+    expect(url).toBe('/account/logout-all');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({});
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer tok-9');
+  });
+
   it('creates a request with the bearer token and an Idempotency-Key, price in paise', async () => {
     const { api, last } = setup(() => json(201, { id: 'r1' }));
     await api.createRequest({ q: 'chini', lat: 22.7196, lng: 75.8577, targetPricePaise: 6000 });

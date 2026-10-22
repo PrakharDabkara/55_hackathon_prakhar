@@ -200,6 +200,12 @@ export interface ShopStrings {
   removeLogoText: string;
   removeLogoYes: string;
   keepLogo: string;
+  logoutAll: string;
+  logoutAllTitle: string;
+  logoutAllText: string;
+  logoutAllYes: string;
+  logoutAllKeep: string;
+  logoutAllFailed: string;
   categoriesTitle: string;
   notificationsTitle: string;
   notificationsBody: string;
@@ -443,6 +449,13 @@ export const shopEn: ShopStrings = {
   removeLogoText: 'Your shop will show its initials instead.',
   removeLogoYes: 'Remove',
   keepLogo: 'Keep logo',
+  logoutAll: 'Log out on all devices',
+  logoutAllTitle: 'Log out on all devices?',
+  logoutAllText:
+    "Every phone and browser logged in to this shop is logged out, and notifications stop. You'll need a new code to log in again.",
+  logoutAllYes: 'Log out everywhere',
+  logoutAllKeep: 'Stay logged in',
+  logoutAllFailed: "Couldn't log out everywhere. Check your connection and try again.",
   categoriesTitle: 'What you sell · up to 3',
   notificationsTitle: 'Notifications',
   notificationsBody: 'Get a buzz when someone nearby asks for something you sell.',
@@ -689,6 +702,13 @@ export const shopHi: ShopStrings = {
   removeLogoText: 'Logo ki jagah dukaan ke pehle akshar dikhenge.',
   removeLogoYes: 'Hatayein',
   keepLogo: 'Rehne dein',
+  logoutAll: 'Sab devices se logout karein',
+  logoutAllTitle: 'Sab devices se logout karein?',
+  logoutAllText:
+    'Is dukaan mein login har phone aur browser se logout ho jayega aur notification band ho jayenge. Dobara login ke liye naya code chahiye hoga.',
+  logoutAllYes: 'Sabse logout karein',
+  logoutAllKeep: 'Login rehne dein',
+  logoutAllFailed: 'Sab jagah se logout nahi hua. Internet check karke dobara try karein.',
   categoriesTitle: 'Aap kya bechte hain · 3 tak',
   notificationsTitle: 'Notification',
   notificationsBody: 'Jab aas-paas koi aapki cheez maange, to buzz aayega.',

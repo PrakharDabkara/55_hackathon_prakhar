@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createGeminiProvider, type GeminiClientLike } from './gemini.js';
+import { PrivacyGuardError } from './privacyGuard.js';
 import { InvalidOutputError, ProviderError } from './types.js';
 
 const schema = z.object({ itemId: z.string().nullable(), needsClarification: z.boolean() });
@@ -156,5 +157,88 @@ describe('gemini embed', () => {
     const out = await provider.embed(['ball pen', 'sugar'], 'embed_query');
     expect(out.usage.inputTokens).toBeGreaterThan(0);
     expect(out.usage.outputTokens).toBe(0);
+  });
+});
+
+describe('gemini privacy guard', () => {
+  const planted = 'sugar 9876543210';
+
+  it('blocks a prompt with a phone number before the request leaves, for every kind of call', async () => {
+    const { provider, generateContent, embedContent } = setup();
+    await expect(provider.generateJson({ ...opts, user: planted })).rejects.toBeInstanceOf(
+      PrivacyGuardError,
+    );
+    await expect(provider.generateJson({ ...opts, system: planted })).rejects.toBeInstanceOf(
+      PrivacyGuardError,
+    );
+    await expect(
+      provider.chatWithTools({
+        system: 'SYS',
+        messages: [{ role: 'user', text: planted }],
+        tools: [],
+        maxOutputTokens: 64,
+        purpose: 'errand',
+      }),
+    ).rejects.toBeInstanceOf(PrivacyGuardError);
+    await expect(
+      provider.chatWithTools({
+        system: 'SYS',
+        messages: [
+          { role: 'model', toolCalls: [{ id: 'c1', name: 'find_item_nearby', args: {} }] },
+          {
+            role: 'tool',
+            results: [
+              {
+                id: 'c1',
+                name: 'find_item_nearby',
+                result: { shops: [{ name: 'Gupta 98765 43210' }] },
+              },
+            ],
+          },
+        ],
+        tools: [],
+        maxOutputTokens: 64,
+        purpose: 'errand',
+      }),
+    ).rejects.toBeInstanceOf(PrivacyGuardError);
+    await expect(provider.embed([planted], 'embed_query')).rejects.toBeInstanceOf(
+      PrivacyGuardError,
+    );
+    expect(generateContent).not.toHaveBeenCalled();
+    expect(embedContent).not.toHaveBeenCalled();
+  });
+
+  it('blocks an email, a coordinate pair and an address field too', async () => {
+    const { provider, generateContent } = setup();
+    for (const user of ['a@b.com', '22.7196, 75.8577', '{"address":"Flat 4"}'])
+      await expect(provider.generateJson({ ...opts, user })).rejects.toBeInstanceOf(
+        PrivacyGuardError,
+      );
+    expect(generateContent).not.toHaveBeenCalled();
+  });
+
+  it('logs why, without the content', async () => {
+    const warn = vi.fn();
+    const client: GeminiClientLike = {
+      models: { generateContent: vi.fn(), embedContent: vi.fn() },
+    };
+    const provider = createGeminiProvider({
+      client,
+      model: 'm',
+      embedModel: 'e',
+      embedDim: 4,
+      logger: { warn } as never,
+    });
+    await provider.generateJson({ ...opts, user: planted }).catch(() => undefined);
+    expect(warn).toHaveBeenCalledTimes(1);
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toMatch(/phone/);
+    expect(logged).not.toContain('9876543210');
+  });
+
+  it('lets a clean request through unchanged', async () => {
+    const { provider, generateContent } = setup();
+    await provider.generateJson(opts);
+    expect(generateContent).toHaveBeenCalledTimes(1);
   });
 });

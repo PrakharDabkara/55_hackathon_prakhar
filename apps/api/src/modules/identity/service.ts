@@ -148,6 +148,24 @@ export async function revokeSession(db: Queryable, sessionId: string): Promise<v
   ]);
 }
 
+/** Ends every live session of the user (log out on all devices). Returns how many there were. */
+export async function revokeAllSessions(db: Queryable, userId: string): Promise<number> {
+  const { rowCount } = await db.query(
+    `UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+    [userId],
+  );
+  return rowCount ?? 0;
+}
+
+/** Whether the user can still be logged in somewhere: used before an event stream is opened. */
+export async function hasLiveSession(db: Queryable, userId: string): Promise<boolean> {
+  const { rows } = await db.query(
+    `SELECT 1 FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now() LIMIT 1`,
+    [userId],
+  );
+  return rows.length > 0;
+}
+
 export interface NewUserSession {
   userId: string;
   phone: string;

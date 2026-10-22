@@ -111,3 +111,17 @@ describe('processPhoto: the server re-encodes, never trusts the client', () => {
     await expect(processPhoto(huge)).rejects.toMatchObject({ code: 'invalid_image' });
   });
 });
+
+describe('processPhoto: metadata in other formats (ADR-0060)', () => {
+  it('a WebP and a PNG that carry EXIF come out as a JPEG without it', async () => {
+    const exif = { IFD0: { Make: 'PhoneCo', Model: 'Secret 9' } };
+    const webp = await solid(300, 200).webp().withMetadata({ exif }).toBuffer();
+    expect((await sharp(webp).metadata()).exif).toBeDefined();
+    const png = await solid(300, 200).png().withMetadata({ exif }).toBuffer();
+    for (const input of [webp, png]) {
+      const out = await processPhoto(input);
+      expect((await sharp(out.data).metadata()).exif).toBeUndefined();
+      expect(out.data.toString('latin1')).not.toMatch(/PhoneCo|Secret 9|Exif/);
+    }
+  });
+});

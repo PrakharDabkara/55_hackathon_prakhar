@@ -89,7 +89,9 @@ export function ShopShell({ api, shop, onLogout, pollMs, live, pushClient }: Pro
         {view === 'notifications' && (
           <Notifications api={api} {...(pushClient && { pushClient })} />
         )}
-        {view === 'settings' && <Settings api={api} shop={data.shop} onSaved={data.setShop} />}
+        {view === 'settings' && (
+          <Settings api={api} shop={data.shop} onSaved={data.setShop} onLoggedOut={onLogout} />
+        )}
       </main>
       <Sidebar
         open={menu}

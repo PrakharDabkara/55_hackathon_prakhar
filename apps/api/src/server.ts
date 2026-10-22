@@ -1,6 +1,6 @@
-import { pino } from 'pino';
 import webPush from 'web-push';
 import { createApp } from './app.js';
+import { createLogger } from './logger.js';
 import { createMemoryStore, createRedisStore } from './http/ipLimit.js';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
@@ -11,10 +11,7 @@ import { connect } from './workers/redis.js';
 import { startWorkers } from './workers/index.js';
 
 const config = loadConfig(process.env);
-const logger = pino({
-  level: config.logLevel,
-  redact: ['req.headers.authorization', 'req.headers.cookie'],
-});
+const logger = createLogger(config.logLevel);
 // createPool logs an idle client dying (Neon suspending after idle, a restart) instead of crashing.
 const pool = createPool(config.databaseUrl, logger);
 

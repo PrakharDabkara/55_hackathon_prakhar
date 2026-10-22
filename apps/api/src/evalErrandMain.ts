@@ -41,7 +41,8 @@ const which = env['EVAL_MODEL'] ?? 'primary';
 if (which !== 'primary' && which !== 'fallback') throw new Error(`EVAL_MODEL: "${which}"`);
 const gate = env['EVAL_GATE'] === '1';
 const paceMs = Number(env['EVAL_PACE_MS'] ?? 4000);
-const MAX_CALLS = 250;
+// 300, not 250: the dev set now has 26 cases (d24 to d26 added in SEC3) and one run estimates 274 calls.
+const MAX_CALLS = 300;
 
 // "primary" and "fallback" name the model the errand agent runs on (GEMINI_ERRAND_MODEL); query
 // resolution keeps GEMINI_MODEL, as in production. No automatic fallback: a run measures one model.

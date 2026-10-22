@@ -9,8 +9,10 @@ export {
   anonymiseUser,
   createShopUsers,
   deleteUsers,
+  hasLiveSession,
   lockLiveUser,
   phoneOf,
+  revokeAllSessions,
   revokeSession,
 } from './service.js';
 export type { NewUserSession } from './service.js';

@@ -97,6 +97,57 @@ describe('customer account (ADR-0054)', () => {
     expect((await request(app).get('/account').set(auth(u))).status).toBe(401);
   });
 
+  describe('log out on all devices (ADR-0060)', () => {
+    const login = (u: { phone: string }) =>
+      loginAs(app, 'seeker', u.phone.slice(3)).then((x) => ({ token: x.token }));
+
+    it('needs a login, takes no fields, and is a 204 that kills every session of the caller', async () => {
+      expect((await request(app).post('/account/logout-all').send({})).status).toBe(401);
+      const u = await newSeeker();
+      const second = await login(u);
+      const third = await login(u);
+      expect(second.token).not.toBe(u.token);
+      const bad = await request(app).post('/account/logout-all').set(auth(u)).send({ x: 1 });
+      expect(bad.status).toBe(400);
+      expect((await request(app).get('/account').set(auth(second))).status).toBe(200);
+      const res = await request(app).post('/account/logout-all').set(auth(u)).send({});
+      expect(res.status).toBe(204);
+      for (const t of [u, second, third])
+        expect((await request(app).get('/account').set(auth(t))).status).toBe(401);
+      expect((await request(app).post('/account/logout-all').set(auth(u)).send({})).status).toBe(
+        401,
+      );
+    });
+
+    it('does not touch another person’s sessions', async () => {
+      const u = await newSeeker();
+      const v = await newSeeker();
+      await request(app).post('/account/logout-all').set(auth(u)).send({});
+      expect((await request(app).get('/account').set(auth(v))).status).toBe(200);
+    });
+
+    it('forgets the alerts of every device, not only this one', async () => {
+      const u = await newSeeker();
+      const v = await newSeeker();
+      await subscribe(u, 21);
+      await subscribe(u, 22);
+      await subscribe(v, 23);
+      await request(app).post('/account/logout-all').set(auth(u)).send({});
+      expect(await count('push_subscriptions', u.userId)).toBe(0);
+      expect(await count('push_subscriptions', v.userId)).toBe(1);
+    });
+
+    it('works for a shop too, and the user can log in again afterwards', async () => {
+      const owner = await loginAs(app, 'shop', String(phone++));
+      expect(
+        (await request(app).post('/account/logout-all').set(auth(owner)).send({})).status,
+      ).toBe(204);
+      expect((await request(app).get('/shops/me').set(auth(owner))).status).toBe(401);
+      const again = await loginAs(app, 'shop', String(phone - 1));
+      expect((await request(app).get('/account').set(auth(again))).status).toBe(200);
+    });
+  });
+
   it('log out removes the push subscription of this device only', async () => {
     const u = await newSeeker();
     await subscribe(u, 1);

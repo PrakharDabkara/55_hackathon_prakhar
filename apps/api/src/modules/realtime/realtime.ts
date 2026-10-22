@@ -3,7 +3,7 @@ import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import type { Role } from '@askbuy/shared';
 import { closeWithin, connect, withTimeout } from '../../workers/redis.js';
-import { createHub, HEARTBEAT_FRAME } from './hub.js';
+import { createHub, HEARTBEAT_FRAME, SESSION_ENDED } from './hub.js';
 import {
   consumeTicket,
   issueTicket,
@@ -34,6 +34,11 @@ export interface Realtime {
   /** Turns the response into an event stream for `audience`. Removes the connection when it closes. */
   openStream(req: Request, res: Response, audience: Audience): void;
   connectionCount(): number;
+  /**
+   * Ends every open stream of this user, here and on every other API instance (the close travels
+   * over Redis). Used by log out on all devices: a ticket is checked once, at connect.
+   */
+  disconnectUser(userId: string): void;
   /** Ends every open stream (called first on shutdown: server.close waits for them). */
   drain(): void;
   close(): Promise<void>;
@@ -52,7 +57,7 @@ interface Options {
  * it holds. Without a Redis URL everything is switched off and callers fall back to polling.
  */
 export function createRealtime(options: Options): Realtime {
-  const core = createRealtimeCore(options);
+  const { closeLocal, ...core } = createRealtimeCore(options);
   const listeners: ((event: RealtimeEvent) => void)[] = [];
   return {
     ...core,
@@ -72,6 +77,11 @@ export function createRealtime(options: Options): Realtime {
       },
     },
     onPublish: (listener) => void listeners.push(listener),
+    disconnectUser(userId) {
+      closeLocal(userId);
+      // The other instances hold streams too; without Redis this does nothing.
+      core.events.publish({ to: { userId }, type: SESSION_ENDED, data: {} });
+    },
   };
 }
 
@@ -80,9 +90,16 @@ function createRealtimeCore({
   logger,
   heartbeatMs = HEARTBEAT_MS,
   ticketTtlSeconds = TICKET_TTL_SECONDS,
-}: Options): Omit<Realtime, 'onPublish'> {
+}: Options): Omit<Realtime, 'onPublish' | 'disconnectUser'> & {
+  closeLocal(userId: string): void;
+} {
   const hub = createHub();
-  const base = { ticketTtlSeconds, connectionCount: hub.size, drain: hub.closeAll };
+  const base = {
+    ticketTtlSeconds,
+    connectionCount: hub.size,
+    drain: hub.closeAll,
+    closeLocal: hub.closeUser,
+  };
 
   const openStream: Realtime['openStream'] = (req, res, audience) => {
     req.socket.setTimeout(0);

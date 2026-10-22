@@ -10,6 +10,7 @@ import { findLearnedStock } from '../shops/index.js';
 import { createRequest, type RequestsContext } from '../requests/index.js';
 import { statusForModel } from './bridge.js';
 import { covers, namedFragments, uncovered } from './named.js';
+import { shopForModel, shopText } from './shopText.js';
 import { linkRequest, listLinks, type ErrandQuestion } from './persistence.js';
 import {
   askShopsAgentInput,
@@ -325,7 +326,7 @@ async function findItemNearby(env: ToolEnv, args: unknown): Promise<ToolOutcome>
   const label = env.state.labels.get(itemId) ?? item.nameEn;
   env.state.found.set(itemId, { label, itemId, itemName: item.nameEn, shops });
   return {
-    result: { count: stock.length, freshCount, shops },
+    result: { count: stock.length, freshCount, shops: shops.map(shopForModel) },
     summary: { label, itemName: item.nameEn, count: stock.length, freshCount },
   };
 }
@@ -540,7 +541,7 @@ async function routeFor(env: ToolEnv, args: unknown): Promise<ToolOutcome> {
   const totalM = legsM.reduce((a, b) => a + b, 0);
   return {
     result: {
-      orderedStops: plan.orderedStops.map((s) => ({ shopId: s.shopId, name: s.label })),
+      orderedStops: plan.orderedStops.map((s) => ({ shopId: s.shopId, name: shopText(s.label) })),
       legsM,
       totalM,
     },

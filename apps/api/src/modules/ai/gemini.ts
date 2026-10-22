@@ -1,5 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
+import type { Logger } from 'pino';
 import { z } from 'zod';
+import { assertNoPrivateData, PrivacyGuardError } from './privacyGuard.js';
 import { sanitiseMessage } from './failure.js';
 import { rateLimitInfo, type RateLimitBody } from './quota.js';
 import {
@@ -59,6 +61,8 @@ interface Options {
   fallbackModel?: string | null;
   embedModel: string;
   embedDim: number;
+  /** Where a blocked prompt is logged (the reason only). */
+  logger?: Pick<Logger, 'warn'>;
 }
 
 const TASK_TYPE: Record<EmbedPurpose, string> = {
@@ -190,9 +194,24 @@ export function createGeminiProvider({
   fallbackModel = null,
   embedModel,
   embedDim,
+  logger,
 }: Options): LlmProvider {
   const ai: GeminiClientLike =
     client ?? (new GoogleGenAI({ apiKey: apiKey as string }) as unknown as GeminiClientLike);
+
+  /** The final check before every request (ADR-0060): nothing private goes to the model. */
+  const guard = (purpose: string, texts: string[]) => {
+    try {
+      assertNoPrivateData(texts);
+    } catch (error) {
+      if (error instanceof PrivacyGuardError)
+        logger?.warn(
+          { purpose, reason: error.reason },
+          'model request blocked by the privacy guard',
+        );
+      throw error;
+    }
+  };
 
   return {
     name: 'gemini',
@@ -203,6 +222,7 @@ export function createGeminiProvider({
     async generateJson<T>(options: GenerateJsonOptions<T>): Promise<GenerateJsonResult<T>> {
       const started = Date.now();
       const used = options.model ?? model;
+      guard(options.purpose, [options.system, options.user]);
       let response;
       try {
         response = await ai.models.generateContent({
@@ -246,11 +266,19 @@ export function createGeminiProvider({
     async chatWithTools(options: ChatWithToolsOptions): Promise<ChatWithToolsResult> {
       const started = Date.now();
       const used = options.model ?? model;
+      const contents = toContents(options.messages);
+      // The vendor's thought signatures are opaque blobs, not text we wrote.
+      guard(options.purpose, [
+        options.system,
+        JSON.stringify(contents, (key, value: unknown) =>
+          key === 'thoughtSignature' ? undefined : value,
+        ),
+      ]);
       let response;
       try {
         response = await ai.models.generateContent({
           model: used,
-          contents: toContents(options.messages),
+          contents,
           config: {
             systemInstruction: options.system,
             temperature: 0,
@@ -308,6 +336,7 @@ export function createGeminiProvider({
 
     async embed(texts, purpose, signal): Promise<EmbedResult> {
       const started = Date.now();
+      guard(purpose, texts);
       let response;
       try {
         response = await ai.models.embedContent({

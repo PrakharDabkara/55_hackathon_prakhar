@@ -223,6 +223,24 @@ describe('photos', () => {
       expect((await get(null, id)).status).toBe(401);
     });
 
+    it('the bytes that are served carry no GPS, camera or other metadata (ADR-0060)', async () => {
+      const id = await photoOf(seeker);
+      const res = await get(seeker, id)
+        .buffer(true)
+        .parse((r, done) => {
+          const chunks: Buffer[] = [];
+          r.on('data', (c: Buffer) => chunks.push(c));
+          r.on('end', () => done(null, Buffer.concat(chunks)));
+        });
+      const bytes = res.body as Buffer;
+      const meta = await sharp(bytes).metadata();
+      expect(meta.format).toBe('jpeg');
+      expect(meta.exif).toBeUndefined();
+      expect(meta.xmp).toBeUndefined();
+      const raw = bytes.toString('latin1');
+      for (const leak of ['Exif', 'GPS', 'PhoneCo']) expect(raw, leak).not.toContain(leak);
+    });
+
     it("a photo not yet attached to anything is the uploader's alone", async () => {
       const id = await photoOf(seeker);
       expect((await get(seeker, id)).status).toBe(200);

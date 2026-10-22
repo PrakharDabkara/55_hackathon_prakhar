@@ -10,6 +10,13 @@ export type { AiCallRow, AiClient, Recorder } from './client.js';
 export { createFakeProvider } from './fake.js';
 export type { FakeCall, FakeChatScript, FakeChatTurn, FakeProvider } from './fake.js';
 export { createGeminiProvider } from './gemini.js';
+export {
+  assertNoPrivateData,
+  findPrivateData,
+  PrivacyGuardError,
+  redactPrivateData,
+} from './privacyGuard.js';
+export type { PrivacyViolation } from './privacyGuard.js';
 export { REQUEST_TIMEOUT_MS, withRequestTimeout } from './timeout.js';
 export { QuotaWatch, rateLimitInfo, watchProvider } from './quota.js';
 export type { RateLimitInfo } from './quota.js';

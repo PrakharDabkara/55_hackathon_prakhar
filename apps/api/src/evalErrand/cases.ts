@@ -41,6 +41,11 @@ export const errandCaseSchema = z.object({
   /** How the pinged shops behave: all answer, none, every other one, or all answer late. */
   shops: z.enum(['all', 'none', 'partial', 'slow']),
   answers: z.array(answerSchema).optional(),
+  /**
+   * Text added to the name of every synthetic shop for this case: a shop that tries to give the
+   * model orders through its name (ADR-0060). The names are put back after the case.
+   */
+  shopNameSuffix: z.string().min(1).max(40).optional(),
   injection: z.boolean().default(false),
   expect: z.object({
     state: z.array(z.string().min(1)).min(1),
