@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { Database } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
+import { createIpLimiter, type IpLimitStore } from '../../http/ipLimit.js';
 import { authOf, createRequireAuth } from './middleware.js';
 import { maskPhone, normalisePhone } from './phone.js';
 import { latestDevCode, requestOtp, revokeSession, verifyOtp } from './service.js';
@@ -11,9 +12,16 @@ interface IdentityDeps {
   db: Database;
   logger: Logger;
   otpMode: 'simulated';
-  /** Phones that become admin on login. */
-  adminPhones?: readonly string[];
+  /** Phones that get a code in the demo inbox. Nobody else can read one (ADR-0058). */
+  demoPhones: readonly string[];
+  /** Tests only: every phone gets a code in the demo inbox. */
+  inboxOpen: boolean;
+  /** Most requests one IP may make per window to each route. */
+  ipLimits: { request: number; verify: number; inbox: number };
+  ipLimitStore: IpLimitStore;
 }
+
+export const IP_LIMIT_WINDOW_MS = 10 * 60_000;
 
 const phoneField = z.string().transform((raw, ctx) => {
   const phone = normalisePhone(raw);
@@ -29,14 +37,29 @@ const verifyBody = z.object({
 });
 const inboxQuery = z.object({ phone: phoneField });
 
-export function identityRouter({ db, logger, otpMode, adminPhones = [] }: IdentityDeps): Router {
+export function identityRouter({
+  db,
+  logger,
+  otpMode,
+  demoPhones,
+  inboxOpen,
+  ipLimits,
+  ipLimitStore: store,
+}: IdentityDeps): Router {
   const router = Router();
   const requireAuth = createRequireAuth(db);
+  const limit = (name: keyof typeof ipLimits) =>
+    createIpLimiter({ name, max: ipLimits[name], windowMs: IP_LIMIT_WINDOW_MS, store });
+  // Only these phones can have a readable code. Every other number still gets the same 202 and a
+  // hashed code, so nothing tells a stranger whether it is a demo number or has an account.
+  const codeIsReadable = (phone: string) => inboxOpen || demoPhones.includes(phone);
 
-  router.post('/auth/otp/request', async (req, res) => {
+  router.post('/auth/otp/request', limit('request'), async (req, res) => {
     const { phone } = parse(requestBody, req.body);
     const log = req.log ?? logger;
-    const stored = await requestOtp(db, phone, { keepPlainCode: otpMode === 'simulated' });
+    const stored = await requestOtp(db, phone, {
+      keepPlainCode: otpMode === 'simulated' && codeIsReadable(phone),
+    });
     if (!stored) {
       log.warn({ phone: maskPhone(phone) }, 'otp request rate limited');
       throw new ApiError(
@@ -49,10 +72,10 @@ export function identityRouter({ db, logger, otpMode, adminPhones = [] }: Identi
     res.status(202).json({});
   });
 
-  router.post('/auth/otp/verify', async (req, res) => {
+  router.post('/auth/otp/verify', limit('verify'), async (req, res) => {
     const { phone, code, role } = parse(verifyBody, req.body);
     const log = req.log ?? logger;
-    const result = await verifyOtp(db, phone, code, role, adminPhones);
+    const result = await verifyOtp(db, phone, code, role);
     if (!result) {
       log.info({ phone: maskPhone(phone) }, 'otp verification failed');
       throw new ApiError(401, 'invalid_code', 'That code is wrong, expired or already used');
@@ -70,9 +93,10 @@ export function identityRouter({ db, logger, otpMode, adminPhones = [] }: Identi
 
   // Demo only: there is no SMS, so the code is read here. Never mounted in any other mode.
   if (otpMode === 'simulated') {
-    router.get('/dev/otp-inbox', async (req, res) => {
+    router.get('/dev/otp-inbox', limit('inbox'), async (req, res) => {
       const { phone } = parse(inboxQuery, req.query);
-      const code = await latestDevCode(db, phone);
+      // Also checked here: a code stored before the allowlist existed must stay unreadable.
+      const code = codeIsReadable(phone) ? await latestDevCode(db, phone) : null;
       if (!code) throw new ApiError(404, 'not_found', 'No unexpired code for that phone');
       res.json({ code });
     });

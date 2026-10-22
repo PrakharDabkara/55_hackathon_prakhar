@@ -59,7 +59,7 @@ Neon free suspends compute after about 5 minutes idle and drops connections with
 
 ## Send a test question to a shop
 
-For trying the shop app (`/app/shop`) by hand. Use a different phone number for the customer than for the shop. The shop must be a grocery shop within 2 km of the point below (the default radius), and the customer asks for an item it does not already know the shop has (the 30 minute per-shop, per-item dedupe skips a shop it asked recently: pick another item, such as `chini`, `namak`, `doodh`).
+For trying the shop app (`/app/shop`) by hand. Use a different phone number for the customer than for the shop. Both must be in the server's `DEMO_PHONES` (see below), or the inbox will not show their code; set the customer's as `DEMO_CUSTOMER_PHONE` in your shell first. The shop must be a grocery shop within 2 km of the point below (the default radius), and the customer asks for an item it does not already know the shop has (the 30 minute per-shop, per-item dedupe skips a shop it asked recently: pick another item, such as `chini`, `namak`, `doodh`).
 
 ```sh
 B=https://kahanmilega-api.onrender.com
@@ -70,7 +70,7 @@ login() { # phone role -> token
   curl -s -X POST $B/auth/otp/verify -H "$J" -d "{\"phone\":\"$1\",\"code\":\"$CODE\",\"role\":\"$2\"}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])'
 }
-CUSTOMER=$(login 9876500011 seeker)
+CUSTOMER=$(login "$DEMO_CUSTOMER_PHONE" seeker)
 
 # aata, with a price the customer has seen elsewhere (Rs 60). Look at the shop app within a few seconds.
 curl -s -X POST $B/requests -H "authorization: Bearer $CUSTOMER" -H "$J" \
@@ -85,16 +85,19 @@ Then answer on the phone and read the result as the customer: `curl -s $B/reques
 
 ## Run the simulator against the live site
 
-The simulator makes fake shops around a point and answers real pings, so a seeker sees live answers without real shopkeepers. It needs an admin: a phone listed in `ADMIN_PHONES`.
+The simulator makes fake shops around a point and answers real pings, so a seeker sees live answers without real shopkeepers. It needs the server's admin token, `ADMIN_TOKEN` (ADR-0058). It is a secret, not a phone: nobody can log in as admin, and no OTP flow reaches it.
 
-**One-time setup on Render.** Dashboard → `kahanmilega-api` → Environment → Add Environment Variable → key `ADMIN_PHONES`, value a 10-digit mobile number that no real shop or customer uses (for example `9876500099`; several numbers are comma-separated) → Save. Render redeploys. Without it the admin endpoints answer 404 to everyone. Logging in with that number gives it the admin role, so it cannot also be a shop or seeker account.
+**One-time setup on Render.** Make a token with `openssl rand -hex 32`. Dashboard → `kahanmilega-api` → Environment → add `ADMIN_TOKEN` with that value (at least 32 characters) → Save. Render redeploys. Without it the admin endpoints answer 404 to everyone, and the server refuses a shorter one at startup. Keep the value in your password manager and export it in the shell that runs the simulator; never put it in a file in the repo or on a command line. To rotate it, change it on Render and in your shell.
+
+The demo login uses the same idea in reverse: set `DEMO_PHONES` on Render (comma-separated, 10-digit numbers of your own that no real shop or customer uses). Only those numbers get a code in the demo inbox; anyone else can ask for a code but cannot read it. Production does not start with it empty. After a deploy, `scripts/verify-live-security.sh` checks the live site (about once per 10 minutes, it uses this machine's sign-in budget). Other variables you may meet: `OTP_INBOX_OPEN` is for tests and production refuses it; `ADMIN_PHONES` no longer exists and production refuses it too; `TRUST_PROXY_HOPS` is 1 for Render.
 
 **Start it** (wake the free instance first; it sleeps after 15 minutes idle):
 
 ```sh
 B=https://kahanmilega-api.onrender.com
 curl -s $B/health
-npm run simulate -- --target $B --admin-phone 9876500099 --count 200 --speed 10 --centre 22.7196,75.8577
+read -rs ADMIN_TOKEN && export ADMIN_TOKEN   # paste the token; it is not shown or saved
+npm run simulate -- --target $B --count 200 --speed 10 --centre 22.7196,75.8577
 ```
 
 Delivery orders (ADR-0032): the simulator also answers an order placed with one of its shops, over the same admin stream (`order.created`): about one in five is declined, the rest are accepted after 3-30 s, set out 5-30 s later and delivered 10-60 s after that (all divided by `--speed`). Orders expire after 10 minutes without an answer; `SELECT state, expires_at FROM delivery_orders ORDER BY created_at DESC LIMIT 5` shows them. The address lives only in that table, plus `saved_addresses` for a customer who ticked "Is pate ko yaad rakhein" (ADR-0033). An hourly sweep clears `address_text`, `lat` and `lng` 30 days after an order ended: `SELECT count(*) FROM delivery_orders WHERE address_text IS NOT NULL AND state IN ('DELIVERED','DECLINED','EXPIRED','CANCELLED') AND updated_at < now() - interval '30 days'` should be 0 an hour after the workers start.
@@ -112,7 +115,7 @@ login() { # phone role -> token
   curl -s -X POST $B/auth/otp/verify -H "$J" -d "{\"phone\":\"$1\",\"code\":\"$CODE\",\"role\":\"$2\"}" \
     | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])'
 }
-CUSTOMER=$(login 9876500011 seeker)
+CUSTOMER=$(login "$DEMO_CUSTOMER_PHONE" seeker)
 
 # Open the live stream first (a one-time ticket in the URL, never the token), then ask.
 TICKET=$(curl -s -X POST $B/events/ticket -H "authorization: Bearer $CUSTOMER" | python3 -c 'import sys,json;print(json.load(sys.stdin)["ticket"])')
@@ -125,13 +128,13 @@ ID=$(curl -s -X POST $B/requests -H "authorization: Bearer $CUSTOMER" -H "$J" \
 watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | python3 -m json.tool | grep -E 'state|name|pricePaise|source'"
 ```
 
-**Clean up.** Ctrl+C stops the simulator. The fake shops stay on the server (they also teach learned stock). To remove them, sign in as the admin and call `DELETE $B/admin/sim/shops`, or start the simulator with a different `--seed` and `--reset`, then stop it.
+**Clean up.** Ctrl+C stops the simulator. The fake shops stay on the server (they also teach learned stock). To remove them, call `DELETE $B/admin/sim/shops` with `authorization: Bearer $ADMIN_TOKEN`, or start the simulator with a different `--seed` and `--reset`, then stop it.
 
-**If it does not start.** `... is not an admin` means `ADMIN_PHONES` is not set or has not redeployed yet. `Too many OTP requests` means wait ten minutes. A refused stream with HTTP 503 means the API has no `REDIS_URL`.
+**If it does not start.** `did not accept ADMIN_TOKEN` means the value differs from Render's or Render has not redeployed yet. A refused stream with HTTP 503 means the API has no `REDIS_URL`.
 
 ## Run the end-to-end browser test
 
-One real browser test (Playwright, Chromium at 360 px) of the customer app against the whole stack: it logs in with Demo mode, taps "Demo location", searches `chini` with a price of ₹60, and expects a map pin, a list row with a price and a "haan" in the status line within 30 seconds. Five simulated grocery shops answer in the background. It is not part of `npm run test:unit` or `test:integration`; CI runs it as the `e2e` job.
+One real browser test (Playwright, Chromium at 360 px) of the customer app against the whole stack: it logs in with Demo mode (a new random phone each time; the test server sets `OTP_INBOX_OPEN`, never production), taps "Demo location", searches `chini` with a price of ₹60, and expects a map pin, a list row with a price and a "haan" in the status line within 30 seconds. Five simulated grocery shops answer in the background. It is not part of `npm run test:unit` or `test:integration`; CI runs it as the `e2e` job.
 
 ```sh
 npm install
@@ -143,7 +146,7 @@ npx playwright install chromium   # once per Playwright version
 npm run test:e2e            # builds the apps, starts the API on port 3100, runs the test
 ```
 
-The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin phone (`9810000999`), and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.
+The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin token made for each run, and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.
 
 ## Self-hosted runner (CI on the laptop)
 

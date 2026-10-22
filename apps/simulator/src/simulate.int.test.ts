@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../../api/src/app.js';
 import { loadSeedCatalog, seedCatalog } from '../../api/src/modules/catalog/index.js';
 import { createRealtime, type Realtime } from '../../api/src/modules/realtime/index.js';
-import { testConfig } from '../../api/src/testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from '../../api/src/testing/config.js';
 import { ORIGIN } from '../../api/src/testing/fixtures.js';
 import { loginAs } from '../../api/src/testing/login.js';
 import { startPostgres, type TestDatabase } from '../../api/src/testing/startPostgres.js';
@@ -18,7 +18,6 @@ import { waitFor } from '../../api/src/testing/waitFor.js';
 import { startWorkers, type Workers } from '../../api/src/workers/index.js';
 import { runSimulator, type Simulator } from './simulator.ts';
 
-const ADMIN_PHONE = '9810000200';
 const quiet = pino({ level: 'silent' });
 
 describe('the simulator against a real API', () => {
@@ -39,8 +38,7 @@ describe('the simulator against a real API', () => {
     const config = testConfig({
       workersEnabled: true,
       redisUrl: redis.url,
-      // A second admin: a phone may ask for only 3 login codes per 10 minutes.
-      adminPhones: [`+91${ADMIN_PHONE}`, '+919810000202', '+919810000204', '+919810000206'],
+      adminToken: TEST_ADMIN_TOKEN,
     });
     realtime = createRealtime({ redisUrl: redis.url, logger: quiet, heartbeatMs: 200 });
     workers = startWorkers({
@@ -80,7 +78,7 @@ describe('the simulator against a real API', () => {
 
   const options = (lines: string[]) => ({
     target: base,
-    adminPhone: ADMIN_PHONE,
+    adminToken: TEST_ADMIN_TOKEN,
     count: 20,
     speed: 2000, // 5-90 s becomes 2.5-45 ms
     seed: 11,
@@ -200,7 +198,6 @@ describe('the simulator against a real API', () => {
     await endLeftoverRequests();
     const sim = await runSimulator({
       ...options([]),
-      adminPhone: '9810000202',
       count: 5,
       seed: 21,
       categories: ['grocery'],
@@ -233,14 +230,19 @@ describe('the simulator against a real API', () => {
     expect(sim.stats()).toMatchObject({ no: 0, skipped: 0 });
   }, 60_000);
 
-  it('explains itself when the phone is not an admin', async () => {
-    await expect(
-      runSimulator({
+  it('explains itself when the server refuses the admin token', async () => {
+    let message = '';
+    try {
+      await runSimulator({
         ...options([]),
-        adminPhone: '9810000201',
+        adminToken: `${TEST_ADMIN_TOKEN}x`,
         stateFile: path.join(path.dirname(stateFile), 'other.json'),
-      }),
-    ).rejects.toThrow(/ADMIN_PHONES/);
+      });
+    } catch (error) {
+      message = (error as Error).message;
+    }
+    expect(message).toMatch(/ADMIN_TOKEN/);
+    expect(message).not.toContain(TEST_ADMIN_TOKEN);
   }, 60_000);
 
   it("a shop outside the item's category says no, a shop inside it says yes (every shop answers)", async () => {
@@ -249,7 +251,6 @@ describe('the simulator against a real API', () => {
     const lines: string[] = [];
     const sim = await runSimulator({
       ...options(lines),
-      adminPhone: '9810000204',
       count: 12,
       seed: 31,
       categories: ['hardware', 'stationery'],
@@ -309,7 +310,6 @@ describe('the simulator against a real API', () => {
     const lines: string[] = [];
     const sim = await runSimulator({
       ...options(lines),
-      adminPhone: '9810000204',
       count: 20,
       seed: 31,
       eager: true,
@@ -378,7 +378,6 @@ describe('the simulator against a real API', () => {
     const lines: string[] = [];
     const sim = await runSimulator({
       ...options(lines),
-      adminPhone: '9810000206',
       count: 6,
       seed: 41,
       categories: ['grocery'],

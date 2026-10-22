@@ -18,6 +18,7 @@ describe('Web Push settings (ADR-0034)', () => {
       loadConfig({
         ...valid,
         NODE_ENV: 'production',
+        DEMO_PHONES: '9000000001',
         OTP_MODE: 'simulated',
         LLM_PROVIDER: 'gemini',
         GEMINI_API_KEY: 'k',

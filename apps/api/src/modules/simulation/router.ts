@@ -4,7 +4,7 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import type { Database } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
-import { authOf, createRequireAdmin, isAdminUser } from '../identity/index.js';
+import { createRequireAdmin } from '../identity/index.js';
 import type { Realtime } from '../realtime/index.js';
 import { createSimulatedShops, removeSimulatedShops } from './service.js';
 
@@ -25,39 +25,42 @@ interface Deps {
   db: Database;
   logger: Logger;
   realtime: Realtime;
-  adminPhones: readonly string[];
+  adminToken: string;
   /** Queues the catch-up for each new shop (ADR-0038). */
   hooks?: { enqueueShopCatchUp?: ((shopId: string) => Promise<void>) | undefined };
 }
 
+const ADMIN_TICKET_HOLDER = { id: 'admin-token', role: 'admin' } as const;
 const hidden = () => new ApiError(404, 'not_found', 'No such route');
 
 /**
  * Admin-only simulator endpoints. Every refusal is the same 404 as an unknown route, so nobody
- * can tell they exist; with no ADMIN_PHONES nobody can use them at all.
+ * can tell they exist; with no ADMIN_TOKEN they are not mounted at all.
  */
-export function simulationRouter({ db, logger, realtime, adminPhones, hooks }: Deps): Router {
+export function simulationRouter({ db, logger, realtime, adminToken, hooks }: Deps): Router {
   const router = Router();
-  const requireAdmin = createRequireAdmin(db, adminPhones);
+  const requireAdmin = createRequireAdmin(adminToken);
 
   router.post('/admin/sim/shops', requireAdmin, async (req, res) => {
     const input = parse(createBody, req.body);
     const shops = await createSimulatedShops(db, input);
     for (const shop of shops) void hooks?.enqueueShopCatchUp?.(shop.shopId).catch(() => undefined);
-    (req.log ?? logger).info(
-      { adminId: authOf(req).user.id, count: shops.length, seed: input.seed },
-      'simulated shops created',
-    );
+    (req.log ?? logger).info({ count: shops.length, seed: input.seed }, 'simulated shops created');
     res.status(201).json(shops);
   });
 
   router.delete('/admin/sim/shops', requireAdmin, async (req, res) => {
     const removed = await removeSimulatedShops(db);
-    (req.log ?? logger).info(
-      { adminId: authOf(req).user.id, ...removed },
-      'simulated shops removed',
-    );
+    (req.log ?? logger).info(removed, 'simulated shops removed');
     res.json(removed);
+  });
+
+  // The admin has no user, so the stream ticket comes from here, not from /events/ticket.
+  router.post('/admin/sim/ticket', requireAdmin, async (_req, res) => {
+    const ticket = await realtime.issueTicket(ADMIN_TICKET_HOLDER).catch(() => {
+      throw new ApiError(503, 'realtime_unavailable', 'Live updates are off on this server');
+    });
+    res.json({ ticket, expiresInSeconds: realtime.ticketTtlSeconds });
   });
 
   // One stream with ping.created for every simulated shop, so the simulator needs one connection,
@@ -68,7 +71,8 @@ export function simulationRouter({ db, logger, realtime, adminPhones, hooks }: D
       typeof raw === 'string' && raw.length > 0 && raw.length <= 200
         ? await realtime.consumeTicket(raw).catch(() => null)
         : null;
-    if (!holder || !(await isAdminUser(db, holder.userId, adminPhones))) throw hidden();
+    // Only the route above issues this holder: no user can be an admin.
+    if (holder?.userId !== ADMIN_TICKET_HOLDER.id || holder.role !== 'admin') throw hidden();
     realtime.openStream(req, res, { admin: true });
   });
 

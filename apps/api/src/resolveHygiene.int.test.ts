@@ -16,13 +16,12 @@ import {
   seedCatalog,
 } from './modules/catalog/index.js';
 import { DIM, setEmbeddings, vec } from './testing/aiFixtures.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
 const migrationsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../migrations');
 const quiet = pino({ level: 'silent' });
-const ADMIN = '9810000077';
 
 describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
   let testDb: TestDatabase;
@@ -228,7 +227,7 @@ describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
     });
 
     it('DELETE /admin/ai/cache?q= removes one entry, for admins only', async () => {
-      const config = testConfig({ adminPhones: [`+91${ADMIN}`] });
+      const config = testConfig({ adminToken: TEST_ADMIN_TOKEN });
       const app = createApp({ config, logger: quiet, db: pool });
       await pool.query(
         `INSERT INTO query_cache (normalised, item_id, method, catalog_version, expires_at)
@@ -236,7 +235,7 @@ describe('resolution fixes: defaults, nonsense guard, cache hygiene', () => {
                 ('zzgood', $1, 'llm', $2, now() + interval '1 day')`,
         [ids['sugar'], CATALOG_VERSION],
       );
-      const admin = await loginAs(app, 'seeker', ADMIN);
+      const admin = { token: TEST_ADMIN_TOKEN };
       const seeker = await loginAs(app, 'seeker', '9810000078');
 
       expect((await request(app).delete('/admin/ai/cache').query({ q: 'zzbad' })).status).toBe(404);

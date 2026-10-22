@@ -28,7 +28,7 @@ import {
 import type { EventPublisher, RealtimeEvent } from './modules/realtime/index.js';
 import { answerPing } from './modules/requests/index.js';
 import { ApiError } from './http/errors.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { insertShopWithStock, north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
@@ -1524,21 +1524,20 @@ describe('errand answer, cancel and stats over HTTP', () => {
   let other: { token: string };
   let admin: { token: string };
   const enqueued: string[] = [];
-  const ADMIN_PHONE = '9810000077';
 
   beforeAll(async () => {
     testDb = await startPostgres();
     pool = testDb.pool;
     await seedCatalog(pool, loadSeedCatalog());
     app = createApp({
-      config: testConfig({ adminPhones: [`+91${ADMIN_PHONE}`] }),
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
       logger,
       db: pool,
       errandHooks: { enqueue: async (id) => void enqueued.push(id) },
     });
     seeker = await loginAs(app, 'seeker', '9822300301');
     other = await loginAs(app, 'seeker', '9822300302');
-    admin = await loginAs(app, 'seeker', ADMIN_PHONE);
+    admin = { token: TEST_ADMIN_TOKEN };
   }, 300_000);
 
   afterAll(async () => {

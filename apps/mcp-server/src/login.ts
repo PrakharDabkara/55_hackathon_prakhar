@@ -31,7 +31,9 @@ export async function loginWithDemoOtp({
   const inbox = await fetchImpl(`${root}/dev/otp-inbox?phone=${encodeURIComponent(phone)}`);
   const code = inbox.ok ? ((await inbox.json()) as { code?: string }).code : undefined;
   if (!code) {
-    throw new Error('No demo code available: this server may not be in demo OTP mode.');
+    throw new Error(
+      "No demo code available: use a number in the server's DEMO_PHONES, and check the server is in demo OTP mode.",
+    );
   }
 
   const verified = await post('/auth/otp/verify', { phone, code, role: 'seeker' });

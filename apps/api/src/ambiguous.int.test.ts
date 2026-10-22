@@ -6,13 +6,12 @@ import { createApp } from './app.js';
 import { createAi, createFakeProvider } from './modules/ai/index.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import { DIM, setEmbeddings, vec } from './testing/aiFixtures.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
 const logger = pino({ level: 'silent' });
-const ADMIN_PHONE = '9810000777';
 
 describe('asking the customer which item they mean (422 item_ambiguous) and the admin AI stats', () => {
   let testDb: TestDatabase;
@@ -49,10 +48,10 @@ describe('asking the customer which item they mean (422 item_ambiguous) and the 
       limiter: { allow: async () => true },
       client: { backoffMs: 1 },
     });
-    const config = testConfig({ adminPhones: [`+91${ADMIN_PHONE}`] });
+    const config = testConfig({ adminToken: TEST_ADMIN_TOKEN });
     app = createApp({ config, logger, db: pool, ai });
     seeker = await loginAs(app, 'seeker', '9811000001');
-    admin = await loginAs(app, 'seeker', ADMIN_PHONE);
+    admin = { token: TEST_ADMIN_TOKEN };
   }, 300_000);
 
   afterAll(async () => {

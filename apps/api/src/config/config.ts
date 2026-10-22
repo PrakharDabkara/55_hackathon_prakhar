@@ -7,6 +7,9 @@ const blankIsUnset = z
   .optional()
   .transform((v) => (v === undefined || v.trim() === '' ? undefined : v.trim()));
 
+/** Per-IP requests per 10 minutes on the sign-in routes (ADR-0058). */
+export const DEFAULT_OTP_IP_LIMITS = { request: 10, verify: 20, inbox: 30 } as const;
+
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
 const schema = z
@@ -31,9 +34,19 @@ const schema = z
     PING_DEDUPE_MINUTES: z.coerce.number().int().min(1).default(30),
     // Run the request-expiry worker inside the API process.
     WORKERS_ENABLED: bool.default(true),
-    // Phones that become admin on login. Empty (the default) means no admin exists and every
-    // admin endpoint answers 404: fail closed. The simulator needs one; set it by hand on the host.
-    ADMIN_PHONES: z
+    // The secret that opens the admin endpoints (the simulator, AI stats). Unset: there is no admin
+    // and those routes are not mounted (404). At least 32 characters; set it by hand on the host.
+    ADMIN_TOKEN: z
+      .string()
+      .optional()
+      .transform((v) => (v === undefined || v.trim() === '' ? undefined : v.trim()))
+      .pipe(z.string().min(32, 'must be at least 32 characters').optional()),
+    // Retired (ADR-0058): a phone can no longer become admin. Read only so that production can
+    // refuse to start while it is still set.
+    ADMIN_PHONES: blankIsUnset,
+    // The only phones that get a code in the demo inbox, comma-separated. Production needs at least
+    // one. Anyone else can still ask for a code, but nothing can read it.
+    DEMO_PHONES: z
       .string()
       .default('')
       .transform((raw, ctx) => {
@@ -53,6 +66,14 @@ const schema = z
         }
         return phones;
       }),
+    // Tests only: every phone gets a code in the demo inbox. Production refuses any value.
+    OTP_INBOX_OPEN: z.enum(['true', 'false']).optional(),
+    // Requests per IP per 10 minutes. Production refuses a value above the default.
+    OTP_IP_REQUEST_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.request),
+    OTP_IP_VERIFY_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.verify),
+    OTP_IP_INBOX_MAX: z.coerce.number().int().min(1).default(DEFAULT_OTP_IP_LIMITS.inbox),
+    // Proxies in front of the API that set X-Forwarded-For. Render is one hop. 0 trusts no header.
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
     // Which model answers when the dictionary cannot (ADR-0020). Default fake outside production,
     // so nothing leaves the machine by accident; production must choose.
     LLM_PROVIDER: z.enum(['gemini', 'fake']).optional(),
@@ -119,6 +140,43 @@ const schema = z
     RENDER_GIT_COMMIT: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production') {
+      if (env.DEMO_PHONES.length === 0) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['DEMO_PHONES'],
+          message: 'must list at least one demo phone in production',
+        });
+      }
+      if (env.OTP_INBOX_OPEN !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['OTP_INBOX_OPEN'],
+          message: 'is for tests only and is refused in production: unset it',
+        });
+      }
+      if (env.ADMIN_PHONES !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ADMIN_PHONES'],
+          message: 'no longer exists (admin is ADMIN_TOKEN only): unset it',
+        });
+      }
+      const limits = [
+        ['OTP_IP_REQUEST_MAX', env.OTP_IP_REQUEST_MAX, DEFAULT_OTP_IP_LIMITS.request],
+        ['OTP_IP_VERIFY_MAX', env.OTP_IP_VERIFY_MAX, DEFAULT_OTP_IP_LIMITS.verify],
+        ['OTP_IP_INBOX_MAX', env.OTP_IP_INBOX_MAX, DEFAULT_OTP_IP_LIMITS.inbox],
+      ] as const;
+      for (const [name, value, max] of limits) {
+        if (value > max) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [name],
+            message: `cannot be above ${max} in production`,
+          });
+        }
+      }
+    }
     if (env.NODE_ENV === 'production' && env.OTP_MODE === undefined) {
       ctx.addIssue({ code: 'custom', path: ['OTP_MODE'], message: 'must be set in production' });
     }
@@ -174,8 +232,16 @@ export interface Config {
   maxPingsPerRequest: number;
   pingDedupeMinutes: number;
   workersEnabled: boolean;
-  /** E.164 phones that get the admin role on login. Empty: no admin. */
-  adminPhones: string[];
+  /** Opens the admin endpoints (Authorization: Bearer). Null: there is no admin (ADR-0058). */
+  adminToken: string | null;
+  /** E.164 phones that get a code in the demo inbox. */
+  demoPhones: string[];
+  /** Tests only: every phone gets a code in the demo inbox. Never true in production. */
+  otpInboxOpen: boolean;
+  /** Most requests one IP may make in 10 minutes to request, verify and the demo inbox. */
+  otpIpLimits: { request: number; verify: number; inbox: number };
+  /** Proxy hops whose X-Forwarded-For is believed (`trust proxy`). */
+  trustProxyHops: number;
   llmProvider: 'gemini' | 'fake';
   /** A file of scripted turns for the fake provider (end-to-end runs only). */
   fakeLlmScenario: string | null;
@@ -261,7 +327,15 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     maxPingsPerRequest: e.MAX_PINGS_PER_REQUEST,
     pingDedupeMinutes: e.PING_DEDUPE_MINUTES,
     workersEnabled: e.WORKERS_ENABLED,
-    adminPhones: e.ADMIN_PHONES,
+    adminToken: e.ADMIN_TOKEN ?? null,
+    demoPhones: e.DEMO_PHONES,
+    otpInboxOpen: e.OTP_INBOX_OPEN === 'true',
+    otpIpLimits: {
+      request: e.OTP_IP_REQUEST_MAX,
+      verify: e.OTP_IP_VERIFY_MAX,
+      inbox: e.OTP_IP_INBOX_MAX,
+    },
+    trustProxyHops: e.TRUST_PROXY_HOPS,
     llmProvider: e.LLM_PROVIDER ?? 'fake',
     fakeLlmScenario: e.FAKE_LLM_SCENARIO ?? null,
     geminiApiKey: e.GEMINI_API_KEY ?? null,

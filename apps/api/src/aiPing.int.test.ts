@@ -4,12 +4,11 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { createAi, createFakeProvider, ProviderError } from './modules/ai/index.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 
 const logger = pino({ level: 'silent' });
-const ADMIN_PHONE = '9810000002';
 
 describe('GET /admin/ai/ping', () => {
   let testDb: TestDatabase;
@@ -33,13 +32,13 @@ describe('GET /admin/ai/ping', () => {
       client: { timeoutMs: 200 },
     });
     app = createApp({
-      config: testConfig({ adminPhones: [`+91${ADMIN_PHONE}`] }),
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
       logger,
       db: pool,
       ai,
     });
-    closed = createApp({ config: testConfig({ adminPhones: [] }), logger, db: pool, ai });
-    admin = await loginAs(app, 'seeker', ADMIN_PHONE);
+    closed = createApp({ config: testConfig({ adminToken: null }), logger, db: pool, ai });
+    admin = { token: TEST_ADMIN_TOKEN };
     seeker = await loginAs(app, 'seeker', '9810000003');
   }, 300_000);
 
@@ -104,7 +103,7 @@ describe('GET /admin/ai/ping', () => {
 
   it('answers 503 when no AI is configured', async () => {
     const noAi = createApp({
-      config: testConfig({ adminPhones: [`+91${ADMIN_PHONE}`] }),
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
       logger,
       db: pool,
     });

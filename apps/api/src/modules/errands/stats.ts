@@ -76,13 +76,13 @@ export async function errandStats(
 /** `GET /admin/errands/stats?hours=24`. Admin only; 404 for everyone else (as the other admin routes). */
 export function errandsAdminRouter({
   db,
-  adminPhones,
+  adminToken,
 }: {
   db: Queryable;
-  adminPhones: readonly string[];
+  adminToken: string;
 }): Router {
   const router = Router();
-  router.get('/admin/errands/stats', createRequireAdmin(db, adminPhones), async (req, res) => {
+  router.get('/admin/errands/stats', createRequireAdmin(adminToken), async (req, res) => {
     const asked = Number(req.query['hours']);
     const hours = Number.isInteger(asked) && asked >= 1 && asked <= 24 * 90 ? asked : 24;
     res.json(await errandStats(db, { hours }));

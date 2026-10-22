@@ -1,9 +1,14 @@
+import { randomBytes } from 'node:crypto';
 import { defineConfig } from '@playwright/test';
 
 /** E2E_PORT lets CI use a port of its own, so it never meets a developer's own server. */
 export const PORT = Number(process.env['E2E_PORT'] ?? 3100);
-/** The admin that the background shops are made by. Not a real account. */
-export const ADMIN_PHONE = '9810000999';
+/**
+ * The admin token of this run, thrown away afterwards. Playwright loads this file again in every
+ * worker, so the first load stores it in the environment, which the workers inherit.
+ */
+process.env['E2E_ADMIN_TOKEN'] ??= randomBytes(32).toString('hex');
+export const ADMIN_TOKEN = process.env['E2E_ADMIN_TOKEN'];
 const baseURL = `http://localhost:${PORT}`;
 
 // The whole stack runs for real: Postgres and Redis (npm run db:up, or CI service containers),
@@ -34,7 +39,14 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       PORT: String(PORT),
-      ADMIN_PHONES: ADMIN_PHONE,
+      ADMIN_TOKEN,
+      // Tests log in with a new random phone each time and read its code from the demo inbox, which
+      // production never opens (ADR-0058). One machine does all the logins, so the per-IP limits
+      // are lifted too.
+      OTP_INBOX_OPEN: 'true',
+      OTP_IP_REQUEST_MAX: '100000',
+      OTP_IP_VERIFY_MAX: '100000',
+      OTP_IP_INBOX_MAX: '100000',
       LOG_LEVEL: 'warn',
       WORKERS_ENABLED: 'true',
       // "Le liya?" asks at once in tests; in life it waits 15 minutes (ADR-0035).

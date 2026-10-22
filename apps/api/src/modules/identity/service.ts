@@ -106,21 +106,16 @@ export async function verifyOtp(
   phone: string,
   code: string,
   role: Extract<Role, 'seeker' | 'shop'>,
-  adminPhones: readonly string[] = [],
 ): Promise<LoginResult | null> {
   if (!(await consumeOtp(db, phone, code))) return null;
 
-  // First login creates the user with the requested role; later logins keep the stored role.
-  // A phone on the ADMIN_PHONES list is admin whatever it asked for, including an existing user
-  // whose phone was added to the list later.
-  const isAdmin = adminPhones.includes(phone);
+  // First login creates the user with the requested role; later logins keep the stored role. A
+  // phone login never makes an admin: admin is the ADMIN_TOKEN, not a user (ADR-0058).
   const { rows } = await db.query<User>(
     `INSERT INTO users (phone, role) VALUES ($1, $2)
-     ON CONFLICT (phone) DO UPDATE SET
-       phone = EXCLUDED.phone,
-       role = CASE WHEN $3::boolean THEN 'admin' ELSE users.role END
+     ON CONFLICT (phone) DO UPDATE SET phone = EXCLUDED.phone
      RETURNING id, phone, role`,
-    [phone, isAdmin ? 'admin' : role, isAdmin],
+    [phone, role],
   );
   const user = rows[0] as User;
 
@@ -151,21 +146,6 @@ export async function revokeSession(db: Queryable, sessionId: string): Promise<v
   await db.query(`UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL`, [
     sessionId,
   ]);
-}
-
-/** Whether this user is an admin right now: stored role and a phone still on the list. */
-export async function isAdminUser(
-  db: Queryable,
-  userId: string,
-  adminPhones: readonly string[],
-): Promise<boolean> {
-  if (adminPhones.length === 0) return false;
-  const { rows } = await db.query<{ phone: string; role: Role }>(
-    `SELECT phone, role FROM users WHERE id = $1`,
-    [userId],
-  );
-  const user = rows[0];
-  return !!user && user.role === 'admin' && adminPhones.includes(user.phone);
 }
 
 export interface NewUserSession {

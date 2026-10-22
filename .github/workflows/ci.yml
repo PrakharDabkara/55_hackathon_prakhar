@@ -93,7 +93,7 @@ jobs:
       - name: Install Chromium
         if: runner.environment == 'self-hosted'
         run: npx playwright install chromium
-      # Builds the web app, starts the API with ADMIN_PHONES set, starts five simulated grocery
+      # Builds the web app, starts the API with a throwaway ADMIN_TOKEN and OTP_INBOX_OPEN (tests only), starts five simulated grocery
       # shops that answer pings, and drives Chromium (see e2e/).
       - run: npm run test:e2e
       - name: Upload screenshot and report

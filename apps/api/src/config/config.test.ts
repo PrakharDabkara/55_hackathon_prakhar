@@ -24,7 +24,9 @@ describe('loadConfig', () => {
       maxPingsPerRequest: 10,
       pingDedupeMinutes: 30,
       workersEnabled: true,
-      adminPhones: [],
+      adminToken: null,
+      demoPhones: [],
+      otpInboxOpen: false,
       errandMaxItems: 10,
       errandFewerStopsMaxExtraPaise: 3000,
       fakeLlmScenario: null,
@@ -102,7 +104,12 @@ describe('loadConfig', () => {
     });
 
     it('must be set explicitly in production (fails closed)', () => {
-      const prod = { ...valid, NODE_ENV: 'production', OTP_MODE: 'simulated' };
+      const prod = {
+        ...valid,
+        NODE_ENV: 'production',
+        OTP_MODE: 'simulated',
+        DEMO_PHONES: '9000000001',
+      };
       expect(() => loadConfig(prod)).toThrowError(/LLM_PROVIDER/);
       expect(() => loadConfig({ ...prod, LLM_PROVIDER: 'fake' })).toThrowError(/fake.*production/i);
       expect(loadConfig({ ...prod, LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).llmProvider).toBe(
@@ -168,31 +175,132 @@ describe('loadConfig', () => {
     });
   });
 
-  describe('ADMIN_PHONES', () => {
-    it('is empty by default, so there is no admin (fails closed)', () => {
-      expect(loadConfig(valid).adminPhones).toEqual([]);
-      expect(loadConfig({ ...valid, ADMIN_PHONES: '' }).adminPhones).toEqual([]);
-      expect(loadConfig({ ...valid, ADMIN_PHONES: ' , ,' }).adminPhones).toEqual([]);
+  describe('ADMIN_TOKEN', () => {
+    const token = 'a'.repeat(32);
+
+    it('is unset by default, so there is no admin (fails closed)', () => {
+      expect(loadConfig(valid).adminToken).toBeNull();
+      expect(loadConfig({ ...valid, ADMIN_TOKEN: '' }).adminToken).toBeNull();
+    });
+
+    it('is kept as given when it has at least 32 characters', () => {
+      expect(loadConfig({ ...valid, ADMIN_TOKEN: token }).adminToken).toBe(token);
+    });
+
+    it('fails fast when shorter than 32, naming the variable and never its value', () => {
+      let message = '';
+      try {
+        loadConfig({ ...valid, ADMIN_TOKEN: 'short-secret-31-chars-xxxxxxxxx' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/ADMIN_TOKEN/);
+      expect(message).not.toContain('short-secret');
+    });
+  });
+
+  describe('DEMO_PHONES', () => {
+    it('is empty by default', () => {
+      expect(loadConfig(valid).demoPhones).toEqual([]);
+      expect(loadConfig({ ...valid, DEMO_PHONES: ' , ,' }).demoPhones).toEqual([]);
     });
 
     it('reads a comma-separated list and normalises each phone', () => {
       const config = loadConfig({
         ...valid,
-        ADMIN_PHONES: '9876543210, +91 98765 43211 ,09876543212',
+        DEMO_PHONES: '9000000001, +91 90000 00002 ,09000000003',
       });
-      expect(config.adminPhones).toEqual(['+919876543210', '+919876543211', '+919876543212']);
+      expect(config.demoPhones).toEqual(['+919000000001', '+919000000002', '+919000000003']);
     });
 
     it('fails fast on a bad phone, naming the variable and never its value', () => {
       let message = '';
       try {
-        loadConfig({ ...valid, ADMIN_PHONES: '9876543210,12345' });
+        loadConfig({ ...valid, DEMO_PHONES: '9000000001,12345' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/DEMO_PHONES/);
+      expect(message).not.toContain('12345');
+      expect(message).not.toContain('9000000001');
+    });
+  });
+
+  describe('OTP_INBOX_OPEN and the sign-in limits', () => {
+    it('is closed by default and can be opened outside production', () => {
+      expect(loadConfig(valid).otpInboxOpen).toBe(false);
+      expect(loadConfig({ ...valid, OTP_INBOX_OPEN: 'true' }).otpInboxOpen).toBe(true);
+      expect(loadConfig({ ...valid, NODE_ENV: 'test', OTP_INBOX_OPEN: 'true' }).otpInboxOpen).toBe(
+        true,
+      );
+    });
+
+    it('defaults to 10, 20 and 30 requests per IP per 10 minutes', () => {
+      expect(loadConfig(valid).otpIpLimits).toEqual({ request: 10, verify: 20, inbox: 30 });
+    });
+
+    it('trusts exactly one proxy hop by default', () => {
+      expect(loadConfig(valid).trustProxyHops).toBe(1);
+      expect(loadConfig({ ...valid, TRUST_PROXY_HOPS: '2' }).trustProxyHops).toBe(2);
+      expect(() => loadConfig({ ...valid, TRUST_PROXY_HOPS: '-1' })).toThrowError(
+        /TRUST_PROXY_HOPS/,
+      );
+    });
+  });
+
+  describe('production fails closed on the sign-in settings (ADR-0058)', () => {
+    const prod = {
+      ...valid,
+      NODE_ENV: 'production',
+      DEMO_PHONES: '9000000001',
+      OTP_MODE: 'simulated',
+      LLM_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'k',
+    };
+
+    it('accepts a production config with a demo phone', () => {
+      expect(loadConfig(prod).demoPhones).toEqual(['+919000000001']);
+    });
+
+    it('refuses an empty DEMO_PHONES', () => {
+      expect(() => loadConfig({ ...prod, DEMO_PHONES: '' })).toThrowError(/DEMO_PHONES/);
+      expect(() => loadConfig({ ...prod, DEMO_PHONES: undefined })).toThrowError(/DEMO_PHONES/);
+    });
+
+    it('refuses OTP_INBOX_OPEN, whatever its value', () => {
+      expect(() => loadConfig({ ...prod, OTP_INBOX_OPEN: 'true' })).toThrowError(/OTP_INBOX_OPEN/);
+      expect(() => loadConfig({ ...prod, OTP_INBOX_OPEN: 'false' })).toThrowError(/OTP_INBOX_OPEN/);
+    });
+
+    it('refuses ADMIN_PHONES, which no longer exists', () => {
+      let message = '';
+      try {
+        loadConfig({ ...prod, ADMIN_PHONES: '9000000002' });
       } catch (error) {
         message = (error as Error).message;
       }
       expect(message).toMatch(/ADMIN_PHONES/);
-      expect(message).not.toContain('12345');
-      expect(message).not.toContain('9876543210');
+      expect(message).not.toContain('9000000002');
+      // A blank value is the same as not set.
+      expect(loadConfig({ ...prod, ADMIN_PHONES: '' }).demoPhones).toHaveLength(1);
+    });
+
+    it('refuses sign-in limits looser than the defaults, and accepts tighter ones', () => {
+      expect(() => loadConfig({ ...prod, OTP_IP_REQUEST_MAX: '11' })).toThrowError(
+        /OTP_IP_REQUEST_MAX/,
+      );
+      expect(() => loadConfig({ ...prod, OTP_IP_VERIFY_MAX: '21' })).toThrowError(
+        /OTP_IP_VERIFY_MAX/,
+      );
+      expect(() => loadConfig({ ...prod, OTP_IP_INBOX_MAX: '31' })).toThrowError(
+        /OTP_IP_INBOX_MAX/,
+      );
+      expect(loadConfig({ ...prod, OTP_IP_REQUEST_MAX: '5' }).otpIpLimits.request).toBe(5);
+    });
+
+    it('allows the looser limits and the open inbox outside production (tests)', () => {
+      const config = loadConfig({ ...valid, OTP_IP_REQUEST_MAX: '10000', OTP_INBOX_OPEN: 'true' });
+      expect(config.otpIpLimits.request).toBe(10000);
     });
   });
 
@@ -206,6 +314,7 @@ describe('loadConfig', () => {
       loadConfig({
         ...valid,
         NODE_ENV: 'production',
+        DEMO_PHONES: '9000000001',
         OTP_MODE: 'simulated',
         LLM_PROVIDER: 'gemini',
         GEMINI_API_KEY: 'k',
@@ -335,6 +444,7 @@ describe('production never runs the fake model (Day 14c)', () => {
   const prod = {
     ...valid,
     NODE_ENV: 'production',
+    DEMO_PHONES: '9000000001',
     OTP_MODE: 'simulated',
     GEMINI_API_KEY: 'k',
   };
@@ -445,6 +555,7 @@ describe('a model for the errand agent (Day 14c)', () => {
       loadConfig({
         ...valid,
         NODE_ENV: 'production',
+        DEMO_PHONES: '9000000001',
         OTP_MODE: 'simulated',
         LLM_PROVIDER: 'gemini',
         GEMINI_API_KEY: 'k',

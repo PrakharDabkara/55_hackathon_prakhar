@@ -1,5 +1,8 @@
 import type { Config } from '../config/config.js';
 
+/** The admin token the tests that need an admin give to `testConfig({ adminToken })`. */
+export const TEST_ADMIN_TOKEN = 'test-admin-token-'.padEnd(48, 'x');
+
 /** A complete Config for tests; override what a test cares about. */
 export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   nodeEnv: 'test',
@@ -14,7 +17,11 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   maxPingsPerRequest: 10,
   pingDedupeMinutes: 30,
   workersEnabled: false,
-  adminPhones: [],
+  adminToken: null,
+  demoPhones: [],
+  otpInboxOpen: true,
+  trustProxyHops: 1,
+  otpIpLimits: { request: 100_000, verify: 100_000, inbox: 100_000 },
   llmProvider: 'fake',
   fakeLlmScenario: null,
   geminiApiKey: null,

@@ -13,7 +13,7 @@ import {
   type RequestHooks,
   type RequestsContext,
 } from './modules/requests/index.js';
-import { testConfig } from './testing/config.js';
+import { testConfig, TEST_ADMIN_TOKEN } from './testing/config.js';
 import { north, ORIGIN } from './testing/fixtures.js';
 import { loginAs } from './testing/login.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
@@ -249,13 +249,13 @@ describe('catch-up pings for a shop that opens late', () => {
   it('shops the simulator creates are caught up too', async () => {
     const queued: string[] = [];
     const adminApp = createApp({
-      config: testConfig({ adminPhones: ['+919810000555'] }),
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
       logger: quiet,
       db: pool,
       realtime,
       requestHooks: { enqueueShopCatchUp: async (id) => void queued.push(id) },
     });
-    const admin = await loginAs(adminApp, 'seeker', '9810000555');
+    const admin = { token: TEST_ADMIN_TOKEN };
     const res = await request(adminApp)
       .post('/admin/sim/shops')
       .set(auth(admin))

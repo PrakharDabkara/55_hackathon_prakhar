@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
-import { ADMIN_PHONE, PORT } from './playwright.config.ts';
+import { ADMIN_TOKEN, PORT } from './playwright.config.ts';
 
 /** Starts the five background shops (after the API is up) and stops them when the tests end. */
 export default async function globalSetup(): Promise<() => Promise<void>> {
@@ -9,7 +9,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     env: {
       ...process.env,
       E2E_TARGET: `http://localhost:${PORT}`,
-      E2E_ADMIN_PHONE: ADMIN_PHONE,
+      ADMIN_TOKEN,
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });

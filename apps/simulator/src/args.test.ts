@@ -1,28 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { parseCli } from './args.ts';
 
-const ok = (argv: string[]) => {
-  const r = parseCli(argv);
+const TOKEN = 'cli-test-admin-token-'.padEnd(40, 'x');
+const ok = (argv: string[], env: Record<string, string | undefined> = { ADMIN_TOKEN: TOKEN }) => {
+  const r = parseCli(argv, env);
   if ('error' in r) throw new Error(r.error);
   return r;
 };
-const base = ['--target', 'https://km.example.com', '--admin-phone', '9876543210'];
+const base = ['--target', 'https://km.example.com'];
 
 describe('parseCli', () => {
-  it('needs --target and --admin-phone', () => {
-    expect(parseCli([])).toHaveProperty('error');
-    expect(parseCli(['--target', 'https://x.test'])).toMatchObject({
-      error: expect.stringMatching(/admin-phone/),
-    });
-    expect(parseCli(['--admin-phone', '9876543210'])).toMatchObject({
+  it('needs --target and ADMIN_TOKEN in the environment', () => {
+    expect(parseCli([], { ADMIN_TOKEN: TOKEN })).toMatchObject({
       error: expect.stringMatching(/target/),
     });
+    for (const env of [{}, { ADMIN_TOKEN: '' }, { ADMIN_TOKEN: '   ' }]) {
+      expect(parseCli(base, env)).toMatchObject({ error: expect.stringMatching(/ADMIN_TOKEN/) });
+    }
+  });
+
+  it('has no --admin-phone and no --admin-token: a secret does not belong on a command line', () => {
+    expect(
+      parseCli([...base, '--admin-phone', '9000000001'], { ADMIN_TOKEN: TOKEN }),
+    ).toHaveProperty('error');
+    const withFlag = parseCli([...base, '--admin-token', TOKEN], { ADMIN_TOKEN: TOKEN });
+    expect(withFlag).toHaveProperty('error');
+    expect(JSON.stringify(withFlag)).not.toContain(TOKEN);
   });
 
   it('reads the options and applies defaults', () => {
     expect(ok(base)).toMatchObject({
       target: 'https://km.example.com',
-      adminPhone: '9876543210',
+      adminToken: TOKEN,
       count: 100,
       speed: 1,
       seed: 1,
@@ -55,9 +64,7 @@ describe('parseCli', () => {
   });
 
   it('drops a trailing slash from the target', () => {
-    expect(ok(['--target', 'http://localhost:3000/', '--admin-phone', '9876543210']).target).toBe(
-      'http://localhost:3000',
-    );
+    expect(ok(['--target', 'http://localhost:3000/']).target).toBe('http://localhost:3000');
   });
 
   it.each([
