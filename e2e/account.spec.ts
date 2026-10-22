@@ -108,7 +108,7 @@ test('log out returns to Home, and Account then asks for a login', async ({ page
   await openAccount(page);
   const token = await page.evaluate(() => localStorage.getItem('km-seeker-token'));
   expect(token).toBeTruthy();
-  await page.getByRole('button', { name: 'Log out' }).click();
+  await page.getByRole('button', { name: 'Log out', exact: true }).click();
   await expect(page).toHaveURL(/\/app\/?$/);
   expect(await page.evaluate(() => localStorage.getItem('km-seeker-token'))).toBeNull();
   // The old token no longer works on the server.
@@ -116,6 +116,50 @@ test('log out returns to Home, and Account then asks for a login', async ({ page
   expect(res.status()).toBe(401);
   await page.goto('/app/account');
   await expect(page.getByRole('dialog', { name: /Log in/ })).toBeVisible();
+});
+
+// ADR-0060: one tap ends every login of the account and closes the live stream that was open.
+test('log out on all devices asks first, ends the login and closes the open event stream', async ({
+  page,
+}) => {
+  await login(page, '/app/');
+  await openAccount(page);
+  const token = await page.evaluate(() => localStorage.getItem('km-seeker-token'));
+  expect(token).toBeTruthy();
+  // An event stream the way the app opens one: a one-time ticket, then GET /events.
+  await page.evaluate(async (bearer) => {
+    const w = window as unknown as { streamEnded?: boolean };
+    const res = await fetch('/events/ticket', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${bearer}` },
+    });
+    const { ticket } = (await res.json()) as { ticket: string };
+    const stream = await fetch(`/events?ticket=${encodeURIComponent(ticket)}`);
+    void (async () => {
+      const reader = (stream.body as ReadableStream<Uint8Array>).getReader();
+      while (!(await reader.read()).done);
+      w.streamEnded = true;
+    })();
+  }, token);
+
+  await page.getByRole('button', { name: 'Log out on all devices' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Log out on all devices?' });
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await expect(sheet).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem('km-seeker-token'))).toBe(token);
+
+  await page.getByRole('button', { name: 'Log out on all devices' }).click();
+  await page
+    .getByRole('dialog', { name: 'Log out on all devices?' })
+    .getByRole('button', { name: 'Log out everywhere' })
+    .click();
+  await expect(page).toHaveURL(/\/app\/?$/);
+  expect(await page.evaluate(() => localStorage.getItem('km-seeker-token'))).toBeNull();
+  const res = await page.request.get('/orders', { headers: { Authorization: `Bearer ${token}` } });
+  expect(res.status()).toBe(401);
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { streamEnded?: boolean }).streamEnded))
+    .toBe(true);
 });
 
 test('delete my account: refused with an open order, then it erases and logs out', async ({
