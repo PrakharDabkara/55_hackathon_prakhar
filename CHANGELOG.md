@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security (PR SEC3: privacy and the supply chain, ADR-0060)
+
+- A privacy guard in the Gemini adapter (the only place the model is called) blocks any prompt, tool result or embedding text with a phone number, an email, a latitude/longitude pair or a contact/address key, before the request leaves. It logs the reason, never the text, and never counts toward the circuit breaker. Tests: resolve, resolveList, the item check and the errand agent pass with realistic input; a planted phone is blocked in each.
+- Shop names reach the errand agent as quoted data (`<<<SHOP ... SHOP>>>`, marks removed, phones and emails replaced, 60 characters); the system prompt says never to obey them. Three new agent dev eval cases (d24 to d26) put an instruction in every shop's name. The agent dev eval is still to run (see the PR).
+- `POST /account/logout-all` ends every session, forgets every device's alerts and closes the user's open event streams on every API instance; a stream ticket is refused without a live session. "Log out on all devices" in the customer Account and in Shop settings, each with a confirm sheet.
+- Logs: one `createLogger` with a redaction list (phone, token, code, address, note, search text, coordinates) and an error serializer that drops database detail; the masked phone is logged as `phoneMasked`. A test runs two logins and an order and checks the output.
+- Uploads: new tests that the served bytes carry no GPS and that WebP and PNG EXIF is stripped. Photos stay visible to the people in the loop, not the owner only (ADR-0030).
+- Supply chain: `npm audit --omit=dev` found 0 vulnerabilities; gitleaks over all history found 7 hits, all a public sample push key in test fixtures (no rotation); every GitHub Action in `ci.yml` and `evals.yml` is pinned to a commit SHA, with a test.
+- New `SECURITY.md` (how to report, what we keep, demo-mode limits).
+
 ### Security (PR SEC2: API hardening, ADR-0059)
 
 - Rate limits per user and per IP on the dear routes, `429` with `Retry-After`: `/search` and `/items/resolve` 30/min per user and 60/min per IP, `/lists/sort` 10/min, `/route/plan` 20/min, `POST /requests` and `POST /photos` 20/hour per user; plus 300/min per IP on every API route (`/health` and the web app are exempt). Counted in Redis with the in-process fallback, never fail open. A user's limit survives a new login.
