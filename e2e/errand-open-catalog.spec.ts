@@ -39,15 +39,27 @@ test('a school-project errand: checklist with extras, a new item, stationery sho
   await page.screenshot({ path: 'e2e/artifacts/school-project-checklist.png', fullPage: true });
   await page.getByRole('button', { name: /Ask shops for these \d+/ }).click();
 
-  // The new item is created and asked of the shops; the timeline says so in plain words.
-  await expect(page.getByText('Understood: 5 items')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('New item: asking shops')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(new RegExp(`Asking \\d+ shops?: ${KIT}`))).toBeVisible({
+  // The new item is created and asked of the shops; the timeline says so in plain words. The
+  // simulated shops answer within seconds, so a step can be replaced by the plan before it is seen:
+  // each step is "this line, or the plan already here", never a line that must be caught in time.
+  const planReady = page.getByText('Plan ready', { exact: true });
+  await expect(page.getByText('Understood: 5 items').or(planReady).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText('New item: asking shops').or(planReady).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page
+      .getByText(new RegExp(`Asking \\d+ shops?: ${KIT}`))
+      .or(planReady)
+      .first(),
+  ).toBeVisible({
     timeout: 30_000,
   });
 
   // The plan, whatever the shops said about the new item.
-  await expect(page.getByText('Plan ready', { exact: true })).toBeVisible({ timeout: 90_000 });
+  await expect(planReady).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(KIT, { exact: false }).first()).toBeVisible();
   // Nothing is blocked here, so no refusal wording and no dead end.
   await expect(page.getByText('We cannot send this item to shops')).toHaveCount(0);

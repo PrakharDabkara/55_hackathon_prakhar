@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (PR Q1: flaky tests)
 
-- e2e: the seeker spec no longer depends on earlier specs. Specs that ask at the demo place now forget the learned stock and Redis ping claims they leave behind (`forgetDemoStock` in `e2e/db.ts`), and the seeker waits for the page's own "All shops have replied" instead of a long timeout.
+- e2e: the seeker spec no longer depends on earlier specs. Specs that ask at the demo place now forget the learned stock and Redis ping claims they leave behind (`forgetDemoStock` in `e2e/db.ts`), and the seeker waits for the page's own "All shops have replied" instead of a long timeout. The school-project errand spec no longer waits for timeline lines that the plan can replace before they are seen (failed 2 in 12 alone).
 
 ### Added (PR T: landing page, ADR-0056)
 
