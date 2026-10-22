@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { screenProblems } from './a11y.js';
 import { expect, test, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { customerApi, listView, orderAll, sendList, stopList, type Customer } from './listApi.js';
 import {
@@ -46,12 +46,7 @@ async function tick(prices: Record<string, string>) {
 }
 
 async function nothingBlocking(page: Page, label: string) {
-  const scan = await new AxeBuilder({ page }).analyze();
-  const bad = scan.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-  expect(
-    bad.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
-    label,
-  ).toEqual([]);
+  expect.soft(await screenProblems(page), label).toEqual([]);
 }
 
 /** U2_SHOTS_DIR set: the same screenshots at 390 px wide, written there (for the PR). */

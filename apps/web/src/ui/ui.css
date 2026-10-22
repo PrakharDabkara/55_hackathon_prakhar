@@ -24,6 +24,31 @@ body,
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+/* Paper, the dark order card and the map's controls (they sit on light tiles) keep their look in
+   both themes, so their focus colour does too. The map itself is ringed against the page. Children read --focus from the nearest of these. */
+.km-app .sh-parchi,
+.km-app .cu-parchi,
+.km-app .cu-leditor__paper,
+.km-app .sh-list,
+.km-app .sh-pack,
+.km-app .leaflet-control-container {
+  --focus: var(--focus-on-paper);
+}
+/* Map controls have a light face of their own and sit on tiles that may not have loaded (a dark
+   map), so their ring is drawn inside, on the face. */
+.km-app .leaflet-control-container :focus-visible {
+  outline-offset: -2px;
+}
+.km-app .leaflet-control-attribution {
+  background: var(--paper);
+  color: var(--paper-ink);
+}
+.km-app .leaflet-control-attribution a {
+  color: var(--paper-ink);
+}
+.km-app .cu-order-status {
+  --focus: var(--focus-on-dark);
+}
 .km-app p,
 .km-app h1,
 .km-app h2,
@@ -570,7 +595,9 @@ body,
 }
 .sh-segmented button {
   flex: 1;
+  min-width: 44px;
   min-height: 44px;
+  padding: 0 var(--space-3);
   border: 0;
   border-radius: var(--r-sm);
   background: transparent;

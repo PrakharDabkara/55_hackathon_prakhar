@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { screenProblems } from './a11y.js';
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import {
   ask,
@@ -71,14 +71,7 @@ async function look(page: Page, name: string) {
       await page.waitForTimeout(250);
       if (SCREENS)
         await page.screenshot({ path: `e2e/screens/customer/${name}-${size.name}-${theme}.png` });
-      const scan = await new AxeBuilder({ page }).analyze();
-      const bad = scan.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-      expect(
-        bad.map(
-          (v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
-        ),
-        `${name} at ${size.name} in ${theme}`,
-      ).toEqual([]);
+      expect.soft(await screenProblems(page), `${name} at ${size.name} in ${theme}`).toEqual([]);
     }
   }
   await page.setViewportSize(VIEWPORT);

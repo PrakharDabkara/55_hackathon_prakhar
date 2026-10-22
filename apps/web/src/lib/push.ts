@@ -107,7 +107,12 @@ const SW_SCOPE = '/app/';
 /** Registers the service worker; harmless to call twice, and not a permission prompt. */
 export function registerServiceWorker(): void {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE }).catch(() => undefined);
+  const register = () =>
+    void navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE }).catch(() => undefined);
+  // The worker downloads the app shell when it installs (ADR-0057): after the page has loaded, so
+  // that download never competes with the page on a slow connection.
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }
 
 function toBody(sub: PushSubscription): PushSubscriptionBody {

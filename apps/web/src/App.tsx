@@ -61,6 +61,24 @@ export function App({ api, session, live, pushClient }: Props) {
     // Only on first load; logging in calls loadShop itself.
   }, []);
 
+  // A phone that opened the app without a network (the service worker keeps the shell, ADR-0057)
+  // says so on the error screen, and tries again by itself when the connection returns.
+  const [offline, setOffline] = useState(() => navigator.onLine === false);
+  const failed = phase.name === 'failed';
+  useEffect(() => {
+    const down = () => setOffline(true);
+    const up = () => {
+      setOffline(false);
+      if (failed) void loadShop();
+    };
+    window.addEventListener('offline', down);
+    window.addEventListener('online', up);
+    return () => {
+      window.removeEventListener('offline', down);
+      window.removeEventListener('online', up);
+    };
+  }, [failed, loadShop]);
+
   useEffect(() => {
     window.addEventListener(UNAUTHORIZED_EVENT, logout);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, logout);
@@ -114,6 +132,11 @@ export function App({ api, session, live, pushClient }: Props) {
               )}
               {phase.name === 'failed' && (
                 <div className="sh-center">
+                  {offline && (
+                    <p className="sh-banner sh-banner--warn" role="status">
+                      {t.shop.offline}
+                    </p>
+                  )}
                   <p className="sh-alert" role="alert">
                     {t.shop.loadFailed}
                   </p>

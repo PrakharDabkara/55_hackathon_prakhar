@@ -286,12 +286,6 @@ div.sh-parchi__ruled {
   padding: var(--space-8) 0;
   text-align: center;
 }
-/* Everything interactive on paper is drawn in paper ink: the page's focus colour is too light on it in the dark theme. */
-.km-app .sh-list :focus-visible,
-.km-app .sh-pack :focus-visible {
-  outline: 2px solid var(--paper-ink);
-  outline-offset: 2px;
-}
 .sh-lrows {
   display: flex;
   flex-direction: column;
@@ -402,7 +396,7 @@ div.sh-parchi__ruled {
 }
 .sh-amount__input {
   width: 72px;
-  min-height: 40px;
+  min-height: var(--tap);
   padding: 0 var(--space-1);
   border: 0;
   background: transparent;
@@ -418,7 +412,7 @@ div.sh-parchi__ruled {
   outline: none; /* the whole amount draws the focus ring (below) */
 }
 .sh-amount:focus-within {
-  outline: 2px solid var(--paper-ink);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 .sh-ldivider {

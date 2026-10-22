@@ -88,6 +88,29 @@ describe('App: getting in', () => {
     expect(await screen.findByText('No requests right now')).toBeTruthy();
   });
 
+  it('says it is offline on the error screen, and loads again when the connection returns', async () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      const getMyShop = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue(shop());
+      app(fakeApi({ getMyShop }));
+      expect(
+        await screen.findByText("Couldn't load. Check your connection and try again."),
+      ).toBeTruthy();
+      expect(screen.getByText("You're offline. Reconnect to answer.")).toBeTruthy();
+      onLine.mockReturnValue(true);
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+      expect(await screen.findByText('No requests right now')).toBeTruthy();
+      expect(getMyShop).toHaveBeenCalledTimes(2);
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+
   it('shows skeletons while the shop loads', () => {
     app(fakeApi({ getMyShop: vi.fn(() => new Promise<never>(() => undefined)) }));
     expect(screen.getByText('Loading')).toBeTruthy();
