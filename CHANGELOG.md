@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Supply chain: `npm audit --omit=dev` found 0 vulnerabilities; gitleaks over all history found 7 hits, all a public sample push key in test fixtures (no rotation); every GitHub Action in `ci.yml` and `evals.yml` is pinned to a commit SHA, with a test.
 - New `SECURITY.md` (how to report, what we keep, demo-mode limits).
 
+### Added (PR A1: Claude Code hooks, ADR-0061)
+
+- `.claude/settings.json` and `.claude/hooks/*.mjs` (plain Node): `guard-secrets` blocks `.env` (not `.env.example`) and holdout paths; `guard-git` blocks pushes to main, `--no-verify` and commits on main; `format` runs Prettier on edited files; `notify` sends a desktop notification on Notification and Stop; `session-status` prints branch, open PRs and runner state at session start. `permissions.deny` repeats the secrets and git rules as a second layer.
+- `.claude/hooks/hooks.test.ts` pipes hook JSON into each script. `docs/ai-tooling.md` gives each hook's purpose, incident and limits.
+
 ### Security (PR SEC2: API hardening, ADR-0059)
 
 - Rate limits per user and per IP on the dear routes, `429` with `Retry-After`: `/search` and `/items/resolve` 30/min per user and 60/min per IP, `/lists/sort` 10/min, `/route/plan` 20/min, `POST /requests` and `POST /photos` 20/hour per user; plus 300/min per IP on every API route (`/health` and the web app are exempt). Counted in Redis with the in-process fallback, never fail open. A user's limit survives a new login.
