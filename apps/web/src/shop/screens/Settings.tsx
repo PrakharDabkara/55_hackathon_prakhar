@@ -13,9 +13,11 @@ import { Icon } from '../../ui/Icon.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {
-  api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo'>;
+  api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo' | 'logoutAll'>;
   shop: MyShop;
   onSaved: (shop: MyShop) => void;
+  /** Every login of this shop is over (log out on all devices): forget the token here too. */
+  onLoggedOut: () => void;
   /** For tests: stand-ins for the canvas shrink and the phone's location. */
   prepareLogo?: (file: File) => Promise<Blob>;
   locate?: () => Promise<LatLng | null>;
@@ -25,7 +27,14 @@ const sameSet = (a: readonly string[], b: readonly string[]) =>
   a.length === b.length && a.every((x) => b.includes(x));
 
 /** Screen I: the logo, the name, what the shop sells and where it is. */
-export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate }: Props) {
+export function Settings({
+  api,
+  shop,
+  onSaved,
+  onLoggedOut,
+  prepareLogo = shrinkPhoto,
+  locate,
+}: Props) {
   const { t } = useT();
   const s = t.shop;
   const toast = useToast();
@@ -36,8 +45,24 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const [askRemove, setAskRemove] = useState(false);
+  const [askLogoutAll, setAskLogoutAll] = useState(false);
+  const [logoutFailed, setLogoutFailed] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  async function logoutAll() {
+    setLeaving(true);
+    setLogoutFailed(false);
+    try {
+      await api.logoutAll();
+      onLoggedOut();
+    } catch {
+      // Not logged out anywhere as far as we know: say so, and stay logged in.
+      setLeaving(false);
+      setLogoutFailed(true);
+    }
+  }
 
   const moved = place !== null && (place.lat !== shop.lat || place.lng !== shop.lng);
   const changed = name.trim() !== shop.name || !sameSet(categories, shop.categories) || moved;
@@ -166,6 +191,31 @@ export function Settings({ api, shop, onSaved, prepareLogo = shrinkPhoto, locate
       >
         {s.save}
       </Button>
+      <Button variant="quiet" className="sh-btn--block" onClick={() => setAskLogoutAll(true)}>
+        {s.logoutAll}
+      </Button>
+      <BottomSheet
+        open={askLogoutAll}
+        title={s.logoutAllTitle}
+        onClose={() => setAskLogoutAll(false)}
+        footer={
+          <>
+            <Button variant="danger" disabled={leaving} onClick={() => void logoutAll()}>
+              {s.logoutAllYes}
+            </Button>
+            <Button variant="quiet" onClick={() => setAskLogoutAll(false)}>
+              {s.logoutAllKeep}
+            </Button>
+          </>
+        }
+      >
+        <p className="sh-body">{s.logoutAllText}</p>
+        {logoutFailed && (
+          <p role="alert" className="sh-error">
+            {s.logoutAllFailed}
+          </p>
+        )}
+      </BottomSheet>
       <BottomSheet
         open={askRemove}
         title={s.removeLogoTitle}

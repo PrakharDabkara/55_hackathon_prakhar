@@ -12,24 +12,30 @@ import {
   lockLiveUser,
   phoneOf,
   requireRole,
+  revokeAllSessions,
   revokeSession,
 } from '../identity/index.js';
 import { eraseCustomerAddresses, hasOpenOrder } from '../orders/index.js';
 import { removeAllSubscriptionsOf, removeSubscriptionOf } from '../push/index.js';
+import type { Realtime } from '../realtime/index.js';
 import { hasLiveList } from '../lists/index.js';
 import { hasLiveRequest } from '../requests/index.js';
 import { createAttemptLimiter, type AttemptLimiter } from './attemptLimit.js';
 
+const logoutAllBody = z.strictObject({});
 const logoutBody = z.strictObject({ pushEndpoint: z.string().min(1).max(2048).optional() });
 
 /** The customer's account (ADR-0054): who they are, log out, and delete. Every route is the caller's own. */
 export function accountRouter({
   db,
   logger,
+  realtime,
   deleteLimiter = createAttemptLimiter({ max: 5, windowMs: 60 * 60 * 1000 }),
 }: {
   db: Database;
   logger: Logger;
+  /** Ends the caller's open event streams when they log out everywhere. */
+  realtime?: Pick<Realtime, 'disconnectUser'>;
   deleteLimiter?: AttemptLimiter;
 }): Router {
   const router = Router();
@@ -50,6 +56,20 @@ export function accountRouter({
       await revokeSession(tx, sessionId);
     });
     (req.log ?? logger).info({ userId: user.id }, 'logout');
+    res.status(204).end();
+  });
+
+  // Log out on all devices (ADR-0060): every session of this user ends, every browser's alerts are
+  // forgotten (those devices are logged out), and open event streams are closed.
+  router.post('/account/logout-all', requireAuth, async (req, res) => {
+    parse(logoutAllBody, req.body ?? {});
+    const { user } = authOf(req);
+    const ended = await withTransaction(db, async (tx) => {
+      await removeAllSubscriptionsOf(tx, user.id);
+      return revokeAllSessions(tx, user.id);
+    });
+    realtime?.disconnectUser(user.id);
+    (req.log ?? logger).info({ userId: user.id, sessions: ended }, 'logout on all devices');
     res.status(204).end();
   });
 

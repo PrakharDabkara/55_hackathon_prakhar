@@ -29,6 +29,12 @@ export interface AccountStrings {
   accountSeeNever: string;
   accountSeeOrder: string;
   accountLogout: string;
+  accountLogoutAll: string;
+  accountLogoutAllTitle: string;
+  accountLogoutAllBody: string;
+  accountLogoutAllConfirm: string;
+  accountLogoutAllCancel: string;
+  accountLogoutAllFailed: string;
   accountDelete: string;
   accountDeleteTitle: string;
   accountDeleteBody: string;
@@ -74,6 +80,13 @@ export const accountEn: AccountStrings = {
   accountSeeOrder:
     'If you choose a shop for delivery, it sees what you ordered, a first name if you typed one, and any note you write. After it accepts, it also sees your address and a map pin of your location.',
   accountLogout: 'Log out',
+  accountLogoutAll: 'Log out on all devices',
+  accountLogoutAllTitle: 'Log out on all devices?',
+  accountLogoutAllBody:
+    "Every phone and browser logged in to this account is logged out, and reply alerts stop. You'll need a new code to log in again.",
+  accountLogoutAllConfirm: 'Log out everywhere',
+  accountLogoutAllCancel: 'Cancel',
+  accountLogoutAllFailed: "Couldn't log out everywhere. Check your connection and try again.",
   accountDelete: 'Delete my account',
   accountDeleteTitle: 'Delete your account?',
   accountDeleteBody:
@@ -121,6 +134,13 @@ export const accountHi: AccountStrings = {
   accountSeeOrder:
     'Delivery ke liye dukaan chunne par use order ka saaman, pehla naam (agar likha) aur aapka note dikhta hai. Accept karne ke baad aapka pata aur location ka map pin bhi dikhta hai.',
   accountLogout: 'Logout karein',
+  accountLogoutAll: 'Sab devices se logout karein',
+  accountLogoutAllTitle: 'Sab devices se logout karein?',
+  accountLogoutAllBody:
+    'Is account mein login har phone aur browser se logout ho jayega aur jawab ke alerts band ho jayenge. Dobara login ke liye naya code chahiye hoga.',
+  accountLogoutAllConfirm: 'Sabse logout karein',
+  accountLogoutAllCancel: 'Rehne dein',
+  accountLogoutAllFailed: 'Sab jagah se logout nahi hua. Internet check karke dobara try karein.',
   accountDelete: 'Mera account delete karein',
   accountDeleteTitle: 'Account delete karein?',
   accountDeleteBody:

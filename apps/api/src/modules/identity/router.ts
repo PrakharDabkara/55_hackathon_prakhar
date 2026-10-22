@@ -65,14 +65,14 @@ export function identityRouter({
       keepPlainCode: otpMode === 'simulated' && codeIsReadable(phone),
     });
     if (!stored) {
-      log.warn({ phone: maskPhone(phone) }, 'otp request rate limited');
+      log.warn({ phoneMasked: maskPhone(phone) }, 'otp request rate limited');
       throw new ApiError(
         429,
         'rate_limited',
         'Too many codes requested. Try again in a few minutes',
       );
     }
-    log.info({ phone: maskPhone(phone) }, 'otp requested');
+    log.info({ phoneMasked: maskPhone(phone) }, 'otp requested');
     res.status(202).json({});
   });
 
@@ -81,10 +81,13 @@ export function identityRouter({
     const log = req.log ?? logger;
     const result = await verifyOtp(db, phone, code, role);
     if (!result) {
-      log.info({ phone: maskPhone(phone) }, 'otp verification failed');
+      log.info({ phoneMasked: maskPhone(phone) }, 'otp verification failed');
       throw new ApiError(401, 'invalid_code', 'That code is wrong, expired or already used');
     }
-    log.info({ phone: maskPhone(phone), userId: result.user.id, role: result.user.role }, 'login');
+    log.info(
+      { phoneMasked: maskPhone(phone), userId: result.user.id, role: result.user.role },
+      'login',
+    );
     res.json(result);
   });
 

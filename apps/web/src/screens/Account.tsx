@@ -25,6 +25,7 @@ interface Props {
     SeekerApi,
     | 'account'
     | 'logout'
+    | 'logoutAll'
     | 'deleteAccount'
     | 'savedAddress'
     | 'keepAddress'
@@ -41,7 +42,7 @@ interface Props {
   pushClient?: DevicePushClient;
 }
 
-type Sheet = 'address' | 'see' | 'delete' | null;
+type Sheet = 'address' | 'see' | 'delete' | 'logoutAll' | null;
 
 /**
  * The customer's Account (ADR-0054): who they are (the phone partly hidden), the address they kept,
@@ -173,6 +174,14 @@ export function Account({ api, navigate, onBack, onLoggedOut, pushClient }: Prop
               </Button>
               <Button
                 variant="quiet"
+                className="cu-account__logout-all"
+                disabled={leaving}
+                onClick={() => setSheet('logoutAll')}
+              >
+                {c.accountLogoutAll}
+              </Button>
+              <Button
+                variant="quiet"
                 className="cu-account__delete"
                 disabled={leaving}
                 onClick={() => setSheet('delete')}
@@ -210,6 +219,17 @@ export function Account({ api, navigate, onBack, onLoggedOut, pushClient }: Prop
           <p className="sh-body">{c.accountSeeOrder}</p>
         </div>
       </BottomSheet>
+
+      <LogoutAllSheet
+        open={sheet === 'logoutAll'}
+        onClose={() => setSheet(null)}
+        onConfirm={async () => {
+          // The server has already forgotten every device's alerts; this lets the browser forget its own.
+          await api.logoutAll();
+          await push.forgetDevice();
+          onLoggedOut();
+        }}
+      />
 
       <DeleteSheet
         open={sheet === 'delete'}
@@ -416,6 +436,73 @@ function AddressForm({
           </p>
         )}
       </div>
+    </BottomSheet>
+  );
+}
+
+function LogoutAllSheet({
+  open,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  return open ? <LogoutAllConfirm onClose={onClose} onConfirm={onConfirm} /> : null;
+}
+
+/** Unlike a plain log out, this never pretends: if the server cannot be reached the login stays and it says so. */
+function LogoutAllConfirm({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const { t } = useT();
+  const c = t.c;
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function confirm() {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onConfirm();
+    } catch {
+      setBusy(false);
+      setFailed(true);
+    }
+  }
+
+  return (
+    <BottomSheet
+      open
+      title={c.accountLogoutAllTitle}
+      onClose={onClose}
+      footer={
+        <div className="sh-sheet__confirm">
+          <Button
+            variant="danger"
+            className="sh-btn--block"
+            disabled={busy}
+            onClick={() => void confirm()}
+          >
+            {c.accountLogoutAllConfirm}
+          </Button>
+          <Button variant="secondary" className="sh-btn--block" onClick={onClose}>
+            {c.accountLogoutAllCancel}
+          </Button>
+        </div>
+      }
+    >
+      <p className="sh-body">{c.accountLogoutAllBody}</p>
+      {failed && (
+        <p className="sh-alert" role="alert">
+          {c.accountLogoutAllFailed}
+        </p>
+      )}
     </BottomSheet>
   );
 }

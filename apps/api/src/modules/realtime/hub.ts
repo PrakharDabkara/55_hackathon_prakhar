@@ -3,6 +3,9 @@ import type { Audience, RealtimeEvent } from './types.js';
 /** A comment line: clients ignore it, proxies see traffic and keep the connection open. */
 export const HEARTBEAT_FRAME = ': heartbeat\n\n';
 
+/** The event that tells a user's streams to end: the user logged out on all devices (ADR-0060). */
+export const SESSION_ENDED = 'session.ended';
+
 /** One SSE frame. JSON never contains a raw newline, so the data stays on one line. */
 export const formatEvent = (type: string, data: unknown): string =>
   `event: ${type}\ndata: ${JSON.stringify(data)}\n\n`;
@@ -16,6 +19,8 @@ export interface Hub {
   /** Registers a connection; the returned function removes it (safe to call twice). */
   add(audience: Audience, sink: Sink): () => void;
   dispatch(event: RealtimeEvent): void;
+  /** Ends every stream of one user (they logged out everywhere). */
+  closeUser(userId: string): void;
   size(): number;
   closeAll(): void;
 }
@@ -38,12 +43,30 @@ export function createHub(): Hub {
     if (set && set.size === 0 && 'userId' in audience) byUser.delete(audience.userId);
   };
 
+  const closeUser = (userId: string) => {
+    const set = byUser.get(userId);
+    byUser.delete(userId);
+    for (const sink of set ?? []) {
+      try {
+        sink.write(formatEvent(SESSION_ENDED, {}));
+        sink.end();
+      } catch {
+        // already gone
+      }
+    }
+  };
+
   return {
+    closeUser,
     add(audience, sink) {
       setFor(audience, true)?.add(sink);
       return () => remove(audience, sink);
     },
     dispatch(event) {
+      if (event.type === SESSION_ENDED) {
+        if ('userId' in event.to) closeUser(event.to.userId);
+        return;
+      }
       const frame = formatEvent(event.type, event.data);
       for (const sink of [...(setFor(event.to, false) ?? [])]) {
         try {

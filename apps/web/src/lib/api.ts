@@ -166,6 +166,8 @@ export interface ShopApi extends PhotoApi, PushApi {
   /** Sends the logo as a raw image body; returns its `logoUrl`. */
   uploadLogo(image: Blob): Promise<string>;
   deleteLogo(): Promise<void>;
+  /** Ends every login of this account, on every device (ADR-0060). */
+  logoutAll(): Promise<void>;
   /** A one-time ticket that opens the live event stream. Never put the login token in a URL. */
   eventTicket(): Promise<string>;
 }
@@ -278,6 +280,9 @@ export function createApi(options: ClientOptions): ShopApi {
     },
     async deleteLogo() {
       await call('DELETE', '/shops/me/logo');
+    },
+    async logoutAll() {
+      await call('POST', '/account/logout-all', {});
     },
     listOrders: () => call<ShopOrder[]>('GET', '/shops/me/orders'),
     orderAction: (id, verb) => call<ShopOrder>('POST', `/orders/${encodeURIComponent(id)}/${verb}`),
