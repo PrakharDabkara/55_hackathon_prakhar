@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push subscriptions only accept the real push hosts (`fcm.googleapis.com`, `*.push.services.mozilla.com`, `*.notify.windows.com`, `web.push.apple.com`, `*.push.apple.com`). Before, any `*.googleapis.com` host (including buckets anyone can own) passed.
 - Every request schema rejects unknown fields (`z.strictObject`, guarded by a test that scans the route files). `text` on an errand answer, the phone, `/route/plan` stops and the admin queries gained limits or schemas.
 - Tests: an authorization matrix (two customers, two shops, every route with an `:id`), no CORS headers and no cookie auth, bare `{error:{code,message}}` bodies with no stack or internals, headers on every response.
-- The simulator no longer treats `429` or a 5xx at start-up as "this shop is gone".
+- The simulator no longer treats `429` or a 5xx at start-up as "this shop is gone". Measured: 10 simulated shops in a busy 3-minute demo peak at 17 calls a minute from their address (the baseline is 300), so no exemption was added; `apps/simulator/src/rate.int.test.ts` re-measures on demand (`MEASURE_SIM_RATE=1`).
 
 ### Security (PR SEC1: demo login closed to strangers, ADR-0058)
 
