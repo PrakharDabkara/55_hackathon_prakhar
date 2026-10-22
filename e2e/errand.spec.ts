@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { forgetDemoStock } from './db.js';
 import { login } from './orderFlow.js';
 
 // A whole errand in a real browser against the real API, Postgres, Redis and five simulated
@@ -7,6 +8,10 @@ import { login } from './orderFlow.js';
 // confirm them (a multi-select), resolves the three, asks the shops, waits for their answers and
 // hands in the plan. The two plans, the map and the route link are all real. The run is at
 // 360 px, the phone the app is built for (playwright.config.ts).
+// It asks at the demo place, where every spec shares the simulated shops: what they learn here
+// must not change another spec's search, so they forget it afterwards (db.ts).
+test.afterAll(forgetDemoStock);
+
 test('a customer plans an errand: question, waiting, both plans, route on the map', async ({
   page,
 }) => {

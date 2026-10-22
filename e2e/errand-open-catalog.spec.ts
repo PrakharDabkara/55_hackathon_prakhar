@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { forgetDemoStock } from './db.js';
 import { login } from './orderFlow.js';
 import { uniqueWord } from './unique.js';
 
@@ -10,6 +11,10 @@ import { uniqueWord } from './unique.js';
 // true whatever they say (ADR-0028).
 // A new item name for every run: the item made last time is no longer new.
 const KIT = `bead dazzling kit ${uniqueWord(4)}`;
+
+// It asks at the demo place, where every spec shares the simulated shops: what they learn here
+// must not change another spec's search, so they forget it afterwards (db.ts).
+test.afterAll(forgetDemoStock);
 
 test('a school-project errand: checklist with extras, a new item, stationery shops, the plan at 360 px', async ({
   page,
