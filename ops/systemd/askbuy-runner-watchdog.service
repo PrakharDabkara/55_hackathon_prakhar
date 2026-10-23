@@ -1,0 +1,8 @@
+[Unit]
+Description=AskBuy self-hosted runner watchdog (restarts a runner that is idle while jobs wait)
+
+[Service]
+Type=oneshot
+# gh keeps its own stored login; no token is set here.
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=%h/Hackathon_2026_55/kahanmilega/scripts/ops/runner-watchdog.sh

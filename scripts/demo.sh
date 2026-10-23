@@ -8,13 +8,9 @@ cmd="${1:-}"
 B="${2:-${DEMO_BASE_URL:-https://kahanmilega-api.onrender.com}}"
 B="${B%/}"
 
-case "$B" in
-  https://* | http://localhost* | http://127.0.0.1*) ;;
-  *)
-    echo "The base URL must be https:// (or http://localhost): the token is sent to it." >&2
-    exit 2
-    ;;
-esac
+# The token goes only to an allowlisted host (scripts/lib/allowed-host.sh).
+. "$(dirname "$0")/lib/allowed-host.sh"
+require_allowed_base_url "$B"
 case "${ADMIN_TOKEN:-}" in
   *[!A-Za-z0-9._~+/=-]*)
     echo "ADMIN_TOKEN has characters this script will not send; use letters, digits and ._~+/=-" >&2
@@ -39,7 +35,7 @@ done
 
 # The header goes in through stdin (curl -K -), so the token is never in the process list.
 out=$(printf 'header = "authorization: Bearer %s"\n' "$ADMIN_TOKEN" |
-  curl -s -m 120 -K - -X POST -w '\n%{http_code}' "$B/admin/demo/$cmd")
+  curl -q -s -m 120 --noproxy '*' --proto '=http,https' --max-redirs 0 -K - -X POST -w '\n%{http_code}' "$B/admin/demo/$cmd")
 status=$(printf '%s' "$out" | tail -n 1)
 body=$(printf '%s' "$out" | sed '$d')
 

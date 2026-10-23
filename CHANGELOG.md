@@ -4,7 +4,26 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## Post-freeze
+
+Hotfixes after v1.0.0 only, one entry each: the exact files changed and why (docs/release.md).
+
+_None yet._
+
+## v1.0.0 (pending human test)
+
+Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
+
+### Added (PR C3: release and ops readiness)
+
+- `scripts/ops/runner-watchdog.sh` with a user timer every 5 minutes (`ops/systemd/`) and a one-command sudoers snippet (`ops/sudoers/`): restarts the self-hosted runner when a run has waited over 10 minutes while it shows online and idle; at most once per 30 minutes; logs to `~/kahan-tools/watchdog.log`.
+- `scripts/release-check.sh`: read-only PASS/FAIL pre-tag check (CI on main, open PRs, live pages, `verify-live-security.sh`, `/admin/health/details`).
+- `docs/release.md`: freeze policy, hotfix routine, branch protection. PR template now asks for exact files, flows to re-test, risk, security-reviewer result and evals.
+- Runbook: "Runner watchdog".
+
+### Security (PR C3)
+
+- `scripts/demo.sh` and `scripts/release-check.sh` send the admin token only to an exact-host allowlist (`scripts/lib/allowed-host.sh`): `https://kahanmilega-api.onrender.com`, `localhost` and `127.0.0.1`. Look-alike hosts, `@`, query strings and other schemes are refused before any request. The token-bearing curl call ignores `~/.curlrc` and proxy variables and follows no redirect; `release-check.sh` hides the token from `verify-live-security.sh`.
 
 ### Added (PR O1: observability, ADR-0063)
 
