@@ -14,20 +14,21 @@ function frontmatter(text: string): Record<string, string | string[]> {
   if (!m) throw new Error('no frontmatter block');
   const out: Record<string, string | string[]> = {};
   let list: string[] | null = null;
-  for (const line of m[1]!.split('\n')) {
+  for (const line of (m[1] ?? '').split('\n')) {
     const item = /^\s+-\s+(.*)$/.exec(line);
     if (item && list) {
-      list.push(item[1]!.trim().replace(/^['"]|['"]$/g, ''));
+      list.push((item[1] ?? '').trim().replace(/^['"]|['"]$/g, ''));
       continue;
     }
     const kv = /^([a-z][a-z-]*):\s*(.*)$/.exec(line);
-    if (!kv) throw new Error(`cannot parse frontmatter line: ${line}`);
+    const key = kv?.[1];
+    if (!kv || !key) throw new Error(`cannot parse frontmatter line: ${line}`);
     if (kv[2] === '') {
       list = [];
-      out[kv[1]!] = list;
+      out[key] = list;
     } else {
       list = null;
-      out[kv[1]!] = kv[2]!.trim();
+      out[key] = (kv[2] ?? '').trim();
     }
   }
   return out;

@@ -86,3 +86,57 @@ main session never sees its file reads or command output, only the report. Defin
 - **Limits:** neither hunter could reproduce the failure on a 14-core machine, even with 12 busy loops.
   Both diagnoses come from reading the code, and the CI message fits exactly what the race produces.
   A subagent starts cold, so it needs the evidence in its prompt.
+
+# AI tooling: skills
+
+A skill is a folder with a `SKILL.md`: a procedure Claude reads only when it is needed. Skills live in
+`.claude/skills/<name>/` and are loaded when a session starts, so **a new or renamed skill appears
+only in a new session** (start one, or `/clear`, after adding it).
+
+**Progressive disclosure.** Three levels, each paid for only when reached. (1) At session start only
+each skill's `name` and `description` are in context, about a line each. (2) When the task matches a
+description, or a file matches the skill's `paths`, the body of `SKILL.md` is loaded. (3) Files the
+body points to (scripts, templates) are read or run only when the steps get there. `CLAUDE.md`, by
+contrast, is loaded in full into every session, so it should hold only the facts and rules that apply
+everywhere. The description is the trigger: it must say when to use the skill, in the words a task
+uses. Tests: `.claude/skills/skills.test.ts` (frontmatter) and `run-evals.test.ts` (the script, with a
+stubbed `gh`).
+
+Skills explain a procedure; they do not enforce. The secrets, hold-out and git rules stay in
+`CLAUDE.md` and in the hooks above.
+
+## askbuy-pr
+
+- **Does:** the PR routine in order: branch check, tests in their own commit, the CI-port stack
+  (`askbuy-ci`, ports 55432/56379, wait if a CI e2e job is running, teardown), the full suites, docs, and
+  the What/How/Why/Learn report.
+- **Why it exists:** the same paragraph was pasted into every prompt, and `CLAUDE.md` carried the stack
+  details for every session, including sessions that never run a test.
+
+## askbuy-evals (with `run-evals.sh`)
+
+- **Does:** runs one or more evals through GitHub Actions, strictly one after another. The script takes
+  the run id from the URL `gh workflow run` prints, never "the latest run", polls that run until it is
+  completed, prints the conclusion and stops the list at the first failure.
+- **Incidents (Oct 22):** a polling loop that ran on an empty run id and did not stop, and a resolve run
+  that was cancelled before it finished and spent quota for no result. Both come from not tying the wait
+  to one known run.
+- **Rules it carries:** never read or print the hold-out set (the script refuses it), quota resets at
+  12:30 PM IST, `QUOTA_EXHAUSTED` means wait and not retry, and the budget is one full resolve run per day
+  per eval project because CI, the schedule and local runs share it.
+- **Limits:** it needs `gh` signed in with permission to run workflows. It cannot tell a quota stop from
+  any other failure except by the run's conclusion; read the step summary.
+
+## askbuy-ui
+
+- **Does:** the Parchi design rules (tokens only, Mukta for UI and Kalam only on a parchi, paper-locked
+  colours, 44 to 48 px targets, focus at least 3:1, 360 px first, light/dark/`data-theme`, no browser
+  dialogs, parchi only on request cards and packing slips).
+- **Auto-load:** `paths: apps/web/**`, so it comes into context when web files are touched and not for
+  API or docs work. It was the longest block in `CLAUDE.md`.
+
+## askbuy-adr
+
+- **Does:** the ADR template, the numbering rule (highest plus one, check open PRs, never renumber) and
+  the journey entry format.
+- **Why it exists:** the ADR format and the journey file were re-explained in prompts.
