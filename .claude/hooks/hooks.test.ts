@@ -70,7 +70,7 @@ describe('guard-secrets', () => {
   };
 
   it('blocks reading .env and says what to read instead', () => {
-    const r = blocked(tool('Read', { file_path: '/home/x/kahanmilega/.env' }));
+    const r = blocked(tool('Read', { file_path: '/home/x/project/.env' }));
     expect(r.stderr).toContain('.env.example');
   });
 
