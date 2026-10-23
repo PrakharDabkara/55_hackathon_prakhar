@@ -47,11 +47,15 @@ describe('scripts/demo.sh', () => {
   });
 
   it('refuses a plain-http remote URL and a token with odd characters, before any call', () => {
-    const http = run(['seed', 'http://example.test'], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
+    const http = run(
+      ['seed', 'http://kahanmilega-api.onrender.com'],
+      { ADMIN_TOKEN: TOKEN },
+      { post: '{}\n200' },
+    );
     expect(http.status).toBe(2);
     expect(http.calls).toBe('');
     const odd = run(
-      ['seed', 'https://example.test'],
+      ['seed', 'https://kahanmilega-api.onrender.com'],
       { ADMIN_TOKEN: 'a"b\nc' },
       { post: '{}\n200' },
     );
@@ -65,6 +69,10 @@ describe('scripts/demo.sh', () => {
     'http://127.0.0.1.evil.com',
     'https://evil.com@example.test',
     'https://localhost@evil.com',
+    'https://localhost.evil.com',
+    'https://evil.com',
+    'http://kahanmilega-api.onrender.com',
+    'https://kahanmilega-api.onrender.com.evil.com',
   ])('refuses %s before any call', (base) => {
     const res = run(['seed', base], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
     expect(res.status).toBe(2);
@@ -85,13 +93,13 @@ describe('scripts/demo.sh', () => {
   it('posts to /admin/demo/<command>, prints the counts, and keeps the token off the command line', () => {
     for (const cmd of ['seed', 'reset']) {
       const res = run(
-        [cmd, 'https://example.test/'],
+        [cmd, 'https://kahanmilega-api.onrender.com/'],
         { ADMIN_TOKEN: TOKEN },
         { post: '{"shops":5}\n200' },
       );
       expect(res.status).toBe(0);
       expect(res.stdout).toContain('{"shops":5}');
-      expect(res.calls).toContain(`https://example.test/admin/demo/${cmd}`);
+      expect(res.calls).toContain(`https://kahanmilega-api.onrender.com/admin/demo/${cmd}`);
       expect(res.calls).toContain('-X POST');
       const argLines = res.calls.split('\n').filter((l) => l.startsWith('ARGS:'));
       for (const line of argLines) expect(line).not.toContain(TOKEN);

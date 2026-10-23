@@ -22,7 +22,7 @@ const healthy = {
 function run(
   over: Partial<typeof healthy> = {},
   env: Record<string, string> = {},
-  base = 'https://example.test',
+  base = 'https://kahanmilega-api.onrender.com',
 ) {
   const c = { ...healthy, ...over };
   const dir = mkdtempSync(join(tmpdir(), 'release-check-'));
@@ -110,6 +110,10 @@ describe('scripts/release-check.sh', () => {
     'http://127.0.0.1.evil.com',
     'https://evil.com@example.test',
     'http://example.test',
+    'https://localhost.evil.com',
+    'https://evil.com',
+    'http://kahanmilega-api.onrender.com',
+    'https://kahanmilega-api.onrender.com.evil.com',
   ])('refuses %s before sending the token anywhere', (base) => {
     const r = run({}, { ADMIN_TOKEN: TOKEN }, base);
     expect(r.status).toBe(2);
