@@ -19,7 +19,11 @@ const healthy = {
 };
 
 /** Runs release-check.sh with stand-ins for gh, curl and the security script. */
-function run(over: Partial<typeof healthy> = {}, env: Record<string, string> = {}) {
+function run(
+  over: Partial<typeof healthy> = {},
+  env: Record<string, string> = {},
+  base = 'https://example.test',
+) {
   const c = { ...healthy, ...over };
   const dir = mkdtempSync(join(tmpdir(), 'release-check-'));
   const stub = (name: string, body: string) => {
@@ -46,7 +50,7 @@ esac`,
 esac`,
   );
   stub('sec', `exit ${c.security}`);
-  const result = spawnSync('bash', [script, 'https://example.test'], {
+  const result = spawnSync('bash', [script, base], {
     env: {
       PATH: `${dir}:${process.env['PATH']}`,
       RELEASE_CHECK_SECURITY_SCRIPT: join(dir, 'sec'),
@@ -98,5 +102,21 @@ describe('scripts/release-check.sh', () => {
     expect(run({ detailsCode: '404' }, { ADMIN_TOKEN: TOKEN }).out).toMatch(
       /FAIL\s+\/admin\/health\/details.*404/,
     );
+  });
+
+  it.each([
+    'http://localhost.evil.com',
+    'http://localhost@evil.com',
+    'http://127.0.0.1.evil.com',
+    'https://evil.com@example.test',
+    'http://example.test',
+  ])('refuses %s before sending the token anywhere', (base) => {
+    const r = run({}, { ADMIN_TOKEN: TOKEN }, base);
+    expect(r.status).toBe(2);
+    expect(r.out).not.toContain('PASS');
+  });
+
+  it('accepts localhost with a port', () => {
+    expect(run({}, { ADMIN_TOKEN: TOKEN }, 'http://localhost:3000').status).toBe(0);
   });
 });
