@@ -8,8 +8,15 @@ cmd="${1:-}"
 B="${2:-${DEMO_BASE_URL:-https://kahanmilega-api.onrender.com}}"
 B="${B%/}"
 
+# Match the host exactly: a prefix match would let http://localhost.evil.com receive the token.
 case "$B" in
-  https://* | http://localhost* | http://127.0.0.1*) ;;
+  *@*) bad=1 ;;
+  https://*) bad=0 ;;
+  http://localhost | http://localhost:[0-9]* | http://localhost/* | http://127.0.0.1 | http://127.0.0.1:[0-9]* | http://127.0.0.1/*) bad=0 ;;
+  *) bad=1 ;;
+esac
+case "$bad" in
+  0) ;;
   *)
     echo "The base URL must be https:// (or http://localhost): the token is sent to it." >&2
     exit 2
