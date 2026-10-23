@@ -13,7 +13,7 @@ const healthy = {
   details: {
     autopilot: { on: true },
     queues: [{ name: 'a', failedLast24h: 0 }],
-    redis: { ok: true, usedMemoryBytes: 5_000_000, maxMemoryBytes: 25_000_000 },
+    redis: { ok: true, memory: { usedBytes: 5_000_000, maxBytes: 25_000_000 } },
   } as unknown,
   detailsCode: '200',
   security: 0,
@@ -118,7 +118,7 @@ describe('scripts/release-check.sh', () => {
           details: {
             autopilot: { on: true },
             queues: [],
-            redis: { ok: true, usedMemoryBytes, maxMemoryBytes },
+            redis: { ok: true, memory: { usedBytes: usedMemoryBytes, maxBytes: maxMemoryBytes } },
           },
         },
         { ADMIN_TOKEN: TOKEN },
@@ -130,6 +130,13 @@ describe('scripts/release-check.sh', () => {
     const fail = memory(15_000_001);
     expect(fail.out).toMatch(/FAIL\s+Redis memory/);
     expect(fail.status).toBe(1);
+    // INFO failed on the server: the check cannot judge, so it warns and does not fail the release.
+    const unknown = run(
+      { details: { autopilot: { on: true }, queues: [], redis: { ok: true, memory: 'unknown' } } },
+      { ADMIN_TOKEN: TOKEN },
+    );
+    expect(unknown.out).toMatch(/WARN\s+Redis memory.*unknown/);
+    expect(unknown.status).toBe(0);
     // No maxmemory configured: nothing to compare with, so it only prints the use.
     expect(memory(5_000_000, 0).out).toMatch(/PASS\s+Redis memory.*no maxmemory/);
   });

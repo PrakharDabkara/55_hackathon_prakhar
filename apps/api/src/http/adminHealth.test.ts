@@ -45,11 +45,31 @@ describe('GET /admin/health/details (O1)', () => {
     expect(res.body).toMatchObject({
       version: { sha: 'abc1234' },
       db: { ok: true },
-      redis: { ok: true, usedMemoryBytes: 5_000_000, maxMemoryBytes: 25_000_000 },
+      redis: { ok: true, memory: { usedBytes: 5_000_000, maxBytes: 25_000_000 } },
       queues: [{ name: 'ping-fanout', waiting: 3, active: 1, delayed: 0, failedLast24h: 2 }],
       ai: { callsToday: 12, failedToday: 2, breakerSkipsToday: 1 },
       autopilot: { on: true, lastActivityAt: '2026-10-23T10:00:00.000Z' },
     });
+  });
+
+  it('says memory is "unknown" with a 200 when INFO fails, and shows nothing else of INFO', async () => {
+    const broken = createApp({
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
+      logger: createLogger('silent'),
+      db,
+      ops: {
+        ...ops,
+        redisMemory: async () => {
+          throw new Error('ERR unknown command `INFO`');
+        },
+      },
+      webDistDir: '/nonexistent',
+    });
+    const res = await request(broken)
+      .get('/admin/health/details')
+      .set('Authorization', `Bearer ${TEST_ADMIN_TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(res.body.redis).toEqual({ ok: true, memory: 'unknown' });
   });
 
   it('still answers when Redis is not configured, and says so', async () => {
