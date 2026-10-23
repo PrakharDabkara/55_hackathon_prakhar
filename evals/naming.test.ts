@@ -15,6 +15,7 @@ const THIS_FILE = 'evals/naming.test.ts';
 // Lines that keep the old name on purpose.
 const KEPT_LINES: RegExp[] = [
   /kahanmilega-api/, // Render service and its URL
+  /kahanmilega-api\.onrender\.com/i, // the live hostname; hostnames are case-insensitive, so tests may spell it in capitals
   /kahanmilega-redis/, // Render Redis
   /kahanmilega:events/, // Redis pub/sub channel: renaming drops live events during a deploy
   /kahanmilega-evals/, // self-hosted runner eval cache: renaming forces a full re-embed
