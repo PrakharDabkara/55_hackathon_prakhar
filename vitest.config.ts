@@ -18,6 +18,10 @@ export default defineConfig({
     ],
   },
   test: {
-    include: ['{apps,packages,evals}/**/*.test.{ts,tsx}', '.claude/hooks/*.test.ts'],
+    include: [
+      '{apps,packages,evals}/**/*.test.{ts,tsx}',
+      '.claude/hooks/*.test.ts',
+      '.claude/skills/**/*.test.ts',
+    ],
   },
 });
