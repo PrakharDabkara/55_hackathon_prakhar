@@ -83,6 +83,20 @@ describe('POST /client-errors (O1)', () => {
     expect(JSON.stringify(line)).not.toMatch(/9800000001|asha@example\.com/);
   });
 
+  it('scrubs a phone or email from the path, and refuses a version that is not a version', async () => {
+    const { app, lines } = setup();
+    await request(app)
+      .post('/client-errors')
+      .send({ ...report, route: '/shop/9800000001/a@b.com' });
+    expect(JSON.stringify(lines.find((l) => l['msg'] === 'client error'))).not.toMatch(
+      /9800000001|a@b\.com/,
+    );
+    const bad = await request(app)
+      .post('/client-errors')
+      .send({ ...report, appVersion: 'a b\nc' });
+    expect(bad.status).toBe(400);
+  });
+
   it('is limited per IP', async () => {
     const { app } = setup(1);
     const codes: number[] = [];
