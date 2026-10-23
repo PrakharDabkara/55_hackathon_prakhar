@@ -118,11 +118,15 @@ Skills explain a procedure; they do not enforce. The secrets, hold-out and git r
 - **Does:** runs one or more evals through GitHub Actions, strictly one after another. The script takes
   the run id from the URL `gh workflow run` prints, never "the latest run", polls that run until it is
   completed, prints the conclusion and stops the list at the first failure.
-- **Incidents (Oct 22):** a polling loop that ran on an empty run id and did not stop, and a resolve run
-  that was cancelled before it finished and spent quota for no result. Both come from not tying the wait
-  to one known run.
+- **Incident, cancelled run (Oct 22):** a helper script started the resolve eval, then `gh run watch`
+  returned early with an empty conclusion, so the script dispatched the agent eval on the same ref. The
+  workflow's concurrency group (one active run per ref) cancelled the still-running resolve run
+  (39740176924). Lesson: wait on the specific run id until `status` is `completed`.
+- **Incident, empty-id loop (Oct 22):** a script found the new run with `gh run list --limit 1` 20 s after
+  dispatch; GitHub had not listed it yet, the id came back empty and the polling loop spun on "run or job
+  ID required" until stopped. Lesson: take the id from gh's printed URL and hard-stop if it is missing.
 - **Rules it carries:** never read or print the hold-out set (the script refuses it), quota resets at
-  12:30 PM IST, `QUOTA_EXHAUSTED` means wait and not retry, and the budget is one full resolve run per day
+  12:30 PM IST (07:00 UTC; 13:30 IST after early November), `QUOTA_EXHAUSTED` means wait and not retry, and the budget is one full resolve run per day
   per eval project because CI, the schedule and local runs share it.
 - **Limits:** it needs `gh` signed in with permission to run workflows. It cannot tell a quota stop from
   any other failure except by the run's conclusion; read the step summary.
