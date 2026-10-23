@@ -218,6 +218,8 @@ gh auth status    # must be logged in as the same user the timer runs as
 systemctl --user start askbuy-runner-watchdog.service && tail ~/kahan-tools/watchdog.log
 ```
 
+The sudo rule can be used by anything that runs as your user, including workflow steps on the self-hosted runner; the worst it allows is restarting the runner service (accepted).
+
 A quiet run writes nothing (the log only has actions). If `gh` fails under the timer, the log says "gh ... failed; nothing done". Remove: `systemctl --user disable --now askbuy-runner-watchdog.timer` and `sudo rm /etc/sudoers.d/askbuy-runner-watchdog`. The service name in the sudoers file is the one under `~/actions-runner/.service`; if the runner is ever re-registered, change it there and in `RUNNER_SERVICE`.
 
 ## AI configuration (query understanding)

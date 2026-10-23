@@ -23,7 +23,7 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 
 ### Security (PR C3)
 
-- `scripts/demo.sh` and `scripts/release-check.sh` send the admin token only to an exact-host allowlist (`scripts/lib/allowed-host.sh`): `https://kahanmilega-api.onrender.com`, `localhost` and `127.0.0.1`. Look-alike hosts, `@`, query strings and other schemes are refused before any request.
+- `scripts/demo.sh` and `scripts/release-check.sh` send the admin token only to an exact-host allowlist (`scripts/lib/allowed-host.sh`): `https://kahanmilega-api.onrender.com`, `localhost` and `127.0.0.1`. Look-alike hosts, `@`, query strings and other schemes are refused before any request. The token-bearing curl call ignores `~/.curlrc` and proxy variables and follows no redirect; `release-check.sh` hides the token from `verify-live-security.sh`.
 
 ### Added (PR O1: observability, ADR-0063)
 

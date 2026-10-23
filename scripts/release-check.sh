@@ -48,7 +48,7 @@ done
 # 6. Sign-in protections.
 echo "Note: verify-live-security.sh uses this machine's IP budget (the per-IP sign-in limit) (wait 10 minutes before running it again)."
 if [ -x "$SECURITY" ]; then
-  "$SECURITY" "$B" >/dev/null 2>&1
+  env -u ADMIN_TOKEN "$SECURITY" "$B" >/dev/null 2>&1
   rc=$?
   [ "$rc" = 0 ] && ok=1 || ok=0
   detail="exit $rc"
@@ -66,7 +66,7 @@ if [ -z "${ADMIN_TOKEN:-}" ]; then
   report "/admin/health/details no failed jobs" 0 "not checked"
 else
   out=$(printf 'header = "authorization: Bearer %s"\n' "$ADMIN_TOKEN" |
-    curl -s -m 60 -K - -w '\n%{http_code}' "$B/admin/health/details" 2>/dev/null)
+    curl -q -s -m 60 --noproxy '*' --proto '=http,https' --max-redirs 0 -K - -w '\n%{http_code}' "$B/admin/health/details" 2>/dev/null)
   status=$(printf '%s' "$out" | tail -n 1)
   body=$(printf '%s' "$out" | sed '$d')
   if [ "$status" = 200 ]; then

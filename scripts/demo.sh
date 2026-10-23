@@ -35,7 +35,7 @@ done
 
 # The header goes in through stdin (curl -K -), so the token is never in the process list.
 out=$(printf 'header = "authorization: Bearer %s"\n' "$ADMIN_TOKEN" |
-  curl -s -m 120 -K - -X POST -w '\n%{http_code}' "$B/admin/demo/$cmd")
+  curl -q -s -m 120 --noproxy '*' --proto '=http,https' --max-redirs 0 -K - -X POST -w '\n%{http_code}' "$B/admin/demo/$cmd")
 status=$(printf '%s' "$out" | tail -n 1)
 body=$(printf '%s' "$out" | sed '$d')
 
