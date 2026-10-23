@@ -8,12 +8,13 @@ import { describe, expect, it } from 'vitest';
 const agentsDir = fileURLToPath(new URL('.', import.meta.url));
 const files = readdirSync(agentsDir).filter((f) => f.endsWith('.md'));
 
-/** The tiny YAML subset we use: single-line `key: value`. */
+/** The tiny YAML subset we use: top-level `key: value`; indented lines (the hooks block) are skipped. */
 function frontmatter(text: string): Record<string, string> {
   const m = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!m) throw new Error('no frontmatter block');
   const out: Record<string, string> = {};
   for (const line of (m[1] ?? '').split('\n')) {
+    if (/^\s/.test(line)) continue;
     const kv = /^([a-z][a-z-]*):\s*(.*)$/.exec(line);
     const key = kv?.[1];
     if (!kv || !key) throw new Error(`cannot parse frontmatter line: ${line}`);
@@ -29,6 +30,18 @@ describe('project subagents', () => {
       'flake-hunter.md',
       'security-reviewer.md',
     ]);
+  });
+
+  // Bash is only read-only for these two because a frontmatter hook enforces it; the tools field cannot.
+  it('security-reviewer and eval-analyst carry the read-only Bash hook', () => {
+    for (const file of ['security-reviewer.md', 'eval-analyst.md']) {
+      const text = readFileSync(join(agentsDir, file), 'utf8');
+      const head = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? '';
+      expect(head).toMatch(/^hooks:/m);
+      expect(head).toMatch(/matcher: Bash/);
+      expect(head).toMatch(/hooks\/guard-readonly-bash\.mjs/);
+    }
+    expect(readFileSync(join(agentsDir, 'eval-analyst.md'), 'utf8')).toMatch(/--allow-run/);
   });
 
   for (const file of files) {
