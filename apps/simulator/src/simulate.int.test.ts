@@ -145,9 +145,15 @@ describe('the simulator against a real API', () => {
     }
     expect(view.results.some((r: { source: string }) => r.source === 'live')).toBe(true);
 
-    // One line per answer.
-    const answerLines = lines.filter((l) => /\b(yes|no)\b/.test(l) && /ping/.test(l));
-    expect(answerLines.length).toBeGreaterThanOrEqual(rows.length);
+    // One line per answer. The API stores an answer before the simulator sees the response and
+    // logs it, so wait for the simulator to catch up with the rows read above.
+    const answerLines = () => lines.filter((l) => /\b(yes|no)\b/.test(l) && /ping/.test(l));
+    await waitFor(
+      async () => ({ logged: answerLines().length, answered: sim.stats().answered }),
+      (s) => s.logged >= rows.length && s.answered >= rows.length,
+      10_000,
+    );
+    expect(answerLines().length).toBeGreaterThanOrEqual(rows.length);
     expect(sim.stats().answered).toBeGreaterThanOrEqual(rows.length);
   }, 60_000);
 

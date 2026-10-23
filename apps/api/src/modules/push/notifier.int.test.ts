@@ -182,6 +182,7 @@ describe('push notifications for the events of a search, an errand and an order'
 
     it('one notification per shop: the next request reuses the tag and counts the ones still waiting', async () => {
       await search();
+      await notifier.idle(); // the first push is computed while only one ping waits
       await search('doodh');
       await notifier.idle();
       const heard = to(shopSub);
