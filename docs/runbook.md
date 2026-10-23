@@ -184,24 +184,29 @@ ADR-0064. Nobody is watching; the API must stay up by itself.
 
 **Uptime monitor.** UptimeRobot, `GET https://kahanmilega-api.onrender.com/`, every 10 minutes, email alerts. It uses `/`, not `/ready`: `/` wakes the instance without touching Neon (`/ready` runs `SELECT 1` and would keep the database awake for nothing). Render's 15-minute sleep never starts, so the API, the workers and the 60 s sweeper run 24/7.
 
-**What runs by itself.**
+**What runs by itself.** One free Render web service; the workers run inside the API process. Redis is Render Key Value, free, 25 MB, `noeviction`.
 
-| What                                                                                  | How often        |
-| ------------------------------------------------------------------------------------- | ---------------- |
-| Request expiry (per-request delayed job, plus the sweeper as a safety net)            | 60 s             |
-| Same sweep: re-queue lost ping fan-outs, errands, lists, orders, "Le liya?" reminders | 60 s             |
-| Photo sweep                                                                           | every 10 min     |
-| Address sweep (30 days after an order), pickup sweep (30 days after the tap)          | every hour       |
-| Ping fan-out, push, errand and demo-autopilot workers                                 | on events        |
-| Demo autopilot catch-up                                                               | once at start-up |
-| Old completed jobs clean-up (logs `removed old completed jobs`)                       | once at start-up |
+| What                                                                                                          | How often                                    |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Expiry sweep (also re-queues lost ping fan-outs, and runs the order, list, errand and pickup-reminder sweeps) | every 60 s                                   |
+| Photo sweep                                                                                                   | every 10 min                                 |
+| Address sweep and pickup sweep                                                                                | every 60 min                                 |
+| BullMQ workers (fan-out, push, errand, expiry): idle polling of Redis                                         | continuous, in Redis                         |
+| Demo autopilot                                                                                                | on events; catch-up once at start            |
+| Old completed jobs clean-up (logs `removed old completed jobs`)                                               | once at start                                |
+| SSE heartbeat                                                                                                 | every 20 s per open stream                   |
+| GitHub crons                                                                                                  | none (the evals cron is paused until Oct 30) |
+| CI                                                                                                            | only on a PR or a push                       |
+| Laptop: the runner service and the runner watchdog timer                                                      | watchdog every 5 min                         |
+
+Probes: `/health` and `/` touch neither Postgres nor Redis; `/ready` runs `SELECT 1`. The sweeper alone is about 10 queries a minute, so Neon does not suspend while the API is awake.
 
 **Free-tier budget.** Neon: 100 CU-hours a month; 14.25 used by Oct 24, about 62 projected for October, about 36 for Nov 1 to 6. Render: one free web service, about 744 of 750 h. Redis: Render Key Value free, 25 MB, `noeviction`.
 
 **Weekly check** (and before results):
 
 1. Neon, Billing, Usage: if above 80 CU-hours, pause the monitor (the API then sleeps and wakes on demand, about 14 s).
-2. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same numbers are in `/admin/health/details` under `redis`. A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
+2. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same two numbers are in `/admin/health/details` under `redis.memory` (`"unknown"` if Redis refuses `INFO`; the check then warns). A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
 
 **After the freeze:** `systemctl --user disable --now askbuy-runner-watchdog.timer`.
 

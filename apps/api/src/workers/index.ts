@@ -283,16 +283,19 @@ export function startWorkers({
     logger,
   );
 
-  // A short-leashed connection of its own, so a slow Redis cannot hold up /admin/health/details.
-  const infoConnection = connect(config.redisUrl, logger, {
-    maxRetriesPerRequest: 1,
-    commandTimeout: 1000,
-  });
+  // For /admin/health/details: made on the first call, then reused. Short leash, so a slow Redis
+  // cannot hold up the details; closed with the workers.
+  let infoConnection: ReturnType<typeof connect> | null = null;
+  const redisUrl = config.redisUrl;
+  const memoryInfo = () => {
+    infoConnection ??= connect(redisUrl, logger, { maxRetriesPerRequest: 1, commandTimeout: 1000 });
+    return infoConnection.info('memory');
+  };
 
   return {
     hooks: requestHooks,
     ops: createOps({
-      memoryInfo: () => infoConnection.info('memory'),
+      memoryInfo,
       queues: {
         'ping-fanout': fanout.queue,
         expiry: expiry.queue,
@@ -319,7 +322,7 @@ export function startWorkers({
         demoQueue?.close(),
       ]);
       pushCounters?.disconnect();
-      infoConnection.disconnect();
+      infoConnection?.disconnect();
     },
   };
 }

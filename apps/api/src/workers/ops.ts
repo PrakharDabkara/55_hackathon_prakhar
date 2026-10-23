@@ -42,7 +42,12 @@ export function createOps({
     },
     async redisMemory() {
       const info = await memoryInfo();
-      const read = (key: string) => Number(new RegExp(`^${key}:(\d+)`, 'm').exec(info)?.[1] ?? 0);
+      // Only these two numbers leave this function, never the rest of INFO.
+      const read = (key: string) => {
+        const match = new RegExp(`^${key}:(\\d+)\\s*$`, 'm').exec(info);
+        if (!match) throw new Error(`INFO memory has no ${key}`);
+        return Number(match[1]);
+      };
       return { usedBytes: read('used_memory'), maxBytes: read('maxmemory') };
     },
     queues: () => Promise.all(live.map(([name, queue]) => depth(name, queue))),

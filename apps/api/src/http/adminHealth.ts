@@ -76,11 +76,7 @@ export function adminHealthRouter({
       version: { sha: gitSha },
       db: { ok: dbOk },
       redis: ops
-        ? {
-            ok: redisOk,
-            usedMemoryBytes: memory?.usedBytes ?? null,
-            maxMemoryBytes: memory?.maxBytes ?? null,
-          }
+        ? { ok: redisOk, memory: memory ?? ('unknown' as const) }
         : { ok: false, configured: false },
       queues,
       // The only AI limit is per user per hour (30); there is no daily cap to compare with, so
