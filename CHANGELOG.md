@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (flaky-sweep)
+
+- Three racy integration assertions: `seekerView` pingStats no longer assumes the fan-out has not run when `POST /requests` returns; the simulator `stop()` test waits for in-flight answers to settle before its baseline; `realtime` events test waits for the last expected event before the exact-list checks.
+
 ### Added (PR A2: project skills)
 
 - `.claude/skills/`: `askbuy-pr` (PR routine, CI-port stack, report), `askbuy-evals` (safe eval runs, with `run-evals.sh`), `askbuy-ui` (Parchi design rules; `paths: apps/web/**`) and `askbuy-adr` (ADR template, numbering, journey entry). Only names and descriptions are in context until a skill is used. New skills appear in a new session. `docs/ai-tooling.md` explains each and the incident behind it.

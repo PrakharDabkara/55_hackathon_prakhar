@@ -115,7 +115,12 @@ describe('what the seeker sees: shop positions and ping counts', () => {
         .post('/requests')
         .set(auth(seeker))
         .send({ q: 'hammer', lat: north(2.5), lng: ORIGIN.lng, radiusM: 1000 });
-      expect(asked.body.pingStats).toEqual({ sent: 0, yes: 0, no: 0, pending: 0 });
+      // The fan-out is async: it may or may not have run yet, so only the invariants hold.
+      const early = asked.body.pingStats;
+      expect(early.yes).toBe(0);
+      expect(early.no).toBe(0);
+      expect(early.sent).toBeLessThanOrEqual(3);
+      expect(early.pending).toBe(early.sent);
 
       const stats = async () =>
         (await request(app).get(`/requests/${asked.body.id}`).set(auth(seeker))).body.pingStats;

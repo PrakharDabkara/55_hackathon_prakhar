@@ -332,6 +332,11 @@ describe('realtime over SSE', () => {
         reason: 'request_ended',
       });
 
+      // Wait for the last expected event to arrive; the short settle only backs the "nothing extra" checks.
+      await waitFor(
+        async () => (sA as SseStream).events.length,
+        (n) => n >= 2,
+      );
       await settle();
       expect((sB as SseStream).events).toEqual([]);
       expect((s3 as SseStream).events).toEqual([]);
