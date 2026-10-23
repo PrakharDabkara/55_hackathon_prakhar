@@ -18,7 +18,10 @@ const reportSchema = z
       .max(200)
       .regex(/^\/[^\s]*$/, 'must be a path')
       .optional(),
-    appVersion: z.string().max(40).optional(),
+    appVersion: z
+      .string()
+      .regex(/^[\w.+-]{1,40}$/)
+      .optional(),
     requestId: z.string().refine(isSafeRequestId, 'not a request id').optional(),
   })
   .strict();
@@ -33,7 +36,7 @@ export function clientErrorsRouter({ logger }: { logger: import('pino').Logger }
       {
         message: redactPrivateData(report.message),
         ...(report.stack && { stack: redactPrivateData(report.stack) }),
-        ...(report.route && { route: report.route.split(/[?#]/)[0] }),
+        ...(report.route && { route: redactPrivateData(report.route.split(/[?#]/)[0] ?? '') }),
         ...(report.appVersion && { appVersion: report.appVersion }),
         ...(report.requestId && { clientRequestId: report.requestId }),
       },
