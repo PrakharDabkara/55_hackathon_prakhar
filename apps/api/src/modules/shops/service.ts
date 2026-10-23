@@ -144,15 +144,66 @@ export interface SimulatedShop extends NewShop {
   phone: string;
 }
 
+export interface DemoShopSpec extends NewShop {
+  phone: string;
+  /** How far it delivers, in km; null means no limit. A pickup-only shop gets a token 0.1. */
+  deliveryMaxKm: number | null;
+}
+
+/**
+ * The demo shop of this owner (ADR-0062): made if missing, and put back as specified if it exists:
+ * name, place, kinds, delivery offer, open, marked is_demo. Returns the shop id.
+ */
+export async function upsertDemoShop(
+  db: Queryable,
+  ownerUserId: string,
+  shop: DemoShopSpec,
+): Promise<string> {
+  const { rows } = await db.query<{ id: string }>(
+    `INSERT INTO shops (owner_user_id, name, phone, categories, location, delivers_default,
+                        default_fee_paise, default_minutes, delivery_max_km, is_demo)
+     VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7, $8, $9, $10, true)
+     ON CONFLICT (owner_user_id) DO UPDATE
+       SET name = EXCLUDED.name, phone = EXCLUDED.phone, categories = EXCLUDED.categories,
+           location = EXCLUDED.location, delivers_default = EXCLUDED.delivers_default,
+           default_fee_paise = EXCLUDED.default_fee_paise,
+           default_minutes = EXCLUDED.default_minutes,
+           delivery_max_km = EXCLUDED.delivery_max_km, closed_until = NULL, is_demo = true
+     RETURNING id`,
+    [
+      ownerUserId,
+      shop.name,
+      shop.phone,
+      shop.categories,
+      shop.lng,
+      shop.lat,
+      Boolean(shop.delivery),
+      shop.delivery?.feePaise ?? null,
+      shop.delivery?.minutes ?? null,
+      shop.deliveryMaxKm,
+    ],
+  );
+  return (rows[0] as { id: string }).id;
+}
+
+/** How many simulated shops the demo has made (is_simulated and is_demo). */
+export async function countDemoSimulatedShops(db: Queryable): Promise<number> {
+  const { rows } = await db.query<{ n: string }>(
+    `SELECT count(*) AS n FROM shops WHERE is_simulated AND is_demo`,
+  );
+  return Number(rows[0]?.n);
+}
+
 /** Inserts simulated shops (is_simulated) in one statement; returns their ids in the input order. */
 export async function insertSimulatedShops(
   db: Queryable,
   shops: SimulatedShop[],
+  options: { demo?: boolean } = {},
 ): Promise<string[]> {
   const { rows } = await db.query<{ id: string; owner_user_id: string }>(
-    `INSERT INTO shops (owner_user_id, name, phone, categories, location, is_simulated)
+    `INSERT INTO shops (owner_user_id, name, phone, categories, location, is_simulated, is_demo)
      SELECT o, n, p, string_to_array(c, ','),
-            ST_SetSRID(ST_MakePoint(x, y), 4326)::geography, true
+            ST_SetSRID(ST_MakePoint(x, y), 4326)::geography, true, $7::boolean
        FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::float8[], $6::float8[])
             AS t(o, n, p, c, x, y)
      RETURNING id, owner_user_id`,
@@ -163,6 +214,7 @@ export async function insertSimulatedShops(
       shops.map((s) => s.categories.join(',')),
       shops.map((s) => s.lng),
       shops.map((s) => s.lat),
+      options.demo === true,
     ],
   );
   const idByOwner = new Map(rows.map((r) => [r.owner_user_id, r.id]));

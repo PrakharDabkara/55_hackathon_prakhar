@@ -21,6 +21,7 @@ const MAX_ATTEMPTS = 10;
 export async function createSimulatedShops(
   db: Database,
   input: GenerateInput,
+  options: { demo?: boolean } = {},
 ): Promise<SimulatedShopLogin[]> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const specs = generateShops({ ...input, seed: input.seed + attempt });
@@ -29,6 +30,7 @@ export async function createSimulatedShops(
         const users = await createShopUsers(
           tx,
           specs.map((s) => s.phone),
+          options,
         );
         if (!users) throw new PhoneClash();
         const ids = await insertSimulatedShops(
@@ -41,6 +43,7 @@ export async function createSimulatedShops(
             lng: s.lng,
             categories: s.categories,
           })),
+          options,
         );
         return ids.map((shopId, i) => ({ shopId, token: (users[i] as { token: string }).token }));
       });

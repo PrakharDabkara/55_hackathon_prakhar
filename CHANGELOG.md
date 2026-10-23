@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR C2: demo-ready, ADR-0062)
+
+- Demo autopilot: with `DEMO_AUTOPILOT=on` (default off) the API's worker answers pings and shopping-list parchis for `is_simulated` shops after 5 to 90 s and moves their orders on (READY or out for delivery), through the same service functions as the routes. Capped by `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30); catches up on open work after the instance wakes and on each expiry sweep. It never answers real or demo shops.
+- `POST /admin/demo/seed` (idempotent): five demo shops on 9000000102 to 106 near Vijay Nagar with initials logos, delivery on two, about 40 items of illustrative learned stock, eight simulated shops, and a demo saved address for customers 9000000202 to 206. `POST /admin/demo/reset` removes everything that involves a demo number (101 to 110, 201 to 210) and seeds again; counts only. Both are 404 without the admin token. `scripts/demo.sh seed|reset`.
+- Migration 030: `users.is_demo` and `shops.is_demo`.
+
+### Changed (PR C2)
+
+- The simulated shop's answer rules moved from `apps/simulator` to `packages/shared` so the autopilot and the laptop simulator share them; `npm run simulate` builds shared first.
+
 ### Added (PR A4: more subagents)
 
 - `.claude/agents/security-reviewer.md` (diff review against the security checklist; Bash only for git/gh diff, log, view) and `eval-analyst.md` (dev eval reports only, never the held-out set). Both read-only, and Bash is enforced read-only by `.claude/hooks/guard-readonly-bash.mjs`, a PreToolUse hook in each agent's frontmatter (allowlist: git diff|log|show|status, gh pr diff|view, and gh run view|download for eval-analyst; chains, redirects and substitutions refused). New agents need a new session. `agents.test.ts` checks frontmatter (name matches file, description, tools listed, never Edit or Write); `vitest.config.ts` now includes `.claude/agents/`.

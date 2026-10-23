@@ -1,6 +1,6 @@
 # simulator — fake shops for the live demo and load tests
 
-Node built-ins only (no dependencies). It uses the server's `ADMIN_TOKEN` (from the environment, never a flag), creates simulated shops on the server (or reuses them from a local state file), listens on ONE admin event stream, and answers each ping as that shop through the real `POST /pings/:id/answer`.
+Node built-ins plus the shared answer rules in `@askbuy/shared` (the same ones the API's demo autopilot uses, ADR-0062; `npm run simulate` builds it first). It uses the server's `ADMIN_TOKEN` (from the environment, never a flag), creates simulated shops on the server (or reuses them from a local state file), listens on ONE admin event stream, and answers each ping as that shop through the real `POST /pings/:id/answer`.
 
 ```sh
 ADMIN_TOKEN=<the server's token> npm run simulate -- --target https://kahanmilega-api.onrender.com --count 200 --speed 10

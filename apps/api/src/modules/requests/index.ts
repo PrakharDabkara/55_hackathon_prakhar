@@ -38,3 +38,5 @@ export { EVENTS, STATES, transition } from './stateMachine.js';
 export type { RequestEvent, RequestState } from './stateMachine.js';
 export type { ApplyResult } from './persistence.js';
 export { hasLiveRequest } from './account.js';
+export { findSimulatedPings } from './simulated.js';
+export type { SimulatedPing } from './simulated.js';

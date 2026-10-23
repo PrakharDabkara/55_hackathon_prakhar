@@ -124,7 +124,7 @@ describe('POST /admin/demo/seed and /admin/demo/reset', () => {
       const first = DEMO_STOCK[0];
       expect(
         stock.rows.find(
-          (r) => r['slug'] === first?.slug && r['phone'] === DEMO_SHOPS[first.shop]?.phone,
+          (r) => r['slug'] === first?.slug && r['phone'] === DEMO_SHOPS[first?.shop ?? 0]?.phone,
         )?.price_paise,
       ).toBe(first?.pricePaise);
 
@@ -393,13 +393,14 @@ describe('POST /admin/demo/seed and /admin/demo/reset', () => {
       expect(await count(`SELECT count(*) AS n FROM shops WHERE is_demo AND is_simulated`)).toBe(8);
     });
 
-    it('keeps the demo logins working and finds nothing more to remove the second time', async () => {
+    it("keeps the demo logins working and finds nothing more of anyone's to remove the second time", async () => {
       const token = (await loginAs(app, 'seeker', '9000000203')).token;
       await reset();
       const again = await reset();
-      expect(again.body.removed).toEqual(
-        Object.fromEntries(Object.keys(again.body.removed).map((k) => [k, 0])),
-      );
+      // Nothing of a person's is left; the stock it clears is just the seed, put back at once.
+      const { stockRows, ...people } = again.body.removed;
+      expect(people).toEqual(Object.fromEntries(Object.keys(people).map((k) => [k, 0])));
+      expect(stockRows).toBe(DEMO_STOCK.length);
       const me = await request(app)
         .get('/orders')
         .set({ Authorization: `Bearer ${token}` });

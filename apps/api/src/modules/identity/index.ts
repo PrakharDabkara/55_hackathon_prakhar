@@ -9,6 +9,8 @@ export {
   anonymiseUser,
   createShopUsers,
   deleteUsers,
+  ensureDemoUser,
+  findUserIdsByPhones,
   hasLiveSession,
   lockLiveUser,
   phoneOf,

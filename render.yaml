@@ -40,6 +40,10 @@ services:
       # purpose: set it by hand in the dashboard. Unset means no admin and the endpoints answer 404.
       - key: ADMIN_TOKEN
         sync: false
+      # Simulated shops answered by the API itself, for a demo when the laptop is off (ADR-0062).
+      # Set to 'on' in the dashboard; unset means off.
+      - key: DEMO_AUTOPILOT
+        sync: false
       # AI query understanding (ADR-0020). Free-tier prompts may be reviewed by Google: only query
       # text and catalog item names are sent. The key is set by hand in the dashboard.
       - key: LLM_PROVIDER

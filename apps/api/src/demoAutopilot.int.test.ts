@@ -295,7 +295,8 @@ describe('demo autopilot', () => {
       expect(done[realShop.shopId]).toBe('SENT');
     });
 
-    it('moves a pickup order to READY and a delivery order out, without declining, for a simulated shop only', async () => {
+    /** A list answered by a simulated shop and a real one, then ordered from both in the given modes. */
+    async function ordered(simMode: 'pickup' | 'delivery', realMode: 'pickup' | 'delivery') {
       const sim = await shop('Sim', 0.3, 'simulated');
       const realShop = await shop('Real', 0.35, 'real');
       const id = await sortAndSend();
@@ -319,27 +320,48 @@ describe('demo autopilot', () => {
             { position: 0, shopId: sim.shopId },
             { position: 1, shopId: realShop.shopId },
           ],
-          modes: { [sim.shopId]: 'delivery', [realShop.shopId]: 'delivery' },
+          modes: { [sim.shopId]: simMode, [realShop.shopId]: realMode },
           addressText: 'DEMO address, Vijay Nagar, Indore',
           customerName: 'Asha',
         });
       expect(placed.status).toBe(201);
-      const autopilot = start();
-      await autopilot.catchUp();
       const stateOf = async (shopId: string) =>
         (
           await pool.query<{ state: string }>(
             `SELECT state FROM delivery_orders WHERE shop_id = $1`,
             [shopId],
           )
-        ).rows[0]?.state;
+        ).rows[0]?.state as string;
+      return { sim, realShop, stateOf };
+    }
+
+    it("makes a pickup order READY, and leaves a real shop's order alone", async () => {
+      const { sim, realShop, stateOf } = await ordered('pickup', 'delivery');
+      const autopilot = start();
+      await autopilot.catchUp();
       expect(
         await waitFor(
-          () => stateOf(sim.shopId) as Promise<string>,
+          () => stateOf(sim.shopId),
+          (s) => s === 'READY',
+        ),
+      ).toBe('READY');
+      expect(await stateOf(realShop.shopId)).toBe('ACCEPTED');
+    });
+
+    it('sends a delivery order out, never declines, and takes an order that is still REQUESTED through accept first', async () => {
+      const { sim, realShop, stateOf } = await ordered('delivery', 'pickup');
+      await pool.query(`UPDATE delivery_orders SET state = 'REQUESTED' WHERE shop_id = $1`, [
+        sim.shopId,
+      ]);
+      const autopilot = start();
+      await autopilot.catchUp();
+      expect(
+        await waitFor(
+          () => stateOf(sim.shopId),
           (s) => s === 'OUT_FOR_DELIVERY',
         ),
       ).toBe('OUT_FOR_DELIVERY');
-      expect(await stateOf(realShop.shopId)).toBe('REQUESTED');
+      expect(await stateOf(realShop.shopId)).toBe('ACCEPTED');
     });
   });
 
