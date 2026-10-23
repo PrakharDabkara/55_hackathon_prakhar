@@ -23,6 +23,7 @@ import { listsRouter } from './modules/lists/index.js';
 import { ordersRouter } from './modules/orders/index.js';
 import { createIdentify, identityRouter } from './modules/identity/index.js';
 import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
+import { demoRouter } from './modules/demo/index.js';
 import { simulationRouter } from './modules/simulation/index.js';
 import { searchRouter } from './modules/search/index.js';
 import { shopsRouter } from './modules/shops/index.js';
@@ -136,6 +137,15 @@ export function createApp({
         logger,
         realtime,
         adminToken: config.adminToken,
+        ...(requestHooks && { hooks: requestHooks }),
+      }),
+    );
+    app.use(
+      demoRouter({
+        db,
+        logger,
+        adminToken: config.adminToken,
+        capBytes: Math.floor(config.photoStorageCapMb * 1024 * 1024),
         ...(requestHooks && { hooks: requestHooks }),
       }),
     );

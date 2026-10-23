@@ -1,11 +1,15 @@
 export { ordersRouter } from './router.js';
 export {
   announceOrdersCreated,
+  keepAddress,
+  shopAct,
   insertListOrders,
   sweepOrderAddresses,
   sweepOrders,
 } from './service.js';
-export type { ListOrderDraft, ListOrdersInput, OrdersContext } from './service.js';
+export type { ListOrderDraft, ListOrdersInput, OrdersContext, ShopVerb } from './service.js';
+export { findSimulatedOrders } from './simulated.js';
+export type { SimulatedOrder } from './simulated.js';
 export { seekerOrderView } from './view.js';
 export type { SeekerOrderView } from './view.js';
 export { OFFER_FRESH_MINUTES } from './stateMachine.js';

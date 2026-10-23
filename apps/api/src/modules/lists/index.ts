@@ -11,3 +11,5 @@ export {
   sweepLists,
 } from './service.js';
 export type { ListsContext, ShopParchi } from './service.js';
+export { findSimulatedParchis } from './simulated.js';
+export type { SimulatedParchi } from './simulated.js';

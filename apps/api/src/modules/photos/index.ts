@@ -10,3 +10,5 @@ export {
 export { KEEP_AFTER_EXPIRY_DAYS, KEEP_UNATTACHED_HOURS, sweepPhotos } from './sweep.js';
 export { MAX_SIDE_PX, PhotoError, processPhoto } from './process.js';
 export { sniffImage } from './sniff.js';
+export { replaceLogo } from './logo.js';
+export { initialsOf, placeholderLogo } from './placeholderLogo.js';

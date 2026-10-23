@@ -18,6 +18,8 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   pingDedupeMinutes: 30,
   workersEnabled: false,
   adminToken: null,
+  demoAutopilot: false,
+  demoAutopilotMaxPerMinute: 30,
   demoPhones: [],
   otpInboxOpen: true,
   trustProxyHops: 1,

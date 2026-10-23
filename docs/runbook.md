@@ -132,6 +132,23 @@ watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | pytho
 
 **If it does not start.** `did not accept ADMIN_TOKEN` means the value differs from Render's or Render has not redeployed yet. A refused stream with HTTP 503 means the API has no `REDIS_URL`.
 
+## Demo mode without the laptop (ADR-0062)
+
+The API can answer for the simulated shops itself, so the live site works with the laptop off.
+
+**One-time setup on Render.** Environment → add `DEMO_AUTOPILOT` = `on` (and optionally `DEMO_AUTOPILOT_MAX_PER_MINUTE`, default 30) → Save. Add the demo numbers you want to log in with to `DEMO_PHONES` (9000000102 to 106 for the shops, 9000000202 to 206 for the customers). Set it to `off` (or delete it) and restart to stop it completely: no queue, no listener, no code change. It only ever answers shops marked simulated.
+
+**Before a demo** (wakes the instance, clears what the last rehearsal left, makes the shops):
+
+```sh
+read -rs ADMIN_TOKEN && export ADMIN_TOKEN   # paste the token; it is not shown or saved
+bash scripts/demo.sh reset && bash scripts/demo.sh seed
+```
+
+Both print counts only. `reset` removes requests, lists, errands, orders and pings that involve a demo number (9000000101 to 110, 201 to 210), clears what the demo shops learned and seeds again; nothing else is touched. `seed` is safe to repeat. The stock prices are invented (see `apps/api/src/modules/demo/fixtures.ts`).
+
+**Check it is on.** The log has `demo autopilot is on` at startup, and `demo shop answered a ping` lines (with the request id) as searches arrive. An answer comes 5 to 90 s after the ping. The laptop simulator still works for local runs; do not run both against the same site.
+
 ## Run the end-to-end browser test
 
 One real browser test (Playwright, Chromium at 360 px) of the customer app against the whole stack: it logs in with Demo mode (a new random phone each time; the test server sets `OTP_INBOX_OPEN`, never production), taps "Demo location", searches `chini` with a price of ₹60, and expects a map pin, a list row with a price and a "haan" in the status line within 30 seconds. Five simulated grocery shops answer in the background. It is not part of `npm run test:unit` or `test:integration`; CI runs it as the `e2e` job.

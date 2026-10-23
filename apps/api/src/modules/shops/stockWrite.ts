@@ -51,3 +51,20 @@ export async function recordStockYes(
     stock.itemId,
   ]);
 }
+
+/** Forgets everything the demo shops (is_demo) have learned, so a reset starts from the fixture. */
+export async function clearDemoShopStock(db: Queryable): Promise<number> {
+  const { rowCount } = await db.query(
+    `DELETE FROM shop_stock WHERE shop_id IN (SELECT id FROM shops WHERE is_demo)`,
+  );
+  return rowCount ?? 0;
+}
+
+/** How many stock rows these shops hold. */
+export async function countStockOf(db: Queryable, shopIds: string[]): Promise<number> {
+  const { rows } = await db.query<{ n: string }>(
+    `SELECT count(*) AS n FROM shop_stock WHERE shop_id = ANY($1::uuid[])`,
+    [shopIds],
+  );
+  return Number(rows[0]?.n);
+}

@@ -24,7 +24,7 @@
     "seed:catalog": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file-if-exists=.env apps/api/dist/seedCatalogMain.js",
     "icons": "node apps/web/scripts/make-icons.ts",
     "push:keys": "node apps/api/scripts/pushKeys.ts",
-    "simulate": "node apps/simulator/src/main.ts",
+    "simulate": "npm run build -w @askbuy/shared && node apps/simulator/src/main.ts",
     "test:e2e": "npm run build -w @askbuy/shared -w @askbuy/api -w @askbuy/web && playwright test -c e2e/playwright.config.ts",
     "ai:models": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file=.env apps/api/dist/aiModelsMain.js",
     "ai:embed-catalog": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file-if-exists=.env apps/api/dist/aiEmbedCatalogMain.js",
@@ -33,6 +33,7 @@
     "mcp:build": "npm run build -w @askbuy/shared -w @askbuy/mcp-server",
     "mcp:login": "npm run mcp:build --silent && node apps/mcp-server/dist/loginMain.js",
     "mcp:start": "npm run mcp:build --silent && node apps/mcp-server/dist/main.js",
+    "perf:autopilot": "npm run build -w @askbuy/shared -w @askbuy/api && vitest run -c load/vitest.config.ts",
     "errand:smoke": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file=.env apps/api/dist/errandSmokeMain.js"
   },
   "devDependencies": {

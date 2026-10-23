@@ -179,11 +179,12 @@ export interface NewUserSession {
 export async function createShopUsers(
   db: Queryable,
   phones: string[],
+  options: { demo?: boolean } = {},
 ): Promise<NewUserSession[] | null> {
   const users = await db.query<{ id: string; phone: string }>(
-    `INSERT INTO users (phone, role) SELECT unnest($1::text[]), 'shop'
+    `INSERT INTO users (phone, role, is_demo) SELECT unnest($1::text[]), 'shop', $2::boolean
      ON CONFLICT (phone) DO NOTHING RETURNING id, phone`,
-    [phones],
+    [phones, options.demo === true],
   );
   if (users.rows.length !== phones.length) return null;
   const tokens = users.rows.map(() => generateToken());
@@ -200,6 +201,33 @@ export async function createShopUsers(
     const hit = byPhone.get(phone) as { id: string; token: string };
     return { userId: hit.id, phone, token: hit.token };
   });
+}
+
+/**
+ * The user behind a demo phone (ADR-0062), made if missing and marked is_demo. A demo number only
+ * ever belongs to the demo, so its role is set to what the demo needs it to be.
+ */
+export async function ensureDemoUser(
+  db: Queryable,
+  phone: string,
+  role: 'seeker' | 'shop',
+): Promise<string> {
+  const { rows } = await db.query<{ id: string }>(
+    `INSERT INTO users (phone, role, is_demo) VALUES ($1, $2, true)
+     ON CONFLICT (phone) DO UPDATE SET role = EXCLUDED.role, is_demo = true
+     RETURNING id`,
+    [phone, role],
+  );
+  return (rows[0] as { id: string }).id;
+}
+
+/** The ids of the users who have any of these phones. */
+export async function findUserIdsByPhones(db: Queryable, phones: string[]): Promise<string[]> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM users WHERE phone = ANY($1::text[])`,
+    [phones],
+  );
+  return rows.map((r) => r.id);
 }
 
 export async function deleteUsers(db: Queryable, userIds: string[]): Promise<number> {

@@ -586,3 +586,28 @@ describe('photo storage cap (ADR-0030)', () => {
     expect(() => loadConfig({ ...valid, PHOTO_STORAGE_CAP_MB: 'lots' })).toThrow();
   });
 });
+
+describe('demo autopilot (ADR-0062)', () => {
+  it('is off by default, so nothing answers for the simulated shops', () => {
+    expect(loadConfig(valid)).toMatchObject({
+      demoAutopilot: false,
+      demoAutopilotMaxPerMinute: 30,
+    });
+    expect(loadConfig({ ...valid, DEMO_AUTOPILOT: 'off' }).demoAutopilot).toBe(false);
+    expect(loadConfig({ ...valid, DEMO_AUTOPILOT: '' }).demoAutopilot).toBe(false);
+  });
+
+  it('is on only for the word "on"', () => {
+    expect(loadConfig({ ...valid, DEMO_AUTOPILOT: 'on' }).demoAutopilot).toBe(true);
+    for (const value of ['true', '1', 'yes', 'ON', 'maybe'])
+      expect(() => loadConfig({ ...valid, DEMO_AUTOPILOT: value })).toThrowError(/DEMO_AUTOPILOT/);
+  });
+
+  it('caps its answers per minute between 1 and 600', () => {
+    expect(
+      loadConfig({ ...valid, DEMO_AUTOPILOT_MAX_PER_MINUTE: '12' }).demoAutopilotMaxPerMinute,
+    ).toBe(12);
+    for (const value of ['0', '601', 'many'])
+      expect(() => loadConfig({ ...valid, DEMO_AUTOPILOT_MAX_PER_MINUTE: value })).toThrow();
+  });
+});

@@ -41,6 +41,15 @@ const schema = z
       .optional()
       .transform((v) => (v === undefined || v.trim() === '' ? undefined : v.trim()))
       .pipe(z.string().min(32, 'must be at least 32 characters').optional()),
+    // Server-side simulated shops for the live demo (ADR-0062): answers pings and parchis for
+    // is_simulated shops from inside the API. Only the word "on" turns it on.
+    DEMO_AUTOPILOT: z
+      .string()
+      .default('off')
+      .transform((v) => (v.trim() === '' ? 'off' : v.trim()))
+      .pipe(z.enum(['on', 'off'])),
+    // Most answers (and order moves) the autopilot starts in one minute; the rest are not answered.
+    DEMO_AUTOPILOT_MAX_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
     // Retired (ADR-0058): a phone can no longer become admin. Read only so that production can
     // refuse to start while it is still set.
     ADMIN_PHONES: blankIsUnset,
@@ -244,6 +253,10 @@ export interface Config {
   workersEnabled: boolean;
   /** Opens the admin endpoints (Authorization: Bearer). Null: there is no admin (ADR-0058). */
   adminToken: string | null;
+  /** Whether simulated shops are answered by the API itself (ADR-0062). */
+  demoAutopilot: boolean;
+  /** The most answers the autopilot starts in a minute. */
+  demoAutopilotMaxPerMinute: number;
   /** E.164 phones that get a code in the demo inbox. */
   demoPhones: string[];
   /** Tests only: every phone gets a code in the demo inbox. Never true in production. */
@@ -340,6 +353,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     pingDedupeMinutes: e.PING_DEDUPE_MINUTES,
     workersEnabled: e.WORKERS_ENABLED,
     adminToken: e.ADMIN_TOKEN ?? null,
+    demoAutopilot: e.DEMO_AUTOPILOT === 'on',
+    demoAutopilotMaxPerMinute: e.DEMO_AUTOPILOT_MAX_PER_MINUTE,
     demoPhones: e.DEMO_PHONES,
     otpInboxOpen: e.OTP_INBOX_OPEN === 'true',
     otpIpLimits: {

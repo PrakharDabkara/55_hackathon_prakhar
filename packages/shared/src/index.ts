@@ -18,3 +18,15 @@ export {
   LIST_TTL_MIN,
   MAX_LIST_ANSWERS,
 } from './lists.js';
+export { decide, decideList, decideOrder, makeProfile } from './shopBehaviour/decision.js';
+export type {
+  AnswerBody,
+  Decision,
+  ListAnswerBody,
+  ListDecision,
+  ListPingInfo,
+  OrderDecision,
+  PingInfo,
+  ShopProfile,
+} from './shopBehaviour/decision.js';
+export { createRng, hashSeed } from './shopBehaviour/rng.js';
