@@ -61,3 +61,28 @@ blocks the call and shows stderr to Claude as the reason; exit 0 lets it through
 - **Incident:** a merge switched the branch under a running session.
 - **Limits:** a snapshot at the start only. It does not notice a branch change later; guard-git blocks
   the worst outcome (a commit on main), not a commit on the wrong feature branch.
+
+# AI tooling: subagents
+
+A subagent is a second Claude that the main session starts for one job. It gets its own empty context,
+its own prompt and only the tools its file allows; it does the work and hands back one report. The
+main session never sees its file reads or command output, only the report. Definitions live in
+`.claude/agents/*.md` and are loaded when a session starts (a new file needs a restart).
+
+## flake-hunter (`.claude/agents/flake-hunter.md`)
+
+- **Does:** takes ONE flaky test, runs it many times alone and under CPU load, classifies the cause
+  (ordering, timing window, shared state, test pollution, real product bug) and returns root cause,
+  failure rate and a minimal proposed diff.
+- **Why it exists:** two integration tests failed under CI load and blocked the SEC3 deploy twice:
+  `notifier.int.test.ts` ("and 1 more" on the first push) and `simulate.int.test.ts` ("expected 3 to be
+  > = 4"). Each needs a repeat-and-load loop that fills a context with test output.
+- **Why read-only:** tools are Bash, Read, Grep and Glob; it cannot edit. A diagnosis should not change
+  the code it measures, and the main session reviews every proposal before it lands, so a flake that is
+  really a product bug is not "fixed" by weakening a test. The secrets hook still applies to it.
+- **Two in parallel:** the two tests share no code, so each got its own hunter at once. The loops
+  (dozens of vitest runs each) stayed out of the main context, which received two short reports; the
+  wall clock was the slower hunter (about 10 minutes), not the sum.
+- **Limits:** neither hunter could reproduce the failure on a 14-core machine, even with 12 busy loops.
+  Both diagnoses come from reading the code, and the CI message fits exactly what the race produces.
+  A subagent starts cold, so it needs the evidence in its prompt.

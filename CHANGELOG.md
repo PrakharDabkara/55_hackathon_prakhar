@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Supply chain: `npm audit --omit=dev` found 0 vulnerabilities; gitleaks over all history found 7 hits, all a public sample push key in test fixtures (no rotation); every GitHub Action in `ci.yml` and `evals.yml` is pinned to a commit SHA, with a test.
 - New `SECURITY.md` (how to report, what we keep, demo-mode limits).
 
+### Added (PR A3: flake-hunter subagent)
+
+- `.claude/agents/flake-hunter.md`: a read-only subagent (Bash, Read, Grep, Glob) that reproduces one flaky test, classifies the cause and proposes a minimal diff. `docs/ai-tooling.md` explains subagents and why this one exists.
+
+### Fixed (PR A3: two flaky integration tests)
+
+- `notifier.int.test.ts`: wait for the notifier to finish the first push before the second search, so "and 1 more" cannot land on the first push (it counts the pings waiting when the handler runs).
+- `simulate.int.test.ts`: wait until the simulator has logged and counted every answer stored in the database, instead of asserting right after the rows are read.
+
 ### Added (PR A1: Claude Code hooks, ADR-0061)
 
 - `.claude/settings.json` and `.claude/hooks/*.mjs` (plain Node): `guard-secrets` blocks `.env` (not `.env.example`) and holdout paths; `guard-git` blocks pushes to main, `--no-verify` and commits on main; `format` runs Prettier on edited files; `notify` sends a desktop notification on Notification and Stop; `session-status` prints branch, open PRs and runner state at session start. `permissions.deny` repeats the secrets and git rules as a second layer.
