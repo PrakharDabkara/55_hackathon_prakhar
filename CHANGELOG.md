@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR O1: observability, ADR-0063)
+
+- Request id on every log line of a request (also from a module's own logger) and in every error body as `error.requestId`; it is six characters ("7F3A2C") unless the caller sent a safe `X-Request-Id`. The web apps add "· ref 7F3A2C" to server-error messages.
+- Unexpected errors log the error class, SQLSTATE and constraint, never parameters or values. Failed jobs on every queue log queue, job name and id, attempt, and the request that queued the job (`correlationId`).
+- `POST /client-errors`: strict small report from `window.onerror` and `unhandledrejection` (message, stack up to 2 kb, route, app version, request ref), limited to 10 a minute per IP and per user, logged at warn with phones and emails cut.
+- `GET /admin/health/details` (admin token, 404 otherwise): DB and Redis, queue depths and failed jobs in 24 h, AI calls today, autopilot state, commit. Counts only.
+- Runbook: "Debugging a live issue".
+
+### Fixed (PR O1)
+
+- pino-http replaced the logger's error serializer on `req.log`, so `req.log.error({ err })` skipped the redaction (database `detail`, `where`, `parameters`). The serializer is now passed to pino-http.
+
 ### Added (PR C2: demo-ready, ADR-0062)
 
 - Demo autopilot: with `DEMO_AUTOPILOT=on` (default off) the API answers pings and shopping-list parchis for `is_simulated` shops after 5 to 90 s and moves their orders on (READY or out for delivery), through the same service functions as the routes. Event-driven on its own BullMQ queue (plan job, then a delayed answer job; three at a time; no timer or polling), capped by `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30), one batch catch-up at startup. Off creates nothing. `npm run perf:autopilot` measures CPU, memory and search latency on against off. It never answers real or demo shops.

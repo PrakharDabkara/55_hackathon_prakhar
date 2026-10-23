@@ -170,8 +170,10 @@ describe('admin token and the simulator endpoints', () => {
     );
 
     it('answers 404, not 401 or 403, so the endpoints do not reveal themselves', async () => {
-      expect((await create(body, seeker)).body).toEqual(
-        (await request(app).get('/no/such/route')).body,
+      // Same body but for the ref, which is per request.
+      const sameBut = (res: { body: { error: object } }) => ({ ...res.body.error, requestId: 'x' });
+      expect(sameBut(await create(body, seeker))).toEqual(
+        sameBut(await request(app).get('/no/such/route')),
       );
     });
 

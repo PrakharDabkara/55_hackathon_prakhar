@@ -1,4 +1,5 @@
 import { pino, stdSerializers, type DestinationStream, type Logger } from 'pino';
+import { currentRequestId } from './http/requestContext.js';
 import { redactPrivateData } from './modules/ai/index.js';
 
 /**
@@ -36,7 +37,7 @@ export const LOG_REDACT = [
 const DATABASE_DETAIL = ['detail', 'where', 'parameters', 'internalQuery', 'hint'];
 
 /** The standard error, minus what a database error quotes, and with phones and emails cut from the text. */
-function errorSerializer(error: unknown): unknown {
+export function errorSerializer(error: unknown): unknown {
   const std = stdSerializers.err(error as Error) as unknown as Record<string, unknown>;
   const out = Object.fromEntries(
     Object.entries(std).filter(([key]) => !DATABASE_DETAIL.includes(key)),
@@ -49,7 +50,16 @@ function errorSerializer(error: unknown): unknown {
 /** The one logger of the server: JSON lines, with the redaction and the error serializer above. */
 export function createLogger(level: string, destination?: DestinationStream): Logger {
   return pino(
-    { level, redact: LOG_REDACT, serializers: { err: errorSerializer } },
+    {
+      level,
+      redact: LOG_REDACT,
+      serializers: { err: errorSerializer },
+      // Every line written while a request runs carries its id, even from a module's own logger.
+      mixin: () => {
+        const requestId = currentRequestId();
+        return requestId ? { requestId } : {};
+      },
+    },
     destination as DestinationStream,
   );
 }

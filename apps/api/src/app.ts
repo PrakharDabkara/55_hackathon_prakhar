@@ -1,12 +1,16 @@
 import express from 'express';
 import type { Logger } from 'pino';
+import { errorSerializer } from './logger.js';
 import { pinoHttp } from 'pino-http';
 import type { Config } from './config/config.js';
+import { adminHealthRouter, type OpsProbes } from './http/adminHealth.js';
+import { clientErrorsRouter } from './http/clientErrors.js';
 import { healthRouter } from './http/health.js';
 import { createIpLimiter, createMemoryStore, type IpLimitStore } from './http/ipLimit.js';
 import { createRouteLimits, ROUTE_RULES, scaleRules } from './http/routeLimits.js';
 import { securityHeaders } from './http/securityHeaders.js';
 import { errorHandler, notFound } from './http/errors.js';
+import { runWithRequestId } from './http/requestContext.js';
 import { pickRequestId } from './http/requestId.js';
 import { DEFAULT_WEB_DIST, webRouter } from './http/web.js';
 import { accountRouter } from './modules/account/index.js';
@@ -43,6 +47,8 @@ interface AppDeps {
   errandHooks?: {
     enqueue(errandId: string, options?: { delayMs?: number; key?: string }): Promise<void>;
   };
+  /** What the admin health details read from the running process (queues, Redis, autopilot). */
+  ops?: OpsProbes;
   /** Where the built web app lives. Default: apps/web/dist. */
   webDistDir?: string;
   /** Counts the per-IP and per-user limits. Default: in this process; production passes a Redis one. */
@@ -63,6 +69,7 @@ export function createApp({
   realtime = createRealtime({ redisUrl: null, logger }),
   ai,
   errandHooks,
+  ops,
   webDistDir = DEFAULT_WEB_DIST,
   ipLimitStore = createMemoryStore(),
   rateLimits = {},
@@ -83,7 +90,9 @@ export function createApp({
         return id;
       },
       // Path only: query strings can carry a phone number (/dev/otp-inbox), headers a bearer token.
+      // pino-http would otherwise put its own err serializer on req.log, past the redaction.
       serializers: {
+        err: errorSerializer,
         req: (req: { id: unknown; method: string; url: string }) => ({
           id: req.id,
           method: req.method,
@@ -92,6 +101,8 @@ export function createApp({
       },
     }),
   );
+  // Everything this request starts, in this process, logs with its id (see logger.ts).
+  app.use((req, _res, next) => runWithRequestId(String(req.id), next));
   // On every response from here on, errors and 429s included.
   app.use(securityHeaders);
   // Health checks and the static web app are not counted: they cost nothing and a load balancer
@@ -116,6 +127,7 @@ export function createApp({
     }),
   );
   app.use(express.json({ limit: '10kb' }));
+  app.use(clientErrorsRouter({ logger }));
   app.use(
     identityRouter({
       db,
@@ -147,6 +159,15 @@ export function createApp({
         adminToken: config.adminToken,
         capBytes: Math.floor(config.photoStorageCapMb * 1024 * 1024),
         ...(requestHooks && { hooks: requestHooks }),
+      }),
+    );
+    app.use(
+      adminHealthRouter({
+        db,
+        adminToken: config.adminToken,
+        gitSha: config.gitSha,
+        provider: config.llmProvider,
+        ops,
       }),
     );
     app.use(aiAdminRouter({ db, adminToken: config.adminToken, ai }));

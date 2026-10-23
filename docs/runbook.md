@@ -26,8 +26,21 @@ Database: migrations are not rolled back with the code. If a migration is the pr
 ## Where the logs are
 
 - Render dashboard → `kahanmilega-api` → Logs. One JSON object per line (pino).
-- Every request line has `req.id`, which is the `x-request-id` the caller sent or one we generated, and is echoed in the response header. Search the id in the Logs filter to follow one request.
+- Every log line written while a request runs has `requestId`: the `x-request-id` the caller sent or a six-character one we made ("7F3A2C"), echoed in the response header and in every error body. Search it in the Logs filter to follow one request; background jobs the request queued log the same id as `correlationId`.
 - Locally: `docker logs <container>` or the terminal running `npm run dev -w @askbuy/api`.
+
+## Debugging a live issue (O1)
+
+1. **Get the ref.** An error on screen ends in "· ref 7F3A2C". Ask for that, plus the time and which screen.
+2. **Search the ref in Render logs.** `7F3A2C` shows the request line, the error line (`unhandled error`: `errorClass`, `sqlState`, `constraint`) and any job it queued (`job failed`: `queue`, `jobName`, `attempt`). A crash in the browser itself has no ref: search `client error` (warn) for the route and `appVersion`.
+3. **Open `GET /admin/health/details`** with the admin token (`Authorization: Bearer ...`): `db`, `redis`, each queue's `waiting`, `active`, `delayed` and `failedLast24h`, `ai.callsToday`, `ai.failedToday`, `ai.breakerSkipsToday`, `autopilot.on` and `lastActivityAt`, `version.sha`. Counts only.
+4. **Common causes.**
+   - _Cold start:_ first request after idle is slow or times out; `/health` answers, `/ready` takes a few seconds. Wait a minute and retry; see Free-tier behaviour.
+   - _Quota exhausted:_ `ai.failedToday` or `breakerSkipsToday` climbing, `/admin/ai/ping` says 429 or `RESOURCE_EXHAUSTED`. Searches fall back to the free steps; see AI unavailable below. It clears at the provider's daily reset.
+   - _Runner offline / queues stuck:_ `waiting` grows and `active` stays 0, or `redis.ok` is false. Check Redis on Render, restart the API; jobs are kept.
+   - _Autopilot off:_ demo shops never answer and `autopilot.on` is false. Set `DEMO_AUTOPILOT=on` and redeploy; `lastActivityAt` should move within a minute of a request.
+   - _Wrong build:_ `version.sha` is not the commit you expect; the deploy has not finished or failed.
+5. **Still unclear:** reproduce with the ref's route, then read the `sqlState` against the PostgreSQL error codes table.
 
 ## What the probes mean
 

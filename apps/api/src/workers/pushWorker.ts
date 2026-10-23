@@ -1,6 +1,7 @@
 import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import type { DeliverResult, PushJob } from '../modules/push/index.js';
+import { logJobFailure } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const PUSH_QUEUE = 'push';
@@ -48,12 +49,8 @@ export function startPushWorker({
     connection: workerConnection,
   });
   worker.on('error', (err) => logger.warn({ reason: err.message }, 'push worker error'));
-  worker.on('failed', (job, err) =>
-    logger.warn(
-      { subscriptionId: (job?.data as PushJob | undefined)?.subscriptionId, reason: err.message },
-      'push job failed',
-    ),
-  );
+  // A push that fails is retried, so it is a warning, not an error.
+  worker.on('failed', (job, err) => logJobFailure(logger, queueName, job, err, 'warn'));
 
   return {
     queue,

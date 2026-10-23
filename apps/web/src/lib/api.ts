@@ -1,5 +1,6 @@
 import type { Category } from '@askbuy/shared';
 import type { ShopCancelReason, ShopOrder, ShopOrderVerb } from './orders.js';
+import { noteRequestId } from './clientErrors.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
 import { createPushApi, type PushApi } from './pushApi.js';
 
@@ -12,6 +13,12 @@ export class ApiError extends Error {
     readonly details: Record<string, unknown> = {},
   ) {
     super(message);
+  }
+
+  /** The ref the server gave this failure, to quote when asking for help. */
+  get requestId(): string | undefined {
+    const id = this.details['requestId'];
+    return typeof id === 'string' ? id : undefined;
   }
 }
 
@@ -213,6 +220,7 @@ export function createCaller({ getToken, onUnauthorized, fetchImpl = fetch }: Cl
       let code = 'unknown';
       let message = res.statusText || 'Request failed';
       let details: Record<string, unknown> = {};
+      const headerId = res.headers.get('x-request-id') ?? undefined;
       try {
         const data = (await res.json()) as { error?: Record<string, unknown> };
         const { code: c, message: m, ...rest } = data.error ?? {};
@@ -222,6 +230,11 @@ export function createCaller({ getToken, onUnauthorized, fetchImpl = fetch }: Cl
       } catch {
         // Not JSON (a proxy error page, say): keep the defaults.
       }
+      const ref = typeof details['requestId'] === 'string' ? details['requestId'] : headerId;
+      noteRequestId(ref);
+      if (ref && details['requestId'] === undefined) details = { ...details, requestId: ref };
+      // A server fault says nothing useful in itself, so it carries the ref to quote.
+      if (res.status >= 500 && ref) message = `${message} · ref ${ref}`;
       // A wrong OTP is also a 401; only an expired or revoked login should end the session.
       if (res.status === 401 && code === 'unauthorized') onUnauthorized();
       throw new ApiError(res.status, code, message, details);

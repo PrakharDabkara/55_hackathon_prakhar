@@ -3,8 +3,12 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
 // Served by the API under /app/ (ADR-0017), hence the base.
+// The short commit Render built from, sent with a browser error report.
+const version = (process.env['RENDER_GIT_COMMIT'] ?? process.env['GIT_SHA'] ?? 'dev').slice(0, 7);
+
 export default defineConfig({
   base: '/app/',
+  define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(version) },
   plugins: [react()],
   resolve: {
     // The shared package is plain TypeScript; use its source and skip a build step.

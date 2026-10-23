@@ -6,8 +6,8 @@ describe('pickRequestId', () => {
     expect(pickRequestId('abc-123_DEF.4')).toBe('abc-123_DEF.4');
   });
 
-  it('generates a uuid when missing', () => {
-    expect(pickRequestId(undefined)).toMatch(/^[0-9a-f-]{36}$/);
+  it('generates a short id when missing', () => {
+    expect(pickRequestId(undefined)).toMatch(/^[0-9A-F]{6}$/);
   });
 
   it.each(['has space', 'line\nbreak', 'x'.repeat(129), '', '<script>'])(
@@ -15,11 +15,11 @@ describe('pickRequestId', () => {
     (bad) => {
       const id = pickRequestId(bad);
       expect(id).not.toBe(bad);
-      expect(id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(id).toMatch(/^[0-9A-F]{6}$/);
     },
   );
 
   it('ignores a repeated header (array form)', () => {
-    expect(pickRequestId(['a', 'b'])).toMatch(/^[0-9a-f-]{36}$/);
+    expect(pickRequestId(['a', 'b'])).toMatch(/^[0-9A-F]{6}$/);
   });
 });

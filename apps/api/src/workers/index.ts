@@ -27,6 +27,8 @@ import {
 } from '../modules/push/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
+import { createOps } from './ops.js';
+import type { OpsProbes } from '../http/adminHealth.js';
 import { startDemoAutopilotWorker, type DemoAutopilotWorker } from './demoAutopilot.js';
 import { startErrandWorker, type ErrandWorker } from './errandWorker.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
@@ -48,6 +50,8 @@ export interface Workers {
   /** Present when VAPID keys are set: sends Web Push after the events that caused it (ADR-0034). */
   push: PushWorker | null;
   close(): Promise<void>;
+  /** Queue depths, Redis and autopilot state for /admin/health/details. */
+  ops: OpsProbes;
   /** Wakes waiting errands when their requests change; null without AI. */
   waker: ErrandWaker | null;
   /** Answers for the simulated shops from inside the API; null unless DEMO_AUTOPILOT=on (ADR-0062). */
@@ -267,6 +271,16 @@ export function startWorkers({
 
   return {
     hooks: requestHooks,
+    ops: createOps({
+      queues: {
+        'ping-fanout': fanout.queue,
+        expiry: expiry.queue,
+        errand: errands?.queue,
+        push: push?.queue,
+        'demo-autopilot': demoQueue?.queue,
+      },
+      autopilot: demoAutopilot,
+    }),
     expiry,
     fanout,
     errands,
