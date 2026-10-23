@@ -59,6 +59,29 @@ describe('scripts/demo.sh', () => {
     expect(odd.calls).toBe('');
   });
 
+  it.each([
+    'http://localhost.evil.com',
+    'http://localhost@evil.com',
+    'http://127.0.0.1.evil.com',
+    'https://evil.com@example.test',
+    'https://localhost@evil.com',
+  ])('refuses %s before any call', (base) => {
+    const res = run(['seed', base], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
+    expect(res.status).toBe(2);
+    expect(res.calls).toBe('');
+  });
+
+  it.each([
+    'http://localhost:3000',
+    'http://localhost',
+    'https://localhost:3000',
+    'http://127.0.0.1:3000',
+  ])('accepts the exact host %s', (base) => {
+    const res = run(['seed', base], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
+    expect(res.status).toBe(0);
+    expect(res.calls).toContain(`${base}/admin/demo/seed`);
+  });
+
   it('posts to /admin/demo/<command>, prints the counts, and keeps the token off the command line', () => {
     for (const cmd of ['seed', 'reset']) {
       const res = run(
