@@ -53,7 +53,7 @@ To check what is live: `curl https://<service>.onrender.com/health` and compare 
 
 ## Free-tier behaviour
 
-- The API sleeps after about 15 minutes idle; the first request wakes it (tens of seconds). Hit `/health` a minute before a demo.
+- The API sleeps after about 15 minutes idle (not while the uptime monitor runs, see "Running unattended until results"); the first request wakes it (tens of seconds). Hit `/health` a minute before a demo.
 - Neon also sleeps; the first `/ready` after idle can take a few seconds.
 
 ## Secrets: where each lives
@@ -177,6 +177,37 @@ npm run test:e2e            # builds the apps, starts the API on port 3100, runs
 ```
 
 The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `e2e` artifact of the run). The test starts its own API on port 3100 with a throwaway admin token made for each run, and deletes and recreates all simulated shops in the database it uses, so use a local database, never the live one. The map tiles come from OpenStreetMap; if they cannot load the test still passes, because it checks pins and the list.
+
+## Running unattended until results (Nov 6)
+
+ADR-0064. Nobody is watching; the API must stay up by itself.
+
+**Uptime monitor.** UptimeRobot, `GET https://kahanmilega-api.onrender.com/`, every 10 minutes, email alerts. It uses `/`, not `/ready`: `/` wakes the instance without touching Neon (`/ready` runs `SELECT 1` and would keep the database awake for nothing). Render's 15-minute sleep never starts, so the API, the workers and the 60 s sweeper run 24/7.
+
+**What runs by itself.**
+
+| What                                                                                  | How often        |
+| ------------------------------------------------------------------------------------- | ---------------- |
+| Request expiry (per-request delayed job, plus the sweeper as a safety net)            | 60 s             |
+| Same sweep: re-queue lost ping fan-outs, errands, lists, orders, "Le liya?" reminders | 60 s             |
+| Photo sweep                                                                           | every 10 min     |
+| Address sweep (30 days after an order), pickup sweep (30 days after the tap)          | every hour       |
+| Ping fan-out, push, errand and demo-autopilot workers                                 | on events        |
+| Demo autopilot catch-up                                                               | once at start-up |
+| Old completed jobs clean-up (logs `removed old completed jobs`)                       | once at start-up |
+
+**Free-tier budget.** Neon: 100 CU-hours a month; 14.25 used by Oct 24, about 62 projected for October, about 36 for Nov 1 to 6. Render: one free web service, about 744 of 750 h. Redis: Render Key Value free, 25 MB, `noeviction`.
+
+**Weekly check** (and before results):
+
+1. Neon, Billing, Usage: if above 80 CU-hours, pause the monitor (the API then sleeps and wakes on demand, about 14 s).
+2. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same numbers are in `/admin/health/details` under `redis`. A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
+
+**After the freeze:** `systemctl --user disable --now askbuy-runner-watchdog.timer`.
+
+**Hotfix with the laptop off:** delete the `RUNNER` repository variable (Settings, Secrets and variables, Actions, Variables) so CI uses GitHub-hosted runners; set it back to `self-hosted` afterwards.
+
+**After Nov 6:** delete the UptimeRobot monitor.
 
 ## Self-hosted runner (CI on the laptop)
 

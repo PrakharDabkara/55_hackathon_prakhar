@@ -14,6 +14,13 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Fixed (PR R1: running unattended, ADR-0064)
+
+- Redis no longer fills up: every queue (expiry, ping fan-out, push, errand, demo autopilot) now keeps finished jobs 1 hour or 200 and failed jobs 7 days or 500, from one helper (`workers/jobRetention.ts`); the 60 s sweep scheduler had no limit and left about 1,440 jobs a day. At start-up the workers clear old completed jobs, in capped batches, leaving waiting, active, delayed and failed ones alone.
+- `/admin/health/details` shows Redis `usedMemoryBytes` and `maxMemoryBytes`; `scripts/release-check.sh` warns above 40 % and fails above 60 %.
+- `load/idleQueries.perf.ts` now counts parameterised `execute` lines too; ADR-0062's idle-query figure is corrected. `docs/evals.md` says the eval schedule is paused until Oct 30.
+- Runbook: "Running unattended until results (Nov 6)". ADR-0064.
+
 ### Added (PR C3: release and ops readiness)
 
 - `scripts/ops/runner-watchdog.sh` with a user timer every 5 minutes (`ops/systemd/`) and a one-command sudoers snippet (`ops/sudoers/`): restarts the self-hosted runner when a run has waited over 10 minutes while it shows online and idle; at most once per 30 minutes; logs to `~/kahan-tools/watchdog.log`.
