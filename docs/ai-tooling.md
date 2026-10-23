@@ -87,6 +87,30 @@ main session never sees its file reads or command output, only the report. Defin
   Both diagnoses come from reading the code, and the CI message fits exactly what the race produces.
   A subagent starts cold, so it needs the evidence in its prompt.
 
+## security-reviewer (`.claude/agents/security-reviewer.md`)
+
+- **Does:** reads a branch or PR diff against our checklist (authz matrix and 404 for others' ids, strict
+  schemas and max lengths, rate limits, `ADMIN_TOKEN` for admin routes, PII in logs and prompts, SSRF,
+  SQL and prompt injection, no-store headers, migration safety, demo switches refused in production).
+  Returns findings ranked by severity with `file:line`, labelled confirmed or suspected, each with a
+  minimal fix.
+- **Why it exists:** the SEC1 to SEC3 work must not regress before the freeze. A fresh reviewer with
+  only the checklist catches what the author stopped seeing.
+- **Why read-only:** tools are Read, Grep, Glob and Bash; it never edits, so a review cannot change what
+  it reviews. Bash is limited to `git diff`, `git log`, `gh pr diff` and `gh pr view` by its prompt, not
+  by the tool list.
+
+## eval-analyst (`.claude/agents/eval-analyst.md`)
+
+- **Does:** reads DEV eval reports, groups failures by cause and proposes fixes with the case ids.
+  Short output.
+- **Why it exists:** eval reports are large and would fill the main context, and the holdout set must
+  stay unseen or it stops measuring the real pass rate. The agent is told never to read it; the hooks
+  block it as a second layer.
+- **Why read-only:** it analyses; it does not run or edit evals (running stays with `askbuy-evals`).
+
+**New agents need a new session:** definitions load at session start, so restart before using either.
+
 # AI tooling: skills
 
 A skill is a folder with a `SKILL.md`: a procedure Claude reads only when it is needed. Skills live in
