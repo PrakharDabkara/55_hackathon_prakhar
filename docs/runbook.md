@@ -196,6 +196,30 @@ Things to know:
 - No cache uploads on the laptop: the npm cache (~/.npm is about 12 GB here, 2.9 GB compressed) is skipped on self-hosted, since the disk keeps it. The eval catalog embeddings live in `~/.cache/kahanmilega-evals` there.
 - Back to GitHub's runners: delete the `RUNNER` variable. Nothing else changes.
 
+## Runner watchdog
+
+Oct 23: the runner showed "online, idle" but took no job for about 2 h until restarted. `scripts/ops/runner-watchdog.sh` (user timer, every 5 min) restarts the runner service when a run has been queued over 10 min AND GitHub reports the runner online and not busy; at most once per 30 min. It does nothing when the runner is busy, offline, or nothing waits. Every action is in `~/kahan-tools/watchdog.log`. No token is used: `gh` uses its own login, and the only sudo rule is the one exact restart command.
+
+Install (by hand, from the repo root; nothing here prints a token):
+
+```sh
+# 1. Allow only the runner restart without a password (check the syntax first).
+sudo visudo -cf ops/sudoers/askbuy-runner-watchdog
+sudo install -m 0440 -o root -g root ops/sudoers/askbuy-runner-watchdog /etc/sudoers.d/askbuy-runner-watchdog
+sudo -n -l /usr/bin/systemctl restart actions.runner.PrakharDabkara-55_hackathon_prakhar.fiftyfive-ThinkPad-L14-Gen-5.service   # expect: the command path printed, no password prompt
+# 2. Install and start the user timer.
+mkdir -p ~/.config/systemd/user ~/kahan-tools
+cp ops/systemd/askbuy-runner-watchdog.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now askbuy-runner-watchdog.timer
+# 3. Check it.
+systemctl --user list-timers askbuy-runner-watchdog.timer
+gh auth status    # must be logged in as the same user the timer runs as
+systemctl --user start askbuy-runner-watchdog.service && tail ~/kahan-tools/watchdog.log
+```
+
+A quiet run writes nothing (the log only has actions). If `gh` fails under the timer, the log says "gh ... failed; nothing done". Remove: `systemctl --user disable --now askbuy-runner-watchdog.timer` and `sudo rm /etc/sudoers.d/askbuy-runner-watchdog`. The service name in the sudoers file is the one under `~/actions-runner/.service`; if the runner is ever re-registered, change it there and in `RUNNER_SERVICE`.
+
 ## AI configuration (query understanding)
 
 Item matching tries a dictionary, trigram similarity, embeddings and then an LLM (ADR-0021). The model is Google's Gemini free tier behind a provider port (ADR-0020).
