@@ -22,6 +22,7 @@ export default defineConfig({
       '{apps,packages,evals}/**/*.test.{ts,tsx}',
       '.claude/hooks/*.test.ts',
       '.claude/skills/**/*.test.ts',
+      '.claude/agents/*.test.ts',
     ],
   },
 });

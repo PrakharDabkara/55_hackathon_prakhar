@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR A4: more subagents)
+
+- `.claude/agents/security-reviewer.md` (diff review against the security checklist; Bash only for git/gh diff, log, view) and `eval-analyst.md` (dev eval reports only, never the held-out set). Both read-only, and Bash is enforced read-only by `.claude/hooks/guard-readonly-bash.mjs`, a PreToolUse hook in each agent's frontmatter (allowlist: git diff|log|show|status, gh pr diff|view, and gh run view|download for eval-analyst; chains, redirects and substitutions refused). New agents need a new session. `agents.test.ts` checks frontmatter (name matches file, description, tools listed, never Edit or Write); `vitest.config.ts` now includes `.claude/agents/`.
+
 ### Fixed (flaky-sweep)
 
 - Three racy integration assertions: `seekerView` pingStats no longer assumes the fan-out has not run when `POST /requests` returns; the simulator `stop()` test waits for in-flight answers to settle before its baseline; `realtime` events test waits for the last expected event before the exact-list checks.
