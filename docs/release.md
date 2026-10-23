@@ -14,7 +14,7 @@ read -rs ADMIN_TOKEN && export ADMIN_TOKEN   # never on a command line; the scri
 scripts/release-check.sh                      # optional base URL as the first argument
 ```
 
-Read-only. It checks: main's last CI run, no open PRs, live `/health`, `/` and `/app/` return 200, `scripts/verify-live-security.sh` passes (it uses this machine's IP budget: run it at most once per 10 minutes, exit 2 means wait), and `/admin/health/details` is reachable with the autopilot on and no failed jobs in 24 h. Exit 0 means ready.
+Read-only. The admin token is sent only to `kahanmilega-api.onrender.com` (https), `localhost` or `127.0.0.1`; any other base URL is refused. It checks: main's last CI run, no open PRs, live `/health`, `/` and `/app/` return 200, `scripts/verify-live-security.sh` passes (it uses this machine's IP budget: run it at most once per 10 minutes, exit 2 means wait), and `/admin/health/details` is reachable with the autopilot on and no failed jobs in 24 h. Exit 0 means ready.
 
 ## Freeze (after v1.0.0)
 

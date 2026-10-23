@@ -21,6 +21,10 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 - `docs/release.md`: freeze policy, hotfix routine, branch protection. PR template now asks for exact files, flows to re-test, risk, security-reviewer result and evals.
 - Runbook: "Runner watchdog".
 
+### Security (PR C3)
+
+- `scripts/demo.sh` and `scripts/release-check.sh` send the admin token only to an exact-host allowlist (`scripts/lib/allowed-host.sh`): `https://kahanmilega-api.onrender.com`, `localhost` and `127.0.0.1`. Look-alike hosts, `@`, query strings and other schemes are refused before any request.
+
 ### Added (PR O1: observability, ADR-0063)
 
 - Request id on every log line of a request (also from a module's own logger) and in every error body as `error.requestId`; it is six characters ("7F3A2C") unless the caller sent a safe `X-Request-Id`. The web apps add "· ref 7F3A2C" to server-error messages.
