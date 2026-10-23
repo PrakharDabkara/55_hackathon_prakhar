@@ -9,6 +9,7 @@ import {
 } from '../modules/requests/index.js';
 import { logJobFailure, withCorrelation } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
+import { JOB_RETENTION, retainedJobs } from './jobRetention.js';
 
 export const EXPIRY_QUEUE = 'request-expiry';
 
@@ -57,7 +58,7 @@ export function startRequestExpiry({
 }: Options): RequestExpiry {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
-  const queue = new Queue(queueName, { connection: queueConnection });
+  const queue = new Queue(queueName, { connection: queueConnection, ...retainedJobs });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'expiry queue error'));
   const deps = { db, logger, events };
 
@@ -102,7 +103,7 @@ export function startRequestExpiry({
 
   // Repeatable sweeper; upsert so restarts and several instances share one schedule.
   const ready = queue
-    .upsertJobScheduler('sweep', { every: sweepEveryMs }, { name: 'sweep' })
+    .upsertJobScheduler('sweep', { every: sweepEveryMs }, { name: 'sweep', opts: JOB_RETENTION })
     .then(() => undefined);
   ready.catch((err: Error) =>
     logger.warn({ reason: err.message }, 'could not start expiry sweeper'),
@@ -118,7 +119,6 @@ export function startRequestExpiry({
             jobId: `expire-${requestId}`,
             delay: Math.max(0, expiresAt.getTime() - Date.now()) + SLACK_MS,
             removeOnComplete: true,
-            removeOnFail: 100,
           });
         })(),
         QUEUE_TIMEOUT_MS,

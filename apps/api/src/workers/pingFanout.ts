@@ -6,6 +6,7 @@ import { catchUpShop, fanOutPings } from '../modules/requests/index.js';
 import { createPingDedupe, type RedisLike } from './pingDedupe.js';
 import { logJobFailure, withCorrelation } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
+import { retainedJobs } from './jobRetention.js';
 
 export const FANOUT_QUEUE = 'ping-fanout';
 
@@ -56,7 +57,7 @@ export function startPingFanout({
     config.dedupeMinutes,
   );
 
-  const queue = new Queue(queueName, { connection: queueConnection });
+  const queue = new Queue(queueName, { connection: queueConnection, ...retainedJobs });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'fan-out queue error'));
 
   const worker = new Worker(
@@ -82,9 +83,8 @@ export function startPingFanout({
           .add('fanout', withCorrelation({ requestId }), {
             jobId: `fanout-${requestId}`,
             attempts: 3,
-            backoff: { type: 'exponential', delay: 1000 },
             removeOnComplete: true,
-            removeOnFail: 100,
+            backoff: { type: 'exponential', delay: 1000 },
           })
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,
@@ -100,9 +100,8 @@ export function startPingFanout({
             priority: CATCH_UP_PRIORITY,
             jobId: `catchup-${shopId}`,
             attempts: 3,
-            backoff: { type: 'exponential', delay: 1000 },
             removeOnComplete: true,
-            removeOnFail: 100,
+            backoff: { type: 'exponential', delay: 1000 },
           })
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,

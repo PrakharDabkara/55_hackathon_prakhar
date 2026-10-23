@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import type { AutopilotJob, JobQueue } from '../modules/demo/index.js';
 import { logJobFailure } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
+import { retainedJobs } from './jobRetention.js';
 
 export const DEMO_AUTOPILOT_QUEUE = 'demo-autopilot';
 
@@ -38,7 +39,7 @@ export function startDemoAutopilotWorker({
 }: Options): DemoAutopilotWorker {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
-  const queue = new Queue(queueName, { connection: queueConnection });
+  const queue = new Queue(queueName, { connection: queueConnection, ...retainedJobs });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'demo autopilot queue error'));
 
   const worker = new Worker(queueName, async (job) => run(job.data as AutopilotJob), {
@@ -58,8 +59,6 @@ export function startDemoAutopilotWorker({
             jobId,
             ...(delayMs !== undefined && { delay: Math.max(0, Math.round(delayMs)) }),
             attempts: 1,
-            removeOnComplete: { age: 600 },
-            removeOnFail: { age: 3600 },
           });
           return true;
         })(),

@@ -23,9 +23,12 @@ async function depth(name: string, queue: Queue): Promise<QueueDepth> {
 export function createOps({
   queues,
   autopilot,
+  memoryInfo,
 }: {
   queues: Record<string, Queue | null | undefined>;
   autopilot: DemoAutopilot | null;
+  /** The text of Redis `INFO memory`. */
+  memoryInfo: () => Promise<string>;
 }): OpsProbes {
   const live = Object.entries(queues).flatMap(([name, queue]) =>
     queue ? [[name, queue] as const] : [],
@@ -36,6 +39,11 @@ export function createOps({
       if (!first) return false;
       await first[1].getJobCounts('waiting');
       return true;
+    },
+    async redisMemory() {
+      const info = await memoryInfo();
+      const read = (key: string) => Number(new RegExp(`^${key}:(\d+)`, 'm').exec(info)?.[1] ?? 0);
+      return { usedBytes: read('used_memory'), maxBytes: read('maxmemory') };
     },
     queues: () => Promise.all(live.map(([name, queue]) => depth(name, queue))),
     autopilot: () => ({

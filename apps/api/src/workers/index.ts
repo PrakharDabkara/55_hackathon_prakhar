@@ -33,6 +33,7 @@ import { startDemoAutopilotWorker, type DemoAutopilotWorker } from './demoAutopi
 import { startErrandWorker, type ErrandWorker } from './errandWorker.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
 import { startPushWorker, type PushWorker } from './pushWorker.js';
+import { cleanOldJobs } from './jobRetention.js';
 import { connect } from './redis.js';
 import { startRequestExpiry, type RequestExpiry } from './requestExpiry.js';
 
@@ -269,9 +270,29 @@ export function startWorkers({
     subscribe((event) => live.handle(event));
   }
 
+  // Once at start: clear completed jobs that piled up before retention existed (ADR-0064). Not awaited.
+  void cleanOldJobs(
+    [
+      { queue: fanout.queue },
+      { queue: expiry.queue },
+      { queue: errands?.queue },
+      // Keyed pushes are kept a day on purpose ("once per request"), so this queue waits a day.
+      { queue: push?.queue, graceMs: 24 * 3_600_000 },
+      { queue: demoQueue?.queue },
+    ],
+    logger,
+  );
+
+  // A short-leashed connection of its own, so a slow Redis cannot hold up /admin/health/details.
+  const infoConnection = connect(config.redisUrl, logger, {
+    maxRetriesPerRequest: 1,
+    commandTimeout: 1000,
+  });
+
   return {
     hooks: requestHooks,
     ops: createOps({
+      memoryInfo: () => infoConnection.info('memory'),
       queues: {
         'ping-fanout': fanout.queue,
         expiry: expiry.queue,
@@ -298,6 +319,7 @@ export function startWorkers({
         demoQueue?.close(),
       ]);
       pushCounters?.disconnect();
+      infoConnection.disconnect();
     },
   };
 }

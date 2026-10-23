@@ -2,6 +2,7 @@ import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
 import { logJobFailure, withCorrelation } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
+import { retainedJobs } from './jobRetention.js';
 
 export const ERRAND_QUEUE = 'errand';
 
@@ -38,7 +39,7 @@ export function startErrandWorker({
 }: Options): ErrandWorker {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
-  const queue = new Queue(queueName, { connection: queueConnection });
+  const queue = new Queue(queueName, { connection: queueConnection, ...retainedJobs });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'errand queue error'));
 
   const worker = new Worker(
@@ -62,8 +63,6 @@ export function startErrandWorker({
             delay: Math.max(0, Math.round(options.delayMs)),
           }),
           attempts: 1,
-          removeOnComplete: { age: 3600 },
-          removeOnFail: { age: 24 * 3600 },
         }),
         QUEUE_TIMEOUT_MS,
         'queueing the errand job',
