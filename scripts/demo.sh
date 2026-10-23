@@ -8,20 +8,9 @@ cmd="${1:-}"
 B="${2:-${DEMO_BASE_URL:-https://kahanmilega-api.onrender.com}}"
 B="${B%/}"
 
-# Match the host exactly: a prefix match would let http://localhost.evil.com receive the token.
-case "$B" in
-  *@*) bad=1 ;;
-  https://*) bad=0 ;;
-  http://localhost | http://localhost:[0-9]* | http://localhost/* | http://127.0.0.1 | http://127.0.0.1:[0-9]* | http://127.0.0.1/*) bad=0 ;;
-  *) bad=1 ;;
-esac
-case "$bad" in
-  0) ;;
-  *)
-    echo "The base URL must be https:// (or http://localhost): the token is sent to it." >&2
-    exit 2
-    ;;
-esac
+# The token goes only to an allowlisted host (scripts/lib/allowed-host.sh).
+. "$(dirname "$0")/lib/allowed-host.sh"
+require_allowed_base_url "$B"
 case "${ADMIN_TOKEN:-}" in
   *[!A-Za-z0-9._~+/=-]*)
     echo "ADMIN_TOKEN has characters this script will not send; use letters, digits and ._~+/=-" >&2
