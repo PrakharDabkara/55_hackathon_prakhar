@@ -73,7 +73,7 @@ describe('request id', () => {
   it('generates one when absent', async () => {
     const { app } = build(async () => ({}));
     const res = await request(app).get('/health');
-    expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(res.headers['x-request-id']).toMatch(/^[0-9A-F]{6}$/);
   });
 });
 

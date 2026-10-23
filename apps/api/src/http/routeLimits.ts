@@ -42,6 +42,15 @@ export const ROUTE_RULES: RouteRule[] = [
   { method: 'POST', path: '/lists/sort', name: 'sort', perUser: 10, windowMs: MINUTE_MS },
   { method: 'POST', path: '/route/plan', name: 'plan', perUser: 20, windowMs: MINUTE_MS },
   { method: 'POST', path: '/requests', name: 'ask', perUser: 20, windowMs: HOUR_MS },
+  // A crashing page can report in a loop; a few a minute per caller is plenty.
+  {
+    method: 'POST',
+    path: '/client-errors',
+    name: 'client-error',
+    perUser: 10,
+    perIp: 10,
+    windowMs: MINUTE_MS,
+  },
   { method: 'POST', path: '/photos', name: 'photo', perUser: 20, windowMs: HOUR_MS },
 ];
 

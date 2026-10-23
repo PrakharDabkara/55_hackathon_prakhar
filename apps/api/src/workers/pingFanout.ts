@@ -4,6 +4,7 @@ import type { Database } from '../db/queryable.js';
 import type { EventPublisher } from '../modules/realtime/index.js';
 import { catchUpShop, fanOutPings } from '../modules/requests/index.js';
 import { createPingDedupe, type RedisLike } from './pingDedupe.js';
+import { logJobFailure, withCorrelation } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const FANOUT_QUEUE = 'ping-fanout';
@@ -71,26 +72,20 @@ export function startPingFanout({
     { connection: workerConnection },
   );
   worker.on('error', (err) => logger.warn({ reason: err.message }, 'fan-out worker error'));
-  worker.on('failed', (job, err) =>
-    logger.error({ jobId: job?.id, reason: err.message }, 'fan-out job failed'),
-  );
+  worker.on('failed', (job, err) => logJobFailure(logger, queueName, job, err));
 
   return {
     queue,
     enqueue: (requestId) =>
       withTimeout(
         queue
-          .add(
-            'fanout',
-            { requestId },
-            {
-              jobId: `fanout-${requestId}`,
-              attempts: 3,
-              backoff: { type: 'exponential', delay: 1000 },
-              removeOnComplete: true,
-              removeOnFail: 100,
-            },
-          )
+          .add('fanout', withCorrelation({ requestId }), {
+            jobId: `fanout-${requestId}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+            removeOnComplete: true,
+            removeOnFail: 100,
+          })
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,
         'queueing the ping fan-out',
@@ -98,21 +93,17 @@ export function startPingFanout({
     enqueueCatchUp: (shopId) =>
       withTimeout(
         queue
-          .add(
-            'catchup',
-            { shopId },
-            {
-              // Behind every normal fan-out: a burst of new shops (the simulator makes hundreds)
-              // must never delay a customer's request. One waiting job per shop, and each job
-              // looks at 5 requests at most (catchUpShop).
-              priority: CATCH_UP_PRIORITY,
-              jobId: `catchup-${shopId}`,
-              attempts: 3,
-              backoff: { type: 'exponential', delay: 1000 },
-              removeOnComplete: true,
-              removeOnFail: 100,
-            },
-          )
+          .add('catchup', withCorrelation({ shopId }), {
+            // Behind every normal fan-out: a burst of new shops (the simulator makes hundreds)
+            // must never delay a customer's request. One waiting job per shop, and each job
+            // looks at 5 requests at most (catchUpShop).
+            priority: CATCH_UP_PRIORITY,
+            jobId: `catchup-${shopId}`,
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+            removeOnComplete: true,
+            removeOnFail: 100,
+          })
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,
         'queueing the shop catch-up',

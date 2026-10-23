@@ -49,7 +49,7 @@ const app = createApp({
   realtime,
   ai,
   ipLimitStore,
-  ...(workers && { requestHooks: workers.hooks }),
+  ...(workers && { requestHooks: workers.hooks, ops: workers.ops }),
   ...(workers?.errands && { errandHooks: { enqueue: workers.errands.enqueue } }),
 });
 const server = app.listen(config.port, '0.0.0.0', () => {

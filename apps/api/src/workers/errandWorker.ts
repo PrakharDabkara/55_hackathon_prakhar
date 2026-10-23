@@ -1,5 +1,6 @@
 import { Queue, Worker } from 'bullmq';
 import type { Logger } from 'pino';
+import { logJobFailure, withCorrelation } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
 
 export const ERRAND_QUEUE = 'errand';
@@ -48,28 +49,22 @@ export function startErrandWorker({
     { connection: workerConnection, concurrency: 1 },
   );
   worker.on('error', (err) => logger.warn({ reason: err.message }, 'errand worker error'));
-  worker.on('failed', (job, err) =>
-    logger.error({ jobId: job?.id, reason: err.message }, 'errand job failed'),
-  );
+  worker.on('failed', (job, err) => logJobFailure(logger, queueName, job, err));
 
   return {
     queue,
     worker,
     async enqueue(errandId, options = {}) {
       await withTimeout(
-        queue.add(
-          'run',
-          { errandId },
-          {
-            jobId: options.key ? `errand-${errandId}-${options.key}` : `errand-${errandId}`,
-            ...(options.delayMs !== undefined && {
-              delay: Math.max(0, Math.round(options.delayMs)),
-            }),
-            attempts: 1,
-            removeOnComplete: { age: 3600 },
-            removeOnFail: { age: 24 * 3600 },
-          },
-        ),
+        queue.add('run', withCorrelation({ errandId }), {
+          jobId: options.key ? `errand-${errandId}-${options.key}` : `errand-${errandId}`,
+          ...(options.delayMs !== undefined && {
+            delay: Math.max(0, Math.round(options.delayMs)),
+          }),
+          attempts: 1,
+          removeOnComplete: { age: 3600 },
+          removeOnFail: { age: 24 * 3600 },
+        }),
         QUEUE_TIMEOUT_MS,
         'queueing the errand job',
       );

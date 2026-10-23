@@ -6,7 +6,9 @@ function setup(extra: Partial<Parameters<typeof installClientErrorReporter>[0]> 
   const target = {
     addEventListener: (type: string, fn: (event: unknown) => void) => void (listeners[type] = fn),
   };
-  const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
+  const fetchImpl = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(
+    async () => new Response(null, { status: 204 }),
+  );
   installClientErrorReporter({
     target,
     fetchImpl: fetchImpl as unknown as typeof fetch,

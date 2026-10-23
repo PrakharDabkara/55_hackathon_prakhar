@@ -28,7 +28,14 @@ function boom(thrown: unknown, status?: number) {
 function expectClean(res: request.Response, status: number, code: string) {
   expect(res.status).toBe(status);
   expect(res.headers['content-type']).toMatch(/application\/json/);
-  expect(res.body).toEqual({ error: { code, message: expect.any(String) } });
+  // requestId is the ref the person quotes; it is there when the app logs the request (O1).
+  expect(res.body).toEqual({
+    error: {
+      code,
+      message: expect.any(String),
+      ...(res.body.error?.requestId && { requestId: expect.any(String) }),
+    },
+  });
   const text = res.text;
   expect(text).not.toMatch(/hunter2|10\.1\.2\.3|secret\.js|\bat .*:\d+:\d+|stack|node_modules/);
   expect(text).not.toContain('Error:');
@@ -137,6 +144,6 @@ describe('error bodies through the real app, in production mode (SEC2)', () => {
     expect(res.body.error.code).toBe('invalid_request');
     expect(res.text).not.toContain('my-secret-code-value');
     expect(Object.keys(res.body)).toEqual(['error']);
-    expect(Object.keys(res.body.error).sort()).toEqual(['code', 'message']);
+    expect(Object.keys(res.body.error).sort()).toEqual(['code', 'message', 'requestId']);
   });
 });

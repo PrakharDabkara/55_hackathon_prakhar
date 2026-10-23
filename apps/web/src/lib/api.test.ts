@@ -213,7 +213,7 @@ describe('the ref in an error (O1)', () => {
         error: { code: 'internal', message: 'Something went wrong', requestId: '7F3A2C' },
       }),
     );
-    const error = await api.listPings().catch((e: unknown) => e as ApiError);
+    const error = (await api.listPings().catch((e: unknown) => e)) as ApiError;
     expect(error.message).toBe('Something went wrong · ref 7F3A2C');
     expect(error.requestId).toBe('7F3A2C');
   });
@@ -222,7 +222,7 @@ describe('the ref in an error (O1)', () => {
     const { api } = setup(() =>
       json(429, { error: { code: 'rate_limited', message: 'Wait a bit', requestId: 'AAAAAA' } }),
     );
-    const error = await api.listPings().catch((e: unknown) => e as ApiError);
+    const error = (await api.listPings().catch((e: unknown) => e)) as ApiError;
     expect(error.message).toBe('Wait a bit');
     expect(error.requestId).toBe('AAAAAA');
   });
@@ -238,7 +238,7 @@ describe('the ref in an error (O1)', () => {
           },
         ),
     );
-    const error = await api.listPings().catch((e: unknown) => e as ApiError);
+    const error = (await api.listPings().catch((e: unknown) => e)) as ApiError;
     expect(error.message).toBe('Something went wrong · ref B0B0B0');
   });
 });

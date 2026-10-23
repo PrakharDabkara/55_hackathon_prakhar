@@ -69,6 +69,8 @@ export interface DemoAutopilotStats {
   failed: number;
   /** Plan jobs queued and not finished. */
   pending: number;
+  /** When it last planned, answered or failed an answer (ISO time); null since start-up. */
+  lastActivityAt: string | null;
   /** The delays of the last answers planned, in ms. */
   delaysMs: number[];
 }
@@ -116,6 +118,7 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
   const delays: number[] = [];
   const planning = new Set<string>();
   let closed = false;
+  let lastActivity: number | null = null;
 
   const profileOf = (shopId: string): ShopProfile =>
     options.eager
@@ -141,6 +144,7 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
 
   function planned(delayMs: number) {
     stats.scheduled++;
+    lastActivity = Date.now();
     delays.push(Math.round(delayMs));
     if (delays.length > KEPT_DELAYS) delays.shift();
   }
@@ -148,6 +152,7 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
   /** What to do with an answer that did not go through. 404 and 409 mean it ended meanwhile. */
   function failed(error: unknown, what: Record<string, unknown>) {
     if (closed) return;
+    lastActivity = Date.now();
     if (error instanceof ApiError && (error.status === 404 || error.status === 409)) {
       stats.late++;
       log.info({ ...what, status: error.status }, 'demo shop answer came too late');
@@ -354,6 +359,7 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
         } else if (job.kind === 'ping') {
           await answerPing({ db, logger: log, events }, job.owner, job.id, job.body);
           stats.answered++;
+          lastActivity = Date.now();
           log.info(
             { requestId: job.requestId, pingId: job.id, answer: job.body.answer },
             'demo shop answered a ping',
@@ -366,10 +372,12 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
             job.body,
           );
           stats.answered++;
+          lastActivity = Date.now();
           log.info({ listId: job.listId, listPingId: job.id }, 'demo shop answered a parchi');
         } else {
           await shopAct({ db, logger: log, events }, job.owner, job.id, job.verb);
           stats.answered++;
+          lastActivity = Date.now();
           log.info({ orderId: job.id, verb: job.verb }, 'demo shop moved an order');
           if (job.then)
             await queue.enqueue(
@@ -386,7 +394,12 @@ export function createDemoAutopilot(options: DemoAutopilotOptions): DemoAutopilo
       planning.size === 0
         ? Promise.resolve()
         : new Promise<void>((resolve) => waiting.push(resolve)),
-    stats: () => ({ ...stats, pending: planning.size, delaysMs: [...delays] }),
+    stats: () => ({
+      ...stats,
+      pending: planning.size,
+      lastActivityAt: lastActivity === null ? null : new Date(lastActivity).toISOString(),
+      delaysMs: [...delays],
+    }),
     close() {
       closed = true;
       for (const resolve of waiting.splice(0)) resolve();

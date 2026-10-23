@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, UNAUTHORIZED_EVENT } from './App.js';
 import { LangProvider } from './i18n/index.js';
+import { installClientErrorReporter } from './lib/clientErrors.js';
 import { createApi } from './lib/api.js';
 import { registerServiceWorker } from './lib/push.js';
 import { createSeekerApi } from './lib/seekerApi.js';
@@ -36,6 +37,8 @@ if (root) {
     </StrictMode>,
   );
 }
+
+installClientErrorReporter();
 
 // Needed to show a push; registering is not a permission prompt.
 registerServiceWorker();
