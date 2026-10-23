@@ -156,7 +156,10 @@ export function startWorkers({
     // New work arrives as events; what the instance missed while asleep is found by the catch-up.
     subscribe?.((event) => demoAutopilot.onEvent(event));
     void demoAutopilot.catchUp();
-    logger.info({ maxPerMinute: config.demoAutopilotMaxPerMinute }, 'demo autopilot is on');
+    logger.warn(
+      { maxPerMinute: config.demoAutopilotMaxPerMinute },
+      'demo autopilot is on: simulated shops answer with invented prices',
+    );
   }
   requestHooks.scheduleExpiry = expiry.schedule;
   requestHooks.enqueueFanout = fanout.enqueue;

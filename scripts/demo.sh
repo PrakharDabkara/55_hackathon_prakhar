@@ -8,6 +8,20 @@ cmd="${1:-}"
 B="${2:-${DEMO_BASE_URL:-https://kahanmilega-api.onrender.com}}"
 B="${B%/}"
 
+case "$B" in
+  https://* | http://localhost* | http://127.0.0.1*) ;;
+  *)
+    echo "The base URL must be https:// (or http://localhost): the token is sent to it." >&2
+    exit 2
+    ;;
+esac
+case "${ADMIN_TOKEN:-}" in
+  *[!A-Za-z0-9._~+/=-]*)
+    echo "ADMIN_TOKEN has characters this script will not send; use letters, digits and ._~+/=-" >&2
+    exit 2
+    ;;
+esac
+
 case "$cmd" in seed | reset) ;; *)
   echo "usage: scripts/demo.sh seed|reset [base-url]" >&2
   exit 2

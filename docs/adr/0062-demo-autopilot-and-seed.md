@@ -55,6 +55,14 @@ were empty, and rehearsing a demo left old requests and orders behind.
   queries and a few Redis commands, so a 200-answer demo is a few thousand queries and about a
   thousand Redis commands. No model call is made, so no Gemini quota is spent. Memory is a few
   hundred timers and map entries at most.
+- **On production (security review):** the live Render service is the demo, so the flag is allowed
+  there on purpose; it logs a warning at startup and only ever answers `is_simulated` shops, which
+  only the admin routes create. Never turn it on for a launch with real shops and customers.
+- Demo numbers are reserved by decision: seed adopts a user already on one (sets its role, marks it
+  demo) and reset removes that number's requests and orders. Do not use 9000000101 to 110 or 201 to
+  210 for real people.
+- Seed and reset take a try-lock: a second call while one runs gets 409 `demo_busy`. The cap is per
+  process (one Render instance); a second instance would double it.
 - Rejected: running the laptop simulator on Render (a second process the free tier does not have),
   a new HTTP client inside the API (tokens, rate limits and a network hop for nothing), and
   copying the simulator's rules (two versions would drift).

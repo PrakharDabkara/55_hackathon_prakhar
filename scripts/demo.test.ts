@@ -46,6 +46,19 @@ describe('scripts/demo.sh', () => {
     expect(noToken.calls).toBe('');
   });
 
+  it('refuses a plain-http remote URL and a token with odd characters, before any call', () => {
+    const http = run(['seed', 'http://example.test'], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
+    expect(http.status).toBe(2);
+    expect(http.calls).toBe('');
+    const odd = run(
+      ['seed', 'https://example.test'],
+      { ADMIN_TOKEN: 'a"b\nc' },
+      { post: '{}\n200' },
+    );
+    expect(odd.status).toBe(2);
+    expect(odd.calls).toBe('');
+  });
+
   it('posts to /admin/demo/<command>, prints the counts, and keeps the token off the command line', () => {
     for (const cmd of ['seed', 'reset']) {
       const res = run(

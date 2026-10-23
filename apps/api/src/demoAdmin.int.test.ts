@@ -166,10 +166,13 @@ describe('POST /admin/demo/seed and /admin/demo/reset', () => {
       expect(await snapshot()).toEqual(first);
     });
 
-    it('two seeds at once still make one set', async () => {
+    it('two seeds at once still make one set (the second may be told to retry)', async () => {
       const before = await snapshot();
       const [a, b] = await Promise.all([seed(), seed()]);
-      expect([a.status, b.status]).toEqual([200, 200]);
+      for (const r of [a, b]) expect([200, 409]).toContain(r.status);
+      expect([a.status, b.status]).toContain(200);
+      if (a.status === 409 || b.status === 409)
+        expect((a.status === 409 ? a : b).body.error.code).toBe('demo_busy');
       expect(await snapshot()).toEqual(before);
     });
 

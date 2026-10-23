@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { Database, Queryable } from '../../db/queryable.js';
 import { withTransaction } from '../../db/queryable.js';
+import { ApiError } from '../../http/errors.js';
 import { findItemIdsBySlugs } from '../catalog/index.js';
 import { ensureDemoUser, findUserIdsByPhones } from '../identity/index.js';
 import { keepAddress } from '../orders/index.js';
@@ -59,16 +60,26 @@ const LOCK_KEY = 6_200_062;
 
 async function withDemoLock<T>(db: Database, fn: () => Promise<T>): Promise<T> {
   // A session lock on its own connection, held across the steps below (each its own transaction).
+  // try-lock: a second call is refused at once instead of waiting on a connection of its own.
   const client = await db.connect();
+  let unlocked = false;
   try {
-    await client.query('SELECT pg_advisory_lock($1)', [LOCK_KEY]);
+    const got = await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [
+      LOCK_KEY,
+    ]);
+    if (!got.rows[0]?.ok)
+      throw new ApiError(409, 'demo_busy', 'A seed or reset is already running; try again');
     try {
       return await fn();
     } finally {
-      await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).catch(() => undefined);
+      unlocked = await client.query('SELECT pg_advisory_unlock($1)', [LOCK_KEY]).then(
+        () => true,
+        () => false,
+      );
     }
   } finally {
-    client.release();
+    // A connection that may still hold the lock is thrown away, not returned to the pool.
+    client.release(unlocked ? undefined : true);
   }
 }
 
