@@ -15,6 +15,7 @@ const ops: OpsProbes = {
     { name: 'ping-fanout', waiting: 3, active: 1, delayed: 0, failedLast24h: 2 },
   ],
   autopilot: () => ({ on: true, lastActivityAt: '2026-10-23T10:00:00.000Z' }),
+  redisMemory: async () => ({ usedBytes: 5_000_000, maxBytes: 25_000_000 }),
 };
 
 const app = (adminToken: string | null) =>
@@ -44,7 +45,7 @@ describe('GET /admin/health/details (O1)', () => {
     expect(res.body).toMatchObject({
       version: { sha: 'abc1234' },
       db: { ok: true },
-      redis: { ok: true },
+      redis: { ok: true, usedMemoryBytes: 5_000_000, maxMemoryBytes: 25_000_000 },
       queues: [{ name: 'ping-fanout', waiting: 3, active: 1, delayed: 0, failedLast24h: 2 }],
       ai: { callsToday: 12, failedToday: 2, breakerSkipsToday: 1 },
       autopilot: { on: true, lastActivityAt: '2026-10-23T10:00:00.000Z' },
