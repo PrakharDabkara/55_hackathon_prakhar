@@ -13,7 +13,9 @@ const runner = (status: string, busy: boolean) =>
 /** A queued run created `minutes` ago. */
 const queued = (...minutes: number[]) =>
   JSON.stringify(
-    minutes.map((m) => ({ createdAt: new Date((NOW - m * 60) * 1000).toISOString() })),
+    minutes.map((m) => ({
+      createdAt: new Date((NOW - m * 60) * 1000).toISOString().replace('.000Z', 'Z'),
+    })),
   );
 
 /** Runs the watchdog with stand-ins for gh and sudo first on PATH. */
@@ -41,7 +43,8 @@ function setup(runners: string, runs: string) {
       encoding: 'utf8',
     });
   const restarts = () => (existsSync(calls) ? readFileSync(calls, 'utf8').trim().split('\n') : []);
-  const log = () => readFileSync(join(dir, 'watchdog.log'), 'utf8');
+  const logFile = join(dir, 'watchdog.log');
+  const log = () => (existsSync(logFile) ? readFileSync(logFile, 'utf8') : '');
   return { run, restarts, log };
 }
 
