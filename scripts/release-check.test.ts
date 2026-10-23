@@ -33,9 +33,6 @@ function run(over: Partial<typeof healthy> = {}, env: Record<string, string> = {
   *"pr list"*) echo '${c.prs}' ;;
 esac`,
   );
-  const cases = Object.entries(c.codes)
-    .map(([p, code]) => `  *"/$(printf %s '${p}' | sed 's#^/##')" | *"${p}") printf '${code}' ;;`)
-    .join('\n');
   stub(
     'curl',
     `case "$*" in
@@ -48,7 +45,6 @@ esac`,
      esac ;;
 esac`,
   );
-  void cases;
   stub('sec', `exit ${c.security}`);
   const result = spawnSync('bash', [script, 'https://example.test'], {
     env: {
@@ -65,7 +61,7 @@ describe('scripts/release-check.sh', () => {
   it('prints PASS for everything and exits 0 when the release is ready', () => {
     const r = run({}, { ADMIN_TOKEN: TOKEN });
     expect(r.status).toBe(0);
-    expect(r.out.match(/^PASS/gm)).toHaveLength(8);
+    expect(r.out.match(/^PASS/gm)).toHaveLength(9);
     expect(r.out).not.toContain('FAIL');
     expect(r.out).toContain('IP budget');
     expect(r.out).not.toContain(TOKEN);
