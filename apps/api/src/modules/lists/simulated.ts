@@ -21,7 +21,8 @@ export interface SimulatedParchi {
   }[];
 }
 
-const MAX_TASKS = 200;
+/** The most one call returns: the autopilot works in small batches. */
+const MAX_TASKS = 100;
 
 /**
  * The open parchis of simulated shops (is_simulated, and only those) whose list is still open: all
@@ -30,6 +31,7 @@ const MAX_TASKS = 200;
 export async function findSimulatedParchis(
   db: Queryable,
   ids?: string[],
+  limit = MAX_TASKS,
 ): Promise<SimulatedParchi[]> {
   const pings = await db.query<{
     id: string;
@@ -53,8 +55,8 @@ export async function findSimulatedParchis(
         AND l.state = 'OPEN' AND l.expires_at > now()
         AND ($1::uuid[] IS NULL OR lp.id = ANY($1::uuid[]))
       ORDER BY lp.sent_at
-      LIMIT ${MAX_TASKS}`,
-    [ids ?? null],
+      LIMIT $2`,
+    [ids ?? null, Math.min(limit, MAX_TASKS)],
   );
   if (pings.rows.length === 0) return [];
   const lines = await db.query<{

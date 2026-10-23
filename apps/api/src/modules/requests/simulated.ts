@@ -16,14 +16,19 @@ export interface SimulatedPing {
   remainingMs: number;
 }
 
-const MAX_TASKS = 200;
+/** The most one call returns: the autopilot works in small batches. */
+const MAX_TASKS = 100;
 
 /**
  * The open pings of simulated shops (is_simulated, and only those) whose request is still live:
  * all of them, or just these ids. Same facts the admin stream carries, read from the database, so
  * a ping missed while the instance slept is found again. Never says who asked or where.
  */
-export async function findSimulatedPings(db: Queryable, ids?: string[]): Promise<SimulatedPing[]> {
+export async function findSimulatedPings(
+  db: Queryable,
+  ids?: string[],
+  limit = MAX_TASKS,
+): Promise<SimulatedPing[]> {
   const { rows } = await db.query<{
     id: string;
     request_id: string;
@@ -51,8 +56,8 @@ export async function findSimulatedPings(db: Queryable, ids?: string[]): Promise
         AND r.state IN ('PINGING', 'ANSWERED') AND r.expires_at > now()
         AND ($1::uuid[] IS NULL OR p.id = ANY($1::uuid[]))
       ORDER BY p.sent_at
-      LIMIT ${MAX_TASKS}`,
-    [ids ?? null],
+      LIMIT $2`,
+    [ids ?? null, Math.min(limit, MAX_TASKS)],
   );
   return rows.map((r) => ({
     pingId: r.id,

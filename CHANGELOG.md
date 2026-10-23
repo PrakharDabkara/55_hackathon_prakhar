@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (PR C2: demo-ready, ADR-0062)
 
-- Demo autopilot: with `DEMO_AUTOPILOT=on` (default off) the API's worker answers pings and shopping-list parchis for `is_simulated` shops after 5 to 90 s and moves their orders on (READY or out for delivery), through the same service functions as the routes. Capped by `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30); catches up on open work after the instance wakes and on each expiry sweep. It never answers real or demo shops.
+- Demo autopilot: with `DEMO_AUTOPILOT=on` (default off) the API answers pings and shopping-list parchis for `is_simulated` shops after 5 to 90 s and moves their orders on (READY or out for delivery), through the same service functions as the routes. Event-driven on its own BullMQ queue (plan job, then a delayed answer job; three at a time; no timer or polling), capped by `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30), one batch catch-up at startup. Off creates nothing. `npm run perf:autopilot` measures CPU, memory and search latency on against off. It never answers real or demo shops.
 - `POST /admin/demo/seed` (idempotent): five demo shops on 9000000102 to 106 near Vijay Nagar with initials logos, delivery on two, about 40 items of illustrative learned stock, eight simulated shops, and a demo saved address for customers 9000000202 to 206. `POST /admin/demo/reset` removes everything that involves a demo number (101 to 110, 201 to 210) and seeds again; counts only. Both are 404 without the admin token. `scripts/demo.sh seed|reset`.
 - Migration 030: `users.is_demo` and `shops.is_demo`.
 

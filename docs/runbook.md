@@ -136,7 +136,7 @@ watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | pytho
 
 The API can answer for the simulated shops itself, so the live site works with the laptop off.
 
-**One-time setup on Render.** Environment → add `DEMO_AUTOPILOT` = `on` (and optionally `DEMO_AUTOPILOT_MAX_PER_MINUTE`, default 30) → Save. Add the demo numbers you want to log in with to `DEMO_PHONES` (9000000102 to 106 for the shops, 9000000202 to 206 for the customers). Delete `DEMO_AUTOPILOT` or set it to `off` to stop it. It only ever answers shops marked simulated.
+**One-time setup on Render.** Environment → add `DEMO_AUTOPILOT` = `on` (and optionally `DEMO_AUTOPILOT_MAX_PER_MINUTE`, default 30) → Save. Add the demo numbers you want to log in with to `DEMO_PHONES` (9000000102 to 106 for the shops, 9000000202 to 206 for the customers). Set it to `off` (or delete it) and restart to stop it completely: no queue, no listener, no code change. It only ever answers shops marked simulated.
 
 **Before a demo** (wakes the instance, clears what the last rehearsal left, makes the shops):
 

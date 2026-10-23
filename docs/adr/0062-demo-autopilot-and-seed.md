@@ -21,24 +21,33 @@ were empty, and rehearsing a demo left old requests and orders behind.
    functions the routes call. Events only say where to look (a pingId); three finders read the open
    work from the database and return simulated shops only, so a forged or stray event, a real shop
    or a demo shop can never be answered.
-4. **Capped.** At most `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30) answers start per minute and at most 200
-   timers wait; the rest are simply not answered, like a busy shopkeeper.
-5. **Catch-up.** After the free instance wakes, and on every expiry sweep (every 60 s, no new timer),
-   it plans what is still open: a request or list inside its time limit, an order still waiting. An
-   answer is never planned past the end of its request, and never with under 2 s to spare.
-6. **`POST /admin/demo/seed`** (ADMIN_TOKEN, idempotent, under a Postgres advisory lock): five demo
+4. **Event-driven, on the existing job queue.** An admin-stream event queues a `plan` job on its own
+   BullMQ queue (`demo-autopilot`); the plan decides and queues the answer as a delayed job (5 to
+   90 s), and an order's second step (out / ready) as another delayed job. Job ids make a repeated
+   event one job. The worker runs three jobs at a time; the catch-up reads at most 25 of each kind
+   and queues them 10 at a time. There is no timer, no sweep and no polling loop: idle, the process
+   only waits on Redis and never touches the database by itself.
+5. **Capped.** At most `DEMO_AUTOPILOT_MAX_PER_MINUTE` (30) answers are planned per minute; the rest
+   are simply not answered, like a busy shopkeeper.
+6. **Catch-up once, at startup.** After the free instance wakes, one batch scan queues what is still
+   open (a request or list inside its time limit, an order still waiting). An answer is never
+   planned past the end of its request, and never with under 2 s to spare.
+7. **Off means off.** With `DEMO_AUTOPILOT=off` (or unset) the queue, the worker, the event listener
+   and the scan are not created at all; no code change, just the variable and a restart. Jobs left
+   in Redis from an earlier "on" are inert, and re-check the database if it is turned on again.
+8. **`POST /admin/demo/seed`** (ADMIN_TOKEN, idempotent, under a Postgres advisory lock): five demo
    shops on 9000000102 to 106 around Vijay Nagar, Indore (300 m to 1.5 km apart, two deliver for
    ₹20 and ₹30, three are pickup only), placeholder initials logos through the logo pipeline,
    learned stock for 40 catalog items from `modules/demo/fixtures.ts` (marked illustrative), eight
    simulated shops if fewer exist, and a clearly-demo saved address for customers 202 to 206.
    `users.is_demo` and `shops.is_demo` (migration 030) mark what it makes.
-7. **`POST /admin/demo/reset`** (ADMIN_TOKEN): removes requests, lists, errands, orders, pickup visits
+9. **`POST /admin/demo/reset`** (ADMIN_TOKEN): removes requests, lists, errands, orders, pickup visits
    and pings that involve a demo number (101 to 110, 201 to 210), clears the stock demo shops
    learned, then seeds again. It matches on the phone of the customer or shop owner, never on
    `is_demo` alone, so a real customer's request to a real shop is never in the way. It returns
    counts only.
-8. **`scripts/demo.sh seed|reset`** posts to the live site with `ADMIN_TOKEN` from the environment,
-   through curl's stdin so the token is never in the process list.
+10. **`scripts/demo.sh seed|reset`** posts to the live site with `ADMIN_TOKEN` from the environment,
+    through curl's stdin so the token is never in the process list.
 
 ## Consequences
 
@@ -48,13 +57,27 @@ were empty, and rehearsing a demo left old requests and orders behind.
 - A real customer's order at a demo shop is removed by a reset (the shop is the demo's).
 - Reset deletes rows directly instead of calling each module, a deliberate exception to "modules
   talk through their index" for admin maintenance; the module finders are used for everything else.
-- **Cost on the free tier (estimate, not measured on Render):** no new timer or process; idle it
-  costs three small selects per 60 s sweep while the instance is awake. It does not keep the
-  instance awake (timers are not inbound traffic), so Render's 15-minute sleep still applies and
-  waking is still the first search's job. A busy minute is capped at 30 answers, each about ten
-  queries and a few Redis commands, so a 200-answer demo is a few thousand queries and about a
-  thousand Redis commands. No model call is made, so no Gemini quota is spent. Memory is a few
-  hundred timers and map entries at most.
+- **Cost, measured** (`npm run perf:autopilot`: the API as its own process on this machine with
+  real Postgres and Redis; off against on, five customers searching every 3 to 5 s for 90 s, one
+  list, one order; three runs off, two valid runs on; a third "on" run failed on OTP limits in the
+  harness and is left out). Free-tier Render has less CPU than this machine, so read the figures as
+  differences, not absolutes.
+
+  |                                 | off                         | on                                            |
+  | ------------------------------- | --------------------------- | --------------------------------------------- |
+  | idle CPU (one core)             | 0.07 %                      | 0.17 %                                        |
+  | busy CPU                        | 1.25 to 1.30 %              | 1.31 to 1.49 %                                |
+  | busy memory (RSS)               | 153 to 162 MB, peak 167     | 121 to 156 MB, peak 157                       |
+  | customer search p50 / p95 / p99 | 13 / 48 to 56 / 69 to 75 ms | 13 to 14 / 45 to 47 / 54 to 61 ms             |
+  | answers                         | none                        | 11 and 17 pings, the list, the order to READY |
+
+  Added: about 0.1 % of a core idle and about 0.1 to 0.2 % busy; no measurable memory (within the
+  run-to-run spread of about 10 MB); search latency is not slower (p95 is inside the off spread).
+  Idle database use: a statement log of an idle API for 70 s shows 2 statements off and 3 on (the
+  extra is an unrelated photo-storage sweep), so the autopilot adds none. It uses Redis idle (the
+  queue's blocking wait), as the other workers do. It does not keep the instance awake, so
+  Render's 15-minute sleep still applies. No model call is made, so no Gemini quota is spent.
+
 - **On production (security review):** the live Render service is the demo, so the flag is allowed
   there on purpose; it logs a warning at startup and only ever answers `is_simulated` shops, which
   only the admin routes create. Never turn it on for a launch with real shops and customers.

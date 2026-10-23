@@ -4,7 +4,7 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
-import { startDemoAutopilot, type DemoAutopilot } from './modules/demo/index.js';
+import { createDemoAutopilot, type DemoAutopilot } from './modules/demo/index.js';
 import { createRealtime, type RealtimeEvent } from './modules/realtime/index.js';
 import { createRequest, fanOutPings, type RequestsContext } from './modules/requests/index.js';
 import { testConfig } from './testing/config.js';
@@ -14,7 +14,9 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 import { startRedis } from './testing/startRedis.js';
 import { truncateKeepingShops } from './testing/truncate.js';
 import { waitFor } from './testing/waitFor.js';
+import { startDemoAutopilotWorker, type DemoAutopilotWorker } from './workers/demoAutopilot.js';
 import { startWorkers } from './workers/index.js';
+import { connect } from './workers/redis.js';
 
 const quiet = pino({ level: 'silent' });
 type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -51,21 +53,35 @@ describe('demo autopilot', () => {
     await pool.query('DELETE FROM shops');
   });
   afterEach(async () => {
-    await Promise.all(open.splice(0).map((a) => a.close()));
+    for (const a of open.splice(0)) a.close();
+    await Promise.all(queues.splice(0).map((q) => q.close()));
   });
 
-  /** Fast and eager by default: delays of a few ms, every shop answers. */
-  const start = (over: Partial<Parameters<typeof startDemoAutopilot>[0]> = {}) => {
-    const a = startDemoAutopilot({
+  const queues: DemoAutopilotWorker[] = [];
+  let queueNo = 0;
+  /** Fast and eager by default: delays of a few ms, every shop answers. Its own queue each time. */
+  const start = (over: Partial<Parameters<typeof createDemoAutopilot>[0]> = {}) => {
+    const made: { worker?: DemoAutopilotWorker } = {};
+    const a = createDemoAutopilot({
       db: pool,
       logger: quiet,
       events: realtime.events,
+      queue: {
+        enqueue: (job, options) => (made.worker as DemoAutopilotWorker).enqueue(job, options),
+      },
       lists: { maxPings: 10, trigramThreshold: 0.4 },
       maxPerMinute: 1000,
       speed: 1000,
       eager: true,
       ...over,
     });
+    const worker = (made.worker = startDemoAutopilotWorker({
+      redisUrl: redis.url,
+      logger: quiet,
+      run: (job) => a.run(job),
+      queueName: `demo-autopilot-test-${queueNo++}`,
+    }));
+    queues.push(worker);
     open.push(a);
     return a;
   };
@@ -153,6 +169,7 @@ describe('demo autopilot', () => {
         autopilot.onEvent({ to: { admin: true }, type: 'ping.created', data: { pingId: p.id } });
       await autopilot.catchUp();
       const states = await settled(requestId, sim.shopId);
+      await autopilot.idle();
       await new Promise((r) => setTimeout(r, 300));
       const after = await pingStates(requestId);
       expect(after[sim.shopId]).not.toBe('SENT');
@@ -182,7 +199,7 @@ describe('demo autopilot', () => {
         data: { pingId: 'not-a-uuid' },
       });
       autopilot.onEvent({ to: { admin: true }, type: 'ping.created', data: null });
-      expect(autopilot.stats().scheduled).toBe(0);
+      expect(autopilot.stats().pending).toBe(0); // nothing was even queued
       autopilot.onEvent({ to: { admin: true }, type: 'ping.created', data: { pingId: id } });
       const states = await settled(requestId, sim.shopId);
       expect(states[sim.shopId]).not.toBe('SENT');
@@ -193,8 +210,9 @@ describe('demo autopilot', () => {
       await shop('Sim B', 0.35, 'simulated');
       await ping();
       const autopilot = start({ speed: 1 });
-      await autopilot.catchUp();
-      await autopilot.catchUp(); // the same pings again: already scheduled
+      expect(await autopilot.catchUp()).toBe(2);
+      await autopilot.idle();
+      expect(await autopilot.catchUp()).toBe(0); // the same pings again: the jobs are already there
       const { delaysMs, scheduled } = autopilot.stats();
       expect(scheduled).toBe(2);
       expect(delaysMs).toHaveLength(2);
@@ -209,9 +227,8 @@ describe('demo autopilot', () => {
       await ping();
       const autopilot = start({ maxPerMinute: 2 });
       await autopilot.catchUp();
+      await autopilot.idle();
       expect(autopilot.stats()).toMatchObject({ scheduled: 2, skippedByCap: 3 });
-      await autopilot.catchUp();
-      expect(autopilot.stats().scheduled).toBe(2);
     });
   });
 
@@ -255,6 +272,7 @@ describe('demo autopilot', () => {
       );
       const autopilot = start({ speed: 1 });
       await autopilot.catchUp();
+      await autopilot.idle();
       const [delay] = autopilot.stats().delaysMs;
       expect(delay).toBeLessThanOrEqual(20_000);
       // And one with under 5 seconds left is not worth an answer.
@@ -263,7 +281,9 @@ describe('demo autopilot', () => {
         [requestId],
       );
       const fresh = start({ speed: 1 });
-      expect(await fresh.catchUp()).toBe(0);
+      await fresh.catchUp();
+      await fresh.idle();
+      expect(fresh.stats().scheduled).toBe(0);
     });
   });
 
@@ -391,6 +411,20 @@ describe('demo autopilot', () => {
       const on = await run(true);
       expect(on?.demoAutopilot).not.toBeNull();
       await on?.close();
+    });
+
+    it('leaves no trace in Redis when it is off: no queue, no jobs', async () => {
+      const probe = connect(redis.url, quiet);
+      await probe.flushall();
+      const off = await run(false);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(await probe.keys('bull:demo-autopilot*')).toEqual([]);
+      await off?.close();
+      const on = await run(true);
+      await new Promise((r) => setTimeout(r, 300));
+      expect((await probe.keys('bull:demo-autopilot*')).length).toBeGreaterThan(0);
+      await on?.close();
+      probe.disconnect();
     });
 
     it('does not answer anything when it is off, even for a simulated shop', async () => {

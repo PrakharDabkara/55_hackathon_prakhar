@@ -33,6 +33,7 @@
     "mcp:build": "npm run build -w @askbuy/shared -w @askbuy/mcp-server",
     "mcp:login": "npm run mcp:build --silent && node apps/mcp-server/dist/loginMain.js",
     "mcp:start": "npm run mcp:build --silent && node apps/mcp-server/dist/main.js",
+    "perf:autopilot": "npm run build -w @askbuy/shared -w @askbuy/api && vitest run -c load/vitest.config.ts",
     "errand:smoke": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file=.env apps/api/dist/errandSmokeMain.js"
   },
   "devDependencies": {

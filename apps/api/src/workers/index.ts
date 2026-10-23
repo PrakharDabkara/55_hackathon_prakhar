@@ -9,7 +9,7 @@ import {
   sweepErrands,
   type ErrandWaker,
 } from '../modules/errands/index.js';
-import { startDemoAutopilot, type DemoAutopilot } from '../modules/demo/index.js';
+import { createDemoAutopilot, type DemoAutopilot } from '../modules/demo/index.js';
 import { sweepLists } from '../modules/lists/index.js';
 import { sweepOrderAddresses, sweepOrders } from '../modules/orders/index.js';
 import { sweepPhotos } from '../modules/photos/index.js';
@@ -27,6 +27,7 @@ import {
 } from '../modules/push/index.js';
 import type { EventPublisher, RealtimeEvent } from '../modules/realtime/index.js';
 import type { RequestHooks } from '../modules/requests/index.js';
+import { startDemoAutopilotWorker, type DemoAutopilotWorker } from './demoAutopilot.js';
 import { startErrandWorker, type ErrandWorker } from './errandWorker.js';
 import { startPingFanout, type PingFanout } from './pingFanout.js';
 import { startPushWorker, type PushWorker } from './pushWorker.js';
@@ -94,16 +95,27 @@ export function startWorkers({
   let notifier: Notifier | null = null;
   // The errand worker is made after the expiry sweeper, which needs to sweep errands too.
   let errands: ErrandWorker | null = null;
-  // Only with DEMO_AUTOPILOT=on. Its catch-up rides the expiry sweep, so it adds no timer.
-  const demoAutopilot: DemoAutopilot | null = config.demoAutopilot
-    ? startDemoAutopilot({
-        db,
-        logger,
-        events,
-        lists: { maxPings: config.maxPingsPerRequest, trigramThreshold: config.trigramThreshold },
-        maxPerMinute: config.demoAutopilotMaxPerMinute,
-      })
-    : null;
+  // Only with DEMO_AUTOPILOT=on: event-driven on its own queue, no timer and no sweep (ADR-0062).
+  let demoAutopilot: DemoAutopilot | null = null;
+  let demoQueue: DemoAutopilotWorker | null = null;
+  if (config.demoAutopilot) {
+    const autopilot = createDemoAutopilot({
+      db,
+      logger,
+      events,
+      queue: {
+        enqueue: (job, options) => (demoQueue as DemoAutopilotWorker).enqueue(job, options),
+      },
+      lists: { maxPings: config.maxPingsPerRequest, trigramThreshold: config.trigramThreshold },
+      maxPerMinute: config.demoAutopilotMaxPerMinute,
+    });
+    demoQueue = startDemoAutopilotWorker({
+      redisUrl: config.redisUrl,
+      logger,
+      run: (job) => autopilot.run(job),
+    });
+    demoAutopilot = autopilot;
+  }
   const requestHooks: RequestHooks = {};
   const expiry = startRequestExpiry({
     redisUrl: config.redisUrl,
@@ -138,8 +150,6 @@ export function startWorkers({
         lastPickupSweep = Date.now();
         return sweepPickups({ db, logger });
       },
-      // Simulated shops: pings, parchis and orders still open, e.g. after the instance slept.
-      async () => (demoAutopilot ? demoAutopilot.catchUp() : 0),
       async () =>
         errands
           ? sweepErrands({
@@ -154,7 +164,8 @@ export function startWorkers({
   });
   if (demoAutopilot) {
     // New work arrives as events; what the instance missed while asleep is found by the catch-up.
-    subscribe?.((event) => demoAutopilot.onEvent(event));
+    subscribe?.((event) => demoAutopilot?.onEvent(event));
+    // Once, now that the instance is awake: what it missed while asleep. Not a loop.
     void demoAutopilot.catchUp();
     logger.warn(
       { maxPerMinute: config.demoAutopilotMaxPerMinute },
@@ -264,8 +275,14 @@ export function startWorkers({
     demoAutopilot,
     async close() {
       waker?.close();
-      await demoAutopilot?.close();
-      await Promise.all([expiry.close(), fanout.close(), errands?.close(), push?.close()]);
+      demoAutopilot?.close();
+      await Promise.all([
+        expiry.close(),
+        fanout.close(),
+        errands?.close(),
+        push?.close(),
+        demoQueue?.close(),
+      ]);
       pushCounters?.disconnect();
     },
   };

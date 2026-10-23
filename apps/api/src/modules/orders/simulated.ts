@@ -11,7 +11,8 @@ export interface SimulatedOrder {
   remainingMs: number | null;
 }
 
-const MAX_TASKS = 200;
+/** The most one call returns: the autopilot works in small batches. */
+const MAX_TASKS = 100;
 /** An accepted order untouched for longer than this is left to its own sweeps. */
 const ACCEPTED_MAX_AGE = '3 hours';
 
@@ -22,6 +23,7 @@ const ACCEPTED_MAX_AGE = '3 hours';
 export async function findSimulatedOrders(
   db: Queryable,
   ids?: string[],
+  limit = MAX_TASKS,
 ): Promise<SimulatedOrder[]> {
   const { rows } = await db.query<{
     id: string;
@@ -40,8 +42,8 @@ export async function findSimulatedOrders(
              OR (o.state = 'ACCEPTED' AND o.updated_at > now() - interval '${ACCEPTED_MAX_AGE}'))
         AND ($1::uuid[] IS NULL OR o.id = ANY($1::uuid[]))
       ORDER BY o.created_at
-      LIMIT ${MAX_TASKS}`,
-    [ids ?? null],
+      LIMIT $2`,
+    [ids ?? null, Math.min(limit, MAX_TASKS)],
   );
   return rows.map((r) => ({
     orderId: r.id,
