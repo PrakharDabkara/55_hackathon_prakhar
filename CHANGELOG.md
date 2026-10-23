@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (PR A2: project skills)
+
+- `.claude/skills/`: `askbuy-pr` (PR routine, CI-port stack, report), `askbuy-evals` (safe eval runs, with `run-evals.sh`), `askbuy-ui` (Parchi design rules; `paths: apps/web/**`) and `askbuy-adr` (ADR template, numbering, journey entry). Only names and descriptions are in context until a skill is used. New skills appear in a new session. `docs/ai-tooling.md` explains each and the incident behind it.
+- `run-evals.sh` dispatches one eval, takes the run id from gh's URL output (never "latest run"), waits until it completes, prints the conclusion, and runs a list strictly one after another, stopping at the first failure. Refuses the hand-run set.
+- Tests: `.claude/skills/skills.test.ts` (frontmatter) and `run-evals.test.ts` (stubbed `gh`); `vitest.config.ts` now includes `.claude/skills/**`.
+
+### Changed (PR A2)
+
+- `CLAUDE.md` is leaner: the UI rules, the PR routine and the eval how-to moved into the skills; the facts and rules stay (5,073 to 3,997 bytes).
+
 ### Security (PR SEC3: privacy and the supply chain, ADR-0060)
 
 - A privacy guard in the Gemini adapter (the only place the model is called) blocks any prompt, tool result or embedding text with a phone number, an email, a latitude/longitude pair or a contact/address key, before the request leaves. It logs the reason, never the text, and never counts toward the circuit breaker. Tests: resolve, resolveList, the item check and the errand agent pass with realistic input; a planted phone is blocked in each.
