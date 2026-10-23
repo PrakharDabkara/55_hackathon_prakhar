@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (PR A4: more subagents)
 
-- `.claude/agents/security-reviewer.md` (diff review against the security checklist; Bash only for git/gh diff, log, view) and `eval-analyst.md` (dev eval reports only, never the held-out set). Both read-only. New agents need a new session. `agents.test.ts` checks frontmatter (name matches file, description, tools listed, never Edit or Write); `vitest.config.ts` now includes `.claude/agents/`.
+- `.claude/agents/security-reviewer.md` (diff review against the security checklist; Bash only for git/gh diff, log, view) and `eval-analyst.md` (dev eval reports only, never the held-out set). Both read-only, and Bash is enforced read-only by `.claude/hooks/guard-readonly-bash.mjs`, a PreToolUse hook in each agent's frontmatter (allowlist: git diff|log|show|status, gh pr diff|view, and gh run view|download for eval-analyst; chains, redirects and substitutions refused). New agents need a new session. `agents.test.ts` checks frontmatter (name matches file, description, tools listed, never Edit or Write); `vitest.config.ts` now includes `.claude/agents/`.
 
 ### Fixed (flaky-sweep)
 

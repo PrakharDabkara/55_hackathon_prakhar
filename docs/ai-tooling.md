@@ -97,8 +97,8 @@ main session never sees its file reads or command output, only the report. Defin
 - **Why it exists:** the SEC1 to SEC3 work must not regress before the freeze. A fresh reviewer with
   only the checklist catches what the author stopped seeing.
 - **Why read-only:** tools are Read, Grep, Glob and Bash; it never edits, so a review cannot change what
-  it reviews. Bash is limited to `git diff`, `git log`, `gh pr diff` and `gh pr view` by its prompt, not
-  by the tool list.
+  it reviews. Bash is limited to `git diff|log|show|status` and `gh pr diff|view`, and that limit is
+  enforced (see "Read-only Bash" below).
 
 ## eval-analyst (`.claude/agents/eval-analyst.md`)
 
@@ -108,6 +108,21 @@ main session never sees its file reads or command output, only the report. Defin
   stay unseen or it stops measuring the real pass rate. The agent is told never to read it; the hooks
   block it as a second layer.
 - **Why read-only:** it analyses; it does not run or edit evals (running stays with `askbuy-evals`).
+
+### Read-only Bash (`.claude/hooks/guard-readonly-bash.mjs`)
+
+- **Why the tools field alone could not do it:** `tools: Bash` is all or nothing. It cannot say "only
+  `git diff`", so on its own a "read-only" agent could still run `rm`, `git push` or `curl`.
+- **What enforces it:** each agent's frontmatter has a `hooks` entry, a PreToolUse hook on Bash that
+  runs only while that subagent runs (the main session's hooks are unchanged). It is an allowlist: the
+  first word of every piece of the command must be `git diff|log|show|status` or `gh pr diff|view`
+  (eval-analyst also `gh run view|download`, via `--allow-run`), plus `head|tail|wc|sort|uniq` as pipe
+  filters that cannot name a file. Anything else exits 2 with the reason, so `git diff && rm x`,
+  `git diff | sh`, `$(...)`, backticks, `>` redirects, `git diff --output=f`, `git -c ...` and
+  `gh pr view --web` are all refused. Tests: `guard-readonly-bash.test.ts`.
+- **Limits:** the hook reads the command text, it is not a shell. It refuses `$`, backticks and
+  redirects anywhere, even inside quotes, to stay safe. `gh run download` writes files, and a hook that
+  cannot be loaded fails open for that agent, so check `/agents` after a restart.
 
 **New agents need a new session:** definitions load at session start, so restart before using either.
 
