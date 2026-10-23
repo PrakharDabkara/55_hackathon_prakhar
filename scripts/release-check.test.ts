@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -39,7 +39,8 @@ esac`,
   );
   stub(
     'curl',
-    `case "$*" in
+    `echo "ARGS: $*" >> "${dir}/curl.log"
+case "$*" in
   *health/details*) cat >/dev/null; printf '%s\\n%s' '${JSON.stringify(c.details)}' '${c.detailsCode}' ;;
   *) for a in "$@"; do last="$a"; done
      case "$last" in
@@ -49,7 +50,7 @@ esac`,
      esac ;;
 esac`,
   );
-  stub('sec', `exit ${c.security}`);
+  stub('sec', `echo "token=${'$'}{ADMIN_TOKEN:-unset}" > "${dir}/sec.env"; exit ${c.security}`);
   const result = spawnSync('bash', [script, base], {
     env: {
       PATH: `${dir}:${process.env['PATH']}`,
@@ -58,7 +59,19 @@ esac`,
     },
     encoding: 'utf8',
   });
-  return { ...result, out: `${result.stdout}${result.stderr}` };
+  const read = (f: string) => {
+    try {
+      return readFileSync(join(dir, f), 'utf8');
+    } catch {
+      return '';
+    }
+  };
+  return {
+    ...result,
+    out: `${result.stdout}${result.stderr}`,
+    curlLog: read('curl.log'),
+    secEnv: read('sec.env'),
+  };
 }
 
 describe('scripts/release-check.sh', () => {
@@ -122,5 +135,15 @@ describe('scripts/release-check.sh', () => {
 
   it('accepts localhost with a port', () => {
     expect(run({}, { ADMIN_TOKEN: TOKEN }, 'http://localhost:3000').status).toBe(0);
+  });
+
+  it('keeps the token away from the security script and ignores curl config on the token call', () => {
+    const r = run({}, { ADMIN_TOKEN: TOKEN });
+    expect(r.secEnv.trim()).toBe('token=unset');
+    const line = r.curlLog.split('\n').find((l) => l.includes('-K -')) ?? '';
+    expect(line.startsWith('ARGS: -q ')).toBe(true);
+    expect(line).toContain('--noproxy *');
+    expect(line).toContain('--proto =http,https');
+    expect(line).toContain('--max-redirs 0');
   });
 });

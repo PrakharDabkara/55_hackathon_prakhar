@@ -107,6 +107,15 @@ describe('scripts/demo.sh', () => {
     }
   });
 
+  it('ignores curl config and proxy settings on the token-bearing call', () => {
+    const res = run(['seed', 'http://localhost:3000'], { ADMIN_TOKEN: TOKEN }, { post: '{}\n200' });
+    const line = res.calls.split('\n').find((l) => l.includes('-K -')) ?? '';
+    expect(line.startsWith('ARGS: -q ')).toBe(true);
+    expect(line).toContain('--noproxy *');
+    expect(line).toContain('--proto =http,https');
+    expect(line).toContain('--max-redirs 0');
+  });
+
   it('fails with a clear message on 404 and on any other status, and never echoes the token', () => {
     const wrong = run(['seed'], { ADMIN_TOKEN: TOKEN }, { post: '{"error":{}}\n404' });
     expect(wrong.status).toBe(1);
