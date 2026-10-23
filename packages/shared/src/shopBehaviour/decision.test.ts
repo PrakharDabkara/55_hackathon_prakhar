@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.ts';
-import { createRng, hashSeed } from './rng.ts';
+import { decide, decideOrder, makeProfile, type ShopProfile } from './decision.js';
+import { createRng, hashSeed } from './rng.js';
 
 const profile = (overrides: Partial<ShopProfile> = {}): ShopProfile => ({
   replyProbability: 0.6,

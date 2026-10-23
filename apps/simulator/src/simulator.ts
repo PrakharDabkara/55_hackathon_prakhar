@@ -1,14 +1,15 @@
 import { ApiFailure, createClient } from './client.ts';
 import {
+  createRng,
   decide,
   decideList,
   decideOrder,
+  hashSeed,
   makeProfile,
   type ListAnswerBody,
   type ListPingInfo,
   type ShopProfile,
-} from './decision.ts';
-import { createRng, hashSeed } from './rng.ts';
+} from '@askbuy/shared';
 import { readSse } from './sse.ts';
 import { loadState, matches, saveState } from './state.ts';
 

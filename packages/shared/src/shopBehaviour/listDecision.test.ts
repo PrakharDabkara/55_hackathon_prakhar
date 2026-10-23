@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { decideList, type ListPingInfo } from './decision.ts';
-import { createRng } from './rng.ts';
+import { decideList, type ListPingInfo } from './decision.js';
+import { createRng } from './rng.js';
 
 const ping = (over: Partial<ListPingInfo> = {}): ListPingInfo => ({
   listPingId: 'lp1',
