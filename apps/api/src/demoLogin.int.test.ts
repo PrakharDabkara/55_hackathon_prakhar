@@ -107,7 +107,9 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
     const again = await request(app)
       .post('/auth/otp/verify')
       .send({ phone, code: '654321', role: 'seeker' });
-    expect(stranger.body).toEqual(again.body);
+    // The ref differs per request; nothing else may.
+    const withoutRef = (b: { error: object }) => ({ ...b.error, requestId: undefined });
+    expect(withoutRef(stranger.body)).toEqual(withoutRef(again.body));
   });
 
   it('does not serve a leftover plain code for a non-demo phone', async () => {
