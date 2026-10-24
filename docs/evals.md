@@ -77,6 +77,14 @@ The new runner code (retries, error column, errors gate, provider-only latency) 
 
 Single generic words ("dabba", "stand", "holder", "wrench", "switch") often get one item instead of a question, because the model picks the likeliest. **Not fixed yet on purpose:** these words were found by holdout v2, so fixing them now would be tuning on the test. The fix (prompt or data) will be judged on a fresh holdout v3 written without looking at v2's misses.
 
+## Eval labels vs production roles (errand agent)
+
+The labels "primary" and "fallback" in the eval workflow name the model under test, not its production role. In production the errand role (`GEMINI_ERRAND_MODEL`, checked live on `/admin/health/details` after R2) runs `gemini-3.5-flash-lite` first with `gemini-3.1-flash-lite` as fallback. So the agent eval labelled **fallback** (3.5) tested the production **primary**, and the one labelled **primary** (3.1) tested the production **fallback**. Both models scored 92.3 % on the agent dev set. Failover between them is not exercised by an eval (it is off, one model per run); `modelFailover.test.ts` covers it.
+
+## Known misses (dev, not tuned)
+
+- **Agent dev d18** (a school project): fails on both models. The plan has the required items but no unticked extra (glue, tape or scissors) offered. A soft extra the model did not offer. The case is left as written on purpose: changing a case until the model passes would be tuning the eval.
+
 ## Known gaps
 
 - Multi-word trigram matches can be wrong when a query word is shared ("chilli packet" and "chip packet").
