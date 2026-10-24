@@ -191,7 +191,9 @@ test.describe('shop set-up (S-01..S-04)', () => {
     await toggle.click();
     const row = page.getByRole('switch', { name: 'I deliver' });
     await expect(row).toBeVisible();
-    const highlight = await row.evaluate((el) => getComputedStyle(el).webkitTapHighlightColor);
+    const highlight = await row.evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('-webkit-tap-highlight-color'),
+    );
     expect(highlight).toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
     const label = await row.locator('.sh-switch__label').boundingBox();
     const rowBox = await row.boundingBox();
