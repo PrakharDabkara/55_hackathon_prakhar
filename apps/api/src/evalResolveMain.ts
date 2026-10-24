@@ -33,6 +33,7 @@ import {
   seedCatalog,
 } from './modules/catalog/index.js';
 import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
+import { runWithRetries } from './evalRetry.js';
 
 // Run by `npm run eval:resolve`. Sends every labelled query of the chosen set(s) through the whole
 // resolution pipeline against the configured provider (LLM_PROVIDER=gemini for the real thing), then
@@ -166,6 +167,7 @@ const aiCallCount = async (): Promise<number> =>
 // for tens of minutes).
 const MODEL_RETRIES = 1;
 const RETRY_PAUSE_MS = 8000;
+const sleep = (ms: number) => new Promise<void>((res) => setTimeout(res, ms));
 /** Model calls that failed or were refused by the open breaker. */
 const failedCallCount = async (): Promise<number> =>
   (
@@ -220,7 +222,6 @@ async function runListSet(set: EvalSet) {
         [`+9191${String(index).padStart(8, '0')}`],
       )
     ).rows[0]?.id as string;
-    const failedBefore = await failedCallCount();
     const llmBefore = await callsOf('resolve_query');
     const embedBefore = await callsOf('embed_query');
     const options = {
@@ -230,17 +231,14 @@ async function runListSet(set: EvalSet) {
       requestId: `eval-${set}`,
     };
     const lines = c.lines.map((l) => l.q);
-    let resolved = await resolveLines(pool, lines, options);
-    let errored = false;
-    for (let attempt = 1; (await failedCallCount()) > failedBefore; attempt++) {
-      if (attempt > MODEL_RETRIES) {
-        errored = true;
-        break;
-      }
-      progress.retried();
-      await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
-      resolved = await resolveLines(pool, lines, options);
-    }
+    const { value: resolved, errored } = await runWithRetries(
+      () => resolveLines(pool, lines, options),
+      failedCallCount,
+      MODEL_RETRIES,
+      sleep,
+      () => progress.retried(),
+      RETRY_PAUSE_MS,
+    );
     // The budget is per attempt: the retry above is the runner's, not the pipeline's.
     const calls = {
       generate: (await callsOf('resolve_query')) - llmBefore,
@@ -345,7 +343,6 @@ async function runSet(set: EvalSet) {
     ).rows[0]?.id as string;
     const before = await aiCallCount();
     const llmBefore = await llmCallCount();
-    const failedBefore = await failedCallCount();
     // A model call that fails (429, 5xx, timeout) is tried again, twice, after a pause. A query
     // that still fails is an error, not a wrong answer: it is reported apart and not scored.
     const options = {
@@ -356,17 +353,14 @@ async function runSet(set: EvalSet) {
       // The production path: a real product the catalog lacks becomes a new item (ADR-0028).
       openCatalog: {},
     };
-    let r = await resolveItem(pool, c.q, options);
-    let errored = false;
-    for (let attempt = 1; (await failedCallCount()) > failedBefore; attempt++) {
-      if (attempt > MODEL_RETRIES) {
-        errored = true;
-        break;
-      }
-      progress.retried();
-      await new Promise((res) => setTimeout(res, RETRY_PAUSE_MS * attempt));
-      r = await resolveItem(pool, c.q, options);
-    }
+    const { value: r, errored } = await runWithRetries(
+      () => resolveItem(pool, c.q, options),
+      failedCallCount,
+      MODEL_RETRIES,
+      sleep,
+      () => progress.retried(),
+      RETRY_PAUSE_MS,
+    );
     const after = await aiCallCount();
     const slug = r.item
       ? ((await pool.query(`SELECT slug FROM items WHERE id = $1`, [r.item.id])).rows[0]
