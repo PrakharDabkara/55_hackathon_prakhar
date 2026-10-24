@@ -30,6 +30,9 @@ interface Props {
 }
 
 const CLOCK_MS = 30_000;
+/** The widest area the server will search (POST /requests allows up to 5 km). */
+const WIDE_RADIUS_M = 5000;
+const km = (metres: number) => String(Math.round(metres / 100) / 10);
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(() => navigator.onLine !== false);
@@ -58,6 +61,8 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [choosing, setChoosing] = useState<ShopResult | null>(null);
   const [showNo, setShowNo] = useState(false);
+  const [widening, setWidening] = useState(false);
+  const [wideFailed, setWideFailed] = useState(false);
   const online = useOnline();
   const alive = useRef(true);
 
@@ -134,6 +139,35 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
     onDone();
   }
 
+  /** Nobody was asked and nobody remembered has it: ask again over the widest area the server allows. */
+  const askedNobody = request.pingStats.sent === 0;
+  const canWiden =
+    askedNobody &&
+    origin !== null &&
+    request.radiusM < WIDE_RADIUS_M &&
+    request.wantsDelivery !== true &&
+    !!request.typed?.trim();
+
+  async function searchWider() {
+    if (!origin || !request.typed) return;
+    setWidening(true);
+    setWideFailed(false);
+    try {
+      const next = await api.createRequest({
+        q: request.typed,
+        lat: origin.lat,
+        lng: origin.lng,
+        radiusM: WIDE_RADIUS_M,
+      });
+      navigate(`/app/request/${next.id}`);
+    } catch {
+      if (alive.current) {
+        setWideFailed(true);
+        setWidening(false);
+      }
+    }
+  }
+
   const openOrder = (shopId: string) => {
     const order = orderForShop(orders, shopId);
     return order && (isActiveOrder(order) || order.state === 'DELIVERED') ? order : undefined;
@@ -203,6 +237,31 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
                 />
               ))}
             </ul>
+          ) : askedNobody && learnedRows.length > 0 ? (
+            <div className="cu-empty">
+              <p className="sh-heading">{t.c.knownTitle}</p>
+              <p className="sh-body">{t.c.knownHelp}</p>
+            </div>
+          ) : askedNobody ? (
+            <div className="cu-empty">
+              <p className="sh-heading">{t.c.noShopsTitle(km(request.radiusM))}</p>
+              <p className="sh-body">{t.c.noShopsHelp}</p>
+              <div className="cu-stack">
+                <Button variant="secondary" onClick={onDone}>
+                  {t.c.noShopsWords}
+                </Button>
+                {canWiden && (
+                  <Button variant="solid" disabled={widening} onClick={() => void searchWider()}>
+                    {t.c.noShopsWider(km(WIDE_RADIUS_M))}
+                  </Button>
+                )}
+              </div>
+              {wideFailed && (
+                <p className="sh-alert" role="alert">
+                  {t.c.noShopsWiderFailed}
+                </p>
+              )}
+            </div>
           ) : (
             <div className="cu-empty">
               <p className="sh-heading">{ended ? t.c.noneFoundTitle : t.c.noneYetTitle}</p>

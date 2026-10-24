@@ -80,6 +80,8 @@ export interface NewRequest {
   lat: number;
   lng: number;
   targetPricePaise?: number;
+  /** How far to look, in metres (the server allows up to 5000; it asks 2000 by default). */
+  radiusM?: number;
   /** The item the customer picked after a question: skips matching the text. */
   itemId?: string;
   /** What they did with "Kya aapka matlab…?": said yes, or changed it. Counted by the server. */

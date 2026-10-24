@@ -240,3 +240,10 @@
     transition: none;
   }
 }
+
+/* On a phone the header has no room for the tagline next to the brand and two icons. */
+@media (max-width: 520px) {
+  .cu-find__bar .cu-find__tagline {
+    display: none;
+  }
+}

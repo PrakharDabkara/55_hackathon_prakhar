@@ -31,7 +31,9 @@ export function RequestParchi({ request }: { request: SeekerRequest }) {
     <Parchi delivery={request.wantsDelivery === true} className="cu-parchi">
       <div className="sh-parchi__meta">
         <span className="sh-caption sh-paper-muted cu-parchi__meta">
-          {t.c.sentTo(request.pingStats.sent, kilometres(request.radiusM))}
+          {request.pingStats.sent === 0
+            ? t.c.sentToNone(kilometres(request.radiusM))
+            : t.c.sentTo(request.pingStats.sent, kilometres(request.radiusM))}
         </span>
         {haveIt > 0 && <span className="sh-stamp sh-stamp--yes">{t.c.haveIt(haveIt)}</span>}
       </div>
