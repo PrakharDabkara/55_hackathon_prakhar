@@ -60,6 +60,14 @@ export function identityRouter({
   const requireAuth = createRequireAuth(db);
   const limit = (name: keyof typeof ipLimits) =>
     createIpLimiter({ name, max: ipLimits[name], windowMs: IP_LIMIT_WINDOW_MS, store });
+  // Its own bucket, same size as the inbox's: a room of people loading the login screens must not
+  // use up the budget of "Fill the code".
+  const demoNumbersLimit = createIpLimiter({
+    name: 'demo-numbers',
+    max: ipLimits.inbox,
+    windowMs: IP_LIMIT_WINDOW_MS,
+    store,
+  });
   // Only these phones can have a readable code. Every other number still gets the same 202 and a
   // hashed code, so nothing tells a stranger whether it is a demo number or has an account.
   const codeIsReadable = (phone: string) => inboxOpen || demoPhones.includes(phone);
@@ -99,7 +107,9 @@ export function identityRouter({
     const result = await verifyOtp(db, phone, code, role);
     if (!result) {
       log.info({ phoneMasked: maskPhone(phone) }, 'otp verification failed');
-      const left = await attemptsLeft(db, phone);
+      // Only where the code is readable anyway (demo numbers): elsewhere the count would tell a
+      // stranger whether a person is mid-login.
+      const left = codeIsReadable(phone) ? await attemptsLeft(db, phone) : null;
       throw new ApiError(
         401,
         'invalid_code',
@@ -122,7 +132,7 @@ export function identityRouter({
   });
 
   // The numbers the login screens offer as chips: public ones only, for the asked role, no login.
-  router.get('/auth/demo-numbers', limit('inbox'), (req, res) => {
+  router.get('/auth/demo-numbers', demoNumbersLimit, (req, res) => {
     const { role } = parse(demoNumbersQuery, req.query);
     res.json({
       demo: otpMode === 'simulated',

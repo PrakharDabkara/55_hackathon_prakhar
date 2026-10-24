@@ -98,6 +98,20 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
     expect(stranger.body.error.attemptsLeft).toBeUndefined();
   });
 
+  it('does not say how many tries are left for a number whose code nobody can read', async () => {
+    const phone = fresh();
+    await pool.query(
+      `INSERT INTO otp_codes (phone, code_hash, expires_at)
+       VALUES ($1, $2, now() + interval '5 minutes')`,
+      [`+91${phone}`, 'a'.repeat(64)],
+    );
+    const res = await request(app)
+      .post('/auth/otp/verify')
+      .send({ phone, code: '123456', role: 'seeker' });
+    expect(res.status).toBe(401);
+    expect(res.body.error.attemptsLeft).toBeUndefined();
+  });
+
   it('says how many tries are left after a wrong code, down to 0 once locked', async () => {
     await ask(app, DEMO);
     const left: unknown[] = [];

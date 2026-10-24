@@ -24,6 +24,8 @@ Two phones, one test. A real number got a code screen it could never finish. Typ
 
 ## Consequences
 
+- `DEMO_PHONES` must hold throwaway accounts only, never an admin's or a real shop's or customer's: anyone can read their codes.
+- `attemptsLeft` is sent only for numbers whose code is readable anyway; for others it would show whether a person is mid-login.
 - A caller can now tell whether a number is on `DEMO_PHONES`. The list is 9000000xxx and its codes are readable by anyone who knows the number anyway; real SMS removes this route.
 - Agent evals should be rerun at the end of testing: general stores now receive more asks, and the errand eval harness counts them as shops for stationery.
 - Prakhar sets `PUBLIC_DEMO_SHOP_PHONES` and `PUBLIC_DEMO_CUSTOMER_PHONES` on Render; unset means no chips, the demo-mode line still shows.
