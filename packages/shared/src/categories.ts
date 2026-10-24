@@ -23,3 +23,19 @@ export type Category = (typeof CATEGORIES)[number];
 
 export const isCategory = (value: unknown): value is Category =>
   typeof value === 'string' && (CATEGORIES as readonly string[]).includes(value);
+
+/**
+ * What a general store also takes requests for, besides its own category: the everyday things people
+ * expect to find there (S-06). Other shops are asked about their own categories only.
+ */
+export const GENERAL_STORE_ALSO_TAKES = [
+  'household_kitchen',
+  'personal_care',
+  'stationery',
+] as const;
+
+/** The categories a shop is asked about: its own, plus what a general store also takes. Own order first. */
+export function coveredCategories(shopCategories: readonly string[]): string[] {
+  if (!shopCategories.includes('general_store')) return [...shopCategories];
+  return [...new Set([...shopCategories, ...GENERAL_STORE_ALSO_TAKES])];
+}

@@ -1,3 +1,4 @@
+import { GENERAL_STORE_ALSO_TAKES } from '@askbuy/shared';
 import type { Queryable } from '../../db/queryable.js';
 import type { WindowDays } from './window.js';
 
@@ -76,12 +77,14 @@ export async function shopDemand(
        FROM shops s
        JOIN requests r ON r.created_at >= ${today}
                       AND ST_DWithin(r.location, s.location, $2)
-       JOIN items i ON i.id = r.item_id AND i.category = ANY (s.categories)
+       JOIN items i ON i.id = r.item_id
+        AND i.category = ANY (s.categories::text[] || CASE
+              WHEN 'general_store' = ANY(s.categories) THEN $5::text[] ELSE '{}'::text[] END)
       WHERE s.id = $1
       GROUP BY i.id
      HAVING count(DISTINCT r.user_id) >= $3
       ORDER BY customers DESC, i.name_en LIMIT $4`,
-    [shopId, AREA_RADIUS_M, MIN_AREA_CUSTOMERS, MAX_ROWS],
+    [shopId, AREA_RADIUS_M, MIN_AREA_CUSTOMERS, MAX_ROWS, [...GENERAL_STORE_ALSO_TAKES]],
   );
 
   const row = counts.rows[0] ?? { received: 0, answered: 0, yes: 0, avg_reply: null };

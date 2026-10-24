@@ -1,4 +1,9 @@
-export { CATEGORIES, isCategory } from './categories.js';
+export {
+  CATEGORIES,
+  GENERAL_STORE_ALSO_TAKES,
+  coveredCategories,
+  isCategory,
+} from './categories.js';
 export type { Category } from './categories.js';
 export { indianMobile } from './phone.js';
 export { ROLES } from './roles.js';

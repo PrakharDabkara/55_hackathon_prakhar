@@ -1,3 +1,4 @@
+import { GENERAL_STORE_ALSO_TAKES } from '@askbuy/shared';
 import type { Logger } from 'pino';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
@@ -286,7 +287,9 @@ export async function catchUpShop(
         AND r.expires_at > now() + interval '${CATCH_UP_MIN_LIFE}'
         AND (SELECT count(*) FROM pings p WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) < $3
         AND ST_DWithin(r.location, s.location, r.radius_m)
-       JOIN items i ON i.id = r.item_id AND (r.misc OR i.categories && s.categories)
+       JOIN items i ON i.id = r.item_id
+        AND (r.misc OR i.categories && (s.categories::text[] || CASE
+              WHEN 'general_store' = ANY(s.categories) THEN $5::text[] ELSE '{}'::text[] END))
       WHERE s.id = $1
         AND (s.closed_until IS NULL OR s.closed_until <= now())
         AND NOT EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id AND p.shop_id = s.id)
@@ -296,7 +299,7 @@ export async function catchUpShop(
                          WHERE st.shop_id = s.id AND st.item_id = r.item_id AND st.expires_at > now())
       ORDER BY r.created_at DESC
       LIMIT ${CATCH_UP_MAX_REQUESTS}`,
-    [shopId, deps.config.maxPings, MAX_LIVE_OFFERS, MISC_FANOUT_MAX],
+    [shopId, deps.config.maxPings, MAX_LIVE_OFFERS, MISC_FANOUT_MAX, [...GENERAL_STORE_ALSO_TAKES]],
   );
   let total = 0;
   for (const { request_id: requestId, item_id: itemId } of due) {

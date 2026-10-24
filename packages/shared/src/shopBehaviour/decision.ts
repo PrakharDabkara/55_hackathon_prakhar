@@ -1,3 +1,5 @@
+import { coveredCategories } from '../categories.js';
+
 /** How one fake shop behaves. Drawn once per shop from a seed, so a restart keeps its character. */
 export interface ShopProfile {
   /** Chance the shop answers a ping at all (the rest it ignores, like a busy shopkeeper). */
@@ -165,7 +167,7 @@ export function decide(
   if (profile.alwaysNo) return { kind: 'answer', delayMs, body: { answer: 'no' } };
   // A hardware store has no haldi: an item outside the shop's own kinds is a no, even for a catalog
   // item (the fan-out may ask a shop of another kind when too few of the right kind are near).
-  const mine = ping.shopCategories;
+  const mine = ping.shopCategories && coveredCategories(ping.shopCategories);
   const wanted = ping.itemCategories;
   if (mine && wanted && !wanted.some((c) => mine.includes(c)))
     return { kind: 'answer', delayMs, body: { answer: 'no' } };
@@ -274,7 +276,7 @@ export function decideList(
 ): ListDecision {
   if (rng() >= profile.replyProbability) return { kind: 'skip' };
   const delayMs = (MIN_DELAY_MS + rng() * (MAX_DELAY_MS - MIN_DELAY_MS)) / speed;
-  const mine = ping.shopCategories;
+  const mine = ping.shopCategories && coveredCategories(ping.shopCategories);
   const lines = ping.lines.map((line) => {
     // Always the same draws per line, so a no on one line does not shift the next.
     const chance = rng();
