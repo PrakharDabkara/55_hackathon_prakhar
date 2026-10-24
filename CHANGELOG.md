@@ -14,6 +14,10 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Documentation (free-tier limits)
+
+- `docs/limits.md`: every external service, its free limit, what the user sees when it fails, the AI call counts and judge sessions a day, the embedding-quota finding, bandwidth, a ranked risk list and judge-day operating rules. The runbook's unattended section now names `/health` as the pinger URL and adds the weekly Render, Neon and AI Studio checks.
+
 ### Tests (PR F1: failure modes, assumed vs observed)
 
 - Real failures replayed through our own error handling: Gemini 503/429/timeout/`ECONNRESET` from 16 CI dev eval runs, Redis full (`noeviction`) and stopped, Postgres SQLSTATEs and killed connections, all recorded from throwaway containers into `apps/api/src/testing/observed/`.
