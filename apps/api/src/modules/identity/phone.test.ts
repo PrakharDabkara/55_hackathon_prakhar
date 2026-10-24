@@ -19,6 +19,19 @@ describe('normalisePhone', () => {
       expect(normalisePhone(raw)).toBeNull();
     },
   );
+
+  it.each(['9999999999', '+916666666666', '7777777777'])(
+    'rejects the same digit ten times: %s',
+    (raw) => {
+      expect(normalisePhone(raw)).toBeNull();
+    },
+  );
+
+  it('accepts every number the demo list uses', () => {
+    for (let n = 0; n < 1000; n++) {
+      expect(normalisePhone(`9000000${String(n).padStart(3, '0')}`)).not.toBeNull();
+    }
+  });
 });
 
 describe('maskPhone', () => {
