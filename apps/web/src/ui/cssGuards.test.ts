@@ -56,3 +56,13 @@ describe('a map stays under menus and sheets (X-02)', () => {
     expect(map).toMatch(/z-index:\s*0/);
   });
 });
+
+describe('the Find header on a phone (C-01)', () => {
+  const find = read('customer/find.css');
+
+  it('hides the tagline when the screen is narrow, so it is never cut off', () => {
+    expect(find).toMatch(
+      /@media \(max-width:\s*\d+px\)\s*\{[^@]*\.cu-find__tagline\s*\{[^}]*display:\s*none/,
+    );
+  });
+});

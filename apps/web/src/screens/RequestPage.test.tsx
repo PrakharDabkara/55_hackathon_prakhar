@@ -293,7 +293,7 @@ describe('had it recently', () => {
         }),
       ]),
     );
-    expect(screen.getByText('Had it recently · not checked today')).toBeTruthy();
+    expect(screen.getByText('Had it recently, not asked this time')).toBeTruthy();
     expect(screen.getByText('Had it today at ₹50')).toBeTruthy();
     expect(screen.getByText('Had it yesterday at ₹51')).toBeTruthy();
     expect(screen.getByText('Had it 4 days ago at ₹52')).toBeTruthy();
@@ -333,7 +333,7 @@ describe('had it recently', () => {
 
   it('is absent when nothing is remembered', () => {
     show(answeredRequest([liveYes()]));
-    expect(screen.queryByText('Had it recently · not checked today')).toBeNull();
+    expect(screen.queryByText('Had it recently, not asked this time')).toBeNull();
   });
 
   it('marks stock a customer confirmed', () => {
@@ -615,5 +615,83 @@ describe('choosing a shop from a reply', () => {
     await user.click(link);
     expect(screen.queryByRole('alert')).toBeNull();
     expect(link.getAttribute('href')).toMatch(/google\.com\/maps/);
+  });
+});
+
+describe('nobody was asked (C-03, C-04)', () => {
+  const none = (overrides: Partial<ReturnType<typeof seekerRequest>> = {}) =>
+    seekerRequest({
+      state: 'ANSWERED',
+      typed: 'chini 2 kg',
+      results: [],
+      pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },
+      ...overrides,
+    });
+
+  it('says plainly why there is nothing, and does not pretend replies are coming', () => {
+    show(none());
+    expect(screen.getByText('No shops asked · 2 km')).toBeTruthy();
+    expect(screen.getByText('No open shops within 2 km sell this kind of item yet')).toBeTruthy();
+    expect(screen.queryByText('No replies yet')).toBeNull();
+    expect(document.querySelectorAll('.sh-skeleton')).toHaveLength(0);
+  });
+
+  it('offers different words, which goes back to Find', async () => {
+    const { user, onDone } = show(none());
+    await user.click(screen.getByRole('button', { name: 'Try different words' }));
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it('offers a wider area that asks again at 5 km and opens the new search', async () => {
+    const createRequest = vi.fn(async () => seekerRequest({ id: 'wide-1' }));
+    const { user, navigate } = show(none(), { createRequest });
+    await user.click(screen.getByRole('button', { name: 'Search 5 km' }));
+    expect(createRequest).toHaveBeenCalledWith({
+      q: 'chini 2 kg',
+      lat: origin.lat,
+      lng: origin.lng,
+      radiusM: 5000,
+    });
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/app/request/wide-1'));
+  });
+
+  it('says so when the wider search fails, and can be tried again', async () => {
+    const createRequest = vi.fn().mockRejectedValue(new Error('offline'));
+    const { user, navigate } = show(none(), { createRequest });
+    await user.click(screen.getByRole('button', { name: 'Search 5 km' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(
+      (screen.getByRole('button', { name: 'Search 5 km' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+  });
+
+  it.each([
+    ['already 5 km wide', { radiusM: 5000 }, {}],
+    ['it came from a link, so there is no place to search from', {}, { origin: undefined }],
+    ['it was a delivery search, which a new search could not repeat', { wantsDelivery: true }, {}],
+    ['the words were not kept', { typed: undefined }, {}],
+  ] as const)('offers no wider search when %s', (_why, request, props) => {
+    show(none(request), {}, props);
+    expect(screen.queryByRole('button', { name: /Search \d+ km/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try different words' })).toBeTruthy();
+  });
+
+  it('with remembered shops, says nobody was pinged because we already knew, and lists them', () => {
+    show(
+      none({
+        results: [remembered(2, { name: 'Gupta Store', distanceM: 640 })],
+      }),
+    );
+    expect(screen.getByText('Nobody was asked this time')).toBeTruthy();
+    expect(screen.queryByText('No open shops within 2 km sell this kind of item yet')).toBeNull();
+    expect(screen.getByText('Had it recently, not asked this time')).toBeTruthy();
+    expect(within(cardOf('Gupta Store')).getByText(/640 m|0\.6 km/)).toBeTruthy();
+  });
+
+  it('keeps the old wording when shops were asked', () => {
+    show(answeredRequest([liveYes()]));
+    expect(screen.getByText(/^Sent to 3 shops · 2 km$/)).toBeTruthy();
+    expect(screen.queryByText('Nobody was asked this time')).toBeNull();
   });
 });
