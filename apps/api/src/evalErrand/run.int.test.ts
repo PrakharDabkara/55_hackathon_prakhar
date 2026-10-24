@@ -1,3 +1,4 @@
+import { coveredCategories } from '@askbuy/shared';
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -295,7 +296,9 @@ describe('errand eval harness (fake model, real database)', () => {
          JOIN items i ON i.id = p.item_id WHERE i.source = 'user'`,
     );
     expect(pinged.rowCount).toBeGreaterThanOrEqual(3);
-    for (const row of pinged.rows) expect(row.categories).toContain('stationery');
+    // A general store also takes stationery (S-06), so it may be asked too.
+    for (const row of pinged.rows)
+      expect(coveredCategories(row.categories)).toContain('stationery');
   }, 60_000);
 
   it('a harmful task creates nothing and asks nobody', async () => {
