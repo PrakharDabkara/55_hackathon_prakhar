@@ -14,6 +14,7 @@ import { startPostgres, type TestDatabase } from './testing/startPostgres.js';
 import { startRedis } from './testing/startRedis.js';
 import { truncateKeepingShops } from './testing/truncate.js';
 import { waitFor } from './testing/waitFor.js';
+import { waitForQuietDb } from './testing/waitForQuietDb.js';
 import { startDemoAutopilotWorker, type DemoAutopilotWorker } from './workers/demoAutopilot.js';
 import { startWorkers } from './workers/index.js';
 import { connect } from './workers/redis.js';
@@ -55,6 +56,8 @@ describe('demo autopilot', () => {
   afterEach(async () => {
     for (const a of open.splice(0)) a.close();
     await Promise.all(queues.splice(0).map((q) => q.close()));
+    // close() does not wait for a catch-up or an answer still reading; the next truncate would deadlock with it.
+    await waitForQuietDb(pool);
   });
 
   const queues: DemoAutopilotWorker[] = [];

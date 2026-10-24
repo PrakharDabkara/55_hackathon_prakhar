@@ -14,6 +14,11 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Fixed (eval harness)
+
+- Resolve eval: failed model calls are counted per attempt, so a case whose retry went through is no longer flagged as an error (`runWithRetries`, with a test).
+- `docs/evals.md`: errand eval labels mapped to production roles; d18 recorded as a known miss on both models.
+
 ### Fixed (failure modes, R2, ADR-0065)
 
 - Gemini: failover from the observed errors. A per-minute 429 waits the full `retryDelay` when it fits the call's budget, else the fallback answers; an oversize input-token 429 is never retried; a daily 429 marks the model exhausted until its reset (or midnight Pacific); a retired model (404) is unavailable until restart; dropped connections now reach the fallback. Every failure logs `quotaId` and `retryDelaySec`; each switch logs one warn with the request id. `/admin/health/details` shows per role the active model, the primary's state and why.
