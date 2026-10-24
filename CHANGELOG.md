@@ -14,6 +14,13 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Fixed (failure modes, R2, ADR-0065)
+
+- Gemini: failover from the observed errors. A per-minute 429 waits the full `retryDelay` when it fits the call's budget, else the fallback answers; an oversize input-token 429 is never retried; a daily 429 marks the model exhausted until its reset (or midnight Pacific); a retired model (404) is unavailable until restart; dropped connections now reach the fallback. Every failure logs `quotaId` and `retryDelaySec`; each switch logs one warn with the request id. `/admin/health/details` shows per role the active model, the primary's state and why.
+- `withDemoLock` has an error listener, like `withTransaction`.
+- Postgres pool: 15 s connect and 20 s statement timeouts for the API; scripts have none.
+- Push sends time out after 10 s and count as failed.
+
 ### Documentation (free-tier limits)
 
 - `docs/limits.md`: every external service, its free limit, what the user sees when it fails, the AI call counts and judge sessions a day, the embedding-quota finding, bandwidth, a ranked risk list and judge-day operating rules. The runbook's unattended section now names `/health` as the pinger URL and adds the weekly Render, Neon and AI Studio checks.

@@ -44,12 +44,9 @@ describe('the demo seed/reset lock connection', () => {
     return listeners;
   }
 
-  it(
-    'has an error listener while it holds the connection, so a dropped connection cannot crash the process',
-    async () => {
-      expect(await listenersOnLockClient()).toBeGreaterThan(0);
-    },
-  );
+  it('has an error listener while it holds the connection, so a dropped connection cannot crash the process', async () => {
+    expect(await listenersOnLockClient()).toBeGreaterThan(0);
+  });
 
   it('releases the lock again after a failure, so the next reset can run', async () => {
     await listenersOnLockClient();

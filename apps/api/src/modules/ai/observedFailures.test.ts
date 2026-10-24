@@ -277,7 +277,7 @@ describe('the three 429s Google sent (gemini-3.6-flash, free tier, all observed)
   it('an input-token 429 is not retried when the request itself is over the limit, because waiting cannot make it smaller', async () => {
     const h = harness([fail(probed('oversize-input'))]);
     await h.client
-      .generateJson({ ...generate, user: 'x'.repeat(1_100_000) })
+      .generateJson({ ...generate, user: 'word '.repeat(220_000) })
       .catch(() => undefined);
     expect(h.calls()).toBe(1);
   });

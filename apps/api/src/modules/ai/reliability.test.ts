@@ -216,7 +216,10 @@ describe('the fallback model', () => {
     [
       '429',
       () => {
-        throw new ProviderError('quota', 429);
+        // A per-minute limit whose delay is over the budget (a bare 429 retries once first, R2).
+        throw new ProviderError('quota', 429, {
+          rateLimit: { perDay: false, retryAfterSec: 60, quotaFailure: true },
+        });
       },
     ],
     ['a timeout', hang],

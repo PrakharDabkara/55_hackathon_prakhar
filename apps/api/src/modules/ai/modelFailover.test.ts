@@ -171,7 +171,7 @@ describe('per-minute 429 (observed: retryDelay 56 s)', () => {
 describe('input tokens per minute (observed: quotaValue 250000)', () => {
   it('a request whose own input exceeds the limit is never retried and never sent elsewhere', async () => {
     const s = setup({ responses: [fail(probed('oversize-input')), answer] });
-    const huge = { ...generate, user: 'x'.repeat(1_100_000) }; // about 275,000 tokens
+    const huge = { ...generate, user: 'word '.repeat(220_000) }; // about 275,000 tokens
     await expect(s.client.generateJson(huge)).rejects.toBeInstanceOf(AiUnavailableError);
     expect(s.calls()).toBe(1);
     expect(s.sleeps).toEqual([]);

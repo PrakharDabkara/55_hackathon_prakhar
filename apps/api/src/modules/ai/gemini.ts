@@ -3,7 +3,12 @@ import type { Logger } from 'pino';
 import { z } from 'zod';
 import { assertNoPrivateData, PrivacyGuardError } from './privacyGuard.js';
 import { sanitiseMessage } from './failure.js';
-import { rateLimitInfo, type RateLimitBody } from './quota.js';
+import {
+  isInputTokenLimit,
+  rateLimitInfo,
+  type RateLimitBody,
+  type RateLimitInfo,
+} from './quota.js';
 import {
   InvalidOutputError,
   ProviderError,
@@ -149,12 +154,19 @@ function parseBody(message: unknown): RateLimitBody | null {
   }
 }
 
+/** An input-token limit the request itself is over can never be met by waiting. */
+function withSize(info: RateLimitInfo, inputTokens: number): RateLimitInfo {
+  return isInputTokenLimit(info) && info.quotaValue !== undefined && inputTokens > info.quotaValue
+    ? { ...info, requestTooLarge: true }
+    : info;
+}
+
 /**
  * Sorts what the SDK throws: an HTTP status (kind http, with Google's own status word as the code),
  * an abort (timeout), a dropped connection (network) or anything else. Only Google's short reason
  * for a 429 or 5xx is kept; any other text could echo the request, so it is dropped.
  */
-function wrap(error: unknown): ProviderError {
+function wrap(error: unknown, inputTokens = 0): ProviderError {
   const e = (error ?? {}) as {
     status?: unknown;
     name?: unknown;
@@ -170,7 +182,9 @@ function wrap(error: unknown): ProviderError {
     return new ProviderError(`the Gemini call failed: ${why}`, e.status, {
       kind: 'http',
       ...(body?.status && { code: body.status }),
-      ...(e.status === 429 && body && { rateLimit: rateLimitInfo(body) }),
+      ...(e.status === 404 &&
+        /no longer available|not found/i.test(body?.message ?? '') && { modelGone: true }),
+      ...(e.status === 429 && body && { rateLimit: withSize(rateLimitInfo(body), inputTokens) }),
     });
   }
   if (e.name === 'AbortError') {
@@ -238,7 +252,7 @@ export function createGeminiProvider({
           },
         });
       } catch (error) {
-        throw wrap(error);
+        throw wrap(error, estimateTokens(options.system + options.user));
       }
 
       let data: unknown;
@@ -267,6 +281,7 @@ export function createGeminiProvider({
       const started = Date.now();
       const used = options.model ?? model;
       const contents = toContents(options.messages);
+      const sizeTokens = estimateTokens(options.system + JSON.stringify(contents));
       // The vendor's thought signatures are opaque blobs, not text we wrote.
       guard(options.purpose, [
         options.system,
@@ -301,7 +316,7 @@ export function createGeminiProvider({
           },
         });
       } catch (error) {
-        throw wrap(error);
+        throw wrap(error, sizeTokens);
       }
 
       const parts = response.candidates?.[0]?.content?.parts ?? [];
@@ -349,7 +364,10 @@ export function createGeminiProvider({
           },
         });
       } catch (error) {
-        throw wrap(error);
+        throw wrap(
+          error,
+          texts.reduce((n, t) => n + estimateTokens(t), 0),
+        );
       }
 
       const rows = response.embeddings ?? [];

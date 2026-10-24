@@ -114,16 +114,24 @@ export class ProviderError extends Error {
   readonly kind: Exclude<FailureKind, 'invalid_output' | 'breaker'>;
   /** On a 429: whether a daily quota is used up, and how long Google asked us to wait. */
   readonly rateLimit: RateLimitInfo | undefined;
+  /** A 404 about the model itself ("no longer available", "not found"): it will not come back. */
+  readonly modelGone: boolean;
   constructor(
     message: string,
     status?: number,
-    options: { kind?: ProviderError['kind']; code?: string; rateLimit?: RateLimitInfo } = {},
+    options: {
+      kind?: ProviderError['kind'];
+      code?: string;
+      rateLimit?: RateLimitInfo;
+      modelGone?: boolean;
+    } = {},
   ) {
     super(message);
     this.name = 'ProviderError';
     this.status = status;
     this.code = options.code;
     this.rateLimit = options.rateLimit;
+    this.modelGone = options.modelGone ?? false;
     this.kind = options.kind ?? (status !== undefined ? 'http' : 'other');
   }
 }

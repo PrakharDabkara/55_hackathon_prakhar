@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { createLogger } from '../logger.js';
 import { TEST_ADMIN_TOKEN, testConfig } from '../testing/config.js';
+import type { AiContext } from '../modules/ai/index.js';
 import type { OpsProbes } from './adminHealth.js';
 
 const db = {
@@ -31,9 +32,7 @@ const models = [
     fallback: { model: 'flash-b', state: 'ok' },
   },
 ];
-const ai = { client: { modelStatus: () => models } } as unknown as Parameters<
-  typeof createApp
->[0]['ai'];
+const ai = { client: { modelStatus: () => models } } as unknown as AiContext;
 
 const app = (adminToken: string | null) =>
   createApp({

@@ -113,10 +113,10 @@ describe('a push service that hangs (R2)', () => {
   const hanging = () => new Promise<never>(() => undefined);
 
   it('asks web-push for a 10 s socket timeout', async () => {
-    const send = vi.fn(async () => ({ statusCode: 201 }));
+    const send = vi.fn<WebPushClient['sendNotification']>(async () => ({ statusCode: 201 }));
     const { sender } = setup(send);
     await sender.deliver({ subscriptionId: 'sub-1', payload });
-    const options = send.mock.calls[0]?.[2] as unknown as { timeout: number };
+    const options = send.mock.calls[0]?.[2] as { timeout?: number };
     expect(options.timeout).toBe(10_000);
   });
 

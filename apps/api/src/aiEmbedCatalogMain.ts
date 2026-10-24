@@ -1,6 +1,6 @@
 import { pino } from 'pino';
 import { loadConfig } from './config/config.js';
-import { createPool } from './db/pool.js';
+import { createPool, SCRIPT_POOL_OPTIONS } from './db/pool.js';
 import { aiFromConfig } from './modules/ai/index.js';
 import { appendFileSync } from 'node:fs';
 import { embedCatalog, embedCatalogSafely, formatEmbedSummary } from './modules/catalog/index.js';
@@ -14,7 +14,7 @@ if (config.llmProvider !== 'gemini') {
   );
 }
 const logger = pino({ level: 'info' });
-const pool = createPool(config.databaseUrl, pino({ level: 'warn' }));
+const pool = createPool(config.databaseUrl, pino({ level: 'warn' }), SCRIPT_POOL_OPTIONS);
 // Free-tier embedding limits are per minute: small batches, a pause between them, and a patient
 // retry (20 s, 40 s, 80 s) if a limit is still hit.
 const ai = aiFromConfig({
