@@ -1,7 +1,15 @@
 // Pipes realistic hook JSON into each script and checks exit codes and messages.
 // Nothing here reads a secret or a holdout file: the guards only see the JSON text.
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,7 +85,13 @@ describe('guard-secrets', () => {
   it('blocks .env.* variants and nested .env files', () => {
     blocked(tool('Read', { file_path: '/repo/apps/api/.env.local' }));
     blocked(tool('Read', { file_path: '.env.production' }));
-    blocked(tool('Edit', { file_path: '/repo/.env', old_string: 'a', new_string: 'b' }));
+    blocked(
+      tool('Edit', {
+        file_path: '/repo/.env',
+        old_string: 'a',
+        new_string: 'b',
+      }),
+    );
     blocked(tool('Write', { file_path: '/repo/.env', content: 'A=1' }));
   });
 
@@ -98,8 +112,19 @@ describe('guard-secrets', () => {
     ])('blocks a %s key typed into a command, written to a file or put in an edit', (_p, key) => {
       const r = blocked(bash(`curl -H "x-goog-api-key: ${key}" https://example.test`));
       expect(r.stderr).toContain('API key');
-      blocked(tool('Write', { file_path: '/repo/notes.md', content: `key: ${key}` }));
-      blocked(tool('Edit', { file_path: '/repo/a.ts', old_string: 'a', new_string: key }));
+      blocked(
+        tool('Write', {
+          file_path: '/repo/notes.md',
+          content: `key: ${key}`,
+        }),
+      );
+      blocked(
+        tool('Edit', {
+          file_path: '/repo/a.ts',
+          old_string: 'a',
+          new_string: key,
+        }),
+      );
     });
 
     it('does not echo the key back in its reason', () => {
@@ -122,7 +147,12 @@ describe('guard-secrets', () => {
       (_p, key) => {
         blocked(bash(`echo ${key} # fake`));
         blocked(bash(`echo "this is a fake example placeholder" && echo ${key}`));
-        blocked(tool('Write', { file_path: '/repo/n.md', content: `fake key follows\n${key}\n` }));
+        blocked(
+          tool('Write', {
+            file_path: '/repo/n.md',
+            content: `fake key follows\n${key}\n`,
+          }),
+        );
         // A fake token next to a real one does not cover the real one.
         blocked(bash(`echo AQ.FakeKeyForTheTest${'x'.repeat(30)} ${key}`));
       },
@@ -160,7 +190,6 @@ describe('guard-secrets', () => {
   it('blocks holdout paths and commands', () => {
     const r = blocked(tool('Read', { file_path: '/repo/evals/errand/holdout.json' }));
     expect(r.stderr).toContain('holdout');
-    blocked(tool('Glob', { pattern: 'evals/**/*holdout*' }));
     blocked(tool('Grep', { pattern: 'x', path: '/repo/evals/holdout' }));
     blocked(bash('cat evals/errand/holdout.json'));
     blocked(bash('node evals/run.js --set Holdout'));
@@ -168,10 +197,219 @@ describe('guard-secrets', () => {
 
   it('only looks at paths for file tools, so writing about the word is fine', () => {
     const r = guard(
-      tool('Write', { file_path: '/repo/docs/x.md', content: 'the holdout runs by hand' }),
+      tool('Write', {
+        file_path: '/repo/docs/x.md',
+        content: 'the holdout runs by hand',
+      }),
     );
     expect(r.code).toBe(0);
     expect(guard(tool('Read', { file_path: '/repo/evals/errand/dev.json' })).code).toBe(0);
+  });
+
+  /**
+   * The holdout eval cases, by PATH (eval-paths.mjs). A fixture repo with dummy files: nothing real
+   * is ever opened. Each route that used to get past the word check is a case here.
+   */
+  describe('holdout data, by path', () => {
+    const dir = mkdtempSync(join(scratch, 'eval-repo-'));
+    const at = (p: string) => join(dir, p);
+    mkdirSync(at('evals'), { recursive: true });
+    mkdirSync(at('apps/src'), { recursive: true });
+    mkdirSync(at('evals/holdout'), { recursive: true });
+    for (const f of [
+      'evals/resolve.holdout.jsonl',
+      'evals/resolve.holdout.v2.jsonl',
+      'evals/errand.holdout.jsonl',
+      'evals/holdout/cases.txt',
+      'evals/resolve.dev.jsonl',
+      'evals/notes.test.ts',
+      'apps/src/holdoutGate.ts',
+      'apps/src/index.ts',
+    ])
+      writeFileSync(at(f), 'dummy\n');
+    symlinkSync(at('evals/resolve.holdout.jsonl'), at('apps/cases.jsonl'));
+
+    // Generated reports: the runners write `{ set, at, ..., cases | results }`, case text included.
+    mkdirSync(at('evals/reports'), { recursive: true });
+    const report = (set?: string) =>
+      JSON.stringify({ ...(set && { set }), at: 'x', cases: [{ q: 'dummy' }] });
+    writeFileSync(at('evals/reports/latest.json'), report('holdout-v2')); // renamed copy
+    writeFileSync(at('evals/reports/older.json'), report('holdout'));
+    writeFileSync(at('evals/reports/resolve-holdout-v2-2026-10-24.json'), report('holdout-v2'));
+    writeFileSync(at('evals/reports/dev-latest.json'), report('dev'));
+    writeFileSync(at('evals/reports/legacy.json'), report()); // before reports carried a set
+    writeFileSync(at('evals/reports/summary.md'), '| set | queries |\n');
+
+    const g = (name: string, input: Record<string, unknown>) => guard(tool(name, input, dir));
+    const b = (command: string) => guard(bash(command, dir));
+    const shut = (r: Result) => {
+      expect(r.code).toBe(2);
+      expect(r.stderr).toContain('holdout');
+    };
+    const open = (r: Result) => expect(r.code).toBe(0);
+
+    describe('Read, Edit and Write', () => {
+      it.each([
+        ['absolute path', at('evals/resolve.holdout.jsonl')],
+        ['relative path', 'evals/resolve.holdout.jsonl'],
+        ['path with ..', 'apps/../evals/resolve.holdout.v2.jsonl'],
+        ['errand cases', at('evals/errand.holdout.jsonl')],
+        ['inside a holdout folder', at('evals/holdout/cases.txt')],
+        ['a symlink with an innocent name', at('apps/cases.jsonl')],
+        ['a new data file', at('evals/other.holdout.csv')],
+      ])('refuses %s', (_name, file_path) => {
+        for (const t of ['Read', 'Edit', 'Write']) shut(g(t, { file_path }));
+        shut(g('NotebookEdit', { notebook_path: file_path }));
+      });
+
+      it.each([
+        ['the dev set', at('evals/resolve.dev.jsonl')],
+        ['a test file', at('evals/notes.test.ts')],
+        ['code that has the word in its name', at('apps/src/holdoutGate.ts')],
+        ['docs that have the word in their name', at('docs/holdout-notes.md')],
+      ])('allows %s', (_name, file_path) => {
+        for (const t of ['Read', 'Edit', 'Write']) open(g(t, { file_path }));
+      });
+
+      it('allows an edit whose text says set == holdout', () => {
+        open(
+          g('Edit', {
+            file_path: at('.github/workflows/evals.yml'),
+            old_string: 'a',
+            new_string: "inputs.set == 'holdout'",
+          }),
+        );
+      });
+    });
+
+    describe('Grep', () => {
+      it('refuses a search of the file, of its folder, and of the whole repo', () => {
+        shut(g('Grep', { pattern: 'a', path: at('evals/resolve.holdout.jsonl') }));
+        shut(g('Grep', { pattern: '.', path: at('evals') }));
+        shut(g('Grep', { pattern: '.', path: at('evals'), glob: '*.jsonl' }));
+        shut(g('Grep', { pattern: '.', glob: '**/*.v2.jsonl' })); // no path: the working directory
+        shut(g('Grep', { pattern: '.', path: dir }));
+        shut(g('Grep', { pattern: '.', path: at('apps/cases.jsonl') })); // symlink
+        shut(g('Grep', { pattern: '.', type: 'json' }));
+      });
+
+      it('allows a search that leaves the data out, and a search for the word in code', () => {
+        open(g('Grep', { pattern: '.', glob: '*.ts' }));
+        open(g('Grep', { pattern: '.', path: at('evals'), glob: '*.test.ts' }));
+        open(g('Grep', { pattern: '.', path: at('apps'), glob: '*.ts' }));
+        open(g('Grep', { pattern: 'holdout', path: at('apps/src') }));
+        open(g('Grep', { pattern: '.', type: 'ts' }));
+        open(g('Grep', { pattern: '.', path: at('evals/resolve.dev.jsonl') }));
+      });
+    });
+
+    describe('generated eval reports (they list every case, query text included)', () => {
+      it.each([
+        ['a holdout report under another name', at('evals/reports/latest.json')],
+        ['an older holdout report', at('evals/reports/older.json')],
+        [
+          'a holdout report with the set in its name',
+          at('evals/reports/resolve-holdout-v2-2026-10-24.json'),
+        ],
+      ])('refuses to read %s', (_name, file_path) => {
+        shut(g('Read', { file_path }));
+        shut(g('Grep', { pattern: 'q', path: file_path }));
+        shut(b(`cat ${file_path}`));
+      });
+
+      it('refuses the other ways to get at a holdout report', () => {
+        shut(b('jq .cases evals/reports/latest.json'));
+        shut(b('cp evals/reports/latest.json /tmp/r.txt'));
+        shut(g('Grep', { pattern: 'q', path: at('evals/reports') }));
+        shut(g('Grep', { pattern: 'q', path: at('evals'), glob: '*.json' }));
+        shut(b('grep -rn dummy evals/reports'));
+        shut(b('cat evals/reports/*.json'));
+        shut(b('head -c 100 evals/reports/lat*'));
+      });
+
+      it('allows the dev reports, the old ones with no set, and the aggregate summary', () => {
+        for (const f of ['dev-latest.json', 'legacy.json', 'summary.md'])
+          open(g('Read', { file_path: at(`evals/reports/${f}`) }));
+        open(b('cat evals/reports/dev-latest.json evals/reports/summary.md'));
+        open(b('cat evals/reports/legacy.json'));
+        open(b('ls evals/reports'));
+        open(b("grep -rn dummy evals/reports --include='dev-*.json'"));
+        open(
+          g('Grep', {
+            pattern: 'q',
+            path: at('evals/reports'),
+            glob: 'dev-*.json',
+          }),
+        );
+      });
+
+      it('survives a missing or empty file', () => {
+        open(g('Read', { file_path: at('evals/reports/not-there.json') }));
+        writeFileSync(at('evals/reports/empty.json'), '');
+        open(g('Read', { file_path: at('evals/reports/empty.json') }));
+      });
+    });
+
+    it('Glob lists names only, so it is allowed', () => {
+      open(g('Glob', { pattern: 'evals/**/*holdout*' }));
+      open(g('Glob', { pattern: 'evals/*.jsonl' }));
+    });
+
+    describe('Bash', () => {
+      it.each([
+        ['cat, with the word', 'cat evals/resolve.holdout.jsonl'],
+        ['head', 'head -n 3 evals/resolve.holdout.v2.jsonl'],
+        ['cp to another name', 'cp evals/resolve.holdout.jsonl /tmp/cases.txt'],
+        ['a glob without the word', 'cat evals/resolve.h*'],
+        ['a ? glob', 'cat evals/resolve.h?ldout.jsonl'],
+        ['a glob on the second part of the name', 'head -3 evals/*v2*'],
+        ['every jsonl file', 'cat evals/*.jsonl'],
+        ['grep -r on the folder', 'grep -rn milk evals'],
+        ['grep -r on the repo', 'grep -r milk .'],
+        ['grep -r with no path', 'grep -r milk'],
+        ['grep on a glob', 'grep milk evals/*.jsonl'],
+        ['rg with no path', 'rg milk'],
+        ['rg on the folder', 'rg milk evals'],
+        ['cd, then a relative glob', 'cd evals && cat re*.jsonl'],
+        ['a path built in a variable', 'f=evals/resolve.hold; cat ${f}out.jsonl'],
+        ['names piped to xargs', 'ls evals/*.jsonl | xargs cat'],
+        ['command substitution', 'cat $(echo evals/resolve.h*)'],
+        ['through a symlink', 'cat apps/cases.jsonl'],
+        ['sed', "sed -n '1,3p' evals/*v2.jsonl"],
+        ['an option value', 'jq . --slurpfile=evals/errand.holdout.jsonl'],
+        ['git show of the file', 'git show HEAD:evals/resolve.holdout.jsonl'],
+        ['git show through a glob', 'git show HEAD:evals/resolve.hold*'],
+        ['git grep with no path', 'git grep milk'],
+        ['find -exec cat', "find evals -name '*.jsonl' -exec cat {} +"],
+        ['tar of the folder', 'tar cf /tmp/e.tar evals'],
+        ['the word in a script', `python3 -c "print(open('evals/resolve.holdout.jsonl').read())"`],
+        ['running the set', 'EVAL_SET=holdout-v2 npm run eval:resolve'],
+        ['running the set with a flag', 'node evals/run.js --set holdout'],
+        ['starting the workflow on the set', 'gh workflow run evals.yml -f set=holdout'],
+      ])('refuses %s', (_name, command) => shut(b(command)));
+
+      it.each([
+        ['the dev set', 'cat evals/resolve.dev.jsonl'],
+        ['a test run', 'npx vitest run evals'],
+        ['listing names', 'ls evals'],
+        ['listing names with a glob', 'ls evals/*.jsonl'],
+        ['file sizes', 'wc -l evals/*.jsonl'],
+        ['grep in code', 'grep -rn milk apps'],
+        ['grep -r that leaves the data out', "grep -rn milk --include='*.ts' ."],
+        ['rg in code', "rg milk -g '*.ts'"],
+        ['rg with an exclusion', "rg milk -g '!*holdout*'"],
+        ['rg by type', 'rg milk -t ts'],
+        ['git grep in a code folder', 'git grep milk -- apps'],
+        ['git add and commit', 'git add evals && git commit -m "the holdout gate"'],
+        ['git status', 'git status --short'],
+        ['a commit message about the word', 'git commit -m "guard: holdout paths"'],
+        [
+          'a script that says set == holdout',
+          `python3 - <<'E'\nopen('a.ts','w').write("set == 'holdout'")\nE`,
+        ],
+        ['an eval of the dev set', 'EVAL_SET=dev npm run eval:resolve'],
+      ])('allows %s', (_name, command) => open(b(command)));
+    });
   });
 
   it('ignores tools it does not cover', () => {
@@ -300,7 +538,11 @@ describe('notify', () => {
     const dir = stubs({ 'notify-send': `printf '%s\\n' "$@" > "${log}"` });
     const r = run(
       'notify.mjs',
-      { hook_event_name: 'Notification', cwd: scratch, message: 'Claude needs your permission' },
+      {
+        hook_event_name: 'Notification',
+        cwd: scratch,
+        message: 'Claude needs your permission',
+      },
       { env: { PATH: `${dir}:${process.env.PATH}` } },
     );
     expect(r.code).toBe(0);
@@ -337,7 +579,10 @@ describe('session-status', () => {
     run(
       'session-status.mjs',
       { hook_event_name: 'SessionStart', cwd, source: 'startup' },
-      { cwd, env: { PATH: `${stubs({ gh: ghBody })}:${process.env.PATH}`, ...extra } },
+      {
+        cwd,
+        env: { PATH: `${stubs({ gh: ghBody })}:${process.env.PATH}`, ...extra },
+      },
     );
   const lines = (r: Result) => r.stdout.trim().split('\n');
 
@@ -381,7 +626,9 @@ esac`,
 
   it('gives up on a hanging gh instead of stalling the session', () => {
     const t0 = Date.now();
-    const r = start(repo('feat/x'), 'sleep 20', { SESSION_STATUS_TIMEOUT_MS: '400' });
+    const r = start(repo('feat/x'), 'sleep 20', {
+      SESSION_STATUS_TIMEOUT_MS: '400',
+    });
     expect(Date.now() - t0).toBeLessThan(5000);
     expect(r.code).toBe(0);
     expect(lines(r)).toHaveLength(3);
