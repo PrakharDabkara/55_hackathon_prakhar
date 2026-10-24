@@ -666,13 +666,26 @@ describe('nobody was asked (C-03, C-04)', () => {
     ).toBe(false);
   });
 
+  const withoutWords = () => {
+    const request = none();
+    delete request.typed;
+    return request;
+  };
   it.each([
-    ['already 5 km wide', { radiusM: 5000 }, {}],
-    ['it came from a link, so there is no place to search from', {}, { origin: undefined }],
-    ['it was a delivery search, which a new search could not repeat', { wantsDelivery: true }, {}],
-    ['the words were not kept', { typed: undefined }, {}],
-  ] as const)('offers no wider search when %s', (_why, request, props) => {
-    show(none(request), {}, props);
+    ['already 5 km wide', () => none({ radiusM: 5000 }), {}],
+    [
+      'it came from a link, so there is no place to search from',
+      () => none(),
+      { origin: undefined },
+    ],
+    [
+      'it was a delivery search, which a new search could not repeat',
+      () => none({ wantsDelivery: true }),
+      {},
+    ],
+    ['the words were not kept', withoutWords, {}],
+  ] as const)('offers no wider search when %s', (_why, build, props) => {
+    show(build(), {}, props);
     expect(screen.queryByRole('button', { name: /Search \d+ km/ })).toBeNull();
     expect(screen.getByRole('button', { name: 'Try different words' })).toBeTruthy();
   });
