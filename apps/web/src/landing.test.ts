@@ -66,7 +66,7 @@ describe('landing.html', () => {
   });
 
   it('keeps the privacy claims to what the code does, in the buyer section', () => {
-    const buyers = html.slice(html.indexOf('id="buyers"'), html.indexOf('id="ai"'));
+    const buyers = text.slice(text.indexOf('Compare every shop'), text.indexOf('An AI agent'));
     expect(buyers).toContain('never your number');
     expect(buyers).toContain('a first name only if you type one');
     expect(text).not.toMatch(/by SMS/);
