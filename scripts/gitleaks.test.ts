@@ -70,6 +70,12 @@ describe.skipIf(!haveGitleaks)('.gitleaks.toml', () => {
     expect(r.out).toContain('gemini-api-key-aq');
   }, 60_000);
 
+  it('lets a classic key that says Fake through, but not a real one next to it', () => {
+    const fakeClassic = `AIzaSyFakeKeyForTheGitleaksTest${body[1].slice(0, 4)}`;
+    expect(scan(`key = "${fakeClassic}"\n`).code).toBe(0);
+    expect(scan(`# fake\nkey = "${classic}" # Fake\n`).code).toBe(1);
+  }, 60_000);
+
   it('ignores ordinary text', () => {
     expect(scan('AQ. is a prefix, AQ.short is not a key\n').code).toBe(0);
   }, 60_000);
