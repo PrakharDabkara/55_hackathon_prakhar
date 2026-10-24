@@ -6,6 +6,14 @@ export interface RateLimitInfo {
   perDay: boolean;
   /** How long Google asked us to wait, in seconds; null if it did not say. */
   retryAfterSec: number | null;
+  /** Google's QuotaFailure was present (a 429 without one is a bare 429). */
+  quotaFailure?: boolean;
+  /** `QuotaFailure.violations[].quotaId`, e.g. GenerateRequestsPerDayPerProjectPerModel-FreeTier. */
+  quotaId?: string;
+  /** The limit itself (`quotaValue`): requests, or tokens for an input-token limit. */
+  quotaValue?: number;
+  /** An input-token limit that this request's own size is over: waiting cannot make it fit. */
+  requestTooLarge?: boolean;
 }
 
 /** Google's error body: {"error": {"message", "status", "details": [QuotaFailure, RetryInfo]}}. */
@@ -22,10 +30,18 @@ export function rateLimitInfo(body: RateLimitBody): RateLimitInfo {
   const details = Array.isArray(body.details) ? body.details.map(asRecord) : [];
   let perDay = /per[ -]?day|daily/i.test(body.message ?? '');
   let retryAfterSec: number | null = null;
+  let quotaFailure = false;
+  let quotaId: string | undefined;
+  let quotaValue: number | undefined;
   for (const detail of details) {
     if (!detail) continue;
     const violations = Array.isArray(detail['violations']) ? detail['violations'] : [];
+    if (/QuotaFailure$/.test(String(detail['@type'])) || violations.length > 0) quotaFailure = true;
     for (const violation of violations.map(asRecord)) {
+      if (quotaId === undefined && typeof violation?.['quotaId'] === 'string')
+        quotaId = violation['quotaId'];
+      const value = Number(violation?.['quotaValue']);
+      if (quotaValue === undefined && Number.isFinite(value)) quotaValue = value;
       const ids = `${String(violation?.['quotaId'])} ${String(violation?.['quotaMetric'])}`;
       if (/per[ -]?day/i.test(ids)) perDay = true;
     }
@@ -37,8 +53,18 @@ export function rateLimitInfo(body: RateLimitBody): RateLimitInfo {
     const hint = /retry in (\d+(?:\.\d+)?)\s*s/i.exec(body.message ?? '');
     if (hint?.[1]) retryAfterSec = Math.ceil(parseFloat(hint[1]));
   }
-  return { perDay, retryAfterSec };
+  return {
+    perDay,
+    retryAfterSec,
+    ...(quotaFailure && { quotaFailure }),
+    ...(quotaId !== undefined && { quotaId }),
+    ...(quotaValue !== undefined && { quotaValue }),
+  };
 }
+
+/** A limit counted in input tokens per minute (not requests). */
+export const isInputTokenLimit = (info: RateLimitInfo | undefined): boolean =>
+  /InputTokens/i.test(info?.quotaId ?? '');
 
 const MAX_HINT_SEC = 60;
 const MAX_CONSECUTIVE = 3;

@@ -4,7 +4,7 @@ import { pino } from 'pino';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startPostgres, type TestDatabase } from '../testing/startPostgres.js';
 import { waitFor } from '../testing/waitFor.js';
-import { createPool } from './pool.js';
+import { createPool, SCRIPT_POOL_OPTIONS } from './pool.js';
 import { withTransaction } from './queryable.js';
 
 /**
@@ -97,6 +97,44 @@ describe('losing a database connection', () => {
 
       expect(crashes).toEqual([]);
       expect((await pool.query('SELECT 1 AS ok')).rows).toEqual([{ ok: 1 }]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it('an app pool cuts a statement off at its timeout, a script pool does not', async () => {
+    const app = createPool(db.url, logger, { statement_timeout: 300 });
+    const script = createPool(db.url, logger, SCRIPT_POOL_OPTIONS);
+    try {
+      await expect(app.query('SELECT pg_sleep(2)')).rejects.toMatchObject({ code: '57014' });
+      expect((await script.query('SHOW statement_timeout')).rows).toEqual([
+        { statement_timeout: '0' },
+      ]);
+      await expect(script.query('SELECT pg_sleep(0.6)')).resolves.toBeDefined();
+      // The default app pool really sets 20 s on the server side.
+      const def = createPool(db.url, logger);
+      try {
+        expect((await def.query('SHOW statement_timeout')).rows).toEqual([
+          { statement_timeout: '20s' },
+        ]);
+      } finally {
+        await def.end();
+      }
+    } finally {
+      await app.end();
+      await script.end();
+    }
+  });
+
+  it('an unreachable database fails at connectionTimeoutMillis instead of waiting', async () => {
+    // 192.0.2.1 is reserved for documentation (RFC 5737): packets are dropped, nothing answers.
+    const pool = createPool('postgres://u:p@192.0.2.1:5432/db', logger, {
+      connectionTimeoutMillis: 300,
+    });
+    const started = Date.now();
+    try {
+      await expect(pool.query('SELECT 1')).rejects.toThrow(/timeout/i);
+      expect(Date.now() - started).toBeLessThan(3000);
     } finally {
       await pool.end();
     }

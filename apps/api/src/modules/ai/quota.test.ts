@@ -40,11 +40,21 @@ const rateLimited = (perDay: boolean, retryAfterSec: number | null) =>
 
 describe('rateLimitInfo', () => {
   it('calls a quota id that says PerDay a daily limit, and reads the retry delay', () => {
-    expect(rateLimitInfo(dailyBody)).toEqual({ perDay: true, retryAfterSec: 34 });
+    expect(rateLimitInfo(dailyBody)).toEqual({
+      perDay: true,
+      retryAfterSec: 34,
+      quotaFailure: true,
+      quotaId: 'EmbedContentRequestsPerDayPerProjectPerModel-FreeTier',
+    });
   });
 
   it('calls a per-minute RESOURCE_EXHAUSTED an ordinary rate limit', () => {
-    expect(rateLimitInfo(perMinuteBody)).toEqual({ perDay: false, retryAfterSec: 12 });
+    expect(rateLimitInfo(perMinuteBody)).toEqual({
+      perDay: false,
+      retryAfterSec: 12,
+      quotaFailure: true,
+      quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier',
+    });
   });
 
   it('finds the daily limit in the message when there are no details', () => {

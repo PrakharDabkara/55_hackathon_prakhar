@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { createLogger } from '../logger.js';
 import { TEST_ADMIN_TOKEN, testConfig } from '../testing/config.js';
+import type { AiContext } from '../modules/ai/index.js';
 import type { OpsProbes } from './adminHealth.js';
 
 const db = {
@@ -18,12 +19,28 @@ const ops: OpsProbes = {
   redisMemory: async () => ({ usedBytes: 5_000_000, maxBytes: 25_000_000 }),
 };
 
+const models = [
+  {
+    role: 'chat',
+    activeModel: 'flash-b',
+    primary: {
+      model: 'flash-a',
+      state: 'exhausted',
+      until: '2026-10-25T07:00:00.000Z',
+      reason: 'daily quota (GenerateRequestsPerDayPerProjectPerModel-FreeTier)',
+    },
+    fallback: { model: 'flash-b', state: 'ok' },
+  },
+];
+const ai = { client: { modelStatus: () => models } } as unknown as AiContext;
+
 const app = (adminToken: string | null) =>
   createApp({
     config: testConfig({ adminToken, gitSha: 'abc1234' }),
     logger: createLogger('silent'),
     db,
     ops,
+    ai,
     webDistDir: '/nonexistent',
   });
 
@@ -50,6 +67,13 @@ describe('GET /admin/health/details (O1)', () => {
       ai: { callsToday: 12, failedToday: 2, breakerSkipsToday: 1 },
       autopilot: { on: true, lastActivityAt: '2026-10-23T10:00:00.000Z' },
     });
+  });
+
+  it("shows per role the active model, the primary's state and why (R2)", async () => {
+    const res = await request(app(TEST_ADMIN_TOKEN))
+      .get('/admin/health/details')
+      .set('Authorization', `Bearer ${TEST_ADMIN_TOKEN}`);
+    expect(res.body.ai.models).toEqual(models);
   });
 
   it('says memory is "unknown" with a 200 when INFO fails, and shows nothing else of INFO', async () => {

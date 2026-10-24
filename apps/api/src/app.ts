@@ -168,6 +168,7 @@ export function createApp({
         gitSha: config.gitSha,
         provider: config.llmProvider,
         ops,
+        ai,
       }),
     );
     app.use(aiAdminRouter({ db, adminToken: config.adminToken, ai }));

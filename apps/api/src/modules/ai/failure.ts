@@ -21,6 +21,14 @@ export interface Failure {
   retryAfterSec?: number;
   /** On a 429: a per-day quota is used up, so waiting minutes will not help. */
   perDay?: boolean;
+  /** On a 429: which limit (QuotaFailure.violations[].quotaId), its value, and whether Google named one. */
+  quotaId?: string;
+  quotaValue?: number;
+  quotaFailure?: boolean;
+  /** On an input-token 429 whose request is itself over the limit. */
+  requestTooLarge?: boolean;
+  /** On a 404 about the model: it is retired or unknown. */
+  modelGone?: boolean;
   message: string;
 }
 
@@ -37,6 +45,11 @@ export function classifyError(error: unknown): Failure {
         retryAfterSec: error.rateLimit.retryAfterSec,
       }),
       ...(error.rateLimit?.perDay && { perDay: true }),
+      ...(error.rateLimit?.quotaId !== undefined && { quotaId: error.rateLimit.quotaId }),
+      ...(error.rateLimit?.quotaValue !== undefined && { quotaValue: error.rateLimit.quotaValue }),
+      ...(error.rateLimit?.quotaFailure && { quotaFailure: true }),
+      ...(error.rateLimit?.requestTooLarge && { requestTooLarge: true }),
+      ...(error.modelGone && { modelGone: true }),
       message: sanitiseMessage(error.message),
     };
   }

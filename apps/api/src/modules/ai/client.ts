@@ -1,6 +1,7 @@
 import type { Logger } from 'pino';
 import type { Queryable } from '../../db/queryable.js';
 import { classifyError, type Failure } from './failure.js';
+import { ModelHealth, nextMidnightPacific, type ModelStateView } from './modelHealth.js';
 import {
   ProviderError,
   type ChatWithToolsOptions,
@@ -15,6 +16,17 @@ import {
 } from './types.js';
 
 export type Outcome = 'ok' | FailureKind;
+
+export type { ModelStateView } from './modelHealth.js';
+
+/** One model role (chat, errand, embedding) as /admin/health/details shows it. */
+export interface ModelStatus {
+  role: 'chat' | 'errand' | 'embedding';
+  /** The model that answers right now; null when none can. */
+  activeModel: string | null;
+  primary: ModelStateView;
+  fallback: ModelStateView | null;
+}
 
 /** One row of ai_calls. There is deliberately no field for prompt text. */
 export interface AiCallRow {
@@ -57,6 +69,8 @@ export interface AiClient {
   ): Promise<EmbedResult & { callId: string | null }>;
   /** The time limit a call of this purpose gets (resolve is short, errand calls are long). */
   timeoutFor(purpose: Purpose): number;
+  /** Per role: the active model, and the state of the primary and the fallback. */
+  modelStatus(): ModelStatus[];
   /** The models a call of this purpose tries: the primary, and the fallback if there is one. */
   modelsFor(purpose: Purpose): { model: string; fallbackModel: string | null };
   /** One tool-using model turn (the errand agent). Gets a longer time limit than a short JSON call. */
@@ -84,6 +98,11 @@ interface Options {
   backoffMs?: number;
   /** A number in [0, 1) for the jitter; tests pass their own. */
   random?: () => number;
+  /**
+   * The longest total wait for a rate limit's retryDelay, per purpose. A delay that does not fit
+   * is not waited for: the fallback model answers instead. Interactive calls get little room.
+   */
+  waitBudgetMs?: Partial<Record<Purpose, number>>;
   /** Called before each retry's pause, so a script can count them. */
   onRetry?: () => void;
   breaker?: { threshold?: number; cooldownMs?: number };
@@ -95,13 +114,26 @@ interface Options {
 const DEFAULT_TIMEOUT_MS = 8000;
 /** No call is retried more than this many times, whatever the caller asks for. */
 export const MAX_RETRIES = 3;
-/** The longest pause before a retry, including one Google asked for with Retry-After. */
+/** The longest backoff pause before a retry. A pause Google asked for (retryDelay) is not capped. */
 export const MAX_PAUSE_MS = 30_000;
+
+/**
+ * How long a call may wait in total for a rate limit to clear. A person is waiting on a search
+ * (and an 8 s limit), so a 56 s delay is not worth it; the errand agent and the catalog job run
+ * in the background and can wait a minute.
+ */
+const DEFAULT_WAIT_BUDGET_MS: Record<Purpose, number> = {
+  resolve_query: 10_000,
+  classify_item: 10_000,
+  embed_query: 10_000,
+  errand: 90_000,
+  embed_catalog: 90_000,
+};
 
 /**
  * The pause before retry number `attempt` (0 for the first): Google's own Retry-After when a 429
  * carries one, else the backoff doubled each time with jitter (between half and the full step).
- * Never over 30 s.
+ * A backoff is never over 30 s; Google's own delay is returned whole (the caller checks it fits).
  */
 export function retryPauseMs(
   failure: Failure,
@@ -109,8 +141,7 @@ export function retryPauseMs(
   backoffMs: number,
   random: () => number,
 ): number {
-  if (failure.retryAfterSec !== undefined)
-    return Math.min(failure.retryAfterSec * 1000, MAX_PAUSE_MS);
+  if (failure.retryAfterSec !== undefined) return failure.retryAfterSec * 1000;
   const step = Math.min(backoffMs * 2 ** attempt, MAX_PAUSE_MS);
   return Math.round(step * (0.5 + random() / 2));
 }
@@ -124,9 +155,10 @@ const retryable = (failure: Failure) =>
       failure.status !== undefined &&
       (failure.status === 429 || failure.status >= 500)));
 
-/** What the next attempt should run on: the fallback model after a timeout, 429 or 503. */
+/** What the next attempt should run on: the fallback model after a timeout, dropped connection, 429 or 503. */
 const wantsFallback = (failure: Failure) =>
   failure.kind === 'timeout' ||
+  failure.kind === 'network' ||
   (failure.kind === 'http' && (failure.status === 429 || failure.status === 503));
 
 function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
@@ -160,6 +192,7 @@ export function createAiClient({
   backoffMs = 500,
   random = Math.random,
   onRetry,
+  waitBudgetMs = {},
   breaker: { threshold = 5, cooldownMs = 60_000 } = {},
   now = Date.now,
   sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -174,6 +207,19 @@ export function createAiClient({
     return state;
   };
   const timeoutFor = (purpose: Purpose) => purposeTimeoutMs[purpose] ?? timeoutMs;
+  // What this process knows about each model's quota and existence (in memory; a restart resets it).
+  const health = new ModelHealth(now);
+  const isEmbed = (purpose: Purpose) => purpose === 'embed_query' || purpose === 'embed_catalog';
+  const budgetFor = (purpose: Purpose) => waitBudgetMs[purpose] ?? DEFAULT_WAIT_BUDGET_MS[purpose];
+  /** The models of a purpose. Embeddings have no fallback model, so they keep the trigram path. */
+  const modelsOf = (purpose: Purpose) => {
+    const own = models[purpose];
+    return {
+      own,
+      primary: isEmbed(purpose) ? provider.embedModel : (own?.model ?? provider.model),
+      fallback: isEmbed(purpose) ? null : own ? own.fallbackModel : provider.fallbackModel,
+    };
+  };
 
   const record = async (row: Omit<AiCallRow, 'provider'>): Promise<string | null> => {
     try {
@@ -184,7 +230,7 @@ export function createAiClient({
     }
   };
 
-  /** Runs one logical call: breaker, timeout, retry, fallback, audit row. */
+  /** Runs one logical call: breaker, model health, timeout, retry, failover, audit row. */
   async function run<
     R extends { usage: { inputTokens: number; outputTokens: number }; latencyMs: number },
   >(
@@ -196,14 +242,12 @@ export function createAiClient({
   ): Promise<R & { callId: string | null }> {
     const maxRetries = Math.min(requestedRetries, MAX_RETRIES);
     const state = breakerFor(purpose);
-    const own = models[purpose];
-    const primaryModel = own?.model ?? provider.model;
-    const fallbackName = own ? own.fallbackModel : provider.fallbackModel;
+    const { own, primary: primaryModel, fallback: fallbackName } = modelsOf(purpose);
     const base = { purpose, requestId: requestId ?? null };
-    if (now() < state.openUntil) {
+    const skipped = async (kind: 'breaker' | 'http', message: string) => {
       logger?.warn(
-        { purpose, model: primaryModel, attempt: 0, kind: 'breaker', latencyMs: 0 },
-        'AI call skipped',
+        { purpose, model: primaryModel, attempt: 0, kind, latencyMs: 0, requestId },
+        message,
       );
       await record({
         ...base,
@@ -211,25 +255,42 @@ export function createAiClient({
         inputTokens: 0,
         outputTokens: 0,
         latencyMs: 0,
-        outcome: 'breaker',
+        outcome: kind,
       });
-      throw new AiUnavailableError('breaker');
+      throw new AiUnavailableError(kind);
+    };
+    if (now() < state.openUntil) await skipped('breaker', 'AI call skipped');
+
+    // The model this call starts on: the primary, or the fallback while the primary is used up or gone.
+    let current = primaryModel;
+    const switchTo = (to: string, reason: string) => {
+      logger?.warn({ purpose, from: current, to, reason, requestId }, 'AI model switched');
+      current = to;
+    };
+    if (!health.usable(primaryModel)) {
+      if (fallbackName && health.usable(fallbackName))
+        switchTo(fallbackName, `primary ${health.get(primaryModel).state}`);
+      else await skipped('http', 'AI call skipped: no model is available');
     }
+    /** The fallback, if this call is on the primary and the fallback is usable. */
+    const spare = () =>
+      current === primaryModel && fallbackName && health.usable(fallbackName) ? fallbackName : null;
 
     const started = now();
-    let useFallback = false;
+    let waited = 0;
+    let bare429 = 0;
     for (let attempt = 0; ; attempt++) {
-      const fallback = useFallback ? fallbackName : null;
-      const model = fallback ?? primaryModel;
+      const model = current;
       const attemptStarted = now();
       try {
         // The provider's own primary is its default; a per-purpose model is named on every call.
-        const named = fallback ?? (own ? own.model : undefined);
+        const named =
+          model !== primaryModel ? model : !isEmbed(purpose) && own ? own.model : undefined;
         const result = await withTimeout((signal) => call(signal, named), limitMs);
         state.failures = 0;
         const answeredBy =
           result && 'model' in result ? String((result as { model: string }).model) : model;
-        if (fallback) {
+        if (model !== primaryModel) {
           logger?.info(
             { purpose, model: answeredBy, attempt, fallback: true },
             'AI call answered by the fallback model',
@@ -254,21 +315,88 @@ export function createAiClient({
             kind: failure.kind,
             status: failure.status,
             code: failure.code,
+            quotaId: failure.quotaId,
+            retryDelaySec: failure.retryAfterSec,
             latencyMs: now() - attemptStarted,
             message: failure.message,
+            requestId,
           },
           'AI call failed',
         );
-        if (failure.kind === 'invalid_output') {
-          // The service worked, so this is not a reason to open the breaker.
+
+        // What to do next: 'again' = go round once more (on `current`), or fall out and fail.
+        let again = false;
+        const used = (reason: string, until: number) => {
+          health.markExhausted(model, until, reason);
+          const to = spare();
+          if (to) {
+            switchTo(to, reason);
+            again = true;
+          }
+        };
+        const otherwise = (): boolean => attempt < maxRetries && retryable(failure);
+
+        if (failure.kind === 'invalid_output' || failure.requestTooLarge) {
+          // The service worked (or this request can never fit): not a reason to open the breaker.
           state.failures = 0;
-        } else if (attempt < maxRetries && retryable(failure)) {
-          if (fallbackName && wantsFallback(failure)) useFallback = true;
+        } else if (failure.modelGone) {
+          const reason = `model not found (${failure.status})`;
+          if (health.markUnavailable(model, reason))
+            logger?.error({ purpose, model, status: failure.status }, 'AI model is unavailable');
+          const to = spare();
+          if (to) {
+            switchTo(to, reason);
+            again = true;
+          }
+        } else if (failure.status === 429 && failure.perDay) {
+          used(
+            `daily quota (${failure.quotaId ?? 'per day'})`,
+            failure.retryAfterSec !== undefined
+              ? now() + failure.retryAfterSec * 1000
+              : nextMidnightPacific(now()),
+          );
+        } else if (failure.status === 429 && !failure.quotaFailure) {
+          // A bare 429: retry once, and if it comes again, treat it as the daily limit.
+          if (bare429++ === 0 && attempt < maxRetries) {
+            onRetry?.();
+            await sleep(retryPauseMs(failure, attempt, backoffMs, random));
+            again = true;
+          } else if (bare429 > 1) {
+            used(
+              'rate limited twice with no quota detail (treated as daily)',
+              nextMidnightPacific(now()),
+            );
+          }
+        } else if (failure.status === 429 && failure.retryAfterSec !== undefined) {
+          // A per-minute (or tokens-per-minute) limit with a stated delay: wait it out in full if
+          // that fits this call's budget, else let the fallback model answer this call.
+          const waitMs = failure.retryAfterSec * 1000;
+          if (attempt < maxRetries && waited + waitMs <= budgetFor(purpose)) {
+            waited += waitMs;
+            onRetry?.();
+            await sleep(waitMs);
+            again = true;
+          } else {
+            const to = spare();
+            if (to) {
+              switchTo(
+                to,
+                `rate limited, retryDelay ${failure.retryAfterSec} s is over the budget`,
+              );
+              again = true;
+            }
+          }
+        } else if (otherwise()) {
+          const to = wantsFallback(failure) ? spare() : null;
+          if (to) switchTo(to, `${failure.kind} ${failure.status ?? failure.code ?? ''}`.trim());
           onRetry?.();
           await sleep(retryPauseMs(failure, attempt, backoffMs, random));
-          continue;
-        } else if (++state.failures >= threshold) {
-          state.openUntil = now() + cooldownMs;
+          again = true;
+        }
+
+        if (again) continue;
+        if (failure.kind !== 'invalid_output' && !failure.requestTooLarge) {
+          if (++state.failures >= threshold) state.openUntil = now() + cooldownMs;
         }
         await record({
           ...base,
@@ -303,6 +431,23 @@ export function createAiClient({
         limit ?? timeoutFor(options.purpose),
         attempts ?? retries,
       ),
+    modelStatus() {
+      const roles: [ModelStatus['role'], Purpose][] = [
+        ['chat', 'resolve_query'],
+        ['errand', 'errand'],
+        ['embedding', 'embed_query'],
+      ];
+      return roles.map(([role, purpose]) => {
+        const { primary, fallback } = modelsOf(purpose);
+        const active = [primary, fallback].find((m) => m && health.usable(m)) ?? null;
+        return {
+          role,
+          activeModel: active,
+          primary: health.view(primary),
+          fallback: fallback ? health.view(fallback) : null,
+        };
+      });
+    },
     modelsFor(purpose) {
       const own = models[purpose];
       return own

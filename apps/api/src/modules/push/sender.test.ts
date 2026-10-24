@@ -104,3 +104,48 @@ describe('sending one push', () => {
     expect(all).not.toContain('atta');
   });
 });
+
+describe('a push service that hangs (R2)', () => {
+  const warn = vi.fn();
+  const logging = { warn, info: vi.fn(), debug: vi.fn() } as unknown as Parameters<
+    typeof createPushSender
+  >[0]['logger'];
+  const hanging = () => new Promise<never>(() => undefined);
+
+  it('asks web-push for a 10 s socket timeout', async () => {
+    const send = vi.fn<WebPushClient['sendNotification']>(async () => ({ statusCode: 201 }));
+    const { sender } = setup(send);
+    await sender.deliver({ subscriptionId: 'sub-1', payload });
+    const options = send.mock.calls[0]?.[2] as { timeout?: number };
+    expect(options.timeout).toBe(10_000);
+  });
+
+  it('gives up at the time limit, logs it, throws so the queue counts a failure, and keeps the subscription', async () => {
+    const store: PushStore = {
+      find: vi.fn(async () => sub),
+      remove: vi.fn(async () => undefined),
+      markSuccess: vi.fn(async () => undefined),
+    };
+    const sender = createPushSender({
+      store,
+      webPush: { sendNotification: hanging },
+      vapid,
+      logger: logging,
+      timeoutMs: 30,
+    });
+    const started = Date.now();
+    await expect(sender.deliver({ subscriptionId: 'sub-1', payload })).rejects.toThrow(/timed out/);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ subscriptionId: 'sub-1', timeout: true }),
+      expect.stringMatching(/timed out/),
+    );
+    expect(store.remove).not.toHaveBeenCalled();
+    expect(store.markSuccess).not.toHaveBeenCalled();
+  });
+
+  it('a socket timeout reported by web-push is the same failure', async () => {
+    const { sender } = setup(vi.fn(async () => Promise.reject(new Error('Socket timeout'))));
+    await expect(sender.deliver({ subscriptionId: 'sub-1', payload })).rejects.toThrow();
+  });
+});

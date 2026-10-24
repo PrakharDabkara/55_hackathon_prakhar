@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Queryable } from '../db/queryable.js';
 import { createRequireAdmin } from '../modules/identity/index.js';
+import type { AiContext } from '../modules/ai/index.js';
 
 export interface QueueDepth {
   name: string;
@@ -43,12 +44,15 @@ export function adminHealthRouter({
   gitSha,
   provider,
   ops,
+  ai: aiContext,
 }: {
   db: Queryable;
   adminToken: string;
   gitSha: string;
   provider: string;
   ops?: OpsProbes | undefined;
+  /** Where the per-role model state comes from; absent without an AI provider. */
+  ai?: Pick<AiContext, 'client'> | undefined;
 }): Router {
   const router = Router();
   router.get('/admin/health/details', createRequireAdmin(adminToken), async (_req, res) => {
@@ -86,6 +90,9 @@ export function adminHealthRouter({
         callsToday: ai?.calls ?? null,
         failedToday: ai?.failed ?? null,
         breakerSkipsToday: ai?.skipped ?? null,
+        // Per role (chat, errand, embedding): the model answering now, the primary's state (ok,
+        // exhausted until a time, unavailable) and why. In memory, so it starts fresh on a restart.
+        models: aiContext?.client.modelStatus() ?? [],
       },
       autopilot: ops?.autopilot() ?? { on: false, lastActivityAt: null },
     });

@@ -4,11 +4,19 @@ export type PrivacyViolation = 'phone' | 'email' | 'coordinates' | 'address_fiel
 
 /** Ids are not private, and a UUID's tail can look like a number: take them out before looking. */
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
-const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
+/**
+ * The local part is capped at 64 characters, the limit of RFC 5321. Unbounded, every position of a
+ * long unbroken token was tried as a start and scanned to the end (quadratic: 80 kB of letters took
+ * 3 s). Detection is unchanged: an address with a longer local part still matches on its last 64
+ * characters. Only redaction differs, and only for a local part over 64 characters, whose leading
+ * part is now left in place.
+ */
+const EMAIL = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
 const EMAIL_ONE = new RegExp(EMAIL.source);
 /** A run of digits that may be split by single spaces or dashes (a phone is written many ways). */
 const DIGIT_RUN = /(?<![\d.,])\+?\d(?:[ -]?\d)*(?![\d]|[.,]\d)/g;
-const COORDINATES = /(-?\d{1,3}\.\d{4,})\s*[,;/]?\s*(-?\d{1,3}\.\d{4,})/g;
+/** `\s*(?:[,;/]\s*)?` matches what `\s*[,;/]?\s*` did, without two neighbouring `\s*` to split a space run between (quadratic). */
+const COORDINATES = /(-?\d{1,3}\.\d{4,})\s*(?:[,;/]\s*)?(-?\d{1,3}\.\d{4,})/g;
 /** JSON keys and labels that only ever hold a person's contact, home or location. */
 const FIELD_NAME =
   /(?<![A-Za-z0-9_])["']?(?:lat|lng|lon|latitude|longitude|address|address_?line_?\d?|address_?text|delivery_?address(?:_?id)?|address_?id|pin_?code|landmark|phone|phone_?number|mobile|email|user_?id|owner_?user_?id)["']?\s*[:=]/i;

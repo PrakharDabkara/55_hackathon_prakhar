@@ -2,7 +2,7 @@
 
 Every fallback or error branch should rest on a real response, not a guess. This lists each external
 failure we branch on, what we assumed, what a real trigger or log showed, and whether the code matches.
-Nothing here was fixed in PR F1: tests, fixtures and this page only. Fixes are in "Bugs found".
+PR F1 added tests, fixtures and this page only. PR R2 (ADR-0065) fixed items 1, 2, 4 to 8 below; 3, 9 and 10 are in "Future".
 
 **Confidence:** _observed_ = a real response, kept in `apps/api/src/testing/observed/`; _documented_ =
 from a vendor page, not seen here; _guess_ = no evidence. **Match:** yes / no / unknown.
@@ -48,6 +48,8 @@ Evidence files (`apps/api/src/testing/observed/`):
 
 ## Bugs found
 
+**Status after R2:** fixed 1, 2, 4, 5, 6, 7, 8 (the `.fails` pins were removed with each fix); 3, 9, 10 are in Future.
+
 Ranked by judge-day impact. Each is the smallest fix, not done here. Observed bugs are pinned by an `it.fails` test, which turns red when the fix lands: remove `.fails` then.
 
 1. **A retired or renamed primary model has no way out.** Google answers 404 "no longer available to new users" (observed for `gemini-2.5-flash` and `-flash-lite`) while still listing them, so a name that worked can stop working. A 404 is neither retried nor sent to the fallback, so every AI call fails until someone changes the env var. Today every model in our config exists and is not flagged (checked against the list on Oct 24). _For R2:_ treat a not-found or retired 404 on `GEMINI_MODEL` as permanently unavailable, switch to `GEMINI_FALLBACK_MODEL` for the process, and log an error once. _Now:_ the weekly `/admin/ai/ping` check in the runbook shows `status: 404` at once. Pinned: `observedFailures.test.ts`, "a retired primary falls back".
@@ -60,6 +62,13 @@ Ranked by judge-day impact. Each is the smallest fix, not done here. Observed bu
 8. **Push sends have no timeout.** _Fix:_ pass `timeout: 10_000` to `sendNotification`.
 9. **Browser calls have no timeout, and a dead network is a `TypeError`.** _Fix:_ `AbortSignal.timeout(30_000)` in `createCaller` and map `TypeError` to `ApiError(0,'network')` as photo upload already does.
 10. **Map tiles fail silently.** _Fix:_ a `tileerror` handler showing a short note.
+
+## Future (out of scope for R2)
+
+- **Redis full, silent fan-out** (item 3): unlikely after R1's job retention. `release-check.sh` warns.
+- **Browser fetch timeouts and `TypeError` as a dead network** (item 9).
+- **Map tile failure UI** (item 10).
+- Failover state is per process: an eval run or script does not share what the API learned.
 
 ## The Gemini free-tier 429s, as observed (`gemini-3.6-flash`, Oct 24)
 

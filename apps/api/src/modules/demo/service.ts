@@ -62,6 +62,14 @@ async function withDemoLock<T>(db: Database, fn: () => Promise<T>): Promise<T> {
   // A session lock on its own connection, held across the steps below (each its own transaction).
   // try-lock: a second call is refused at once instead of waiting on a connection of its own.
   const client = await db.connect();
+  // Same as withTransaction: while we hold this client the pool does not listen to it, and a
+  // connection that dies (Neon suspending, a restart) would otherwise throw and crash the process.
+  // The next query on it rejects and fails the run; the client is then thrown away below.
+  let broken = false;
+  const onError = () => {
+    broken = true;
+  };
+  client.on('error', onError);
   let unlocked = false;
   try {
     const got = await client.query<{ ok: boolean }>('SELECT pg_try_advisory_lock($1) AS ok', [
@@ -79,7 +87,8 @@ async function withDemoLock<T>(db: Database, fn: () => Promise<T>): Promise<T> {
     }
   } finally {
     // A connection that may still hold the lock is thrown away, not returned to the pool.
-    client.release(unlocked ? undefined : true);
+    client.removeListener('error', onError);
+    client.release(unlocked && !broken ? undefined : true);
   }
 }
 
