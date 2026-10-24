@@ -18,10 +18,10 @@ test('a shop that cannot be located must place the pin, and the arrow keys place
   await login(page, '/app/shop');
   await page.getByLabel('Shop name').fill(uniqueName('Pin Kirana'));
   await page.getByRole('button', { name: 'Grocery' }).click();
-  await expect(page.getByText('Set your shop location to continue.')).toBeVisible();
+  await expect(page.locator('.sh-missing')).toContainText('Set your shop location');
 
   await page.getByRole('button', { name: 'Use my current location' }).click();
-  await expect(page.getByText('Drag the pin to your shop.')).toBeVisible();
+  await expect(page.getByText('Location is blocked. Drag the pin to your shop.')).toBeVisible();
   const start = page.getByRole('button', { name: 'Start getting requests' });
   await expect(start).toBeDisabled();
 
