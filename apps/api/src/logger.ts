@@ -1,6 +1,6 @@
 import { pino, stdSerializers, type DestinationStream, type Logger } from 'pino';
 import { currentRequestId } from './http/requestContext.js';
-import { redactPrivateData } from './modules/ai/index.js';
+import { redactApiKeys, redactPrivateData } from './modules/ai/index.js';
 
 /**
  * Keys that hold a person's data. Whatever a log call passes under one of these names, at the top
@@ -36,14 +36,14 @@ export const LOG_REDACT = [
 /** Postgres fields that quote the values of the failing statement. */
 const DATABASE_DETAIL = ['detail', 'where', 'parameters', 'internalQuery', 'hint'];
 
-/** The standard error, minus what a database error quotes, and with phones and emails cut from the text. */
+/** The standard error, minus what a database error quotes, and with phones, emails and API keys cut from the text. */
 export function errorSerializer(error: unknown): unknown {
   const std = stdSerializers.err(error as Error) as unknown as Record<string, unknown>;
   const out = Object.fromEntries(
     Object.entries(std).filter(([key]) => !DATABASE_DETAIL.includes(key)),
   );
   for (const key of ['message', 'stack'])
-    if (typeof out[key] === 'string') out[key] = redactPrivateData(out[key]);
+    if (typeof out[key] === 'string') out[key] = redactApiKeys(redactPrivateData(out[key]));
   return out;
 }
 
@@ -54,6 +54,16 @@ export function createLogger(level: string, destination?: DestinationStream): Lo
       level,
       redact: LOG_REDACT,
       serializers: { err: errorSerializer },
+      // A key that reaches a log line as a plain string field (a `reason`, a `message`) is hidden too.
+      formatters: {
+        log: (object) =>
+          Object.fromEntries(
+            Object.entries(object).map(([k, v]) => [
+              k,
+              typeof v === 'string' ? redactApiKeys(v) : v,
+            ]),
+          ),
+      },
       // Every line written while a request runs carries its id, even from a module's own logger.
       mixin: () => {
         const requestId = currentRequestId();

@@ -87,6 +87,40 @@ describe('guard-secrets', () => {
     expect(guard(bash('cat .env.example')).code).toBe(0);
   });
 
+  describe('Gemini API keys (both formats)', () => {
+    // Built from pieces so these are not real keys: the right shape, filler characters.
+    const classic = `AIza${'x'.repeat(35)}`;
+    const newer = `AQ.${'x'.repeat(53)}`;
+
+    it.each([
+      ['AIza', classic],
+      ['AQ.', newer],
+    ])('blocks a %s key typed into a command, written to a file or put in an edit', (_p, key) => {
+      const r = blocked(bash(`curl -H "x-goog-api-key: ${key}" https://example.test`));
+      expect(r.stderr).toContain('API key');
+      blocked(tool('Write', { file_path: '/repo/notes.md', content: `key: ${key}` }));
+      blocked(tool('Edit', { file_path: '/repo/a.ts', old_string: 'a', new_string: key }));
+    });
+
+    it('does not echo the key back in its reason', () => {
+      expect(blocked(bash(`echo ${newer}`)).stderr).not.toContain(newer);
+    });
+
+    it.each([
+      ['AIza', `AIza${'FakeKeyForTheTest'}${'x'.repeat(18)}`],
+      ['AQ.', `AQ.${'FakeKeyForTheTest'}${'x'.repeat(36)}`],
+    ])('lets a %s test value that says "fake" through', (_p, key) => {
+      expect(guard(bash(`echo ${key}`)).code).toBe(0);
+      expect(guard(tool('Write', { file_path: '/repo/t.ts', content: key })).code).toBe(0);
+    });
+
+    it('lets ordinary text and too-short look-alikes through, and does not check reads', () => {
+      expect(guard(bash('echo AIza AQ. hello')).code).toBe(0);
+      expect(guard(bash(`echo AQ.${'x'.repeat(10)}`)).code).toBe(0);
+      expect(guard(tool('Read', { file_path: `/repo/${newer}.txt` })).code).toBe(0);
+    });
+  });
+
   it('blocks Grep and Glob aimed at .env', () => {
     blocked(tool('Grep', { pattern: 'KEY', path: '/repo/.env' }));
     blocked(tool('Grep', { pattern: 'KEY', glob: '**/.env*' }));

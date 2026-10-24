@@ -20,7 +20,11 @@ if [ -z "$KEY" ]; then
   read -rs KEY || KEY=""
   echo >&2
 fi
-case "$KEY" in *[!A-Za-z0-9_-]*) echo "refused: that does not look like an API key" >&2; exit 2 ;; esac
+# Both formats Google issues: the classic AIza + 35 characters, and the newer AQ. + 40 to 80.
+if [ -n "$KEY" ] && ! [[ "$KEY" =~ ^AIza[0-9A-Za-z_-]{35}$ || "$KEY" =~ ^AQ\.[0-9A-Za-z_-]{40,80}$ ]]; then
+  echo "refused: that does not look like a Gemini API key (AIza... or AQ....)" >&2
+  exit 2
+fi
 
 mkdir -p "$OUT"
 TMP="$(mktemp -d)"
@@ -31,7 +35,7 @@ redact() {
   text=$(cat)
   [ -n "$KEY" ] && text=${text//"$KEY"/[key]}
   text=${text//"$FAKE"/[fake-key]}
-  printf '%s' "$text" | sed -E 's/AIza[A-Za-z0-9_-]{10,}/[key]/g; s#projects/[0-9]+#projects/[project]#g'
+  printf '%s' "$text" | sed -E 's/AIza[A-Za-z0-9_-]{10,}/[key]/g; s/AQ\.[A-Za-z0-9_-]{10,}/[key]/g; s#projects/[0-9]+#projects/[project]#g'
 }
 
 trigger() { # name key model bodyfile

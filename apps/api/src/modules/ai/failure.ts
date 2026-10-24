@@ -1,12 +1,16 @@
 import { InvalidOutputError, ProviderError, type FailureKind } from './types.js';
 
+/**
+ * Google API keys in both formats: the classic `AIza` + 35 characters and the newer `AQ.` + 40 to
+ * 80. Looser than a validator on purpose: a cut-off or mangled key must still be hidden.
+ */
+export function redactApiKeys(text: string): string {
+  return text.replace(/AIza[\w-]{10,}/g, '[key]').replace(/AQ\.[\w-]{10,}/g, '[key]');
+}
+
 /** A message that is safe and short enough for a log line: no API key, one line, 160 characters. */
 export function sanitiseMessage(text: string, max = 160): string {
-  return text
-    .replace(/AIza[\w-]{10,}/g, '[key]')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max);
+  return redactApiKeys(text).replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
 export interface Failure {

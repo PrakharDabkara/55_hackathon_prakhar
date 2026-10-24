@@ -12,7 +12,9 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const probe = join(import.meta.dirname, 'gemini-quota-probe.sh');
-const KEY = 'AIzaSyFakeKeyForTheTest0123456789abc';
+// Fake keys in the two formats Google issues: AIza + 35 characters, and AQ. + 40 to 80.
+const KEY = 'AIzaSyFakeKeyForTheTest0123456789abcdef';
+const AQ_KEY = 'AQ.FakeKeyForTheTestOnly0123456789abcdefghijklmnopqr';
 
 /** A stand-in for curl on PATH: replays a script of (status, body) answers and counts the calls. */
 function fakeCurl(dir: string, answers: { status: number; body: unknown; headers?: string[] }[]) {
@@ -58,13 +60,13 @@ function run(args: string[], dir: string, bin: string, env: Record<string, strin
 }
 
 const ok = { status: 200, body: { candidates: [{ content: { parts: [{ text: 'ok' }] } }] } };
-const minute429 = {
+const minute429For = (key: string) => ({
   status: 429,
   headers: ['content-type: application/json', 'retry-after: 3'],
   body: {
     error: {
       code: 429,
-      message: `You exceeded your current quota (key ${KEY}). Please retry in 3s.`,
+      message: `You exceeded your current quota (key ${key}). Please retry in 3s.`,
       status: 'RESOURCE_EXHAUSTED',
       details: [
         {
@@ -75,7 +77,8 @@ const minute429 = {
       ],
     },
   },
-};
+});
+const minute429 = minute429For(KEY);
 const day429 = {
   status: 429,
   body: {
@@ -118,6 +121,47 @@ describe('scripts/probe/gemini-quota-probe.sh', () => {
     expect(r.status).toBe(2);
   });
 
+  it.each([
+    ['too short', 'AIzaSyShort'],
+    ['an AQ. key that is too short', 'AQ.tooShort'],
+    ['an AQ. key that is too long', `AQ.${'a'.repeat(90)}`],
+    ['a key with a bad character', `AQ.${'a'.repeat(50)};rm`],
+    ['an unknown prefix', `XY.${'a'.repeat(50)}`],
+  ])('refuses %s', (_name, key) => {
+    const d = fresh();
+    const curl = fakeCurl(d, [ok]);
+    expect(run(['gemini-2.5-flash-lite'], d, curl.bin, { GEMINI_PROBE_KEY: key }).status).toBe(2);
+    expect(existsSync(join(d, 'state', 'count'))).toBe(false);
+  });
+
+  it.each([
+    ['AIza', KEY],
+    ['AQ.', AQ_KEY],
+  ])('accepts a %s key, and never prints or saves it', (_prefix, key) => {
+    const d = fresh();
+    const curl = fakeCurl(d, [minute429For(key), day429]);
+    const r = run(['gemini-2.5-flash-lite'], d, curl.bin, { GEMINI_PROBE_KEY: key });
+    expect(r.status).toBe(0);
+    expect(curl.calls()).toBe(2);
+    const everything =
+      r.stdout +
+      r.stderr +
+      readdirSync(join(d, 'out'))
+        .map((f) => readFileSync(join(d, 'out', f), 'utf8'))
+        .join('');
+    expect(everything).not.toContain(key);
+    expect(everything).toContain('[key]');
+  });
+
+  it('hides a key-shaped string in either format even when it is not the key in use', () => {
+    const d = fresh();
+    const other = minute429For(AQ_KEY);
+    const r = run(['gemini-2.5-flash-lite'], d, fakeCurl(d, [other, day429]).bin);
+    const saved = readFileSync(join(d, 'out', 'gemini-429-per-minute.json'), 'utf8');
+    expect(r.stdout + saved).not.toMatch(/AQ\.[\w-]{10,}/);
+    expect(r.stdout + saved).not.toMatch(/AIza[\w-]{10,}/);
+  });
+
   it('refuses a value that is not shaped like a key', () => {
     const d = fresh();
     const r = run(['gemini-2.5-flash-lite'], d, fakeCurl(d, [ok]).bin, {
@@ -158,6 +202,7 @@ describe('scripts/probe/gemini-quota-probe.sh', () => {
         .join('');
     expect(everything).not.toContain(KEY);
     expect(everything).not.toMatch(/AIza[\w-]{10,}/);
+    expect(everything).not.toMatch(/AQ\.[\w-]{10,}/);
     expect(everything).toContain('[key]');
   });
 
