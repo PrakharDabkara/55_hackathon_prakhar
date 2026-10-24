@@ -26,7 +26,7 @@
     <script src="/app/landing-theme.js" defer></script>
   </head>
   <body>
-    <a class="lp-skip" href="#buyers">Skip to content</a>
+    <a class="lp-skip" href="#how">Skip to content</a>
     <header class="lp-header">
       <div class="lp-wrap lp-header__in">
         <a class="lp-brand" href="/" aria-label="AskBuy home">
@@ -57,8 +57,8 @@
           <span>AskBuy</span>
         </a>
         <nav class="lp-nav" aria-label="Page">
+          <a href="#how">For shops</a>
           <a href="#buyers">For buyers</a>
-          <a href="#why">For shops</a>
           <a href="#try">Demo</a>
         </nav>
         <button class="lp-theme" type="button" aria-pressed="false">
@@ -102,8 +102,117 @@
       <section class="lp-hero">
         <div class="lp-wrap lp-hero__in">
           <div class="lp-hero__text">
+            <p class="lp-pill">FOR SHOPKEEPERS</p>
+            <h1>Let's lift your shutter online!</h1>
+            <p class="lp-lead">
+              Nearby buyers send what they need. You reply with your price. No catalogue and no
+              inventory sheet needed.
+            </p>
+            <div class="lp-actions">
+              <a class="lp-btn lp-btn--primary" href="/app/shop">Open your shop</a>
+              <a class="lp-btn lp-btn--outline" href="#buyers">I'm here to buy</a>
+            </div>
+            <p class="lp-small">Nothing to install. Works in your phone's browser.</p>
+          </div>
+
+          <div
+            class="lp-demo"
+            role="img"
+            aria-label="Example: a shop gets a request and answers it"
+          >
+            <div class="lp-chip">
+              <span class="lp-chip__dot"></span>
+              <span class="lp-chip__text">
+                <strong>New request nearby</strong>
+                <span>Bottle brush · 600 m</span>
+              </span>
+            </div>
+            <div class="lp-phone">
+              <div class="lp-phone__head">
+                <span class="lp-tile">SG</span>
+                <strong>Sharma General Store</strong>
+                <span class="lp-open">Open</span>
+              </div>
+              <div class="lp-slip">
+                <div class="lp-slip__paper">
+                  <div class="lp-slip__meta">
+                    <span>UNDER 1 KM</span>
+                    <span>REPLY IN 8M</span>
+                  </div>
+                  <div class="lp-slip__body lp-ruled">
+                    <span class="lp-hand-item">Bottle brush</span>
+                    <span class="lp-slip__alias">for a steel bottle</span>
+                  </div>
+                </div>
+              </div>
+              <div class="lp-answer">
+                <span class="lp-choice lp-choice--on">In stock</span>
+                <span class="lp-choice">Not today</span>
+              </div>
+              <div class="lp-price"><span>Your price</span><strong>₹40</strong></div>
+              <div class="lp-send">Send answer</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-section" id="how" aria-labelledby="how-h">
+        <div class="lp-wrap">
+          <h2 id="how-h">Get your shop online in a few easy steps</h2>
+          <ol class="lp-grid lp-grid--260 lp-steps">
+            <li class="lp-card">
+              <h3>Log in with your phone number</h3>
+              <p>Enter your number and a one-time code. No password, no long form.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Put your shop on the map</h3>
+              <p>Add your shop's name and logo, pin where it is, and pick what you sell.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Answer from the counter</h3>
+              <p>
+                When someone nearby asks for something you sell, it arrives on your phone. In stock,
+                your price, send.
+              </p>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section class="lp-section lp-section--sunk" id="why" aria-labelledby="why-h">
+        <div class="lp-wrap">
+          <h2 id="why-h">Why shops join</h2>
+          <ul class="lp-grid lp-grid--240 lp-list">
+            <li class="lp-card lp-card--feature">
+              <h3>No catalogue. No inventory sheet.</h3>
+              <p>Your stock list builds itself as you answer requests and sell.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Your price, your rules</h3>
+              <p>
+                You set the price on every answer. Offer delivery when you can, with your own fee.
+              </p>
+            </li>
+            <li class="lp-card">
+              <h3>Know what your area wants</h3>
+              <p>See what people nearby asked for today, and what you missed.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Lists, packed right</h3>
+              <p>
+                A shopping list arrives as one parchi with the items that fit your shop. Tick them
+                off as you pack.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="lp-hero" id="buyers" aria-labelledby="buyers-intro-h">
+        <div class="lp-wrap lp-hero__in">
+          <div class="lp-hero__text">
             <p class="lp-pill">FOR BUYERS</p>
-            <h1>Buy from the shops you trust, right around the corner.</h1>
+            <h2 id="buyers-intro-h">Buy from the shops you trust, right around the corner.</h2>
             <p class="lp-lead">
               Ask once. Nearby shops reply with their price and stock. You pick, then pick it up or
               get it delivered. Pay cash.
@@ -160,11 +269,11 @@
         </div>
       </section>
 
-      <section class="lp-band" id="buyers" aria-labelledby="buyers-h">
+      <section class="lp-band" id="compare" aria-labelledby="compare-h">
         <div class="lp-wrap lp-band__in">
           <div class="lp-band__text">
             <p class="lp-pill lp-pill--marigold">FOR BUYERS</p>
-            <h2 id="buyers-h">Compare every shop nearby. Pick the best.</h2>
+            <h2 id="compare-h">Compare every shop nearby. Pick the best.</h2>
             <p class="lp-lead">
               Nearby shops reply with their price. You compare the prices from every nearby shop and
               pick the best, with no walking to ten shops.
@@ -267,58 +376,6 @@
               <p>Prices and stock come only from the shops' answers.</p>
             </li>
           </ul>
-        </div>
-      </section>
-
-      <section class="lp-section lp-section--sunk" id="why" aria-labelledby="why-h">
-        <div class="lp-wrap">
-          <h2 id="why-h">Why shops join</h2>
-          <ul class="lp-grid lp-grid--240 lp-list">
-            <li class="lp-card lp-card--feature">
-              <h3>No catalogue. No inventory sheet.</h3>
-              <p>Your stock list builds itself as you answer requests and sell.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Your price, your rules</h3>
-              <p>
-                You set the price on every answer. Offer delivery when you can, with your own fee.
-              </p>
-            </li>
-            <li class="lp-card">
-              <h3>Know what your area wants</h3>
-              <p>See what people nearby asked for today, and what you missed.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Lists, packed right</h3>
-              <p>
-                A shopping list arrives as one parchi with the items that fit your shop. Tick them
-                off as you pack.
-              </p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="lp-section" id="how" aria-labelledby="how-h">
-        <div class="lp-wrap">
-          <h2 id="how-h">Get your shop online in a few easy steps</h2>
-          <ol class="lp-grid lp-grid--260 lp-steps">
-            <li class="lp-card">
-              <h3>Log in with your phone number</h3>
-              <p>Enter your number and a one-time code. No password, no long form.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Put your shop on the map</h3>
-              <p>Add your shop's name and logo, pin where it is, and pick what you sell.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Answer from the counter</h3>
-              <p>
-                When someone nearby asks for something you sell, it arrives on your phone. In stock,
-                your price, send.
-              </p>
-            </li>
-          </ol>
         </div>
       </section>
 
