@@ -182,7 +182,7 @@ The screenshot is saved to `e2e/artifacts/seeker-results.png` (in CI it is the `
 
 ADR-0064. Nobody is watching; the API must stay up by itself.
 
-**Uptime monitor.** UptimeRobot, `GET https://kahanmilega-api.onrender.com/`, every 10 minutes, email alerts. It uses `/`, not `/ready`: `/` wakes the instance without touching Neon (`/ready` runs `SELECT 1` and would keep the database awake for nothing). Render's 15-minute sleep never starts, so the API, the workers and the 60 s sweeper run 24/7.
+**Uptime monitor.** UptimeRobot, `GET https://kahanmilega-api.onrender.com/health`, every 10 minutes, email alerts. `/health` answers 84 bytes and touches neither Postgres nor Redis, so it wakes the instance without keeping Neon awake on its own (`/ready` runs `SELECT 1`). Render's 15-minute sleep never starts, so the API, the workers and the 60 s sweeper run 24/7. What can run out before results, and what to do, is in [limits.md](limits.md).
 
 **What runs by itself.** One free Render web service; the workers run inside the API process. Redis is Render Key Value, free, 25 MB, `noeviction`.
 
@@ -203,10 +203,12 @@ Probes: `/health` and `/` touch neither Postgres nor Redis; `/ready` runs `SELEC
 
 **Free-tier budget.** Neon: 100 CU-hours a month; 14.25 used by Oct 24, about 62 projected for October, about 36 for Nov 1 to 6. Render: one free web service, about 744 of 750 h. Redis: Render Key Value free, 25 MB, `noeviction`.
 
-**Weekly check** (and before results):
+**Weekly check** (and before results; full numbers and fixes in [limits.md](limits.md)):
 
 1. Neon, Billing, Usage: if above 80 CU-hours, pause the monitor (the API then sleeps and wakes on demand, about 14 s).
-2. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same two numbers are in `/admin/health/details` under `redis.memory` (`"unknown"` if Redis refuses `INFO`; the check then warns). A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
+2. Render, Usage: instance hours, outbound bandwidth (5 GB; over it every free service is suspended) and pipeline minutes.
+3. AI Studio, rate limits, for **both** projects: "Gemini Project" (production) and "Gemini Project 2" (evals). Production `embedding-1` above 700 of 1,000 requests a day, or either flash-lite model above 350 of 500, means stop bulk work and read limits.md.
+4. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same two numbers are in `/admin/health/details` under `redis.memory` (`"unknown"` if Redis refuses `INFO`; the check then warns). A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
 
 **After the freeze:** `systemctl --user disable --now askbuy-runner-watchdog.timer`.
 
