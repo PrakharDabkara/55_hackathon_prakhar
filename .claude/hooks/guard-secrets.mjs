@@ -3,6 +3,7 @@
 // File tools are checked by path fields only (so writing about the word is fine); Bash is checked
 // by command text, which is a best-effort layer: `cat $(echo .e)nv` gets past it. The deny rules in
 // .claude/settings.json are the second layer.
+import { checkBash, checkFileTool } from './eval-paths.mjs';
 import { block, readInput } from './lib.mjs';
 
 const HOOK = 'guard-secrets';
@@ -18,8 +19,6 @@ function mentionsEnv(text) {
   }
   return false;
 }
-
-const mentionsHoldout = (text) => /holdout/i.test(text);
 
 // The two formats Google issues for Gemini keys: the classic AIza + 35 characters, and the newer
 // AQ. + 40 to 80. A string with "fake", "example" or "placeholder" in it is a test value, not a key.
@@ -58,19 +57,23 @@ for (const text of written) {
   }
 }
 
+// The holdout eval data is decided by path (eval-paths.mjs), not by the word: symlinks, globs,
+// folders, cd and simple variables are followed, and code that mentions the word stays editable.
+const cwd = typeof input.cwd === 'string' ? input.cwd : process.cwd();
+const holdout =
+  tool === 'Bash'
+    ? checkBash(String(args.command ?? ''), cwd)
+    : ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'NotebookEdit'].includes(tool)
+      ? checkFileTool(tool, args, cwd)
+      : null;
+if (holdout) block(HOOK, holdout);
+
 for (const text of texts) {
   if (mentionsEnv(text)) {
     block(
       HOOK,
       'this touches a .env file. Secrets stay out of the session. Read .env.example for the names ' +
         'of the settings; if a real value is needed, ask the user.',
-    );
-  }
-  if (mentionsHoldout(text)) {
-    block(
-      HOOK,
-      'this touches a holdout eval file. The holdout is run by hand by the user and never read or ' +
-        'tuned against. Use the dev set instead.',
     );
   }
 }
