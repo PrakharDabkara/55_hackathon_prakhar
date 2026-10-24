@@ -1,3 +1,4 @@
+import { GENERAL_STORE_ALSO_TAKES } from '@askbuy/shared';
 import type { Logger } from 'pino';
 import type { Pool } from 'pg';
 import { ApiError } from '../http/errors.js';
@@ -466,11 +467,14 @@ async function observe(
        JOIN items i ON i.id = p.item_id AND i.source = 'user'
        JOIN shops s ON s.id = p.shop_id
        JOIN requests r ON r.id = p.request_id
-      WHERE NOT (s.categories && i.categories)
+      WHERE NOT ((s.categories::text[] || CASE WHEN 'general_store' = ANY(s.categories)
+                                                 THEN $2::text[] ELSE '{}'::text[] END) && i.categories)
         AND (SELECT count(*) FROM shops k
-              WHERE k.name LIKE 'Eval %' AND k.categories && i.categories
+              WHERE k.name LIKE 'Eval %'
+                AND (k.categories::text[] || CASE WHEN 'general_store' = ANY(k.categories)
+                                                  THEN $2::text[] ELSE '{}'::text[] END) && i.categories
                 AND ST_DWithin(k.location, r.location, r.radius_m)) >= ${MIN_TARGETS}`,
-    [errandId],
+    [errandId, [...GENERAL_STORE_ALSO_TAKES]],
   );
   // Everything the customer's screen can show, except what they typed themselves.
   const questions = steps
