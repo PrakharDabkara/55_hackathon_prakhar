@@ -122,6 +122,8 @@
   cursor: pointer;
 }
 .sh-logopick__img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border-radius: var(--r-pill);
@@ -415,4 +417,30 @@ a.sh-tile:hover .sh-tile__label {
   .sh-shutter {
     display: none;
   }
+}
+
+/* Setup: what is still missing, and the collapsed delivery section */
+.sh-missing ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-6);
+}
+.sh-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 600 16px/24px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sh-disclosure[aria-expanded='true'] svg {
+  transform: rotate(180deg);
 }

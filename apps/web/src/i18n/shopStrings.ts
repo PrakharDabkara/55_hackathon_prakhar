@@ -62,6 +62,11 @@ export interface ShopStrings {
   needName: string;
   needCategory: string;
   needLocation: string;
+  /** The list under a disabled Start button: what is still missing (S-01). */
+  missingHeading: string;
+  missingName: string;
+  missingCategory: string;
+  missingLocation: string;
   startReceiving: string;
   createFailed: string;
   // Home
@@ -296,18 +301,22 @@ export const shopEn: ShopStrings = {
 
   setupTitle: 'Set up your shop',
   setupHelper: 'Customers near you will see this name.',
-  logoCaption: 'Upload logo · optional',
+  logoCaption: 'Upload logo',
   shopName: 'Shop name',
   sellTitle: 'What do you sell? Pick up to 3.',
   sellLimit: 'You can pick up to 3. Remove one to pick another.',
   locationTitle: 'Shop location',
   useLocation: 'Use my current location',
   pinHelper: 'Stand inside your shop, or drag the pin to it.',
-  pinHelperDenied: 'Drag the pin to your shop.',
+  pinHelperDenied: 'Location is blocked. Drag the pin to your shop.',
   mapLabel: 'Shop location map. Press the arrow keys to move the pin.',
   needName: 'Add your shop name to continue.',
   needCategory: 'Pick what you sell to continue.',
   needLocation: 'Set your shop location to continue.',
+  missingHeading: 'To start, you still need to:',
+  missingName: 'Add your shop name',
+  missingCategory: 'Pick what you sell',
+  missingLocation: 'Set your shop location: use your location or drag the pin',
   startReceiving: 'Start getting requests',
   createFailed: "Couldn't create your shop. Check your connection and try again.",
 
@@ -547,18 +556,22 @@ export const shopHi: ShopStrings = {
 
   setupTitle: 'Apni dukaan set up karein',
   setupHelper: 'Aas-paas ke grahak ye naam dekhenge.',
-  logoCaption: 'Logo daalein · zaroori nahi',
+  logoCaption: 'Logo daalein',
   shopName: 'Dukaan ka naam',
   sellTitle: 'Aap kya bechte hain? 3 tak chunein.',
   sellLimit: '3 tak chun sakte hain. Doosra chunne ke liye ek hatayein.',
   locationTitle: 'Dukaan ki location',
   useLocation: 'Meri abhi ki location use karein',
   pinHelper: 'Dukaan ke andar khade hon, ya pin ko dukaan par khinchein.',
-  pinHelperDenied: 'Pin ko apni dukaan par khinchein.',
+  pinHelperDenied: 'Location band hai. Pin ko apni dukaan par khinchein.',
   mapLabel: 'Dukaan ki location ka map. Pin hilane ke liye arrow keys dabayein.',
   needName: 'Aage badhne ke liye dukaan ka naam likhein.',
   needCategory: 'Aage badhne ke liye kuch chunein.',
   needLocation: 'Aage badhne ke liye dukaan ki location set karein.',
+  missingHeading: 'Shuru karne ke liye abhi ye baaki hai:',
+  missingName: 'Dukaan ka naam likhein',
+  missingCategory: 'Kya bechte hain, chunein',
+  missingLocation: 'Dukaan ki location set karein: apni location lein ya pin khinchein',
   startReceiving: 'Sawaal lena shuru karein',
   createFailed: 'Dukaan nahi bani. Internet check karke dobara koshish karein.',
 
