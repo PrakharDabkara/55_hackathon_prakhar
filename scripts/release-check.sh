@@ -64,6 +64,7 @@ if [ -z "${ADMIN_TOKEN:-}" ]; then
   report "/admin/health/details reachable" 0 "ADMIN_TOKEN is not set in the environment"
   report "/admin/health/details autopilot on" 0 "not checked"
   report "/admin/health/details no failed jobs" 0 "not checked"
+  report "Redis memory" 0 "not checked"
 else
   out=$(printf 'header = "authorization: Bearer %s"\n' "$ADMIN_TOKEN" |
     curl -q -s -m 60 --noproxy '*' --proto '=http,https' --max-redirs 0 -K - -w '\n%{http_code}' "$B/admin/health/details" 2>/dev/null)
@@ -77,12 +78,29 @@ else
     failed=$(printf '%s' "$body" | jq -r '[.queues[].failedLast24h] | add // 0' 2>/dev/null)
     [ "${failed:-x}" = 0 ] && ok=1 || ok=0
     report "/admin/health/details no failed jobs" "$ok" "failed in 24 h: ${failed:-unknown}"
+    # Redis is 25 MB with noeviction: a full one stops expiry, fan-out and push. WARN above 40 %, FAIL above 60 %.
+    used=$(printf '%s' "$body" | jq -r '.redis.memory.usedBytes // empty' 2>/dev/null)
+    max=$(printf '%s' "$body" | jq -r '.redis.memory.maxBytes // empty' 2>/dev/null)
+    if [ "$(printf '%s' "$body" | jq -r '.redis.memory' 2>/dev/null)" = unknown ]; then
+      echo "WARN  Redis memory  (unknown: INFO failed on the server; check the Render dashboard)"
+    elif [ -z "$used" ]; then
+      report "Redis memory" 0 "not in the details"
+    elif [ "${max:-0}" = 0 ]; then
+      report "Redis memory" 1 "$((used / 1024)) KB used, no maxmemory set"
+    else
+      pct=$((used * 100 / max))
+      d="$((used / 1024)) KB of $((max / 1024)) KB (${pct} %), warns above 40 %, fails above 60 %"
+      if [ $((used * 100)) -gt $((max * 60)) ]; then report "Redis memory" 0 "$d"
+      elif [ $((used * 100)) -gt $((max * 40)) ]; then echo "WARN  Redis memory  ($d)"
+      else report "Redis memory" 1 "$d"; fi
+    fi
   else
     d="HTTP ${status:-none}"
     [ "$status" = 404 ] && d="HTTP 404: the server did not accept ADMIN_TOKEN"
     report "/admin/health/details reachable" 0 "$d"
     report "/admin/health/details autopilot on" 0 "not checked"
     report "/admin/health/details no failed jobs" 0 "not checked"
+    report "Redis memory" 0 "not checked"
   fi
 fi
 

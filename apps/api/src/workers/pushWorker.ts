@@ -3,6 +3,7 @@ import type { Logger } from 'pino';
 import type { DeliverResult, PushJob } from '../modules/push/index.js';
 import { logJobFailure } from './jobLog.js';
 import { closeWithin, connect, QUEUE_TIMEOUT_MS, withTimeout } from './redis.js';
+import { retainedJobs } from './jobRetention.js';
 
 export const PUSH_QUEUE = 'push';
 
@@ -42,7 +43,7 @@ export function startPushWorker({
 }: Options): PushWorker {
   const queueConnection = connect(redisUrl, logger);
   const workerConnection = connect(redisUrl, logger);
-  const queue = new Queue(queueName, { connection: queueConnection });
+  const queue = new Queue(queueName, { connection: queueConnection, ...retainedJobs });
   queue.on('error', (err) => logger.warn({ reason: err.message }, 'push queue error'));
 
   const worker = new Worker(queueName, async (job) => void (await deliver(job.data as PushJob)), {
@@ -63,8 +64,7 @@ export function startPushWorker({
             attempts: ATTEMPTS,
             backoff: { type: 'exponential', delay: backoffMs },
             // A kept key is what makes "once per request" hold; plain pushes leave no trace.
-            removeOnComplete: options.key ? { age: 24 * 3600 } : true,
-            removeOnFail: 100,
+            removeOnComplete: options.key ? { age: 24 * 3600, count: 1000 } : true,
           })
           .then(() => undefined),
         QUEUE_TIMEOUT_MS,

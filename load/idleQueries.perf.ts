@@ -10,7 +10,8 @@ import { startRedis } from '../apps/api/src/testing/startRedis.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Which statements does an idle API run, with the autopilot off and on?
+// Which queries does an idle API run, with the autopilot off and on? Counts both `statement:` lines
+// (simple protocol) and `execute <name>:` lines (parameterised queries, which pg uses almost always).
 it('idle statements', async () => {
   const [db, redis] = await Promise.all([startPostgres(), startRedis()]);
   await seedCatalog(db.pool, loadSeedCatalog());
@@ -47,7 +48,7 @@ it('idle statements', async () => {
       maxBuffer: 1 << 28,
     }).toString();
     const counts = new Map<string, number>();
-    for (const m of log.matchAll(/statement: ([^\n]{0,90})/g))
+    for (const m of log.matchAll(/(?:statement|execute [^:\n]*): ([^\n]{0,90})/g))
       counts.set(m[1] as string, (counts.get(m[1] as string) ?? 0) + 1);
     console.log(
       `MODE ${mode}: ${[...counts.values()].reduce((a, b) => a + b, 0)} statements in 70 s`,

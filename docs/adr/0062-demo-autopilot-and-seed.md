@@ -73,10 +73,14 @@ were empty, and rehearsing a demo left old requests and orders behind.
 
   Added: about 0.1 % of a core idle and about 0.1 to 0.2 % busy; no measurable memory (within the
   run-to-run spread of about 10 MB); search latency is not slower (p95 is inside the off spread).
-  Idle database use: a statement log of an idle API for 70 s shows 2 statements off and 3 on (the
-  extra is an unrelated photo-storage sweep), so the autopilot adds none. It uses Redis idle (the
-  queue's blocking wait), as the other workers do. It does not keep the instance awake, so
-  Render's 15-minute sleep still applies. No model call is made, so no Gemini quota is spent.
+  Idle database use (corrected Oct 24; the first count looked only at `statement:` log lines and
+  missed parameterised `execute` lines): an idle API runs about 10 queries per 70 s window with the
+  autopilot off (one 60 s sweep: requests, lists, orders, errands) and 14 on. The extra 4 are the
+  hourly and 10-minute sweeps (photos, order addresses, pickups) running once at start-up, not the
+  autopilot, which adds none. So about 10 queries a minute, around the clock, while the API is
+  awake: enough to keep Neon from suspending (ADR-0064). It uses Redis idle (the
+  queue's blocking wait), as the other workers do. It does not keep the instance awake by itself, so
+  Render's 15-minute sleep applies unless the ADR-0064 pinger runs. No model call is made, so no Gemini quota is spent.
 
 - **On production (security review):** the live Render service is the demo, so the flag is allowed
   there on purpose; it logs a warning at startup and only ever answers `is_simulated` shops, which

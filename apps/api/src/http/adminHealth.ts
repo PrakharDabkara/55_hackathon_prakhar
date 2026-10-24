@@ -15,6 +15,8 @@ export interface OpsProbes {
   redisOk(): Promise<boolean>;
   queues(): Promise<QueueDepth[]>;
   autopilot(): { on: boolean; lastActivityAt: string | null };
+  /** Redis INFO memory: bytes in use and the plan's cap (0 when none is set). */
+  redisMemory(): Promise<{ usedBytes: number; maxBytes: number }>;
 }
 
 const PROBE_TIMEOUT_MS = 1500;
@@ -50,7 +52,7 @@ export function adminHealthRouter({
 }): Router {
   const router = Router();
   router.get('/admin/health/details', createRequireAdmin(adminToken), async (_req, res) => {
-    const [dbOk, ai, redisOk, queues] = await Promise.all([
+    const [dbOk, ai, redisOk, queues, memory] = await Promise.all([
       within(
         db.query('SELECT 1').then(() => true),
         false,
@@ -68,11 +70,14 @@ export function adminHealthRouter({
       ),
       ops ? within(ops.redisOk(), false) : Promise.resolve(false),
       ops ? within(ops.queues(), []) : Promise.resolve([]),
+      ops ? within(ops.redisMemory(), null) : Promise.resolve(null),
     ]);
     res.json({
       version: { sha: gitSha },
       db: { ok: dbOk },
-      redis: ops ? { ok: redisOk } : { ok: false, configured: false },
+      redis: ops
+        ? { ok: redisOk, memory: memory ?? ('unknown' as const) }
+        : { ok: false, configured: false },
       queues,
       // The only AI limit is per user per hour (30); there is no daily cap to compare with, so
       // the day's counts are what shows a quota running out: failures climbing, breaker skips.

@@ -13,6 +13,7 @@ const healthy = {
   details: {
     autopilot: { on: true },
     queues: [{ name: 'a', failedLast24h: 0 }],
+    redis: { ok: true, memory: { usedBytes: 5_000_000, maxBytes: 25_000_000 } },
   } as unknown,
   detailsCode: '200',
   security: 0,
@@ -78,7 +79,7 @@ describe('scripts/release-check.sh', () => {
   it('prints PASS for everything and exits 0 when the release is ready', () => {
     const r = run({}, { ADMIN_TOKEN: TOKEN });
     expect(r.status).toBe(0);
-    expect(r.out.match(/^PASS/gm)).toHaveLength(9);
+    expect(r.out.match(/^PASS/gm)).toHaveLength(10);
     expect(r.out).not.toContain('FAIL');
     expect(r.out).toContain('IP budget');
     expect(r.out).not.toContain(TOKEN);
@@ -108,6 +109,36 @@ describe('scripts/release-check.sh', () => {
       { ADMIN_TOKEN: TOKEN },
     );
     expect(failed.out).toMatch(/FAIL\s+\/admin\/health\/details/);
+  });
+
+  it('checks Redis memory: PASS to 40 %, WARN above 40 %, FAIL above 60 %', () => {
+    const memory = (usedMemoryBytes: number, maxMemoryBytes = 25_000_000) =>
+      run(
+        {
+          details: {
+            autopilot: { on: true },
+            queues: [],
+            redis: { ok: true, memory: { usedBytes: usedMemoryBytes, maxBytes: maxMemoryBytes } },
+          },
+        },
+        { ADMIN_TOKEN: TOKEN },
+      );
+    expect(memory(10_000_000).out).toMatch(/PASS\s+Redis memory.*40 %/);
+    const warn = memory(10_000_001);
+    expect(warn.out).toMatch(/WARN\s+Redis memory/);
+    expect(warn.status).toBe(0);
+    const fail = memory(15_000_001);
+    expect(fail.out).toMatch(/FAIL\s+Redis memory/);
+    expect(fail.status).toBe(1);
+    // INFO failed on the server: the check cannot judge, so it warns and does not fail the release.
+    const unknown = run(
+      { details: { autopilot: { on: true }, queues: [], redis: { ok: true, memory: 'unknown' } } },
+      { ADMIN_TOKEN: TOKEN },
+    );
+    expect(unknown.out).toMatch(/WARN\s+Redis memory.*unknown/);
+    expect(unknown.status).toBe(0);
+    // No maxmemory configured: nothing to compare with, so it only prints the use.
+    expect(memory(5_000_000, 0).out).toMatch(/PASS\s+Redis memory.*no maxmemory/);
   });
 
   it('fails the details check without ADMIN_TOKEN, and when the server answers 404', () => {
