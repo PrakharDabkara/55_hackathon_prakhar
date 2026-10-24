@@ -229,6 +229,98 @@ describe.skipIf(probeFiles.length === 0)('raw responses captured by scripts/prob
   );
 });
 
+/** The probe fixture of one kind, as the SDK would throw it. */
+const probed = (kind: string) => {
+  const file = probeFiles.find((f) => read(f).kind === kind);
+  if (!file) throw new Error(`no observed fixture of kind ${kind}`);
+  return sdkHttpError(read(file).status, read(file).body);
+};
+const quotaIdOf = (kind: string) =>
+  (read(probeFiles.find((f) => read(f).kind === kind) as string).body.error.details as unknown[])
+    .flatMap((d) => (d as { violations?: { quotaId: string }[] }).violations ?? [])
+    .map((v) => v.quotaId)[0];
+
+describe('the three 429s Google sent (gemini-3.6-flash, free tier, all observed)', () => {
+  it('tells them apart by QuotaFailure.violations[].quotaId, each with RetryInfo', () => {
+    expect(quotaIdOf('429-per-minute')).toBe(
+      'GenerateRequestsPerMinutePerProjectPerModel-FreeTier',
+    );
+    expect(quotaIdOf('429-per-day')).toBe('GenerateRequestsPerDayPerProjectPerModel-FreeTier');
+    expect(quotaIdOf('oversize-input')).toBe(
+      'GenerateContentInputTokensPerModelPerMinute-FreeTier',
+    );
+  });
+
+  it('the daily 429 is per-day, carries the seconds to the reset, and is never retried', async () => {
+    const h = harness([fail(probed('429-per-day'))]);
+    const error = await h.client.generateJson(generate).catch((e) => e);
+    expect(error).toBeInstanceOf(AiUnavailableError);
+    expect(h.calls()).toBe(1);
+    const failure = classifyError(
+      await harness([fail(probed('429-per-day'))])
+        .provider.generateJson(generate)
+        .catch((e) => e),
+    );
+    expect(failure).toMatchObject({
+      kind: 'http',
+      status: 429,
+      code: 'RESOURCE_EXHAUSTED',
+      perDay: true,
+    });
+    // Observed 05:10:20 UTC with retryDelay 6579 s: 07:00:00 UTC, midnight Pacific.
+    expect(failure.retryAfterSec).toBe(6579);
+  });
+
+  it('the per-minute 429 is not per-day and is retried, but the 30 s pause cap is shorter than the 56 s Google asked for', async () => {
+    const h = harness([fail(probed('429-per-minute'))]);
+    await h.client.generateJson(generate).catch(() => undefined);
+    expect(h.calls()).toBe(4);
+    expect(h.sleeps).toEqual([30_000, 30_000, 30_000]); // Google said 56 s: every retry lands inside the window
+  });
+
+  it('an input-token 429 is not per-day, so it is retried like a rate limit', async () => {
+    const h = harness([fail(probed('oversize-input'))]);
+    await h.client.generateJson(generate).catch(() => undefined);
+    expect(h.calls()).toBe(4);
+  });
+
+  // KNOWN BUG (F1): a single request above the tokens-per-minute limit can never succeed, so it must
+  // not be retried. Remove `.fails` with the fix (docs/failure-modes.md, Bugs found).
+  it.fails(
+    'an input-token 429 is not retried, because waiting cannot make the request smaller',
+    async () => {
+      const h = harness([fail(probed('oversize-input'))]);
+      await h.client.generateJson(generate).catch(() => undefined);
+      expect(h.calls()).toBe(1);
+    },
+  );
+});
+
+describe('a model that is retired or unknown answers 404 NOT_FOUND (observed)', () => {
+  it('is classified http 404 NOT_FOUND and not retried', async () => {
+    for (const kind of ['404-NOT_FOUND-retired', 'unknown-model']) {
+      const h = harness([fail(probed(kind))]);
+      await h.client.generateJson(generate).catch(() => undefined);
+      expect(h.calls()).toBe(1);
+    }
+    const failure = classifyError(
+      await harness([fail(probed('404-NOT_FOUND-retired'))])
+        .provider.generateJson(generate)
+        .catch((e) => e),
+    );
+    expect(failure).toMatchObject({ kind: 'http', status: 404, code: 'NOT_FOUND' });
+  });
+
+  // KNOWN GAP (F1, for R2): a primary model that was retired (404 "no longer available to new
+  // users") never gets better, so the fallback should take over. Today only timeout, 429 and 503
+  // switch to it, so every call fails. Remove `.fails` with the fix.
+  it.fails('a retired primary falls back to GEMINI_FALLBACK_MODEL', async () => {
+    const h = harness([fail(probed('404-NOT_FOUND-retired')), answer]);
+    await expect(h.client.generateJson(generate)).resolves.toMatchObject({ data: { ok: true } });
+    expect(h.models).toEqual(['primary', 'fallback']);
+  });
+});
+
 describe('embeddings take the same path', () => {
   it('a 429 on an embedding is classified and retried like a generation call', async () => {
     const quota = logged.find((f) => f.purpose === 'embed_catalog') as LoggedFailure;

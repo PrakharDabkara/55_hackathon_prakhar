@@ -1,0 +1,498 @@
+{
+  "source": "scripts/probe/gemini-list-models.sh",
+  "observed": "real",
+  "kind": "list",
+  "observedAt": "2026-10-24T05:05:08Z",
+  "models": [
+    {
+      "id": "antigravity-preview-05-2026",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "0.1",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "antigravity-preview-09-2026",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "0.1",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "antigravity-preview-latest",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "Antigravity Agent Preview Latest",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "deep-research-max-preview-04-2026",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "deepthink-exp-05-20",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "deep-research-preview-04-2026",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "deepthink-exp-05-20",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "deep-research-pro-preview-12-2025",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "deepthink-exp-05-20",
+      "flag": true,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-computer-use-preview-10-2025",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "Gemini 2.5 Computer Use Preview 10-2025",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-flash-image",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 32768,
+      "outputTokens": 32768,
+      "version": "2.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-flash-preview-tts",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 8192,
+      "outputTokens": 16384,
+      "version": "gemini-2.5-flash-exp-tts-2025-05-19",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "2.5",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-2.5-pro-preview-tts",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 8192,
+      "outputTokens": 16384,
+      "version": "gemini-2.5-pro-preview-tts-2025-05-19",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3-flash-preview-12-2025",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3-pro-image",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 32768,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3-pro-image-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 32768,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-flash-image",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 65536,
+      "outputTokens": 65536,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-flash-image-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 65536,
+      "outputTokens": 65536,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.1-flash-lite-05-2026",
+      "flag": false,
+      "inUse": true
+    },
+    {
+      "id": "gemini-3.1-flash-lite-image",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 65536,
+      "outputTokens": 65536,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-flash-lite-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.1-flash-lite-preview-03-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-flash-tts-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 8192,
+      "outputTokens": 16384,
+      "version": "3.1-flash-tts-preview",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.1-pro-preview-01-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.1-pro-preview-customtools",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.1-pro-preview-01-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.5-flash-05-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.5-flash-lite-07-2026",
+      "flag": false,
+      "inUse": true
+    },
+    {
+      "id": "gemini-3.5-transcribe",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 98304,
+      "outputTokens": 32768,
+      "version": "3.5-transcribe-08-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.6-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.6-flash-07-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.7-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.7-flash-08-2026",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.8-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.8-flash-lite-tts",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 8192,
+      "outputTokens": 16384,
+      "version": "3.8-flash-lite-tts",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-3.8-flash-tts",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 8192,
+      "outputTokens": 16384,
+      "version": "3.8-flash-tts",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-4-argon",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 32768,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-embedding-001",
+      "generate": false,
+      "embed": true,
+      "inputTokens": 2048,
+      "outputTokens": 1,
+      "version": "001",
+      "flag": false,
+      "inUse": true
+    },
+    {
+      "id": "gemini-embedding-2",
+      "generate": false,
+      "embed": true,
+      "inputTokens": 8192,
+      "outputTokens": 1,
+      "version": "2",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-embedding-2-preview",
+      "generate": false,
+      "embed": true,
+      "inputTokens": 8192,
+      "outputTokens": 1,
+      "version": "2",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-flash-latest",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "Gemini Flash Latest",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-flash-lite-latest",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "Gemini Flash-Lite Latest",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-nano-banana-2.1",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 65536,
+      "outputTokens": 65536,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-omni-1.1-flash",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-omni-flash-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-pro-latest",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "Gemini Pro Latest",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemini-robotics-er-2-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 65536,
+      "version": "2-preview",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemma-4-26b-a4b-it",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 262144,
+      "outputTokens": 32768,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "gemma-4-31b-it",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 262144,
+      "outputTokens": 32768,
+      "version": "001",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "lyria-3-clip-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "lyria-3-clip-preview",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "lyria-3-pro-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "lyria-3-pro-preview",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "lyria-3.5",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 1048576,
+      "outputTokens": 65536,
+      "version": "3.5",
+      "flag": false,
+      "inUse": false
+    },
+    {
+      "id": "nano-banana-pro-preview",
+      "generate": true,
+      "embed": false,
+      "inputTokens": 131072,
+      "outputTokens": 32768,
+      "version": "3.0",
+      "flag": false,
+      "inUse": false
+    }
+  ]
+}

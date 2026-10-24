@@ -23,7 +23,8 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 - Real failures replayed through our own error handling: Gemini 503/429/timeout/`ECONNRESET` from 16 CI dev eval runs, Redis full (`noeviction`) and stopped, Postgres SQLSTATEs and killed connections, all recorded from throwaway containers into `apps/api/src/testing/observed/`.
 - `scripts/probe/gemini-quota-probe.sh` and `gemini-free-triggers.sh` (run by hand with the evals key) capture the raw Gemini 429, invalid-key, unknown-model and oversize-input responses; the contract tests that replay them switch on when the files are committed.
 - Gemini keys in the newer `AQ.` format (alongside `AIza`): the probe scripts accept and redact both; `redactApiKeys` hides both in error messages and log fields (the logger had no key redaction before); the `guard-secrets` hook blocks a key typed into a command or written to a file.
-- `docs/failure-modes.md`: assumed vs observed table and seven bugs found (none fixed here). Known bug pinned with `it.fails`: the demo seed/reset lock connection has no `error` listener.
+- Probe results, observed (evals key, free tier): the three Gemini 429s (per minute, per day, input tokens) are told apart by `quotaId` and carry `RetryInfo`; the daily `retryDelay` is the time to the reset; an oversize input is a 429, not a 400; retired models still appear in ListModels and answer 404. New `gemini-list-models.sh`; fixtures are named `<model>__<kind>__<timestamp>.json` and never overwritten. `.gitleaks.toml` knows the `AQ.` format. The runbook's weekly check now includes `/admin/ai/ping`.
+- `docs/failure-modes.md`: assumed vs observed table and ten bugs found (none fixed here), three pinned with `it.fails`: the demo seed/reset lock connection has no `error` listener, an input-token 429 is retried, and a retired primary model does not fall back.
 
 ### Fixed (PR R1: running unattended, ADR-0064)
 

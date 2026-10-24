@@ -114,6 +114,20 @@ describe('guard-secrets', () => {
       expect(guard(tool('Write', { file_path: '/repo/t.ts', content: key })).code).toBe(0);
     });
 
+    it.each([
+      ['AIza', classic],
+      ['AQ.', newer],
+    ])(
+      'the "fake" allowance covers the matched %s token only, not the whole command',
+      (_p, key) => {
+        blocked(bash(`echo ${key} # fake`));
+        blocked(bash(`echo "this is a fake example placeholder" && echo ${key}`));
+        blocked(tool('Write', { file_path: '/repo/n.md', content: `fake key follows\n${key}\n` }));
+        // A fake token next to a real one does not cover the real one.
+        blocked(bash(`echo AQ.FakeKeyForTheTest${'x'.repeat(30)} ${key}`));
+      },
+    );
+
     it('lets ordinary text and too-short look-alikes through, and does not check reads', () => {
       expect(guard(bash('echo AIza AQ. hello')).code).toBe(0);
       expect(guard(bash(`echo AQ.${'x'.repeat(10)}`)).code).toBe(0);

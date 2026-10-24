@@ -27,10 +27,10 @@ mkdir -p "$PROBE_OUT"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-trigger() { # kind key model bodyfile
-  local kind="$1" key="$2" model="$3" bodyfile="$4" status file
+trigger() { # kind key model bodyfile [seconds]
+  local kind="$1" key="$2" model="$3" bodyfile="$4" limit="${5:-60}" status file
   status=$(printf 'header = "x-goog-api-key: %s"\n' "$key" |
-    curl -sS -m 90 -K - -D "$TMP/h" -o "$TMP/b" -w '%{http_code}' -H 'content-type: application/json' \
+    curl -sS -m "$limit" -K - -D "$TMP/h" -o "$TMP/b" -w '%{http_code}' -H 'content-type: application/json' \
       -d "@$bodyfile" "https://$PROBE_HOST/v1beta/models/$model:generateContent" 2>/dev/null) || status=000
   echo "=== $kind ($model): HTTP $status  error.status=$(jq -r '.error.status // "none"' "$TMP/b" 2>/dev/null)"
   jq . "$TMP/b" 2>/dev/null | probe_redact
@@ -50,9 +50,9 @@ echo '{"contents":[{"parts":[{"text":"Reply with the word ok."}]}],"generationCo
 trigger invalid-key "$FAKE" "$MODEL" "$TMP/small.json"
 if [ -n "$KEY" ]; then
   trigger unknown-model "$KEY" "gemini-probe-no-such-model" "$TMP/small.json"
-  # About 3 million tokens of "1 1 1 ..." against a limit of about 1 million.
+  # About 3 million tokens of "1 1 1 ..." against a free-tier limit of 250,000 input tokens a minute (seen: 429).
   { printf '{"contents":[{"parts":[{"text":"'; yes '1' | head -n 3000000 | tr '\n' ' '; printf '"}]}]}'; } >"$TMP/big.json"
-  trigger oversize-input "$KEY" "$MODEL" "$TMP/big.json"
+  trigger oversize-input "$KEY" "$MODEL" "$TMP/big.json" 60
 else
   echo "(no key: skipped unknown-model and oversize-input)"
 fi
