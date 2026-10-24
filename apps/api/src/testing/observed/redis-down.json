@@ -1,0 +1,81 @@
+{
+  "results": [
+    {
+      "label": "strict (retries 1, commandTimeout 1000) GET, Redis stopped",
+      "ok": false,
+      "ms": 370,
+      "error": {
+        "name": "MaxRetriesPerRequestError",
+        "constructor": "MaxRetriesPerRequestError",
+        "message": "Reached the max retries per request limit (which is 1). Refer to \"maxRetriesPerRequest\" option for details.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "strict EVAL, Redis stopped",
+      "ok": false,
+      "ms": 999,
+      "error": {
+        "name": "Error",
+        "constructor": "Error",
+        "message": "Command timed out",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "patient (retries null) GET, Redis stopped",
+      "ok": false,
+      "ms": 5002,
+      "error": {
+        "name": "Hang",
+        "constructor": "Error",
+        "message": "NO ANSWER within 5000 ms (call is still pending)",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "BullMQ queue.add (patient connection), Redis stopped",
+      "ok": false,
+      "ms": 5003,
+      "error": {
+        "name": "Hang",
+        "constructor": "Error",
+        "message": "NO ANSWER within 5000 ms (call is still pending)",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    }
+  ],
+  "uniqueErrorEvents": [
+    {
+      "name": "Error",
+      "constructor": "Error",
+      "message": "connect ECONNREFUSED 127.0.0.1:33597",
+      "code": "ECONNREFUSED",
+      "errno": -111,
+      "syscall": "connect",
+      "causeCode": null,
+      "severity": null,
+      "constraint": null
+    }
+  ]
+}

@@ -1,0 +1,125 @@
+{
+  "source": "GitHub Actions logs of 16 eval runs with EVAL_SET=dev (checked in each log before any line was read). Runs of any other set were not read. Only the structured `AI call failed` warn lines were extracted: no case content.",
+  "observed": "real",
+  "note": "These are OUR log lines, not Google raw bodies: the message is cut to 160 characters and the body details (QuotaFailure, RetryInfo) and headers were never logged. The raw 429 shape is NOT observed here; scripts/probe/gemini-quota-probe.sh captures it.",
+  "devRuns": [
+    "39045855930",
+    "39046416319",
+    "39047100651",
+    "39108363457",
+    "39128542524",
+    "39246913833",
+    "39254593239",
+    "39380005228",
+    "39400433998",
+    "39420532317",
+    "39474015308",
+    "39561769695",
+    "39578262699",
+    "39741414367",
+    "39824074301",
+    "39828943767"
+  ],
+  "totalFailures": 109,
+  "failures": [
+    {
+      "purpose": "classify_item",
+      "kind": "http",
+      "status": 503,
+      "code": "UNAVAILABLE",
+      "message": "the Gemini call failed: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "count": 30,
+      "runs": ["39420532317", "39474015308", "39741414367", "39828943767"]
+    },
+    {
+      "purpose": "classify_item",
+      "kind": "timeout",
+      "status": null,
+      "code": null,
+      "message": "no answer within 30000 ms",
+      "count": 1,
+      "runs": ["39828943767"]
+    },
+    {
+      "purpose": "embed_catalog",
+      "kind": "http",
+      "status": 429,
+      "code": "RESOURCE_EXHAUSTED",
+      "message": "the Gemini call failed: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.goo",
+      "count": 4,
+      "runs": ["39400433998"]
+    },
+    {
+      "purpose": "embed_query",
+      "kind": "timeout",
+      "status": null,
+      "code": null,
+      "message": "no answer within 60000 ms",
+      "count": 1,
+      "runs": ["39561769695"]
+    },
+    {
+      "purpose": "errand",
+      "kind": "http",
+      "status": 503,
+      "code": "UNAVAILABLE",
+      "message": "the Gemini call failed: The service is currently unavailable.",
+      "count": 1,
+      "runs": ["39400433998"]
+    },
+    {
+      "purpose": "errand",
+      "kind": "http",
+      "status": 503,
+      "code": "UNAVAILABLE",
+      "message": "the Gemini call failed: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "count": 19,
+      "runs": ["39474015308"]
+    },
+    {
+      "purpose": "errand",
+      "kind": "network",
+      "status": null,
+      "code": "ECONNRESET",
+      "message": "the Gemini connection failed",
+      "count": 3,
+      "runs": ["39474015308"]
+    },
+    {
+      "purpose": "errand",
+      "kind": "timeout",
+      "status": null,
+      "code": null,
+      "message": "no answer within 30000 ms",
+      "count": 8,
+      "runs": ["39046416319", "39047100651", "39474015308", "39741414367"]
+    },
+    {
+      "purpose": "resolve_query",
+      "kind": "http",
+      "status": 503,
+      "code": "UNAVAILABLE",
+      "message": "the Gemini call failed: This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+      "count": 37,
+      "runs": ["39108363457", "39420532317", "39474015308", "39741414367", "39828943767"]
+    },
+    {
+      "purpose": "resolve_query",
+      "kind": "timeout",
+      "status": null,
+      "code": null,
+      "message": "no answer within 30000 ms",
+      "count": 2,
+      "runs": ["39741414367", "39828943767"]
+    },
+    {
+      "purpose": "resolve_query",
+      "kind": "timeout",
+      "status": null,
+      "code": null,
+      "message": "no answer within 60000 ms",
+      "count": 3,
+      "runs": ["39400433998", "39420532317"]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ export default defineConfig({
       'scripts/*.test.ts',
       'scripts/ops/*.test.ts',
       'scripts/lib/*.test.ts',
+      'scripts/probe/*.test.ts',
       '.claude/hooks/*.test.ts',
       '.claude/skills/**/*.test.ts',
       '.claude/agents/*.test.ts',

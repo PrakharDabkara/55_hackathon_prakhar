@@ -1,0 +1,33 @@
+# gitleaks (v8.18.4, the version ADR-0060 used) with the default rules plus the newer Gemini key.
+# Run it on the git history only, never on the working tree: that would read ignored secret files.
+#   docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.18.4 detect --source /repo \
+#     -c /repo/.gitleaks.toml --redact
+title = "AskBuy gitleaks"
+
+[extend]
+useDefault = true
+
+# Public or fake values that appear in tests. Each looks at the matched token only, so a real key
+# next to one of these is still found.
+[allowlist]
+description = "Known public or fake test values"
+regexes = [
+  # The example push `auth` secret from the web-push README, used in the push tests.
+  '''tBHItJI5svbpez7KI4CCXg''',
+  # A classic key that says "Fake" inside the token (the redaction tests).
+  '''AIza[0-9A-Za-z_-]*Fake[0-9A-Za-z_-]*''',
+]
+
+# Google now issues Gemini keys as AQ. + 40 to 80 characters. The default gcp-api-key rule only
+# knows the classic AIza + 35 format.
+[[rules]]
+id = "gemini-api-key-aq"
+description = "Gemini API key in the newer AQ. format"
+regex = '''AQ\.[0-9A-Za-z_-]{40,80}'''
+keywords = ["aq."]
+
+# A token that says it is a test value (the fake keys in the redaction tests). The allowlist is on
+# this rule only and looks at the matched token, so a real key next to the word "fake" is still found.
+[rules.allowlist]
+regexTarget = "match"
+regexes = ['''(?i)AQ\.[0-9A-Za-z_-]*(fake|example|placeholder)''']

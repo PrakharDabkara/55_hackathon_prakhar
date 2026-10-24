@@ -18,6 +18,14 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 
 - `docs/limits.md`: every external service, its free limit, what the user sees when it fails, the AI call counts and judge sessions a day, the embedding-quota finding, bandwidth, a ranked risk list and judge-day operating rules. The runbook's unattended section now names `/health` as the pinger URL and adds the weekly Render, Neon and AI Studio checks.
 
+### Tests (PR F1: failure modes, assumed vs observed)
+
+- Real failures replayed through our own error handling: Gemini 503/429/timeout/`ECONNRESET` from 16 CI dev eval runs, Redis full (`noeviction`) and stopped, Postgres SQLSTATEs and killed connections, all recorded from throwaway containers into `apps/api/src/testing/observed/`.
+- `scripts/probe/gemini-quota-probe.sh` and `gemini-free-triggers.sh` (run by hand with the evals key) capture the raw Gemini 429, invalid-key, unknown-model and oversize-input responses; the contract tests that replay them switch on when the files are committed.
+- Gemini keys in the newer `AQ.` format (alongside `AIza`): the probe scripts accept and redact both; `redactApiKeys` hides both in error messages and log fields (the logger had no key redaction before); the `guard-secrets` hook blocks a key typed into a command or written to a file.
+- Probe results, observed (evals key, free tier): the three Gemini 429s (per minute, per day, input tokens) are told apart by `quotaId` and carry `RetryInfo`; the daily `retryDelay` is the time to the reset; an oversize input is a 429, not a 400; retired models still appear in ListModels and answer 404. New `gemini-list-models.sh`; fixtures are named `<model>__<kind>__<timestamp>.json` and never overwritten. `.gitleaks.toml` knows the `AQ.` format. The runbook's weekly check now includes `/admin/ai/ping`.
+- `docs/failure-modes.md`: assumed vs observed table and ten bugs found (none fixed here), three pinned with `it.fails`: the demo seed/reset lock connection has no `error` listener, an input-token 429 is retried, and a retired primary model does not fall back.
+
 ### Fixed (PR R1: running unattended, ADR-0064)
 
 - Redis no longer fills up: every queue (expiry, ping fan-out, push, errand, demo autopilot) now keeps finished jobs 1 hour or 200 and failed jobs 7 days or 500, from one helper (`workers/jobRetention.ts`); the 60 s sweep scheduler had no limit and left about 1,440 jobs a day. At start-up the workers clear old completed jobs, in capped batches, leaving waiting, active, delayed and failed ones alone.

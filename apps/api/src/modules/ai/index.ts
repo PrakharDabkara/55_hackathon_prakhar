@@ -33,7 +33,7 @@ export { buildListResolvePrompt, resolveListAnswerSchema } from './resolveListPr
 export type { ListPromptLine, ResolveListAnswer } from './resolveListPrompt.js';
 export { pingAi } from './ping.js';
 export type { PingResult } from './ping.js';
-export { classifyError, sanitiseMessage } from './failure.js';
+export { classifyError, redactApiKeys, sanitiseMessage } from './failure.js';
 export { looksLikeInstruction } from './suspicious.js';
 export { aiFromConfig, providerFromConfig } from './fromConfig.js';
 export { aiAdminRouter } from './adminRouter.js';

@@ -64,4 +64,24 @@ describe('the logger (ADR-0060)', () => {
     expect(lines[0]).not.toMatch(/9876543210|a@b\.in/);
     expect(JSON.parse(lines[0] as string).err).toMatchObject({ code: '23505', type: 'Error' });
   });
+
+  // FAKE keys in the two formats Google issues (AIza + 35 characters, AQ. + 40 to 80).
+  describe.each([
+    ['AIza', `AIzaFakeKeyForTheLoggerTest${'x'.repeat(8)}`],
+    ['AQ.', `AQ.FakeKeyForTheLoggerTest${'x'.repeat(30)}`],
+  ])('a %s API key', (_format, key) => {
+    it('is hidden in an error message and stack', () => {
+      const { lines, logger } = capture();
+      logger.error({ err: new Error(`quota exceeded for key ${key}`) }, 'AI call failed');
+      expect(lines[0]).not.toContain(key);
+      expect(lines[0]).toContain('[key]');
+    });
+
+    it('is hidden in a plain text field such as a reason', () => {
+      const { lines, logger } = capture();
+      logger.warn({ reason: `request to https://x.test?key=${key} failed` }, 'bad');
+      expect(lines[0]).not.toContain(key.slice(4));
+      expect(JSON.parse(lines[0] as string).reason).toContain('[key]');
+    });
+  });
 });
