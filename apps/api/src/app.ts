@@ -134,6 +134,10 @@ export function createApp({
       logger,
       otpMode: config.otpMode,
       demoPhones: config.demoPhones,
+      publicDemoPhones: {
+        shop: config.publicDemoShopPhones,
+        seeker: config.publicDemoCustomerPhones,
+      },
       inboxOpen: config.otpInboxOpen,
       ipLimits: config.otpIpLimits,
       ipLimitStore,

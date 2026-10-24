@@ -98,7 +98,7 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
     expect(stranger.body.error.attemptsLeft).toBeUndefined();
   });
 
-  it('says how many tries are left after a wrong code, and stops saying it once locked', async () => {
+  it('says how many tries are left after a wrong code, down to 0 once locked', async () => {
     await ask(app, DEMO);
     const left: unknown[] = [];
     for (let i = 0; i < 6; i++) {
@@ -108,7 +108,7 @@ describe('demo mode: codes exist only for DEMO_PHONES (ADR-0058)', () => {
       expect(res.status).toBe(401);
       left.push(res.body.error.attemptsLeft);
     }
-    expect(left).toEqual([4, 3, 2, 1, 0, undefined]);
+    expect(left).toEqual([4, 3, 2, 1, 0, 0]);
   });
 
   it('does not serve a leftover plain code for a non-demo phone', async () => {

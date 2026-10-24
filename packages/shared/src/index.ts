@@ -1,5 +1,6 @@
 export { CATEGORIES, isCategory } from './categories.js';
 export type { Category } from './categories.js';
+export { indianMobile } from './phone.js';
 export { ROLES } from './roles.js';
 export type { Role } from './roles.js';
 export {

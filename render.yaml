@@ -22,6 +22,12 @@ services:
       # by hand in the dashboard. Production will not start without at least one.
       - key: DEMO_PHONES
         sync: false
+      # The demo numbers the login screens offer as tap-to-fill chips: shop app and customer app.
+      # Set by hand in the dashboard; only numbers that are also in DEMO_PHONES are kept.
+      - key: PUBLIC_DEMO_SHOP_PHONES
+        sync: false
+      - key: PUBLIC_DEMO_CUSTOMER_PHONES
+        sync: false
       # Requests: answered from learned stock at this many shops, else pinged; 15 minute deadline.
       - key: MIN_STOCK_RESULTS
         value: '3'

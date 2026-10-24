@@ -6,7 +6,7 @@ import { ApiError, parse } from '../../http/errors.js';
 import { createIpLimiter, type IpLimitStore } from '../../http/ipLimit.js';
 import { authOf, createRequireAuth } from './middleware.js';
 import { maskPhone, normalisePhone } from './phone.js';
-import { latestDevCode, requestOtp, revokeSession, verifyOtp } from './service.js';
+import { attemptsLeft, latestDevCode, requestOtp, revokeSession, verifyOtp } from './service.js';
 
 interface IdentityDeps {
   db: Database;
@@ -14,12 +14,16 @@ interface IdentityDeps {
   otpMode: 'simulated';
   /** Phones that get a code in the demo inbox. Nobody else can read one (ADR-0058). */
   demoPhones: readonly string[];
+  /** The subset of `demoPhones` the login screens may show, per role. Nothing else is ever served. */
+  publicDemoPhones: { shop: readonly string[]; seeker: readonly string[] };
   /** Tests only: every phone gets a code in the demo inbox. */
   inboxOpen: boolean;
   /** Most requests one IP may make per window to each route. */
   ipLimits: { request: number; verify: number; inbox: number };
   ipLimitStore: IpLimitStore;
 }
+
+const INDIAN_MOBILE_MESSAGE = "That doesn't look like an Indian mobile number.";
 
 export const IP_LIMIT_WINDOW_MS = 10 * 60_000;
 
@@ -29,7 +33,7 @@ const phoneField = z
   .max(32)
   .transform((raw, ctx) => {
     const phone = normalisePhone(raw);
-    if (!phone) ctx.addIssue({ code: 'custom', message: 'must be an Indian mobile number' });
+    if (!phone) ctx.addIssue({ code: 'custom', message: INDIAN_MOBILE_MESSAGE });
     return phone ?? z.NEVER;
   });
 
@@ -40,12 +44,14 @@ const verifyBody = z.strictObject({
   role: z.enum(['seeker', 'shop']),
 });
 const inboxQuery = z.strictObject({ phone: phoneField });
+const demoNumbersQuery = z.strictObject({ role: z.enum(['seeker', 'shop']) });
 
 export function identityRouter({
   db,
   logger,
   otpMode,
   demoPhones,
+  publicDemoPhones,
   inboxOpen,
   ipLimits,
   ipLimitStore: store,
@@ -61,6 +67,17 @@ export function identityRouter({
   router.post('/auth/otp/request', limit('request'), async (req, res) => {
     const { phone } = parse(requestBody, req.body);
     const log = req.log ?? logger;
+    // No SMS exists (ADR-0013): a number that cannot read its code gets told so now, not after a
+    // code screen it can never finish. It costs no code row. This does tell a caller whether a
+    // number is on the demo list (ADR-0066); the list is 9000000xxx and its codes are open anyway.
+    if (otpMode === 'simulated' && !codeIsReadable(phone)) {
+      log.info({ phoneMasked: maskPhone(phone) }, 'otp refused: demo mode');
+      throw new ApiError(
+        403,
+        'demo_mode',
+        "AskBuy is in demo mode. Real numbers can't receive codes yet.",
+      );
+    }
     const stored = await requestOtp(db, phone, {
       keepPlainCode: otpMode === 'simulated' && codeIsReadable(phone),
     });
@@ -82,7 +99,13 @@ export function identityRouter({
     const result = await verifyOtp(db, phone, code, role);
     if (!result) {
       log.info({ phoneMasked: maskPhone(phone) }, 'otp verification failed');
-      throw new ApiError(401, 'invalid_code', 'That code is wrong, expired or already used');
+      const left = await attemptsLeft(db, phone);
+      throw new ApiError(
+        401,
+        'invalid_code',
+        'That code is wrong, expired or already used',
+        left === null ? {} : { attemptsLeft: left },
+      );
     }
     log.info(
       { phoneMasked: maskPhone(phone), userId: result.user.id, role: result.user.role },
@@ -96,6 +119,15 @@ export function identityRouter({
     await revokeSession(db, sessionId);
     (req.log ?? logger).info({ userId: user.id }, 'logout');
     res.status(204).end();
+  });
+
+  // The numbers the login screens offer as chips: public ones only, for the asked role, no login.
+  router.get('/auth/demo-numbers', limit('inbox'), (req, res) => {
+    const { role } = parse(demoNumbersQuery, req.query);
+    res.json({
+      demo: otpMode === 'simulated',
+      numbers: publicDemoPhones[role].map((phone) => phone.slice(3)),
+    });
   });
 
   // Demo only: there is no SMS, so the code is read here. Never mounted in any other mode.
