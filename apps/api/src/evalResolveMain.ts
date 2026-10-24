@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { loadConfig } from './config/config.js';
 import { saveEmbeddings } from './evalEmbeddings.js';
 import { createProgress, isHoldoutSet } from './evalProgress.js';
+import { pinnedModelViolations, resolveEvalEnv } from './evalModel.js';
 import { createQuotaStop } from './evalQuota.js';
 import { createPool } from './db/pool.js';
 import {
@@ -66,7 +67,15 @@ for (const s of sets) {
   if (!(s in FILES)) throw new Error(`EVAL_SET: unknown set "${s}"`);
 }
 
-const config = loadConfig({ ...env, WORKERS_ENABLED: 'false' });
+// EVAL_MODEL=primary|fallback picks the model under test (GEMINI_MODEL, or the fallback model).
+// The automatic failover is off, so a run measures one model.
+const modelUnderTest = env['EVAL_MODEL'] ?? 'primary';
+if (modelUnderTest !== 'primary' && modelUnderTest !== 'fallback')
+  throw new Error(`EVAL_MODEL: "${modelUnderTest}"`);
+const config = loadConfig({
+  ...resolveEvalEnv(env, modelUnderTest),
+  WORKERS_ENABLED: 'false',
+});
 if (config.llmProvider !== 'gemini' || !config.geminiApiKey) {
   // A gate against the fake model would pass or fail for no reason that matters. Never skip quietly.
   const message =
@@ -511,6 +520,14 @@ try {
 
   const results = [];
   for (const set of sets) results.push(await runSet(set));
+
+  // Behind the switched-off failover: a call answered by any other model fails the run.
+  const foreign = await pinnedModelViolations(pool, {
+    resolve_query: config.geminiModel,
+    classify_item: config.geminiModel,
+  });
+  for (const f of foreign) console.error(`::error::eval not pinned: ${f}`);
+  if (foreign.length > 0) exitCode = 1;
 
   const markdown = renderMarkdown(results);
   mkdirSync(path.join(root, 'evals/reports'), { recursive: true });

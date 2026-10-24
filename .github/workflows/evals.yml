@@ -26,12 +26,12 @@ on:
         options: [resolve, agent]
         default: resolve
       set:
-        description: 'agent suite: the case file'
+        description: 'the case file (agent: errand cases; resolve: the dev sets, or the final gate set)'
         type: choice
         options: [dev, holdout]
         default: dev
       model:
-        description: 'agent suite: the primary model, or the fallback (gemini-3.5-flash-lite)'
+        description: 'both suites: the primary model, or the fallback (gemini-3.5-flash-lite); failover is off, a run measures one model'
         type: choice
         options: [primary, fallback]
         default: primary
@@ -104,8 +104,10 @@ jobs:
       - name: Run the resolve evals
         env:
           EVAL_DB: testcontainers
-          EVAL_SET: all
-          EVAL_GATE: '1'
+          # On a pull request: every set, with the gate. By hand: the chosen set (dev: no gate).
+          EVAL_SET: ${{ github.event_name == 'workflow_dispatch' && (inputs.set == 'dev' && 'dev' || 'holdout-v2') || 'all' }}
+          EVAL_GATE: ${{ github.event_name == 'workflow_dispatch' && inputs.set == 'dev' && '0' || '1' }}
+          EVAL_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || 'primary' }}
           LLM_PROVIDER: gemini
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           DATABASE_URL: postgres://unused@localhost/unused # not used with EVAL_DB=testcontainers

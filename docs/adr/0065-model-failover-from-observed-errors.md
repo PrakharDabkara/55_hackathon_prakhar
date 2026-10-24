@@ -17,6 +17,7 @@ F1 recorded what Google really sends. Three guesses were wrong: a 429 carries `Q
 7. **State is in memory** (`modules/ai/modelHealth.ts`), per model name, per process. `/admin/health/details` shows per role (chat, errand, embedding) the active model, the primary's state and the reason. Embeddings have no fallback model, so an exhausted or missing embedding model is skipped and callers keep the trigram path.
 8. **Both models unavailable:** `AiUnavailableError` as before.
 9. **Database and push:** app pools get `connectionTimeoutMillis` 15 s and `statement_timeout` 20 s (Neon wake is a few seconds, up to about 10); seed and embed scripts use `SCRIPT_POOL_OPTIONS` with no statement timeout; push sends stop after 10 s, log, and throw so the queue counts a failure.
+10. **Evals measure one model.** `resolveEvalEnv` and `errandEvalEnv` remove the fallback models, and both runners fail if `ai_calls` shows a call answered by another model than the target (`evalModel.ts`). The resolve suite takes `EVAL_MODEL=primary|fallback` like the agent suite.
 
 ## Alternatives rejected
 

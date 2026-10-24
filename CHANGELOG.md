@@ -17,6 +17,8 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 ### Fixed (failure modes, R2, ADR-0065)
 
 - Gemini: failover from the observed errors. A per-minute 429 waits the full `retryDelay` when it fits the call's budget, else the fallback answers; an oversize input-token 429 is never retried; a daily 429 marks the model exhausted until its reset (or midnight Pacific); a retired model (404) is unavailable until restart; dropped connections now reach the fallback. Every failure logs `quotaId` and `retryDelaySec`; each switch logs one warn with the request id. `/admin/health/details` shows per role the active model, the primary's state and why.
+- Privacy guard: the email and coordinate patterns backtracked quadratically (80 kB of one unbroken token took 3 s; 10 kB took about 50 ms, and error text in the logs goes through the same patterns). The email local part is capped at 64 characters (RFC 5321) and the coordinate separator no longer splits a space run two ways; same detections on 200,000 random inputs.
+- Evals: the resolve suite takes `EVAL_MODEL=primary|fallback` (workflow input `model`, and `set` by hand); failover is off in both eval suites and a run fails if any call was answered by another model than the one under test.
 - `withDemoLock` has an error listener, like `withTransaction`.
 - Postgres pool: 15 s connect and 20 s statement timeouts for the API; scripts have none.
 - Push sends time out after 10 s and count as failed.

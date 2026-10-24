@@ -8,6 +8,7 @@ import { createProgress, isHoldoutSet } from './evalProgress.js';
 import { createQuotaStop } from './evalQuota.js';
 import { loadErrandCases } from './evalErrand/cases.js';
 import { errandEvalEnv } from './evalErrand/model.js';
+import { pinnedModelViolations } from './evalModel.js';
 import { pacedProvider } from './evalErrand/pace.js';
 import { prepareCatalog } from './evalErrand/prepare.js';
 import { runErrandEval } from './evalErrand/run.js';
@@ -202,6 +203,15 @@ try {
       env['GITHUB_STEP_SUMMARY'],
       `### Agent evals (${set}, ${which})\n\n${markdown}${extra}`,
     );
+
+  // Behind the switched-off failover: a call answered by any other model fails the run.
+  const foreign = await pinnedModelViolations(pool, {
+    errand: config.errandModel,
+    resolve_query: config.geminiModel,
+    classify_item: config.geminiModel,
+  });
+  for (const f of foreign) console.error(`::error::eval not pinned: ${f}`);
+  if (foreign.length > 0) exitCode = 1;
 
   const verdict = checkErrandGates(summary);
   if (set === 'holdout') {
