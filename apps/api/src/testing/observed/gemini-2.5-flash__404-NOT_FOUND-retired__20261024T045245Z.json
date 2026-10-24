@@ -1,0 +1,32 @@
+{
+  "source": "scripts/probe/gemini-quota-probe.sh",
+  "observed": "real",
+  "model": "gemini-2.5-flash",
+  "observedAt": "2026-10-24T04:52:45Z",
+  "callNumber": 1,
+  "secondsIntoRun": 0,
+  "status": 404,
+  "headers": [
+    "HTTP/2 404 ",
+    "vary: X-Origin",
+    "vary: Referer",
+    "vary: Origin,Accept-Encoding",
+    "content-type: application/json; charset=UTF-8",
+    "date: Sat, 24 Oct 2026 04:52:45 GMT",
+    "server: scaffolding on HTTPServer2",
+    "x-xss-protection: 0",
+    "x-frame-options: SAMEORIGIN",
+    "x-content-type-options: nosniff",
+    "server-timing: gfet4t7; dur=336",
+    "alt-svc: h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+    "accept-ranges: none"
+  ],
+  "body": {
+    "error": {
+      "code": 404,
+      "message": "This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://ai.google.dev/gemini-api/docs/get-started).",
+      "status": "NOT_FOUND"
+    }
+  },
+  "kind": "404-NOT_FOUND-retired"
+}

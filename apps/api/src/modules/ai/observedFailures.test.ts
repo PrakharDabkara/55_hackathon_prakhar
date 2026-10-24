@@ -175,8 +175,15 @@ describe('the network and timeout errors seen in CI', () => {
 
 /** Fixtures written by the probe scripts: raw status, headers and body, as Google sent them. */
 const probeFiles = existsSync(observedDir)
-  ? readdirSync(observedDir).filter((f) => /^gemini-(\d|free-)/.test(f))
+  ? readdirSync(observedDir).filter((f) => {
+      if (!f.endsWith('.json')) return false;
+      const fixture = read(f) as { source?: string; status?: unknown };
+      return (
+        (fixture.source ?? '').startsWith('scripts/probe/') && typeof fixture.status === 'number'
+      );
+    })
   : [];
+const ofKind = (kind: string) => probeFiles.find((f) => read(f).kind === kind);
 
 describe.skipIf(probeFiles.length === 0)('raw responses captured by scripts/probe', () => {
   it.each(probeFiles)('%s: our handling follows what Google said', async (file) => {
@@ -196,10 +203,10 @@ describe.skipIf(probeFiles.length === 0)('raw responses captured by scripts/prob
     if (f.perDay) expect(new QuotaWatch().failure(error)).toMatch(/daily quota/);
   });
 
-  it.skipIf(!probeFiles.includes('gemini-429-per-day.json'))(
+  it.skipIf(!ofKind('429-per-day'))(
     'a real per-day 429 is recognised as per-day, so nothing is retried',
     async () => {
-      const fixture = read('gemini-429-per-day.json');
+      const fixture = read(ofKind('429-per-day') as string);
       const error = await harness([fail(sdkHttpError(429, fixture.body))])
         .provider.generateJson(generate)
         .catch((e) => e);
@@ -207,10 +214,10 @@ describe.skipIf(probeFiles.length === 0)('raw responses captured by scripts/prob
     },
   );
 
-  it.skipIf(!probeFiles.includes('gemini-429-per-minute.json'))(
+  it.skipIf(!ofKind('429-per-minute'))(
     'a real per-minute 429 is not per-day, and its retry delay is used when Google gave one',
     async () => {
-      const fixture = read('gemini-429-per-minute.json');
+      const fixture = read(ofKind('429-per-minute') as string);
       const error = await harness([fail(sdkHttpError(429, fixture.body))])
         .provider.generateJson(generate)
         .catch((e) => e);

@@ -3,74 +3,43 @@
 # quota code (modules/ai/quota.ts, failure.ts, client.ts) is tested against the real body.
 #
 # RUN IT WITH THE EVALS PROJECT KEY ONLY. Never the production key, never the local-dev key.
-#   scripts/probe/gemini-quota-probe.sh [model]        (default: gemini-2.5-flash-lite)
+#   scripts/probe/gemini-quota-probe.sh <model>
+# Pick the model from scripts/probe/gemini-list-models.sh: available, unused, and with a small free
+# daily limit (20 requests a day is ideal). There is no default: a retired model only answers 404.
 #
 # What it does, at most 25 tiny generateContent calls in total (about 10 tokens each):
 #   1. up to 12 calls back to back inside one minute, to catch the per-minute 429;
 #   2. then one call every 5 s until 25 calls in all, to catch the per-day 429. After a per-minute
 #      429 it waits the retry delay Google asked for (at most 65 s) first.
 #   It stops at the first daily 429, prints the status, error.status, details and headers of each
-#   kind of failure, and saves the first of each kind, redacted, to apps/api/src/testing/observed/.
+#   kind of failure, and saves the first of each kind, redacted, as
+#   apps/api/src/testing/observed/<model>__<kind>__<timestamp>.json. It never overwrites a file.
 #
-# The model must NOT be one our deployment or evals use (render.yaml, the workflows, the eval and
-# config files): spending its quota would break something. The key is read with `read -rs` (or
-# taken from GEMINI_PROBE_KEY), goes to curl through stdin only, and is stripped from everything
-# printed or saved. If the model's real limit is above 25 calls a day you will see no 429 at all:
-# the script says so. That is a result, not a failure. Pick a model with a smaller free quota then.
+# The model must NOT be one our deployment or evals use: spending its quota would break something.
+# The key is read with `read -rs` (or taken from GEMINI_PROBE_KEY), goes to curl through stdin only,
+# and is stripped from everything printed or saved. If the model's real limit is above 25 calls a
+# day you will see no 429 at all: the script says so. Pick a model with a smaller free quota then.
 set -u
-MODEL="${1:-gemini-2.5-flash-lite}"
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="${PROBE_OUT_DIR:-$ROOT/apps/api/src/testing/observed}"
+. "$(dirname "$0")/lib.sh"
+MODEL="${1:-}"
+if [ -z "$MODEL" ]; then
+  echo "usage: $0 <model>   (see scripts/probe/gemini-list-models.sh)" >&2
+  exit 2
+fi
 MAX_CALLS=25
 BURST_CALLS=12
-HOST="generativelanguage.googleapis.com"
 
-case "$MODEL" in
-  "" | *[!a-z0-9.-]*)
-    echo "refused: the model name may only contain a-z, 0-9, '.' and '-'" >&2
-    exit 2
-    ;;
-esac
+probe_require_unused_model "$MODEL"
+probe_read_key
 
-# Refuse a model the deployment, the workflows or the evals name. Whole-word match, so
-# gemini-3.5-flash is not refused because gemini-3.5-flash-lite is named (and the reverse).
-used=$(grep -rhoE "gemini-[a-z0-9.-]+" \
-  "$ROOT/render.yaml" "$ROOT/.github/workflows" "$ROOT/evals" \
-  "$ROOT/apps/api/src/config/config.ts" "$ROOT/.env.example" "$ROOT/docker-compose.yml" \
-  --exclude-dir=reports --exclude-dir=.cache 2>/dev/null | sort -u)
-if printf '%s\n' "$used" | grep -qxF -- "$MODEL"; then
-  echo "refused: $MODEL is named in render.yaml, the workflows, the evals or the config." >&2
-  echo "Models in use: $(printf '%s' "$used" | tr '\n' ' ')" >&2
-  exit 2
-fi
-
-KEY="${GEMINI_PROBE_KEY:-}"
-if [ -z "$KEY" ]; then
-  echo "Paste the EVALS PROJECT Gemini key (not production, not local dev). Nothing is shown." >&2
-  read -rs KEY || { echo "no key read" >&2; exit 2; }
-  echo >&2
-fi
-# Both formats Google issues: the classic AIza + 35 characters, and the newer AQ. + 40 to 80.
-if ! [[ "$KEY" =~ ^AIza[0-9A-Za-z_-]{35}$ || "$KEY" =~ ^AQ\.[0-9A-Za-z_-]{40,80}$ ]]; then
-  echo "refused: that does not look like a Gemini API key (AIza... or AQ....)" >&2
-  exit 2
-fi
-
-mkdir -p "$OUT"
+mkdir -p "$PROBE_OUT"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# Everything that leaves this script passes through here: the key itself, anything key-shaped, and
-# the project number Google puts in some error links.
-redact() {
-  local text
-  text=$(cat)
-  text=${text//"$KEY"/[key]}
-  printf '%s' "$text" | sed -E 's/AIza[A-Za-z0-9_-]{10,}/[key]/g; s/AQ\.[A-Za-z0-9_-]{10,}/[key]/g; s#projects/[0-9]+#projects/[project]#g; s/"projectNumber": *"[0-9]+"/"projectNumber": "[project]"/g'
-}
+redact() { probe_redact; }
 
 BODY='{"contents":[{"parts":[{"text":"Reply with the word ok."}]}],"generationConfig":{"maxOutputTokens":4,"temperature":0}}'
-URL="https://$HOST/v1beta/models/$MODEL:generateContent"
+URL="https://$PROBE_HOST/v1beta/models/$MODEL:generateContent"
 
 CALLS=0
 SAVED=""
@@ -102,13 +71,14 @@ report_failure() { # prints the failure and saves the first of each kind
   jq . "$TMP/body" 2>/dev/null | redact || redact <"$TMP/body"
   if ! printf '%s' "$SAVED" | grep -qF -- "|$kind|"; then
     SAVED="$SAVED|$kind|"
-    local file="$OUT/gemini-$kind.json"
-    jq -n --arg model "$MODEL" --arg at "$(date -u +%FT%TZ)" --argjson status "$STATUS" \
+    local file
+    file="$(probe_fixture_path "$MODEL" "$kind")"
+    jq -n --arg model "$MODEL" --arg kind "$kind" --arg at "$(date -u +%FT%TZ)" --argjson status "$STATUS" \
       --argjson call "$CALLS" --arg elapsed "$(($(date +%s) - STARTED))" \
       --rawfile headers <(tr -d '\r' <"$TMP/headers" | grep -viE '^(set-cookie|x-goog-api-key|authorization):' | redact) \
       --slurpfile body <(redact <"$TMP/body") \
-      '{source:"scripts/probe/gemini-quota-probe.sh", observed:"real", model:$model, observedAt:$at,
-        callNumber:$call, secondsIntoRun:($elapsed|tonumber), status:$status,
+      '{source:"scripts/probe/gemini-quota-probe.sh", observed:"real", model:$model, kind:$kind,
+        observedAt:$at, callNumber:$call, secondsIntoRun:($elapsed|tonumber), status:$status,
         headers:($headers|split("\n")|map(select(length>0))), body:$body[0]}' >"$file" 2>/dev/null &&
       echo "saved $file" || echo "(could not save a fixture for $kind)"
   fi
@@ -144,4 +114,4 @@ if [ "$FAILS" = 0 ]; then
   echo "No 429 at all: this model's free limits are above $MAX_CALLS calls a day and $BURST_CALLS a minute."
   echo "Rerun with a model with a smaller free quota that no deployment or eval names."
 fi
-echo "Review $OUT/gemini-*.json before committing; each is redacted, but read it."
+echo "Review $PROBE_OUT/*.json before committing; each is redacted, but read it."

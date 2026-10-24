@@ -96,6 +96,13 @@ const day429 = {
   },
 };
 
+/** The fixture a run wrote for `kind`: <model>__<kind>__<timestamp>.json. */
+const saved = (d: string, kind: string) => {
+  const found = readdirSync(join(d, 'out')).filter((f) => f.includes(`__${kind}__`));
+  expect(found).toHaveLength(1);
+  return join(d, 'out', found[0] as string);
+};
+
 let dir = '';
 afterEach(() => {
   if (dir) spawnSync('rm', ['-rf', dir]);
@@ -157,9 +164,9 @@ describe('scripts/probe/gemini-quota-probe.sh', () => {
     const d = fresh();
     const other = minute429For(AQ_KEY);
     const r = run(['gemini-2.5-flash-lite'], d, fakeCurl(d, [other, day429]).bin);
-    const saved = readFileSync(join(d, 'out', 'gemini-429-per-minute.json'), 'utf8');
-    expect(r.stdout + saved).not.toMatch(/AQ\.[\w-]{10,}/);
-    expect(r.stdout + saved).not.toMatch(/AIza[\w-]{10,}/);
+    const text = readFileSync(saved(d, '429-per-minute'), 'utf8');
+    expect(r.stdout + text).not.toMatch(/AQ\.[\w-]{10,}/);
+    expect(r.stdout + text).not.toMatch(/AIza[\w-]{10,}/);
   });
 
   it('refuses a value that is not shaped like a key', () => {
@@ -178,15 +185,18 @@ describe('scripts/probe/gemini-quota-probe.sh', () => {
     expect(curl.calls()).toBe(5); // stopped at the first daily 429: the sixth answer is never asked for
     expect(r.stdout).toContain('daily 429 reached');
     const files = readdirSync(join(d, 'out')).sort();
-    expect(files).toEqual(['gemini-429-per-day.json', 'gemini-429-per-minute.json']);
-    const minute = JSON.parse(readFileSync(join(d, 'out', 'gemini-429-per-minute.json'), 'utf8'));
+    expect(files).toHaveLength(2);
+    expect(files.every((f) => f.startsWith('gemini-2.5-flash-lite__'))).toBe(true);
+    expect(files.some((f) => /__429-per-day__\d{8}T\d{6}Z\.json$/.test(f))).toBe(true);
+    expect(files.some((f) => /__429-per-minute__\d{8}T\d{6}Z\.json$/.test(f))).toBe(true);
+    const minute = JSON.parse(readFileSync(saved(d, '429-per-minute'), 'utf8'));
     expect(minute).toMatchObject({
       status: 429,
       observed: 'real',
       body: { error: { status: 'RESOURCE_EXHAUSTED' } },
     });
     expect(minute.headers).toContain('retry-after: 3');
-    const day = readFileSync(join(d, 'out', 'gemini-429-per-day.json'), 'utf8');
+    const day = readFileSync(saved(d, '429-per-day'), 'utf8');
     expect(day).toContain('projects/[project]');
     expect(day).not.toContain('123456789012');
   });
@@ -225,6 +235,30 @@ describe('scripts/probe/gemini-quota-probe.sh', () => {
     ]);
     run(['gemini-2.5-flash-lite'], d, curl.bin);
     expect(curl.calls()).toBe(1);
-    expect(readdirSync(join(d, 'out'))).toEqual(['gemini-400-INVALID_ARGUMENT.json']);
+    expect(readdirSync(join(d, 'out'))).toHaveLength(1);
+    expect(saved(d, '400-INVALID_ARGUMENT')).toContain('__400-INVALID_ARGUMENT__');
+  });
+});
+
+describe('fixtures are never overwritten', () => {
+  it("a second run keeps the first run's file and writes its own", () => {
+    const d = fresh();
+    const answers = [minute429, day429];
+    run(['gemini-2.5-flash-lite'], d, fakeCurl(d, answers).bin);
+    const first = readdirSync(join(d, 'out')).sort();
+    spawnSync('rm', ['-rf', join(d, 'state')]);
+    run(['gemini-2.5-flash-lite'], d, fakeCurl(d, answers).bin);
+    const second = readdirSync(join(d, 'out'));
+    expect(second).toHaveLength(first.length * 2);
+    for (const f of first) expect(second).toContain(f);
+  });
+});
+
+describe('a model no one may spend', () => {
+  it('has no default: running without a model is a usage error', () => {
+    const d = fresh();
+    const r = run([], d, fakeCurl(d, [ok]).bin);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain('usage');
   });
 });
