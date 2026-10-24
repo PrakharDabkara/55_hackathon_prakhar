@@ -11,6 +11,7 @@ import '../customer/find.css';
 import '../customer/lists.css';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
+import { declineDemoArea, DEMO_PLACE, demoAreaDeclined } from '../lib/demoPlace.js';
 import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
 import { resumableErrand } from '../lib/errand.js';
 import type { ListView } from '../lib/listApi.js';
@@ -45,8 +46,8 @@ import { Switch } from '../ui/Switch.js';
 
 const MIN_ADDRESS = 5;
 
-/** Indore, Rajwada: the demo works anywhere because the shops are simulated around here. */
-const DEMO = { lat: 22.7196, lng: 75.8577 };
+/** The demo works anywhere because the shops are simulated around here (and demo accounts start here). */
+const DEMO = DEMO_PLACE;
 
 interface Props {
   api: SeekerApi;
@@ -149,6 +150,10 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
   const [loginOpen, setLoginOpen] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
   const [locationNote, setLocationNote] = useState<string | null>(null);
+  /** A demo account searches from the demo place until it presses Change (X-01). */
+  const [demoArea, setDemoArea] = useState(false);
+  const demoPlace = useRef<{ lat: number; lng: number } | null>(null);
+  const typedPlace = useRef({ lat: draft.lat, lng: draft.lng });
   const [online, setOnline] = useState(() => navigator.onLine !== false);
   /** Set by "Find nearby" or the photo button: whether the login should end in a send. */
   const sendAfterLogin = useRef(false);
@@ -161,6 +166,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
   const sent = useRef(false);
   /** The customer chose "Something else": their next search is a change of what we understood. */
   const rewrote = useRef(false);
+
+  typedPlace.current = { lat, lng };
 
   const hasSaved = saved?.id != null && saved.addressText != null;
   const usingSaved = hasSaved && !changingAddress;
@@ -247,6 +254,43 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
     };
   }, [api, wantsDelivery, loggedIn]);
 
+  /**
+   * A demo account (a number on DEMO_PLACE's list) starts in the demo area, so a judge in another city
+   * still sees shops. Not for anyone who chose a place of their own, or pressed Change this session.
+   */
+  function checkDemoAccount(): Promise<void> {
+    if (demoAreaDeclined()) return Promise.resolve();
+    return api.account().then(
+      (account) => {
+        const { lat: typedLat, lng: typedLng } = typedPlace.current;
+        const chosen = typedLat !== '' || typedLng !== '';
+        const alreadyDemo = Number(typedLat) === DEMO.lat && Number(typedLng) === DEMO.lng;
+        if (account.demo !== true || (chosen && !alreadyDemo)) return;
+        demoPlace.current = { lat: DEMO.lat, lng: DEMO.lng };
+        setLat(String(DEMO.lat));
+        setLng(String(DEMO.lng));
+        setDemoArea(true);
+      },
+      () => undefined,
+    );
+  }
+
+  useEffect(() => {
+    if (loggedIn) void checkDemoAccount();
+    // Once per login: the account does not change under the screen.
+  }, [api, loggedIn]);
+
+  /** "Change" on the banner: the phone's own location, or any other place, for the rest of the session. */
+  function leaveDemoArea() {
+    declineDemoArea();
+    demoPlace.current = null;
+    setDemoArea(false);
+    setLat('');
+    setLng('');
+    setLocationNote(null);
+    setLocationOpen(true);
+  }
+
   const newest = [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
 
   function useDemo() {
@@ -293,6 +337,10 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
     try {
       let latValue = coordinate(lat, 90);
       let lngValue = coordinate(lng, 180);
+      if ((latValue === null || lngValue === null) && demoPlace.current) {
+        latValue = demoPlace.current.lat;
+        lngValue = demoPlace.current.lng;
+      }
       if (latValue === null || lngValue === null) {
         const found = await locate();
         if (!found) {
@@ -375,6 +423,10 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
     try {
       let latValue = coordinate(lat, 90);
       let lngValue = coordinate(lng, 180);
+      if ((latValue === null || lngValue === null) && demoPlace.current) {
+        latValue = demoPlace.current.lat;
+        lngValue = demoPlace.current.lng;
+      }
       if (latValue === null || lngValue === null) {
         const found = await locate();
         if (!found) {
@@ -472,7 +524,8 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
     }
     if (sendAfterLogin.current) {
       sendAfterLogin.current = false;
-      void (mode === 'list' ? submitList() : send());
+      // A demo number is found out first, so its first search already starts in the demo area.
+      void checkDemoAccount().then(() => (mode === 'list' ? submitList() : send()));
     }
   }
 
@@ -542,6 +595,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
             <Icon name="pin" size={18} />
             {c.findNearYou}
           </button>
+          {demoArea && (
+            <p className="sh-helper cu-find__demoarea" role="status">
+              <span>{c.demoAreaBanner(DEMO_PLACE.label)}</span>
+              <span aria-hidden="true"> · </span>
+              <Button variant="quiet" onClick={leaveDemoArea}>
+                {c.demoAreaChange}
+              </Button>
+            </p>
+          )}
 
           <h1 className="sh-title">{c.findTitle}</h1>
 

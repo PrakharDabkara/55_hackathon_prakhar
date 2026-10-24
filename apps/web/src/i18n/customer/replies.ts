@@ -11,6 +11,7 @@ export interface RepliesStrings {
   noShopsWords: string;
   noShopsWider: (km: string) => string;
   noShopsWiderFailed: string;
+  noShopsDemo: string;
   /** Nobody was asked because remembered shops already answer. */
   knownTitle: string;
   knownHelp: string;
@@ -86,7 +87,8 @@ export const repliesEn: RepliesStrings = {
   noShopsHelp: 'Try different words, or look in a wider area.',
   noShopsWords: 'Try different words',
   noShopsWider: (km) => `Search ${km} km`,
-  noShopsWiderFailed: "Couldn't search a wider area. Check your connection and try again.",
+  noShopsWiderFailed: "Couldn't search again. Check your connection and try again.",
+  noShopsDemo: 'Use the demo area (Indore)',
   knownTitle: 'Nobody was asked this time',
   knownHelp:
     'We already knew these shops had it recently, so no one was pinged. They are listed below.',
@@ -169,7 +171,8 @@ export const repliesHi: RepliesStrings = {
   noShopsHelp: 'Doosre shabd try karein, ya bada ilaaka dekhein.',
   noShopsWords: 'Doosre shabd try karein',
   noShopsWider: (km) => `${km} km mein dhundhein`,
-  noShopsWiderFailed: 'Bada ilaaka nahi dekh paye. Internet check karke dobara try karein.',
+  noShopsWiderFailed: 'Dobara nahi dhundh paye. Internet check karke dobara try karein.',
+  noShopsDemo: 'Demo ilaaka (Indore) istemal karein',
   knownTitle: 'Is baar kisi se poocha nahi',
   knownHelp:
     'Hum pehle se jaante the ki in dukaanon ke paas thi, isliye poocha nahi. Neeche dekhein.',

@@ -4,6 +4,7 @@ import { ReplyCard, RememberedCard } from '../components/ReplyCard.js';
 import { StopAskingSheet } from '../components/StopAskingSheet.js';
 import { RequestParchi } from '../components/RequestParchi.js';
 import { ResultsMap } from '../components/ResultsMap.js';
+import { DEMO_PLACE, inDemoArea } from '../lib/demoPlace.js';
 import { ScreenBar } from '../customer/ScreenBar.js';
 import { useT } from '../i18n/index.js';
 import type { LiveOptions } from '../lib/live.js';
@@ -148,16 +149,24 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
     request.wantsDelivery !== true &&
     !!request.typed?.trim();
 
-  async function searchWider() {
-    if (!origin || !request.typed) return;
+  /** The demo area is offered to anyone who is somewhere else (or whose place is not known). */
+  const canDemo =
+    askedNobody &&
+    request.wantsDelivery !== true &&
+    !!request.typed?.trim() &&
+    !(origin !== null && inDemoArea(origin));
+
+  /** Asks the same words again from another place, or over a wider area, and opens that search. */
+  async function searchAgain(place: { lat: number; lng: number }, radiusM?: number) {
+    if (!request.typed) return;
     setWidening(true);
     setWideFailed(false);
     try {
       const next = await api.createRequest({
         q: request.typed,
-        lat: origin.lat,
-        lng: origin.lng,
-        radiusM: WIDE_RADIUS_M,
+        lat: place.lat,
+        lng: place.lng,
+        ...(radiusM !== undefined && { radiusM }),
       });
       navigate(`/app/request/${next.id}`);
     } catch {
@@ -250,8 +259,21 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
                 <Button variant="secondary" onClick={onDone}>
                   {t.c.noShopsWords}
                 </Button>
+                {canDemo && (
+                  <Button
+                    variant="secondary"
+                    disabled={widening}
+                    onClick={() => void searchAgain(DEMO_PLACE)}
+                  >
+                    {t.c.noShopsDemo}
+                  </Button>
+                )}
                 {canWiden && (
-                  <Button variant="solid" disabled={widening} onClick={() => void searchWider()}>
+                  <Button
+                    variant="solid"
+                    disabled={widening}
+                    onClick={() => origin && void searchAgain(origin, WIDE_RADIUS_M)}
+                  >
                     {t.c.noShopsWider(km(WIDE_RADIUS_M))}
                   </Button>
                 )}

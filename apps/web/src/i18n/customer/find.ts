@@ -6,6 +6,9 @@ export interface FindStrings {
   findLocationTitle: string;
   findUseMyLocation: string;
   findUseDemo: string;
+  /** The banner on Find for a demo account, and its button to use the real location instead. */
+  demoAreaBanner: (place: string) => string;
+  demoAreaChange: string;
   findLocationOk: string;
   findDemoOk: string;
   findLocationFailed: string;
@@ -79,6 +82,8 @@ export const findEn: FindStrings = {
   findLocationTitle: 'Change location',
   findUseMyLocation: 'Use my location',
   findUseDemo: 'Use demo location (Indore)',
+  demoAreaBanner: (place) => `Demo area: ${place}`,
+  demoAreaChange: 'Change',
   findLocationOk: 'Location set from your phone.',
   findDemoOk: 'Demo location set (Indore).',
   findLocationFailed: "Couldn't get your location. Enter it below.",
@@ -151,6 +156,8 @@ export const findHi: FindStrings = {
   findLocationTitle: 'Location badlein',
   findUseMyLocation: 'Meri location use karein',
   findUseDemo: 'Demo location (Indore)',
+  demoAreaBanner: (place) => `Demo ilaaka: ${place}`,
+  demoAreaChange: 'Badlein',
   findLocationOk: 'Phone se location mil gayi.',
   findDemoOk: 'Demo location lag gayi (Indore).',
   findLocationFailed: 'Location nahi mili. Neeche khud likhein.',

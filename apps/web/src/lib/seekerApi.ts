@@ -271,7 +271,7 @@ export interface SeekerApi
   collectOrder(id: string): Promise<SeekerOrder>;
   forgetAddress(): Promise<void>;
   /** Who the customer is, as the Account screen may show it: the phone partly hidden. */
-  account(): Promise<{ phoneMasked: string | null }>;
+  account(): Promise<{ phoneMasked: string | null; demo?: boolean }>;
   /** Ends this login on the server, and forgets this browser's alerts if its endpoint is given. */
   logout(pushEndpoint?: string | null): Promise<void>;
   /** Ends every login of this account, forgets all alerts and closes live streams (ADR-0060). */
@@ -395,7 +395,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, RECENT_COUNT);
     },
-    account: () => call<{ phoneMasked: string | null }>('GET', '/account'),
+    account: () => call<{ phoneMasked: string | null; demo?: boolean }>('GET', '/account'),
     async logout(pushEndpoint) {
       await call('POST', '/account/logout', pushEndpoint ? { pushEndpoint } : {});
     },

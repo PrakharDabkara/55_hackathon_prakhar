@@ -143,7 +143,7 @@ export function createApp({
       ipLimitStore,
     }),
   );
-  app.use(accountRouter({ db, logger, realtime }));
+  app.use(accountRouter({ db, logger, realtime, demoPhones: config.demoPhones }));
   app.use(realtimeRouter({ db, realtime }));
   // Without ADMIN_TOKEN there is no admin, so these routes are not mounted at all (404).
   if (config.adminToken) {

@@ -5,6 +5,7 @@ export {
   isCategory,
 } from './categories.js';
 export type { Category } from './categories.js';
+export { DEMO_PLACE } from './demoPlace.js';
 export { indianMobile } from './phone.js';
 export { ROLES } from './roles.js';
 export type { Role } from './roles.js';

@@ -1,7 +1,7 @@
-import type { Category } from '@askbuy/shared';
+import { DEMO_PLACE, type Category } from '@askbuy/shared';
 
-/** The demo place everything is laid out around: Vijay Nagar, Indore. */
-export const DEMO_PLACE = { lat: 22.7196, lng: 75.8577, label: 'Vijay Nagar, Indore' } as const;
+/** The demo place everything is laid out around: Vijay Nagar, Indore (shared with the web app). */
+export { DEMO_PLACE };
 
 const M_PER_DEG_LAT = 111_320;
 /** A point this many metres east and north of the demo place, to 5 decimals (about a metre). */
