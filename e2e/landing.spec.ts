@@ -9,7 +9,7 @@ test('"/" returns 200 and shows the headline', async ({ page }) => {
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: 'Buy from the shops you trust, right around the corner.',
+      name: "Let's lift your shutter online!",
     }),
   ).toBeVisible();
 });
@@ -89,7 +89,7 @@ test('every visible link and button is at least 44 px tall', async ({ page }) =>
     await page.setViewportSize(size);
     await page.goto('/');
     const small = await page
-      .locator('a.lp-btn, nav a, header a, header button')
+      .locator('a.lp-btn:not(.lp-header__cta), nav a, header a:not(.lp-header__cta), header button')
       .evaluateAll((els) =>
         els
           .map((e) => ({ t: e.textContent?.trim(), r: e.getBoundingClientRect() }))
@@ -100,16 +100,29 @@ test('every visible link and button is at least 44 px tall', async ({ page }) =>
   }
 });
 
-test('the phone header is one compact row and the button is smaller than the wordmark (L-09, L-13)', async ({
+test('the header button matches the wordmark and stays one compact row (round 1b)', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/');
   const header = await page.locator('.lp-header').boundingBox();
   expect(header?.height ?? 999).toBeLessThanOrEqual(64);
-  const brand = await page.locator('.lp-brand').boundingBox();
+  const style = await page.evaluate(() => {
+    const b = getComputedStyle(document.querySelector('.lp-brand') as Element);
+    const c = getComputedStyle(document.querySelector('.lp-header__cta') as Element);
+    return { bf: b.fontSize, bw: b.fontWeight, cf: c.fontSize, cw: c.fontWeight };
+  });
+  expect(style.cf).toBe(style.bf);
+  expect(style.cw).toBe(style.bw);
   const cta = await page.locator('.lp-header__cta').boundingBox();
-  expect(cta?.width ?? 999).toBeLessThan(brand?.width ?? 0);
+  expect(cta?.height ?? 0).toBeGreaterThanOrEqual(40);
+  expect(cta?.height ?? 99).toBeLessThanOrEqual(44);
+});
+
+test('the header link order is For shops, For buyers, Demo', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  await expect(page.locator('.lp-nav a')).toHaveText(['For shops', 'For buyers', 'Demo']);
 });
 
 test('the shop replies line up under the parchi on a phone (L-12)', async ({ page }) => {
@@ -117,7 +130,7 @@ test('the shop replies line up under the parchi on a phone (L-12)', async ({ pag
   await page.goto('/');
   const centre = (b: { x: number; width: number } | null) => (b ? b.x + b.width / 2 : -1);
   const groups = await page.locator('.lp-replies').all();
-  expect(groups.length).toBe(2); // the hero and the buyers band
+  expect(groups.length).toBe(2); // the buyers intro and the compare band
   for (const group of groups) {
     const slip = centre(await group.locator('.lp-slip').boundingBox());
     for (const reply of await group.locator('.lp-reply').all())

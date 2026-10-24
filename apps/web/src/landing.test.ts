@@ -26,59 +26,80 @@ describe('landing.html', () => {
     expect(html).toMatch(/<link rel="icon" type="image\/svg\+xml"/);
   });
 
-  it('says what the round-1 copy says', () => {
+  it('says what the round-1b copy says', () => {
     for (const line of [
-      'Buy from the shops you trust, right around the corner.', // L-05
+      "Let's lift your shutter online!",
+      'Nearby buyers send what they need. You reply with your price.',
+      'No catalogue and no inventory sheet needed.',
+      'Buy from the shops you trust, right around the corner.',
       'Ask once. Nearby shops reply with their price and stock.',
-      'compare the prices from every nearby shop and pick the best', // L-10
+      'compare the prices from every nearby shop and pick the best',
       'no walking to ten shops',
-      'An AI agent that plans your errand', // L-06
+      'An AI agent that plans your errand',
       'party supplies for Sunday',
       'the fewest shops and the shortest route',
       'nothing is ordered until you choose',
       'Never guesses prices',
-      'No catalogue. No inventory sheet.', // L-01
-      'Your stock list builds itself as you answer requests and sell.',
-      'Get your shop online in a few easy steps', // L-08
+      'No catalogue. No inventory sheet. Your stock list builds itself as you answer requests and sell.',
+      'Get your shop online in a few easy steps',
       'Log in with your phone number',
       'Put your shop on the map',
       'Answer from the counter',
       'Lists, packed right',
       'Try it now',
-      '© 2026 Prakhar Dabkara', // L-04
+      '© 2026 Prakhar Dabkara',
     ])
       expect(text, line).toContain(line);
   });
 
-  it('drops what the round-1 test asked to drop', () => {
-    expect(text).not.toContain('Lift your shutter'); // L-05
-    expect(text).not.toContain('Customers stay private'); // L-07
-    expect(text).not.toContain('Open your shop in three steps'); // L-08
-    expect(text).not.toContain('Prakhar Kirana'); // L-02
-    expect(text).not.toMatch(/hackathon/i); // L-04
-    expect(text).not.toMatch(/javitri|masala|maida|mirchi|biryani|kirana/i); // L-11
+  it('drops what the rounds asked to drop', () => {
+    expect(text).not.toContain('Lift your shutter online in a minute');
+    expect(text).not.toContain('Customers stay private');
+    expect(text).not.toContain('Open your shop in three steps');
+    expect(text).not.toContain('Prakhar Kirana');
+    expect(text).not.toMatch(/hackathon/i);
+    expect(text).not.toMatch(/javitri|masala|maida|mirchi|biryani|kirana/i);
   });
 
-  it('uses cheap everyday items with rupee prices (L-11)', () => {
+  it('uses cheap everyday items with rupee prices', () => {
     expect(text).toMatch(/AA batteries/);
+    expect(text).toMatch(/Bottle brush/i);
     expect(text).toMatch(/₹\d+/);
     expect(text).toContain('Sharma General Store');
   });
 
-  it('is buyer-first: hero, buyers, AI agent, then the shop sections (follow-up)', () => {
+  it('is shop-first: shop hero, steps, why, then the buyer sections, AI, try (round 1b)', () => {
     const at = (id: string) => html.indexOf(`id="${id}"`);
-    expect(at('buyers')).toBeGreaterThan(html.indexOf('lp-hero'));
-    expect(at('buyers')).toBeLessThan(at('ai'));
-    expect(at('ai')).toBeLessThan(at('why'));
-    expect(at('why')).toBeLessThan(at('how'));
-    expect(at('how')).toBeLessThan(at('try'));
+    expect(html.indexOf('lp-hero')).toBeLessThan(at('how'));
+    expect(at('how')).toBeLessThan(at('why'));
+    expect(at('why')).toBeLessThan(at('buyers'));
+    expect(at('buyers')).toBeLessThan(at('compare'));
+    expect(at('compare')).toBeLessThan(at('ai'));
+    expect(at('ai')).toBeLessThan(at('try'));
   });
 
-  it('shows the buyer view in the hero, not the shop app', () => {
-    const hero = html.slice(html.indexOf('lp-hero'), html.indexOf('id="buyers"'));
-    expect(hero).toContain('lp-replies');
-    expect(hero).toContain('Bottle brush');
-    expect(hero).not.toMatch(/Send answer|Your price|New request nearby/);
+  it('orders the header links For shops, For buyers, Demo and skips to the shop content', () => {
+    const nav = html.slice(html.indexOf('<nav'), html.indexOf('</nav>'));
+    const links = [...nav.matchAll(/<a href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[2], m[1]]);
+    expect(links).toEqual([
+      ['For shops', '#how'],
+      ['For buyers', '#buyers'],
+      ['Demo', '#try'],
+    ]);
+    expect(html).toContain('class="lp-skip" href="#how"');
+  });
+
+  it('shows the shop phone in the hero and the buyer view below the shop sections', () => {
+    const hero = html.slice(html.indexOf('lp-hero'), html.indexOf('id="how"'));
+    expect(hero).toContain('<h1>');
+    expect(hero).toContain('lp-phone');
+    expect(hero).toContain('Open your shop');
+    expect(hero).not.toContain('lp-replies');
+    const buyers = html.slice(html.indexOf('id="buyers"'), html.indexOf('id="compare"'));
+    expect(buyers).toContain('lp-replies');
+    expect(buyers).toContain('Bottle brush');
+    expect(buyers).toContain('Find something');
+    expect(buyers).not.toContain('<h1>');
   });
 
   it('keeps the privacy claims to what the code does, in the buyer section', () => {
