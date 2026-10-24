@@ -5,10 +5,11 @@ import {
   MARK_PIN,
   MARK_RADIUS,
   MARK_SIZE,
+  MARK_SLATS,
 } from './brandMarkGeometry.js';
 
 /**
- * The AskBuy mark: a parchi slip with two lines of ink and a marigold pin, on a brand square.
+ * The AskBuy mark: a parchi slip with two lines of ink, a few shutter slats and a marigold pin, on a brand square.
  * Decorative (the name is written next to it) and painted only by tokens (ui.css), never by colours
  * of its own.
  */
@@ -26,6 +27,9 @@ export function BrandMark({ size = 32, className }: { size?: number; className?:
       <path className="bm-paper" d={MARK_PAPER} />
       {MARK_LINES.map((d) => (
         <path key={d} className="bm-ink" d={d} />
+      ))}
+      {MARK_SLATS.map((d) => (
+        <path key={d} className="bm-slat" d={d} />
       ))}
       <path className="bm-pin" d={MARK_PIN} />
       <circle className="bm-hole" cx={MARK_HOLE.cx} cy={MARK_HOLE.cy} r={MARK_HOLE.r} />

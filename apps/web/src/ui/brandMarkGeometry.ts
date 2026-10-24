@@ -9,6 +9,8 @@ export const MARK_RADIUS = 11;
 /** A slip: teeth cut into the top edge, a square bottom. */
 export const MARK_PAPER =
   'M13 13L15 11L17 13L19 11L21 13L23 11L25 13L27 11L29 13L31 11L33 13L35 11V37H13Z';
+/** Three thin slats at the foot of the slip: a shop shutter, rolled down. */
+export const MARK_SLATS = ['M15 31H25', 'M15 33.500H25', 'M15 36H25'] as const;
 export const MARK_LINES = ['M17 20H31', 'M17 26H27'] as const;
 /** A pin: a drop with a round head, point down. */
 export const MARK_PIN =
