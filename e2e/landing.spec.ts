@@ -116,9 +116,13 @@ test('the shop replies line up under the parchi on a phone (L-12)', async ({ pag
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/');
   const centre = (b: { x: number; width: number } | null) => (b ? b.x + b.width / 2 : -1);
-  const slip = centre(await page.locator('.lp-replies .lp-slip').boundingBox());
-  for (const reply of await page.locator('.lp-reply').all())
-    expect(Math.abs(centre(await reply.boundingBox()) - slip)).toBeLessThanOrEqual(4);
+  const groups = await page.locator('.lp-replies').all();
+  expect(groups.length).toBe(2); // the hero and the buyers band
+  for (const group of groups) {
+    const slip = centre(await group.locator('.lp-slip').boundingBox());
+    for (const reply of await group.locator('.lp-reply').all())
+      expect(Math.abs(centre(await reply.boundingBox()) - slip)).toBeLessThanOrEqual(4);
+  }
 });
 
 test('does not scroll sideways at the other sizes, or with text zoomed to 200%', async ({

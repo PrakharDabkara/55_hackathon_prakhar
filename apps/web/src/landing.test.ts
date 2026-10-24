@@ -65,6 +65,22 @@ describe('landing.html', () => {
     expect(text).toContain('Sharma General Store');
   });
 
+  it('is buyer-first: hero, buyers, AI agent, then the shop sections (follow-up)', () => {
+    const at = (id: string) => html.indexOf(`id="${id}"`);
+    expect(at('buyers')).toBeGreaterThan(html.indexOf('lp-hero'));
+    expect(at('buyers')).toBeLessThan(at('ai'));
+    expect(at('ai')).toBeLessThan(at('why'));
+    expect(at('why')).toBeLessThan(at('how'));
+    expect(at('how')).toBeLessThan(at('try'));
+  });
+
+  it('shows the buyer view in the hero, not the shop app', () => {
+    const hero = html.slice(html.indexOf('lp-hero'), html.indexOf('id="buyers"'));
+    expect(hero).toContain('lp-replies');
+    expect(hero).toContain('Bottle brush');
+    expect(hero).not.toMatch(/Send answer|Your price|New request nearby/);
+  });
+
   it('keeps the privacy claims to what the code does, in the buyer section', () => {
     const buyers = text.slice(text.indexOf('Compare every shop'), text.indexOf('An AI agent'));
     expect(buyers).toContain('never your number');
