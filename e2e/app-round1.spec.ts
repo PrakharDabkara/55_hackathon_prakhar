@@ -2,7 +2,16 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { screenProblems } from './a11y.js';
-import { ask, goTo, login, newCorner, newPhone, onboardShop, VIEWPORT } from './orderFlow.js';
+import {
+  ask,
+  goTo,
+  login,
+  newCorner,
+  newPhone,
+  onboardShop,
+  sheetLogin,
+  VIEWPORT,
+} from './orderFlow.js';
 import { uniqueName } from './unique.js';
 
 // App round 1: the fixes from the two-phone test (login in both apps, shop set-up, the customer's
@@ -338,10 +347,7 @@ test.describe('screenshots of the changed screens', () => {
         await shoot(customer, `customer-find-${tag}`);
         await customer.goto('/app/orders');
         await shoot(customer, `customer-login-${tag}`);
-        await customer.getByLabel('Mobile number').fill(newPhone());
-        await customer.getByRole('button', { name: 'Send code' }).click();
-        await customer.getByRole('button', { name: 'Fill demo OTP' }).click();
-        await customer.getByRole('button', { name: 'Log in' }).click();
+        await sheetLogin(customer);
         await customer.goto('/app/account');
         await customer.getByRole('button', { name: 'Show phone number' }).click();
         await shoot(customer, `customer-account-${tag}`);
