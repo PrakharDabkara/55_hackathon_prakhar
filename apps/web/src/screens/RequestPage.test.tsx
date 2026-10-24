@@ -699,7 +699,7 @@ describe('nobody was asked (C-03, C-04)', () => {
     expect(screen.getByText('Nobody was asked this time')).toBeTruthy();
     expect(screen.queryByText('No open shops within 2 km sell this kind of item yet')).toBeNull();
     expect(screen.getByText('Had it recently, not asked this time')).toBeTruthy();
-    expect(within(cardOf('Gupta Store')).getByText(/640 m|0\.6 km/)).toBeTruthy();
+    expect(within(cardOf('Gupta Store')).getByText('650 m')).toBeTruthy();
   });
 
   it('keeps the old wording when shops were asked', () => {
