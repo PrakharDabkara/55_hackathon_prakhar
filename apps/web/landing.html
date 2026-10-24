@@ -3,16 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AskBuy: lift your shutter online</title>
+    <title>AskBuy: buy from the shops you trust, nearby</title>
     <meta
       name="description"
-      content="People nearby are asking for things you sell. AskBuy brings their requests to your phone. Answer with your price, and they come to you."
+      content="Ask once. Nearby shops reply with their price and stock. You pick, then pick it up or get it delivered, and pay cash."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="AskBuy: lift your shutter online" />
+    <meta property="og:title" content="AskBuy: buy from the shops you trust, nearby" />
     <meta
       property="og:description"
-      content="People nearby are asking for things you sell. AskBuy brings their requests to your phone. Answer with your price, and they come to you."
+      content="Ask once. Nearby shops reply with their price and stock. You pick, then pick it up or get it delivered, and pay cash."
     />
     <meta property="og:image" content="https://kahanmilega-api.onrender.com/app/icon-512.png" />
     <meta name="theme-color" content="#f3f6f4" media="(prefers-color-scheme: light)" />
@@ -23,9 +23,10 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="stylesheet" href="/src/landing/landing.css" />
     <script src="/app/theme-init.js"></script>
+    <script src="/app/landing-theme.js" defer></script>
   </head>
   <body>
-    <a class="lp-skip" href="#how">Skip to content</a>
+    <a class="lp-skip" href="#buyers">Skip to content</a>
     <header class="lp-header">
       <div class="lp-wrap lp-header__in">
         <a class="lp-brand" href="/" aria-label="AskBuy home">
@@ -53,11 +54,44 @@
           <span>AskBuy</span>
         </a>
         <nav class="lp-nav" aria-label="Page">
-          <a href="#how">For shops</a>
           <a href="#buyers">For buyers</a>
+          <a href="#why">For shops</a>
           <a href="#try">Demo</a>
         </nav>
-        <a class="lp-btn lp-btn--primary lp-header__cta" href="/app/shop">Open your shop</a>
+        <button class="lp-theme" type="button" aria-pressed="false">
+          <span class="lp-sr">Dark theme</span>
+          <svg
+            class="lp-theme__moon"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M20 14.5A8 8 0 0 1 9.500 4 8.500 8.500 0 1 0 20 14.500Z" />
+          </svg>
+          <svg
+            class="lp-theme__sun"
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="12" cy="12" r="4.500" />
+            <path
+              d="M12 2.500V5M12 19v2.500M2.500 12H5M19 12h2.500M5.300 5.300l1.800 1.800M16.900 16.900l1.800 1.800M5.300 18.700l1.800-1.800M16.900 7.100l1.800-1.800"
+            />
+          </svg>
+        </button>
+        <a
+          class="lp-btn lp-btn--primary lp-header__cta"
+          href="/app/shop"
+          aria-label="Open your shop"
+        >
+          <span class="lp-cta__full" aria-hidden="true">Open your shop</span>
+          <span class="lp-cta__short" aria-hidden="true">Your shop</span>
+        </a>
       </div>
     </header>
 
@@ -65,65 +99,206 @@
       <section class="lp-hero">
         <div class="lp-wrap lp-hero__in">
           <div class="lp-hero__text">
-            <p class="lp-pill">FOR SHOPKEEPERS</p>
-            <h1>Lift your shutter online in a minute.</h1>
+            <p class="lp-pill">FOR BUYERS</p>
+            <h1>Buy from the shops you trust, right around the corner.</h1>
             <p class="lp-lead">
-              People nearby are asking for things you sell. AskBuy brings their requests to your
-              phone. Answer with your price, and they come to you.
+              Ask once. Nearby shops reply with their price and stock. You pick, then pick it up or
+              get it delivered. Pay cash.
             </p>
             <div class="lp-actions">
-              <a class="lp-btn lp-btn--primary" href="/app/shop">Open your shop</a>
-              <a class="lp-btn lp-btn--outline" href="#buyers">I'm here to buy</a>
+              <a class="lp-btn lp-btn--primary" href="/app/">Find something</a>
+              <a class="lp-btn lp-btn--outline" href="/app/shop">I run a shop</a>
             </div>
-            <p class="lp-small">
-              No catalogue to type in. Nothing to install. Works in your phone's browser.
-            </p>
+            <p class="lp-small">Nothing to install. Works in your phone's browser.</p>
           </div>
 
           <div
-            class="lp-demo"
+            class="lp-replies"
             role="img"
-            aria-label="Example: a shop gets a request and answers it"
+            aria-label="Example: a parchi for a bottle brush and the shops' replies"
           >
-            <div class="lp-chip">
-              <span class="lp-chip__dot"></span>
-              <span class="lp-chip__text">
-                <strong>New request nearby</strong>
-                <span>Maida, 1 kg · 600 m</span>
-              </span>
-            </div>
-            <div class="lp-phone">
-              <div class="lp-phone__head">
-                <span class="lp-tile">PK</span>
-                <strong>Prakhar Kirana</strong>
-                <span class="lp-open">Open</span>
-              </div>
-              <div class="lp-slip">
-                <div class="lp-slip__paper">
-                  <div class="lp-slip__meta">
-                    <span>UNDER 1 KM</span>
-                    <span>REPLY IN 8M</span>
-                  </div>
-                  <div class="lp-slip__body lp-ruled">
-                    <span class="lp-hand-item">Maida</span>
-                    <span class="lp-slip__alias">refined flour · 1 kg</span>
-                  </div>
+            <div class="lp-slip lp-slip--tilt">
+              <div class="lp-slip__paper">
+                <div class="lp-slip__meta">
+                  <span>SENT TO 6 SHOPS · 1 KM</span>
+                </div>
+                <div class="lp-slip__body lp-ruled">
+                  <span class="lp-hand-item">Bottle brush</span>
+                  <span class="lp-hand-note">for a steel bottle</span>
+                  <span class="lp-stamp">3 HAVE IT</span>
                 </div>
               </div>
-              <div class="lp-answer">
-                <span class="lp-choice lp-choice--on">In stock</span>
-                <span class="lp-choice">Not today</span>
-              </div>
-              <div class="lp-price"><span>Your price</span><strong>₹48</strong></div>
-              <div class="lp-send">Send answer</div>
+            </div>
+            <div class="lp-reply lp-reply--best">
+              <span class="lp-avatar">SG</span>
+              <span class="lp-reply__text">
+                <strong>Sharma General Store</strong>
+                <span>400 m · delivers ₹20 · 25 min</span>
+              </span>
+              <strong class="lp-reply__price">₹40</strong>
+            </div>
+            <div class="lp-reply">
+              <span class="lp-avatar">VH</span>
+              <span class="lp-reply__text">
+                <strong>Verma Hardware</strong>
+                <span>900 m · pick up</span>
+              </span>
+              <strong class="lp-reply__price">₹45</strong>
+            </div>
+            <div class="lp-reply">
+              <span class="lp-avatar">JS</span>
+              <span class="lp-reply__text">
+                <strong>Jain Stores</strong>
+                <span>1 km · pick up</span>
+              </span>
+              <strong class="lp-reply__price">₹50</strong>
             </div>
           </div>
         </div>
       </section>
 
+      <section class="lp-band" id="buyers" aria-labelledby="buyers-h">
+        <div class="lp-wrap lp-band__in">
+          <div class="lp-band__text">
+            <p class="lp-pill lp-pill--marigold">FOR BUYERS</p>
+            <h2 id="buyers-h">Compare every shop nearby. Pick the best.</h2>
+            <p class="lp-lead">
+              Nearby shops reply with their price. You compare the prices from every nearby shop and
+              pick the best, with no walking to ten shops.
+            </p>
+            <ol class="lp-points">
+              <li>
+                <strong>Write your parchi.</strong> One thing, or a whole list. Say it the way you'd
+                say it at the counter: charging cable, or phone wire.
+              </li>
+              <li>
+                <strong>Shops nearby answer.</strong> Each shop sees only what it sells, and replies
+                with its price and whether it delivers.
+              </li>
+              <li>
+                <strong>You choose.</strong> We plan the fewest shops and the shortest walk. Pick up
+                from one, have another deliver. Pay cash.
+              </li>
+            </ol>
+            <p class="lp-note">
+              Your details stay private. Shops see what you asked, never your number, and a first
+              name only if you type one. Your address goes to a shop only once it accepts your
+              order.
+            </p>
+            <a class="lp-btn lp-btn--primary" href="/app/">Find something</a>
+          </div>
+
+          <div class="lp-replies" role="img" aria-label="Example: a list and the shops' replies">
+            <div class="lp-slip lp-slip--tilt">
+              <div class="lp-slip__paper">
+                <div class="lp-slip__meta">
+                  <span>SENT TO 8 SHOPS · 2 KM</span>
+                </div>
+                <div class="lp-slip__body lp-ruled">
+                  <span class="lp-hand-item">AA batteries</span>
+                  <span class="lp-hand-note">4 pack, for the TV remote</span>
+                  <span class="lp-stamp">3 HAVE IT</span>
+                </div>
+              </div>
+            </div>
+            <div class="lp-reply lp-reply--best">
+              <span class="lp-avatar">SG</span>
+              <span class="lp-reply__text">
+                <strong>Sharma General Store</strong>
+                <span>600 m · delivers ₹20 · 30 min</span>
+              </span>
+              <strong class="lp-reply__price">₹55</strong>
+            </div>
+            <div class="lp-reply">
+              <span class="lp-avatar">VH</span>
+              <span class="lp-reply__text">
+                <strong>Verma Hardware</strong>
+                <span>1.2 km · pick up</span>
+              </span>
+              <strong class="lp-reply__price">₹60</strong>
+            </div>
+            <div class="lp-reply">
+              <span class="lp-avatar">ME</span>
+              <span class="lp-reply__text">
+                <strong>Mehta Electricals</strong>
+                <span>1.5 km · pick up</span>
+              </span>
+              <strong class="lp-reply__price">₹65</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lp-section" id="ai" aria-labelledby="ai-h">
+        <div class="lp-wrap">
+          <h2 id="ai-h">An AI agent that plans your errand</h2>
+          <p class="lp-lead lp-lead--section">
+            Tell it a job, like "party supplies for Sunday". It builds the list, asks the shops
+            nearby, and plans the fewest shops and the shortest route. You choose; nothing is
+            ordered until you choose.
+          </p>
+          <ul class="lp-grid lp-grid--240 lp-list">
+            <li class="lp-card">
+              <h3>Tell it the job</h3>
+              <p>Write it in English, Hindi or Hinglish. No need to list every item.</p>
+            </li>
+            <li class="lp-card">
+              <h3>It builds the list</h3>
+              <p>It suggests the usual items for the job and you tick what you need.</p>
+            </li>
+            <li class="lp-card">
+              <h3>It asks the shops</h3>
+              <p>
+                It checks which shops nearby already have each item, and asks the rest. If it is not
+                sure what you mean, it asks you.
+              </p>
+            </li>
+            <li class="lp-card">
+              <h3>Fewest shops, shortest route</h3>
+              <p>
+                You get two plans: the cheapest, and the fewest shops. Stops come in route order.
+              </p>
+            </li>
+            <li class="lp-card">
+              <h3>Never guesses prices</h3>
+              <p>Prices and stock come only from the shops' answers.</p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="lp-section lp-section--sunk" id="why" aria-labelledby="why-h">
+        <div class="lp-wrap">
+          <h2 id="why-h">Why shops join</h2>
+          <ul class="lp-grid lp-grid--240 lp-list">
+            <li class="lp-card lp-card--feature">
+              <h3>No catalogue. No inventory sheet.</h3>
+              <p>Your stock list builds itself as you answer requests and sell.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Your price, your rules</h3>
+              <p>
+                You set the price on every answer. Offer delivery when you can, with your own fee.
+              </p>
+            </li>
+            <li class="lp-card">
+              <h3>Know what your area wants</h3>
+              <p>See what people nearby asked for today, and what you missed.</p>
+            </li>
+            <li class="lp-card">
+              <h3>Lists, packed right</h3>
+              <p>
+                A shopping list arrives as one parchi with the items that fit your shop. Tick them
+                off as you pack.
+              </p>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <section class="lp-section" id="how" aria-labelledby="how-h">
         <div class="lp-wrap">
-          <h2 id="how-h">Open your shop in three steps</h2>
+          <h2 id="how-h">Get your shop online in a few easy steps</h2>
           <ol class="lp-grid lp-grid--260 lp-steps">
             <li class="lp-card">
               <h3>Log in with your phone number</h3>
@@ -144,132 +319,6 @@
         </div>
       </section>
 
-      <section class="lp-section lp-section--sunk" id="why" aria-labelledby="why-h">
-        <div class="lp-wrap">
-          <h2 id="why-h">Why shops join</h2>
-          <ul class="lp-grid lp-grid--240 lp-list">
-            <li class="lp-card">
-              <h3>No catalogue to build</h3>
-              <p>Your shelf builds itself from every answer you give.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Your price, your rules</h3>
-              <p>
-                You set the price on every answer. Offer delivery when you can, with your own fee.
-              </p>
-            </li>
-            <li class="lp-card">
-              <h3>Know what your area wants</h3>
-              <p>See what people nearby asked for today, and what you missed.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Customers stay private</h3>
-              <p>
-                You see what was asked, never the customer's number, and a first name only if they
-                type one. Their address comes only once the order is accepted.
-              </p>
-            </li>
-            <li class="lp-card">
-              <h3>Lists, packed right</h3>
-              <p>
-                A shopping list arrives as one parchi with the items that fit your shop. Tick them
-                off as you pack.
-              </p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="lp-band" id="buyers" aria-labelledby="buyers-h">
-        <div class="lp-wrap lp-band__in">
-          <div class="lp-band__text">
-            <p class="lp-pill lp-pill--marigold">FOR BUYERS</p>
-            <h2 id="buyers-h">Ask the shops nearby, then buy.</h2>
-            <p class="lp-lead">
-              No waiting days for a parcel. No padding a cart to beat a fee. Ask the shops you
-              already walk past.
-            </p>
-            <ol class="lp-points">
-              <li>
-                <strong>Write your parchi.</strong> One thing, or a whole list. The way you'd say it
-                at the counter: maida or refined flour, mirchi or chillies.
-              </li>
-              <li>
-                <strong>Shops nearby answer.</strong> Each shop sees only what it sells, and replies
-                with its price and whether it delivers.
-              </li>
-              <li>
-                <strong>You choose.</strong> We plan the fewest shops and the shortest walk. Pick up
-                from one, have another deliver. Pay cash.
-              </li>
-            </ol>
-            <a class="lp-btn lp-btn--primary" href="/app/">Find something</a>
-          </div>
-
-          <div class="lp-replies" role="img" aria-label="Example: a list and the shops' replies">
-            <div class="lp-slip lp-slip--tilt">
-              <div class="lp-slip__paper">
-                <div class="lp-slip__meta">
-                  <span>SENT TO 8 SHOPS · 2 KM</span>
-                </div>
-                <div class="lp-slip__body lp-ruled">
-                  <span class="lp-hand-item">Javitri</span>
-                  <span class="lp-hand-note">50 g, for biryani</span>
-                  <span class="lp-stamp">3 HAVE IT</span>
-                </div>
-              </div>
-            </div>
-            <div class="lp-reply lp-reply--best">
-              <span class="lp-avatar">SG</span>
-              <span class="lp-reply__text">
-                <strong>Sharma General Store</strong>
-                <span>600 m · delivers ₹20 · 30 min</span>
-              </span>
-              <strong class="lp-reply__price">₹40</strong>
-            </div>
-            <div class="lp-reply">
-              <span class="lp-avatar">GM</span>
-              <span class="lp-reply__text">
-                <strong>Gupta Masala Bhandar</strong>
-                <span>1.2 km · pick up</span>
-              </span>
-              <strong class="lp-reply__price">₹45</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="lp-section" id="ai" aria-labelledby="ai-h">
-        <div class="lp-wrap">
-          <h2 id="ai-h">AI that asks before it acts</h2>
-          <p class="lp-lead lp-lead--section">
-            AI understands everyday names like maida and mirchi, sorts a shopping list in one go,
-            and plans errands. It suggests; people decide.
-          </p>
-          <ul class="lp-grid lp-grid--240 lp-list">
-            <li class="lp-card">
-              <h3>Shops get clear requests</h3>
-              <p>
-                "Mirchi" could be fresh chillies or powder, so it checks with the buyer before it
-                reaches you.
-              </p>
-            </li>
-            <li class="lp-card">
-              <h3>Only shops that sell it</h3>
-              <p>A request goes to shops that carry that kind of item, not to everyone.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Buyers confirm the list</h3>
-              <p>Nothing goes to a shop until the buyer has checked it.</p>
-            </li>
-            <li class="lp-card">
-              <h3>Never guesses prices</h3>
-              <p>Prices and stock come only from your answers.</p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
       <section class="lp-section lp-section--sunk lp-try" id="try" aria-labelledby="try-h">
         <div class="lp-wrap">
           <h2 id="try-h">Try it now</h2>
@@ -287,8 +336,8 @@
 
     <footer class="lp-footer">
       <div class="lp-wrap lp-footer__in">
-        <p>AskBuy · built for a hackathon, October 2026</p>
-        <p>Lift your shutter online. Ask the shops nearby, then buy.</p>
+        <p>© 2026 Prakhar Dabkara</p>
+        <p>AskBuy · Buy from the shops you trust, right around the corner.</p>
       </div>
     </footer>
   </body>

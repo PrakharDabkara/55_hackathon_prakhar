@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Hotfixes after v1.0.0 only, one entry each: the exact files changed and why (docs/release.md).
 
-_None yet._
+- Landing page round 1 (L-01..L-13): customer-first hero, errand-agent copy, everyday-item examples, light/dark toggle, compact phone header, aligned shop replies. Files: `apps/web/landing.html`, `src/landing/landing.css`, `public/landing-theme.js`, their tests.
 
 ## v1.0.0 (pending human test)
 

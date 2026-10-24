@@ -115,8 +115,8 @@ a {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-6);
-  padding: var(--space-2) 0;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-1) 0;
 }
 .lp-brand {
   display: inline-flex;
@@ -130,6 +130,7 @@ a {
   display: flex;
   flex: 1;
   gap: var(--space-1);
+  margin-right: auto;
 }
 .lp-nav a {
   display: inline-flex;
@@ -144,18 +145,82 @@ a {
   background: var(--brand-soft);
 }
 .lp-header__cta {
-  margin-left: auto;
+  margin-left: 0;
 }
+.lp-cta__short {
+  display: none;
+}
+.lp-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The light/dark toggle. The moon offers dark; the sun offers light. */
+.lp-theme {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap);
+  height: var(--tap);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.lp-theme:hover {
+  background: var(--brand-soft);
+}
+.lp-theme svg {
+  grid-area: 1 / 1;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lp-theme__sun {
+  display: none;
+}
+.lp-theme[aria-pressed='true'] .lp-theme__moon {
+  display: none;
+}
+.lp-theme[aria-pressed='true'] .lp-theme__sun {
+  display: block;
+}
+
+/* Phones: one compact row. The page is short, so the section links give way to the buttons. */
 @media (max-width: 639px) {
   .lp-header__in {
-    gap: 0 var(--space-3);
+    flex-wrap: nowrap;
+    gap: 0 var(--space-1);
   }
   .lp-nav {
-    order: 3;
-    flex-basis: 100%;
+    display: none;
+  }
+  .lp-brand {
+    margin-right: auto;
+    font-size: 20px;
   }
   .lp-header__cta {
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-3);
+    font-size: 14px;
+  }
+  .lp-cta__full {
+    display: none;
+  }
+  .lp-cta__short {
+    display: inline;
+  }
+}
+@media (max-width: 240px) {
+  .lp-header__in {
+    flex-wrap: wrap;
   }
 }
 
@@ -250,78 +315,16 @@ h3 {
   margin-top: var(--space-6);
 }
 
-/* The phone in the hero */
-.lp-demo {
-  position: relative;
-  width: min(100%, 340px);
-  margin: 0 auto;
-  padding-top: 36px;
-}
-.lp-chip {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-3);
-  border-radius: var(--r-md);
-  background: var(--panel-dark);
-  color: var(--on-panel-dark);
-  box-shadow: var(--shadow-slip);
-  font-size: 14px;
-  line-height: 18px;
-}
-.lp-chip__dot {
-  flex: none;
-  width: 10px;
-  height: 10px;
-  border-radius: var(--r-pill);
-  background: var(--marigold);
-}
-.lp-chip__text {
-  display: flex;
-  flex-direction: column;
-}
-.lp-phone {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  padding-top: var(--space-8);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-slip);
-}
-.lp-phone__head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-.lp-tile,
 .lp-avatar {
   display: inline-grid;
   flex: none;
   place-items: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--r-md);
+  border-radius: var(--r-pill);
   background: var(--brand-soft);
   color: var(--brand);
   font: 800 14px/20px var(--font-ui);
-}
-.lp-avatar {
-  border-radius: var(--r-pill);
-}
-.lp-open {
-  margin-left: auto;
-  padding: 0 var(--space-3);
-  border-radius: var(--r-pill);
-  background: var(--brand-soft);
-  color: var(--brand);
-  font: 700 13px/24px var(--font-ui);
 }
 
 /* The parchi slip: paper-locked colours, a zig-zag bottom edge, ruled lines (see parchi.css). */
@@ -383,44 +386,6 @@ h3 {
   transform: rotate(-6deg);
 }
 
-.lp-answer {
-  display: flex;
-  gap: var(--space-2);
-}
-.lp-choice {
-  flex: 1;
-  padding: var(--space-2);
-  border: 2px solid var(--line);
-  border-radius: var(--r-md);
-  font: 700 15px/24px var(--font-ui);
-  text-align: center;
-}
-.lp-choice--on {
-  border-color: var(--brand);
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-.lp-price {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 2px dotted var(--ink-muted);
-  color: var(--ink-muted);
-}
-.lp-price strong {
-  color: var(--ink);
-  font: 700 20px/28px var(--font-ui);
-}
-.lp-send {
-  padding: var(--space-3);
-  border-radius: var(--r-md);
-  background: var(--paper-ink);
-  color: var(--paper);
-  font: 700 16px/24px var(--font-ui);
-  text-align: center;
-}
-
 /* Sections and cards */
 .lp-section {
   padding: var(--space-12) 0;
@@ -451,6 +416,19 @@ h3 {
 .lp-card p {
   color: var(--ink-muted);
 }
+.lp-card--feature {
+  grid-column: 1 / -1;
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.lp-card--feature h3 {
+  font: 800 clamp(24px, 4vw, 30px) / 1.2 var(--font-ui);
+  color: var(--brand);
+}
+.lp-card--feature p {
+  color: var(--ink);
+  font: 400 19px/30px var(--font-ui);
+}
 .lp-steps {
   counter-reset: step;
 }
@@ -472,6 +450,13 @@ h3 {
   padding: var(--space-12) 0;
   background: var(--brand);
   color: var(--on-brand);
+}
+.lp-band {
+  overflow-x: clip;
+}
+.lp-band .lp-note {
+  font-size: 15px;
+  line-height: 22px;
 }
 .lp-band :focus-visible {
   outline-color: var(--on-brand);
@@ -519,7 +504,7 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  width: min(100%, 440px);
+  width: min(100% - 2 * var(--space-2), 440px);
   margin: 0 auto;
 }
 .lp-replies .lp-slip__body {
@@ -530,7 +515,6 @@ h3 {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-left: var(--space-8);
   padding: var(--space-3);
   border: 2px solid var(--line);
   border-radius: var(--r-md);

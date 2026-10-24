@@ -7,7 +7,10 @@ test('"/" returns 200 and shows the headline', async ({ page }) => {
   const res = await page.goto('/');
   expect(res?.status()).toBe(200);
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Lift your shutter online in a minute.' }),
+    page.getByRole('heading', {
+      level: 1,
+      name: 'Buy from the shops you trust, right around the corner.',
+    }),
   ).toBeVisible();
 });
 
@@ -78,16 +81,106 @@ test('does not scroll sideways at 360 px', async ({ page }) => {
   expect(scroll).toBeLessThanOrEqual(client);
 });
 
-test('every link and button is at least 44 px tall', async ({ page }) => {
+test('every visible link and button is at least 44 px tall', async ({ page }) => {
+  for (const size of [
+    { width: 360, height: 800 },
+    { width: 1280, height: 800 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto('/');
+    const small = await page
+      .locator('a.lp-btn, nav a, header a, header button')
+      .evaluateAll((els) =>
+        els
+          .map((e) => ({ t: e.textContent?.trim(), r: e.getBoundingClientRect() }))
+          .filter((e) => e.r.height > 0 && (e.r.height < 44 || e.r.width < 44))
+          .map((e) => e.t),
+      );
+    expect(small, `${size.width}px`).toEqual([]);
+  }
+});
+
+test('the phone header is one compact row and the button is smaller than the wordmark (L-09, L-13)', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
   await page.goto('/');
-  const small = await page
-    .locator('a.lp-btn, nav a, header a')
-    .evaluateAll((els) =>
-      els
-        .map((e) => ({ t: e.textContent?.trim(), h: e.getBoundingClientRect().height }))
-        .filter((e) => e.h < 44),
-    );
-  expect(small).toEqual([]);
+  const header = await page.locator('.lp-header').boundingBox();
+  expect(header?.height ?? 999).toBeLessThanOrEqual(64);
+  const brand = await page.locator('.lp-brand').boundingBox();
+  const cta = await page.locator('.lp-header__cta').boundingBox();
+  expect(cta?.width ?? 999).toBeLessThan(brand?.width ?? 0);
+});
+
+test('the shop replies line up under the parchi on a phone (L-12)', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto('/');
+  const centre = (b: { x: number; width: number } | null) => (b ? b.x + b.width / 2 : -1);
+  const groups = await page.locator('.lp-replies').all();
+  expect(groups.length).toBe(2); // the hero and the buyers band
+  for (const group of groups) {
+    const slip = centre(await group.locator('.lp-slip').boundingBox());
+    for (const reply of await group.locator('.lp-reply').all())
+      expect(Math.abs(centre(await reply.boundingBox()) - slip)).toBeLessThanOrEqual(4);
+  }
+});
+
+test('does not scroll sideways at the other sizes, or with text zoomed to 200%', async ({
+  page,
+}) => {
+  const sizes = [
+    [390, 844],
+    [412, 915],
+    [844, 390],
+    [1280, 800],
+    [180, 400], // 360 px at 200% zoom
+  ] as const;
+  for (const [width, height] of sizes)
+    for (const scheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.setViewportSize({ width, height });
+      await page.goto('/');
+      const { scroll, client } = await page.evaluate(() => ({
+        scroll: document.documentElement.scrollWidth,
+        client: document.documentElement.clientWidth,
+      }));
+      expect(scroll, `${width}x${height} ${scheme}`).toBeLessThanOrEqual(client);
+    }
+});
+
+test('the theme toggle follows the system, overrides it and remembers the choice (L-03)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  const toggle = page.getByRole('button', { name: 'Dark theme' });
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const dark = await bg();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(await bg()).not.toBe(dark);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.getByRole('button', { name: 'Dark theme' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+});
+
+test('the theme toggle still works when storage is blocked', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new Error('blocked');
+      },
+    });
+  });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Dark theme' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });
 
 test('the text holds no 10-digit number and no 6-digit code', async ({ page }) => {
