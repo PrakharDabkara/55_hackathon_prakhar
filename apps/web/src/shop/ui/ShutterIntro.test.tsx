@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShutterIntro } from './ShutterIntro.js';
 
@@ -16,6 +16,7 @@ beforeEach(() => {
   reduced(false);
 });
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -51,10 +52,7 @@ describe('ShutterIntro (A-08)', () => {
   });
 
   it('is CSS only, under 900 ms, in theme colours, and off under reduced motion', () => {
-    const css = readFileSync(
-      fileURLToPath(new URL('../screens/screens.css', import.meta.url)),
-      'utf8',
-    );
+    const css = readFileSync(join(process.cwd(), 'apps/web/src/shop/screens/screens.css'), 'utf8');
     const rule = /\.sh-shutter\b[^{]*\{[^}]*\}/g;
     const block = (css.match(rule) ?? []).join('\n');
     const ms = [...block.matchAll(/(\d+)ms/g)].map((m) => Number(m[1]));
