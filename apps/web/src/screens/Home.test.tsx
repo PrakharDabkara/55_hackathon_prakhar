@@ -356,6 +356,44 @@ describe('Find: login on first send', () => {
     expect(sessionStorage.getItem('km-find-draft')).toBeNull();
   });
 
+  const logInThroughSheet = async (user: ReturnType<typeof setup>['user']) => {
+    const sheet = await screen.findByRole('dialog', { name: 'Log in to send your request' });
+    await user.type(within(sheet).getByLabelText('Mobile number'), '9000000202');
+    await user.click(within(sheet).getByRole('button', { name: 'Send code' }));
+    await user.type(await within(sheet).findByLabelText('6-digit code'), '123456');
+    await user.click(within(sheet).getByRole('button', { name: 'Log in' }));
+  };
+
+  it('sends the pending search once after a login the server asked for (C-02)', async () => {
+    here();
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(401, 'unauthorized', 'x'))
+      .mockResolvedValue(seekerRequest());
+    const { user, api, onFound } = setup({ createRequest }, { loggedIn: true });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await logInThroughSheet(user);
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    expect(api.createRequest).toHaveBeenCalledTimes(2);
+    expect(api.createRequest).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'chini' }));
+  });
+
+  it('sends nothing after a login that was opened some other way, or after the sheet was closed (C-02)', async () => {
+    here();
+    const { user, api } = setup({}, { loggedIn: false });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await screen.findByRole('dialog', { name: 'Log in to send your request' });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Add photo' }));
+    await logInThroughSheet(user);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Log in to send your request' })).toBeNull(),
+    );
+    expect(api.createRequest).not.toHaveBeenCalled();
+  });
+
   it('keeps the draft in the tab while the customer types', async () => {
     const { user } = setup({}, { loggedIn: false });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
