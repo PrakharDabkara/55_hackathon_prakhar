@@ -8,7 +8,7 @@ Results are announced on Nov 6. An UptimeRobot monitor will hit `GET /` every 10
 
 ## Decision
 
-1. **Keep awake with a pinger.** One UptimeRobot monitor on `/` every 10 minutes, email alerts. `/` and not `/ready`: it wakes the API without a database query. Deleted after Nov 6.
+1. **Keep awake with a pinger.** One UptimeRobot monitor on `/health` every 10 minutes (changed from `/` on 2026-10-24: a tiny JSON answer instead of the landing page), email alerts. Not `/ready`: `/health` wakes the API without a database query. Deleted after Nov 6.
 2. **One retention policy for every queue.** `workers/jobRetention.ts` holds it: completed jobs 1 hour or 200, failed jobs 7 days or 500. All five queues (expiry, ping fan-out, push, errand, demo autopilot) take it as `defaultJobOptions`, and the sweep scheduler's template carries it too. Per-job overrides stay only where they mean something: fan-out and expiry jobs are removed on completion (their job id must be free again), keyed pushes are kept a day (the "once per request" key).
 3. **A bounded start-up clean-up** removes completed jobs older than 1 hour (a day for the push queue), 1,000 at a time, at most 50 batches per queue, logging counts. It touches only the completed set, never waiting, active, delayed or failed jobs, and is safe to repeat.
 4. **Redis memory is visible.** `/admin/health/details` reports `used_memory` and `maxmemory` only (from one reused, short-timeout connection; "unknown" with a 200 if `INFO` fails); `scripts/release-check.sh` warns above 40 % and fails above 60 %.

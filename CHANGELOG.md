@@ -14,6 +14,10 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Documentation (free-tier limits)
+
+- `docs/limits.md`: every external service, its free limit, what the user sees when it fails, the AI call counts and judge sessions a day, the embedding-quota finding, bandwidth, a ranked risk list and judge-day operating rules. The runbook's unattended section now names `/health` as the pinger URL and adds the weekly Render, Neon and AI Studio checks.
+
 ### Fixed (PR R1: running unattended, ADR-0064)
 
 - Redis no longer fills up: every queue (expiry, ping fan-out, push, errand, demo autopilot) now keeps finished jobs 1 hour or 200 and failed jobs 7 days or 500, from one helper (`workers/jobRetention.ts`); the 60 s sweep scheduler had no limit and left about 1,440 jobs a day. At start-up the workers clear old completed jobs, in capped batches, leaving waiting, active, delayed and failed ones alone.
