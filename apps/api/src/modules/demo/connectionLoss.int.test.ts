@@ -44,8 +44,7 @@ describe('the demo seed/reset lock connection', () => {
     return listeners;
   }
 
-  // KNOWN BUG (F1, "Bugs found" in docs/failure-modes.md): fails today; remove `.fails` with the fix.
-  it.fails(
+  it(
     'has an error listener while it holds the connection, so a dropped connection cannot crash the process',
     async () => {
       expect(await listenersOnLockClient()).toBeGreaterThan(0);

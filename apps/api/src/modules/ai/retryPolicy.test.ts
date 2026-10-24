@@ -19,7 +19,7 @@ const busy = () => {
 const limited = (retryAfterSec: number | null, perDay = false) =>
   new ProviderError('429', 429, {
     code: 'RESOURCE_EXHAUSTED',
-    rateLimit: { perDay, retryAfterSec },
+    rateLimit: { perDay, retryAfterSec, quotaFailure: true },
   });
 
 function setup(o: Partial<Parameters<typeof createAiClient>[0]> = {}) {
@@ -90,7 +90,7 @@ describe('the pause between attempts', () => {
   });
 
   it('honours Retry-After from a 429', async () => {
-    const s = setup({ retries: 1, backoffMs: 100 });
+    const s = setup({ retries: 1, backoffMs: 100, waitBudgetMs: { resolve_query: 60_000 } });
     let n = 0;
     s.provider.onGenerate(() => {
       if (n++ === 0) throw limited(12);
@@ -100,15 +100,25 @@ describe('the pause between attempts', () => {
     expect(s.sleeps).toEqual([12_000]);
   });
 
-  it('caps Retry-After at 30 seconds', async () => {
-    const s = setup({ retries: 1 });
+  it('waits the whole Retry-After, also past 30 seconds, when the budget allows it', async () => {
+    const s = setup({ retries: 1, waitBudgetMs: { resolve_query: 60_000 } });
     let n = 0;
     s.provider.onGenerate(() => {
       if (n++ === 0) throw limited(55);
       return { ok: true };
     });
     await s.client.generateJson(opts);
-    expect(s.sleeps).toEqual([30_000]);
+    expect(s.sleeps).toEqual([55_000]);
+  });
+
+  it('does not wait for a Retry-After over the budget: the call fails (no fallback here)', async () => {
+    const s = setup({ retries: 1 });
+    s.provider.onGenerate(() => {
+      throw limited(55);
+    });
+    await expect(s.client.generateJson(opts)).rejects.toBeInstanceOf(AiUnavailableError);
+    expect(s.sleeps).toEqual([]);
+    expect(s.provider.calls).toHaveLength(1);
   });
 });
 

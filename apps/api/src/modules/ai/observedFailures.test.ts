@@ -196,10 +196,6 @@ describe.skipIf(probeFiles.length === 0)('raw responses captured by scripts/prob
     expect(f).toMatchObject({ kind: 'http', status: fixture.status });
     // Google's own status word survives as the code.
     expect(f.code).toBe(fixture.body.error?.status);
-    const h = harness([fail(sdk)]);
-    await h.client.generateJson(generate).catch(() => undefined);
-    const retried = (fixture.status === 429 && !f.perDay) || fixture.status >= 500;
-    expect(h.calls()).toBe(retried ? 4 : 1);
     if (f.perDay) expect(new QuotaWatch().failure(error)).toMatch(/daily quota/);
   });
 
@@ -255,7 +251,8 @@ describe('the three 429s Google sent (gemini-3.6-flash, free tier, all observed)
     const h = harness([fail(probed('429-per-day'))]);
     const error = await h.client.generateJson(generate).catch((e) => e);
     expect(error).toBeInstanceOf(AiUnavailableError);
-    expect(h.calls()).toBe(1);
+    expect(h.calls()).toBe(2); // the primary once, then the fallback model (R2); no waiting
+    expect(h.sleeps).toEqual([]);
     const failure = classifyError(
       await harness([fail(probed('429-per-day'))])
         .provider.generateJson(generate)
@@ -271,37 +268,27 @@ describe('the three 429s Google sent (gemini-3.6-flash, free tier, all observed)
     expect(failure.retryAfterSec).toBe(6579);
   });
 
-  it('the per-minute 429 is not per-day and is retried, but the 30 s pause cap is shorter than the 56 s Google asked for', async () => {
+  it('the per-minute 429 is not per-day; Google asked for 56 s, which no longer gets a 30 s pause (R2: see modelFailover.test.ts)', async () => {
     const h = harness([fail(probed('429-per-minute'))]);
     await h.client.generateJson(generate).catch(() => undefined);
-    expect(h.calls()).toBe(4);
-    expect(h.sleeps).toEqual([30_000, 30_000, 30_000]); // Google said 56 s: every retry lands inside the window
+    expect(h.sleeps).not.toContain(30_000);
   });
 
-  it('an input-token 429 is not per-day, so it is retried like a rate limit', async () => {
+  it('an input-token 429 is not retried when the request itself is over the limit, because waiting cannot make it smaller', async () => {
     const h = harness([fail(probed('oversize-input'))]);
-    await h.client.generateJson(generate).catch(() => undefined);
-    expect(h.calls()).toBe(4);
+    await h.client
+      .generateJson({ ...generate, user: 'x'.repeat(1_100_000) })
+      .catch(() => undefined);
+    expect(h.calls()).toBe(1);
   });
-
-  // KNOWN BUG (F1): a single request above the tokens-per-minute limit can never succeed, so it must
-  // not be retried. Remove `.fails` with the fix (docs/failure-modes.md, Bugs found).
-  it.fails(
-    'an input-token 429 is not retried, because waiting cannot make the request smaller',
-    async () => {
-      const h = harness([fail(probed('oversize-input'))]);
-      await h.client.generateJson(generate).catch(() => undefined);
-      expect(h.calls()).toBe(1);
-    },
-  );
 });
 
 describe('a model that is retired or unknown answers 404 NOT_FOUND (observed)', () => {
-  it('is classified http 404 NOT_FOUND and not retried', async () => {
+  it('is classified http 404 NOT_FOUND and never retried on the same model', async () => {
     for (const kind of ['404-NOT_FOUND-retired', 'unknown-model']) {
       const h = harness([fail(probed(kind))]);
       await h.client.generateJson(generate).catch(() => undefined);
-      expect(h.calls()).toBe(1);
+      expect(h.models).toEqual(['primary', 'fallback']);
     }
     const failure = classifyError(
       await harness([fail(probed('404-NOT_FOUND-retired'))])
@@ -311,10 +298,7 @@ describe('a model that is retired or unknown answers 404 NOT_FOUND (observed)', 
     expect(failure).toMatchObject({ kind: 'http', status: 404, code: 'NOT_FOUND' });
   });
 
-  // KNOWN GAP (F1, for R2): a primary model that was retired (404 "no longer available to new
-  // users") never gets better, so the fallback should take over. Today only timeout, 429 and 503
-  // switch to it, so every call fails. Remove `.fails` with the fix.
-  it.fails('a retired primary falls back to GEMINI_FALLBACK_MODEL', async () => {
+  it('a retired primary falls back to GEMINI_FALLBACK_MODEL', async () => {
     const h = harness([fail(probed('404-NOT_FOUND-retired')), answer]);
     await expect(h.client.generateJson(generate)).resolves.toMatchObject({ data: { ok: true } });
     expect(h.models).toEqual(['primary', 'fallback']);
