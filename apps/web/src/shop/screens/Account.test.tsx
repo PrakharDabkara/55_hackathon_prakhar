@@ -108,7 +108,8 @@ describe('Setup', () => {
     setup();
     expect(screen.getByRole('heading', { name: 'Set up your shop' })).toBeTruthy();
     expect(screen.getByText('Customers near you will see this name.')).toBeTruthy();
-    expect(screen.getByText('Upload logo · optional')).toBeTruthy();
+    expect(screen.getByText('Upload logo')).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Upload logo · optional/);
     expect(screen.getByText('What do you sell? Pick up to 3.')).toBeTruthy();
     const start = screen.getByRole('button', {
       name: 'Start getting requests',
@@ -117,25 +118,121 @@ describe('Setup', () => {
     expect(start.className).toContain('sh-btn--primary');
   });
 
-  it('never mentions delivery', () => {
+  it('marks the three required parts with * and says so to assistive tech (S-01)', () => {
     setup();
-    expect(document.body.textContent).not.toMatch(/deliver/i);
+    expect(screen.getByLabelText('Shop name').getAttribute('aria-required')).toBe('true');
+    expect(screen.getByText('What do you sell? Pick up to 3.').className).toContain(
+      'sh-label--required',
+    );
+    expect(screen.getByRole('heading', { name: 'Shop location' }).className).toContain(
+      'sh-label--required',
+    );
   });
 
-  it('says what is still missing, one thing at a time', async () => {
+  it('lists what is still missing while Start is off, and shrinks as it is filled (S-01)', async () => {
     const { user } = setup();
-    expect(screen.getByText('Add your shop name to continue.')).toBeTruthy();
-    await user.type(screen.getByLabelText('Shop name'), 'Sharma Kirana');
-    expect(screen.getByText('Pick what you sell to continue.')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Grocery' }));
-    expect(screen.getByText('Set your shop location to continue.')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Use my current location' }));
-    await waitFor(() =>
-      expect(
-        (screen.getByRole('button', { name: 'Start getting requests' }) as HTMLButtonElement)
-          .disabled,
-      ).toBe(false),
+    const hint = () => document.querySelector('.sh-missing');
+    expect(hint()?.textContent).toContain('Add your shop name');
+    expect(hint()?.textContent).toContain('Pick what you sell');
+    expect(hint()?.textContent).toContain(
+      'Set your shop location: use your location or drag the pin',
     );
+    await user.type(screen.getByLabelText('Shop name'), 'Sharma Kirana');
+    expect(hint()?.textContent).not.toContain('Add your shop name');
+    await user.click(screen.getByRole('button', { name: 'Grocery' }));
+    expect(hint()?.textContent).not.toContain('Pick what you sell');
+    await user.click(screen.getByRole('button', { name: 'Use my current location' }));
+    await waitFor(() => expect(hint()).toBeNull());
+  });
+
+  it('says what to do next to the map when the location is blocked (S-01)', async () => {
+    const api = fakeApi();
+    const view = renderApp(
+      <ToastProvider>
+        <Setup api={api} onDone={vi.fn()} locate={async () => null} prepareLogo={async (f) => f} />
+      </ToastProvider>,
+      'en',
+    );
+    await view.user.click(screen.getByRole('button', { name: 'Use my current location' }));
+    const section = (await screen.findByRole('heading', { name: 'Shop location' })).closest(
+      'section',
+    ) as HTMLElement;
+    expect(within(section).getByText(/Location is blocked/)).toBeTruthy();
+    expect(within(section).getByText('place pin')).toBeTruthy();
+  });
+
+  describe('I deliver (S-02)', () => {
+    const fillRequired = async (user: ReturnType<typeof setup>['user']) => {
+      await user.type(screen.getByLabelText('Shop name'), 'Sharma Kirana');
+      await user.click(screen.getByRole('button', { name: 'Grocery' }));
+      await user.click(screen.getByRole('button', { name: 'Use my current location' }));
+      await waitFor(() =>
+        expect(
+          (screen.getByRole('button', { name: 'Start getting requests' }) as HTMLButtonElement)
+            .disabled,
+        ).toBe(false),
+      );
+    };
+
+    it('is a collapsed, optional section that opens on a tap', async () => {
+      const { user } = setup();
+      const toggle = screen.getByRole('button', { name: /I deliver/ });
+      expect(toggle.textContent).toContain('optional');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.queryByLabelText('Default fee ₹')).toBeNull();
+      await user.click(toggle);
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByRole('switch', { name: 'I deliver' })).toBeTruthy();
+    });
+
+    it('sends nothing about delivery when it is left alone', async () => {
+      const { user, api } = setup();
+      await fillRequired(user);
+      await user.click(screen.getByRole('button', { name: 'Start getting requests' }));
+      await waitFor(() => expect(api.createShop).toHaveBeenCalled());
+      expect(vi.mocked(api.createShop).mock.calls[0]?.[0]).not.toHaveProperty('delivery');
+      expect(api.updateShop).not.toHaveBeenCalled();
+    });
+
+    it('creates the shop with the fee and time, then sets how far it delivers', async () => {
+      const { user, api, onDone } = setup();
+      await fillRequired(user);
+      await user.click(screen.getByRole('button', { name: /I deliver/ }));
+      await user.click(screen.getByRole('switch', { name: 'I deliver' }));
+      await user.type(screen.getByLabelText('Default fee ₹'), '20');
+      await user.click(screen.getByRole('button', { name: '30 min' }));
+      await user.type(screen.getByLabelText('Deliver up to (km)'), '3');
+      await user.click(screen.getByRole('button', { name: 'Start getting requests' }));
+      await waitFor(() =>
+        expect(api.createShop).toHaveBeenCalledWith(
+          expect.objectContaining({ delivery: { feePaise: 2000, minutes: 30 } }),
+        ),
+      );
+      await waitFor(() => expect(api.updateShop).toHaveBeenCalledWith({ deliveryMaxKm: 3 }));
+      expect(onDone).toHaveBeenCalled();
+    });
+
+    it('does not start with a fee that is not a price, and says so', async () => {
+      const { user, api } = setup();
+      await fillRequired(user);
+      await user.click(screen.getByRole('button', { name: /I deliver/ }));
+      await user.click(screen.getByRole('switch', { name: 'I deliver' }));
+      await user.type(screen.getByLabelText('Default fee ₹'), 'abc');
+      await user.click(screen.getByRole('button', { name: 'Start getting requests' }));
+      expect(await screen.findByText('Fee must be a number, like 20.')).toBeTruthy();
+      expect(api.createShop).not.toHaveBeenCalled();
+    });
+
+    it('still finishes setup when the distance cannot be saved', async () => {
+      const api = fakeApi({ updateShop: vi.fn(async () => Promise.reject(new Error('offline'))) });
+      const { user, onDone } = setup(api);
+      await fillRequired(user);
+      await user.click(screen.getByRole('button', { name: /I deliver/ }));
+      await user.click(screen.getByRole('switch', { name: 'I deliver' }));
+      await user.type(screen.getByLabelText('Deliver up to (km)'), '3');
+      await user.click(screen.getByRole('button', { name: 'Start getting requests' }));
+      await waitFor(() => expect(onDone).toHaveBeenCalled());
+    });
   });
 
   it('allows three kinds of goods at most, and says so', async () => {
