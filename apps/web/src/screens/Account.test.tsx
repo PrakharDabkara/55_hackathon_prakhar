@@ -49,8 +49,12 @@ describe('Account', () => {
   it('has the title, a way back, and the phone only partly shown', async () => {
     const { user, onBack } = setup();
     expect(screen.getByRole('heading', { name: 'Account' })).toBeTruthy();
-    expect(await screen.findByText('+91 98••• ••210')).toBeTruthy();
-    expect(screen.getByText('Logged in as')).toBeTruthy();
+    expect(await screen.findByText('Logged in as')).toBeTruthy();
+    expect(screen.queryByText('+91 98••• ••210')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show phone number' }));
+    expect(screen.getByText('+91 98••• ••210')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Hide phone number' }));
+    expect(screen.queryByText('+91 98••• ••210')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(onBack).toHaveBeenCalled();
   });
@@ -62,6 +66,7 @@ describe('Account', () => {
       .mockResolvedValue({ phoneMasked: '+91 98••• ••210' });
     const { user } = setup({ account });
     await user.click(await screen.findByRole('button', { name: 'Try again' }));
+    await user.click(await screen.findByRole('button', { name: 'Show phone number' }));
     expect(await screen.findByText('+91 98••• ••210')).toBeTruthy();
   });
 

@@ -226,6 +226,58 @@ describe('loadConfig', () => {
     });
   });
 
+  describe('PUBLIC_DEMO_SHOP_PHONES and PUBLIC_DEMO_CUSTOMER_PHONES', () => {
+    const demo = {
+      ...valid,
+      DEMO_PHONES: '9000000101,9000000102,9000000201,9000000202,9000000999',
+    };
+
+    it('are empty by default', () => {
+      const config = loadConfig(valid);
+      expect(config.publicDemoShopPhones).toEqual([]);
+      expect(config.publicDemoCustomerPhones).toEqual([]);
+      expect(config.publicDemoDropped).toBe(0);
+    });
+
+    it('keep the listed numbers that are also in DEMO_PHONES, normalised', () => {
+      const config = loadConfig({
+        ...demo,
+        PUBLIC_DEMO_SHOP_PHONES: '9000000101, +91 90000 00102',
+        PUBLIC_DEMO_CUSTOMER_PHONES: '9000000201',
+      });
+      expect(config.publicDemoShopPhones).toEqual(['+919000000101', '+919000000102']);
+      expect(config.publicDemoCustomerPhones).toEqual(['+919000000201']);
+      expect(config.publicDemoDropped).toBe(0);
+    });
+
+    it('drop a number that is not in DEMO_PHONES and count it, so the server can warn', () => {
+      const config = loadConfig({
+        ...demo,
+        PUBLIC_DEMO_SHOP_PHONES: '9000000101,9000000555',
+        PUBLIC_DEMO_CUSTOMER_PHONES: '9000000666,9000000202',
+      });
+      expect(config.publicDemoShopPhones).toEqual(['+919000000101']);
+      expect(config.publicDemoCustomerPhones).toEqual(['+919000000202']);
+      expect(config.publicDemoDropped).toBe(2);
+    });
+
+    it('never make DEMO_PHONES longer', () => {
+      const config = loadConfig({ ...demo, PUBLIC_DEMO_SHOP_PHONES: '9000000555' });
+      expect(config.demoPhones).toHaveLength(5);
+    });
+
+    it('fail fast on a bad phone, naming the variable and never its value', () => {
+      let message = '';
+      try {
+        loadConfig({ ...demo, PUBLIC_DEMO_CUSTOMER_PHONES: '9999999999' });
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/PUBLIC_DEMO_CUSTOMER_PHONES/);
+      expect(message).not.toContain('9999999999');
+    });
+  });
+
   describe('OTP_INBOX_OPEN and the sign-in limits', () => {
     it('is closed by default and can be opened outside production', () => {
       expect(loadConfig(valid).otpInboxOpen).toBe(false);

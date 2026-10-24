@@ -6,6 +6,7 @@ import type { PushClient } from './lib/push.js';
 import type { Session } from './lib/session.js';
 import { ShopShell } from './shop/ShopShell.js';
 import { Login } from './shop/screens/Login.js';
+import { ShutterIntro } from './shop/ui/ShutterIntro.js';
 import { Setup } from './shop/screens/Setup.js';
 import { Button } from './ui/Button.js';
 import { LangSwitch } from './shop/ui/LangSwitch.js';
@@ -38,6 +39,9 @@ export function App({ api, session, live, pushClient }: Props) {
   const [phase, setPhase] = useState<Phase>(() =>
     session.getToken() ? { name: 'loading' } : { name: 'login' },
   );
+
+  /** Set by a fresh login only: the shutter that rolls up over the shop home. */
+  const [intro, setIntro] = useState(false);
 
   const logout = useCallback(() => {
     session.clear();
@@ -106,6 +110,7 @@ export function App({ api, session, live, pushClient }: Props) {
                   api={api}
                   onLoggedIn={(token) => {
                     session.setToken(token);
+                    setIntro(true);
                     void loadShop();
                   }}
                 />
@@ -148,6 +153,7 @@ export function App({ api, session, live, pushClient }: Props) {
             </main>
           </div>
         )}
+        {intro && <ShutterIntro onDone={() => setIntro(false)} />}
       </ToastProvider>
     </div>
   );

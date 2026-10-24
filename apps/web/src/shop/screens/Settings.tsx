@@ -1,5 +1,5 @@
 import type { Category } from '@askbuy/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi, ShopPatch } from '../../lib/api.js';
 import { shrinkPhoto } from '../../lib/photo.js';
@@ -10,10 +10,11 @@ import { Field } from '../../ui/Field.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
 import { BottomSheet } from '../../ui/BottomSheet.js';
 import { Icon } from '../../ui/Icon.js';
+import { PhoneReveal } from '../../ui/PhoneReveal.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {
-  api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo' | 'logoutAll'>;
+  api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo' | 'logoutAll' | 'account'>;
   shop: MyShop;
   onSaved: (shop: MyShop) => void;
   /** Every login of this shop is over (log out on all devices): forget the token here too. */
@@ -50,6 +51,19 @@ export function Settings({
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState<string | null>(null);
+
+  // Best effort: without the number the account card is simply not shown.
+  useEffect(() => {
+    let alive = true;
+    api.account().then(
+      (account) => alive && setPhone(account.phoneMasked),
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [api]);
 
   async function logoutAll() {
     setLeaving(true);
@@ -191,6 +205,12 @@ export function Settings({
       >
         {s.save}
       </Button>
+      {phone && (
+        <section className="sh-card sh-stack" aria-label={t.auth.loggedInAs}>
+          <p className="sh-label sh-muted">{t.auth.loggedInAs}</p>
+          <PhoneReveal masked={phone} className="sh-heading" />
+        </section>
+      )}
       <Button variant="quiet" className="sh-btn--block" onClick={() => setAskLogoutAll(true)}>
         {s.logoutAll}
       </Button>

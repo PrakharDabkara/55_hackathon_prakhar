@@ -30,12 +30,15 @@ export function accountRouter({
   db,
   logger,
   realtime,
+  demoPhones = [],
   deleteLimiter = createAttemptLimiter({ max: 5, windowMs: 60 * 60 * 1000 }),
 }: {
   db: Database;
   logger: Logger;
   /** Ends the caller's open event streams when they log out everywhere. */
   realtime?: Pick<Realtime, 'disconnectUser'>;
+  /** E.164 demo numbers: their owner is told so (the Find screen starts in the demo area). */
+  demoPhones?: readonly string[];
   deleteLimiter?: AttemptLimiter;
 }): Router {
   const router = Router();
@@ -43,7 +46,10 @@ export function accountRouter({
 
   router.get('/account', requireAuth, async (req, res) => {
     const phone = await phoneOf(db, authOf(req).user.id);
-    res.json({ phoneMasked: phone ? displayPhone(phone) : null });
+    res.json({
+      phoneMasked: phone ? displayPhone(phone) : null,
+      demo: phone ? demoPhones.includes(phone) : false,
+    });
   });
 
   // Ends this login for good and forgets this one browser's alerts, in one call: the token dies

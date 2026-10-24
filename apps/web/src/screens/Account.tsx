@@ -15,6 +15,7 @@ import { readTheme, saveTheme, type Theme } from '../lib/theme.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { Button } from '../ui/Button.js';
 import { Icon } from '../ui/Icon.js';
+import { PhoneReveal } from '../ui/PhoneReveal.js';
 import { Skeleton } from '../ui/Skeleton.js';
 import { Switch } from '../ui/Switch.js';
 
@@ -116,7 +117,7 @@ export function Account({ api, navigate, onBack, onLoggedOut, pushClient }: Prop
           <>
             <section className="cu-account__card">
               <p className="sh-label sh-muted">{c.accountLoggedInAs}</p>
-              <p className="sh-title cu-account__phone">{phone}</p>
+              {phone && <PhoneReveal masked={phone} className="sh-title cu-account__phone" />}
             </section>
 
             <section className="cu-account__section" aria-labelledby="account-address">

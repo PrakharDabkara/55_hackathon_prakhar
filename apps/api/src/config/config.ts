@@ -12,6 +12,27 @@ export const DEFAULT_OTP_IP_LIMITS = { request: 10, verify: 20, inbox: 30 } as c
 
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
+/** A comma-separated list of Indian mobiles, as E.164. The message never repeats a value. */
+const phoneList = z
+  .string()
+  .default('')
+  .transform((raw, ctx) => {
+    const phones: string[] = [];
+    for (const part of raw.split(',').map((p) => p.trim())) {
+      if (!part) continue;
+      const phone = normalisePhone(part);
+      if (!phone) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'must be a comma-separated list of Indian mobile numbers',
+        });
+        return z.NEVER;
+      }
+      phones.push(phone);
+    }
+    return phones;
+  });
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -55,26 +76,11 @@ const schema = z
     ADMIN_PHONES: blankIsUnset,
     // The only phones that get a code in the demo inbox, comma-separated. Production needs at least
     // one. Anyone else can still ask for a code, but nothing can read it.
-    DEMO_PHONES: z
-      .string()
-      .default('')
-      .transform((raw, ctx) => {
-        const phones: string[] = [];
-        for (const part of raw.split(',').map((p) => p.trim())) {
-          if (!part) continue;
-          const phone = normalisePhone(part);
-          if (!phone) {
-            // The message never repeats the value: it is a phone number.
-            ctx.addIssue({
-              code: 'custom',
-              message: 'must be a comma-separated list of Indian mobile numbers',
-            });
-            return z.NEVER;
-          }
-          phones.push(phone);
-        }
-        return phones;
-      }),
+    DEMO_PHONES: phoneList,
+    // Shown as tap-to-fill chips on the login screens (A-03). Only numbers that are also in
+    // DEMO_PHONES survive; the rest of DEMO_PHONES is never served.
+    PUBLIC_DEMO_SHOP_PHONES: phoneList,
+    PUBLIC_DEMO_CUSTOMER_PHONES: phoneList,
     // Tests only: every phone gets a code in the demo inbox. Production refuses any value.
     OTP_INBOX_OPEN: z.enum(['true', 'false']).optional(),
     // Requests per IP per 10 minutes. Production refuses a value above the default.
@@ -259,6 +265,12 @@ export interface Config {
   demoAutopilotMaxPerMinute: number;
   /** E.164 phones that get a code in the demo inbox. */
   demoPhones: string[];
+  /** The demo shop numbers the shop login offers as chips; always a subset of `demoPhones`. */
+  publicDemoShopPhones: string[];
+  /** The demo customer numbers the customer login offers as chips; a subset of `demoPhones`. */
+  publicDemoCustomerPhones: string[];
+  /** How many listed public numbers were dropped for not being in `demoPhones` (the server warns). */
+  publicDemoDropped: number;
   /** Tests only: every phone gets a code in the demo inbox. Never true in production. */
   otpInboxOpen: boolean;
   /** Most requests one IP may make in 10 minutes to request, verify and the demo inbox. */
@@ -339,6 +351,9 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     throw new Error(`Invalid environment configuration:\n- ${problems.join('\n- ')}`);
   }
   const e = result.data;
+  const inDemo = (phones: string[]) => phones.filter((p) => e.DEMO_PHONES.includes(p));
+  const publicShop = inDemo(e.PUBLIC_DEMO_SHOP_PHONES);
+  const publicCustomer = inDemo(e.PUBLIC_DEMO_CUSTOMER_PHONES);
   return {
     nodeEnv: e.NODE_ENV,
     port: e.PORT,
@@ -356,6 +371,13 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     demoAutopilot: e.DEMO_AUTOPILOT === 'on',
     demoAutopilotMaxPerMinute: e.DEMO_AUTOPILOT_MAX_PER_MINUTE,
     demoPhones: e.DEMO_PHONES,
+    publicDemoShopPhones: publicShop,
+    publicDemoCustomerPhones: publicCustomer,
+    publicDemoDropped:
+      e.PUBLIC_DEMO_SHOP_PHONES.length +
+      e.PUBLIC_DEMO_CUSTOMER_PHONES.length -
+      publicShop.length -
+      publicCustomer.length,
     otpInboxOpen: e.OTP_INBOX_OPEN === 'true',
     otpIpLimits: {
       request: e.OTP_IP_REQUEST_MAX,

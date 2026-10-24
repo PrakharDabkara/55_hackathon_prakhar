@@ -59,7 +59,7 @@ describe('LocationPicker', () => {
     const map = await screen.findByTestId('map');
     expect(map.getAttribute('data-lat')).toBe(String(DEFAULT_CENTRE.lat));
     expect(map.getAttribute('data-confirmed')).toBe('false');
-    expect(screen.getByText('Drag the pin to your shop.')).toBeTruthy();
+    expect(screen.getByText('Location is blocked. Drag the pin to your shop.')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'move pin' }));
     expect(onChange).toHaveBeenCalledWith({ lat: 1, lng: 2 });
   });

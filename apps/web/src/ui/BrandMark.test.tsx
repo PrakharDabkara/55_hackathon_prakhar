@@ -16,6 +16,11 @@ describe('BrandMark', () => {
     expect(svg.querySelectorAll('.bm-pin')).toHaveLength(1);
   });
 
+  it('has a small rolling-shutter detail: three slats at the foot of the slip (A-07)', () => {
+    const { container } = render(<BrandMark size={32} />);
+    expect(container.querySelectorAll('svg.brand-mark .bm-slat')).toHaveLength(3);
+  });
+
   it('uses no colour of its own: it is styled by tokens in ui.css', () => {
     const { container } = render(<BrandMark size={48} />);
     expect(container.innerHTML).not.toMatch(/#[0-9a-fA-F]{3,8}\b|fill="|stroke="/);

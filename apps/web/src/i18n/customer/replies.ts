@@ -3,6 +3,18 @@ export interface RepliesStrings {
   repliesTitle: string;
   itemFallback: string;
   sentTo: (shops: number, km: string) => string;
+  /** The parchi line when nobody was asked. */
+  sentToNone: (km: string) => string;
+  /** Nobody was asked, and nobody remembered has it either: why, and what to do next. */
+  noShopsTitle: (km: string) => string;
+  noShopsHelp: string;
+  noShopsWords: string;
+  noShopsWider: (km: string) => string;
+  noShopsWiderFailed: string;
+  noShopsDemo: string;
+  /** Nobody was asked because remembered shops already answer. */
+  knownTitle: string;
+  knownHelp: string;
   haveIt: (n: number) => string;
   stillChecking: (n: number) => string;
   allReplied: string;
@@ -70,6 +82,16 @@ export const repliesEn: RepliesStrings = {
   repliesTitle: 'Your request',
   itemFallback: 'Your item',
   sentTo: (shops, km) => `Sent to ${shops} ${plural(shops, 'shop', 'shops')} · ${km} km`,
+  sentToNone: (km) => `No shops asked · ${km} km`,
+  noShopsTitle: (km) => `No open shops within ${km} km sell this kind of item yet`,
+  noShopsHelp: 'Try different words, or look in a wider area.',
+  noShopsWords: 'Try different words',
+  noShopsWider: (km) => `Search ${km} km`,
+  noShopsWiderFailed: "Couldn't search again. Check your connection and try again.",
+  noShopsDemo: 'Use the demo area (Indore)',
+  knownTitle: 'Nobody was asked this time',
+  knownHelp:
+    'We already knew these shops had it recently, so no one was pinged. They are listed below.',
   haveIt: (n) => `${n} have it`,
   stillChecking: (n) => (n === 1 ? '1 shop is still checking.' : `${n} shops are still checking.`),
   allReplied: 'All shops have replied.',
@@ -104,7 +126,7 @@ export const repliesEn: RepliesStrings = {
   chooseShop: 'Choose this shop',
   trackOrder: 'Track order',
   showWay: 'Show the way',
-  recentHeading: 'Had it recently · not checked today',
+  recentHeading: 'Had it recently, not asked this time',
   hadIt: (days, price) => {
     const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
     return price ? `Had it ${when} at ${price}` : `Had it ${when}`;
@@ -144,6 +166,16 @@ export const repliesHi: RepliesStrings = {
   repliesTitle: 'Aapki request',
   itemFallback: 'Aapki cheez',
   sentTo: (shops, km) => `${shops} dukaanon ko bheja · ${km} km`,
+  sentToNone: (km) => `Kisi dukaan se nahi poocha · ${km} km`,
+  noShopsTitle: (km) => `${km} km ke andar abhi koi khuli dukaan ye cheez nahi bechti`,
+  noShopsHelp: 'Doosre shabd try karein, ya bada ilaaka dekhein.',
+  noShopsWords: 'Doosre shabd try karein',
+  noShopsWider: (km) => `${km} km mein dhundhein`,
+  noShopsWiderFailed: 'Dobara nahi dhundh paye. Internet check karke dobara try karein.',
+  noShopsDemo: 'Demo ilaaka (Indore) istemal karein',
+  knownTitle: 'Is baar kisi se poocha nahi',
+  knownHelp:
+    'Hum pehle se jaante the ki in dukaanon ke paas thi, isliye poocha nahi. Neeche dekhein.',
   haveIt: (n) => `${n} ke paas hai`,
   stillChecking: (n) => `${n} dukaan abhi dekh rahi ${n === 1 ? 'hai' : 'hain'}.`,
   allReplied: 'Sab dukaanon ne jawab de diya.',
@@ -182,7 +214,7 @@ export const repliesHi: RepliesStrings = {
   chooseShop: 'Ye dukaan chunein',
   trackOrder: 'Order dekhein',
   showWay: 'Raasta dikhayein',
-  recentHeading: 'Pehle thi · aaj check nahi hui',
+  recentHeading: 'Pehle thi, is baar poocha nahi',
   hadIt: (days, price) => {
     const when = days <= 0 ? 'aaj' : days === 1 ? 'kal' : `${days} din pehle`;
     return price ? `${when} thi, ${price} mein` : `${when} thi`;

@@ -6,10 +6,12 @@ interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'> {
   error?: string | null;
   /** Fixed text before the value, such as +91 or ₹. */
   prefix?: ReactNode;
+  /** A required field: a * after the label (drawn in CSS) and aria-required for assistive tech. */
+  required?: boolean;
 }
 
 /** A label, an input (never under 16 px), a helper line and an error line, all tied together. */
-export function Field({ label, helper, error, prefix, className, id, ...input }: Props) {
+export function Field({ label, helper, error, prefix, required, className, id, ...input }: Props) {
   const auto = useId();
   const inputId = id ?? auto;
   const helperId = `${inputId}-help`;
@@ -17,7 +19,7 @@ export function Field({ label, helper, error, prefix, className, id, ...input }:
   const described = [helper && helperId, error && errorId].filter(Boolean).join(' ');
   return (
     <div className={`sh-field${className ? ` ${className}` : ''}`}>
-      <label htmlFor={inputId} className="sh-label">
+      <label htmlFor={inputId} className={`sh-label${required ? ' sh-label--required' : ''}`}>
         {label}
       </label>
       <div className="sh-input-wrap">
@@ -30,6 +32,7 @@ export function Field({ label, helper, error, prefix, className, id, ...input }:
           id={inputId}
           className="sh-input"
           {...(described && { 'aria-describedby': described })}
+          {...(required && { 'aria-required': true })}
           {...(error && { 'aria-invalid': true })}
           {...input}
         />

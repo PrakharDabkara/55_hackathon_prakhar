@@ -134,12 +134,16 @@ export function createApp({
       logger,
       otpMode: config.otpMode,
       demoPhones: config.demoPhones,
+      publicDemoPhones: {
+        shop: config.publicDemoShopPhones,
+        seeker: config.publicDemoCustomerPhones,
+      },
       inboxOpen: config.otpInboxOpen,
       ipLimits: config.otpIpLimits,
       ipLimitStore,
     }),
   );
-  app.use(accountRouter({ db, logger, realtime }));
+  app.use(accountRouter({ db, logger, realtime, demoPhones: config.demoPhones }));
   app.use(realtimeRouter({ db, realtime }));
   // Without ADMIN_TOKEN there is no admin, so these routes are not mounted at all (404).
   if (config.adminToken) {

@@ -122,3 +122,31 @@ describe('selectPingTargets', () => {
     });
   });
 });
+
+describe('selectPingTargets: the general store (S-06)', () => {
+  it('asks a general store about household, personal care and stationery items', () => {
+    for (const itemCategories of [['household_kitchen'], ['personal_care'], ['stationery']]) {
+      const picked = selectPingTargets(
+        [shop('general', 200, ['general_store']), shop('grocer', 100, ['grocery'])],
+        { ...opts, itemCategories },
+      );
+      expect(picked.map((s) => s.shopId)).toEqual(['general']);
+    }
+  });
+
+  it('does not ask it about a hardware item', () => {
+    const picked = selectPingTargets([shop('general', 200, ['general_store'])], {
+      ...opts,
+      itemCategories: ['hardware'],
+    });
+    expect(picked).toEqual([]);
+  });
+
+  it('counts it as a shop of the kind, so no other kind is pulled in to fill up', () => {
+    const picked = selectPingTargets(
+      [shop('general', 200, ['general_store']), shop('hardware', 100, ['hardware'])],
+      { ...opts, itemCategories: ['household_kitchen'], minTargets: 1 },
+    );
+    expect(picked.map((s) => s.shopId)).toEqual(['general']);
+  });
+});

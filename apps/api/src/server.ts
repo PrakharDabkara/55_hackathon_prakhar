@@ -42,6 +42,13 @@ if (!config.vapid) {
 } else if (!workers) {
   logger.warn('web push is off: it needs the workers (WORKERS_ENABLED and REDIS_URL)');
 }
+if (config.publicDemoDropped > 0) {
+  // A count, never the numbers: they are phones.
+  logger.warn(
+    { dropped: config.publicDemoDropped },
+    'PUBLIC_DEMO_*_PHONES: numbers that are not in DEMO_PHONES were dropped',
+  );
+}
 const app = createApp({
   config,
   logger,

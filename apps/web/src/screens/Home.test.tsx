@@ -356,6 +356,44 @@ describe('Find: login on first send', () => {
     expect(sessionStorage.getItem('km-find-draft')).toBeNull();
   });
 
+  const logInThroughSheet = async (user: ReturnType<typeof setup>['user']) => {
+    const sheet = await screen.findByRole('dialog', { name: 'Log in to send your request' });
+    await user.type(within(sheet).getByLabelText('Mobile number'), '9000000202');
+    await user.click(within(sheet).getByRole('button', { name: 'Send code' }));
+    await user.type(await within(sheet).findByLabelText('6-digit code'), '123456');
+    await user.click(within(sheet).getByRole('button', { name: 'Log in' }));
+  };
+
+  it('sends the pending search once after a login the server asked for (C-02)', async () => {
+    here();
+    const createRequest = vi
+      .fn()
+      .mockRejectedValueOnce(new ApiError(401, 'unauthorized', 'x'))
+      .mockResolvedValue(seekerRequest());
+    const { user, api, onFound } = setup({ createRequest }, { loggedIn: true });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await logInThroughSheet(user);
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    expect(api.createRequest).toHaveBeenCalledTimes(2);
+    expect(api.createRequest).toHaveBeenLastCalledWith(expect.objectContaining({ q: 'chini' }));
+  });
+
+  it('sends nothing after a login that was opened some other way, or after the sheet was closed (C-02)', async () => {
+    here();
+    const { user, api } = setup({}, { loggedIn: false });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await screen.findByRole('dialog', { name: 'Log in to send your request' });
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Add photo' }));
+    await logInThroughSheet(user);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Log in to send your request' })).toBeNull(),
+    );
+    expect(api.createRequest).not.toHaveBeenCalled();
+  });
+
   it('keeps the draft in the tab while the customer types', async () => {
     const { user } = setup({}, { loggedIn: false });
     await user.type(screen.getByLabelText('What do you need?'), 'chini');
@@ -616,5 +654,95 @@ describe('Find: My orders and the active order strip', () => {
     });
     expect(screen.getByLabelText('What do you need?')).toBeTruthy();
     expect(screen.queryByText('Track')).toBeNull();
+  });
+});
+
+describe('Find: the demo area for demo accounts (X-01)', () => {
+  const DEMO_AREA = { lat: 22.7196, lng: 75.8577 };
+  const demoApi = () => ({
+    account: vi.fn(async () => ({ phoneMasked: '+91 90••• ••208', demo: true })),
+  });
+  const watchGps = () => {
+    const getCurrentPosition = vi.fn((ok: (p: unknown) => void) =>
+      ok({ coords: { latitude: 12.97, longitude: 77.59 } }),
+    );
+    geolocation(getCurrentPosition);
+    return getCurrentPosition;
+  };
+
+  it('puts a demo account in Vijay Nagar with a banner, and searches there without asking the phone', async () => {
+    const gps = watchGps();
+    const { user, api } = setup(demoApi());
+    expect(await screen.findByText('Demo area: Vijay Nagar, Indore')).toBeTruthy();
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await waitFor(() =>
+      expect(api.createRequest).toHaveBeenCalledWith(expect.objectContaining(DEMO_AREA)),
+    );
+    expect(gps).not.toHaveBeenCalled();
+  });
+
+  it('leaves every other account alone: no banner, the phone is asked', async () => {
+    const gps = watchGps();
+    const { user, api } = setup({
+      account: vi.fn(async () => ({ phoneMasked: '+91 98••• ••210', demo: false })),
+    });
+    await waitFor(() => expect(api.account).toHaveBeenCalled());
+    expect(screen.queryByText(/Demo area:/)).toBeNull();
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await waitFor(() => expect(gps).toHaveBeenCalled());
+    expect(api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ lat: 12.97 }));
+  });
+
+  it('asks nothing of a signed-out visitor', () => {
+    const { api } = setup({}, { loggedIn: false });
+    expect(api.account).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Demo area:/)).toBeNull();
+  });
+
+  it('Change drops the banner, opens the location choices, and the choice sticks for the session', async () => {
+    const gps = watchGps();
+    const first = setup(demoApi());
+    await first.user.click(await screen.findByRole('button', { name: 'Change' }));
+    expect(screen.queryByText(/Demo area:/)).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Change location' })).toBeTruthy();
+    await first.user.click(screen.getByRole('button', { name: 'Done' }));
+    await first.user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await first.user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    await waitFor(() => expect(gps).toHaveBeenCalled());
+    expect(first.api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ lat: 12.97 }));
+    first.unmount();
+
+    // The choice is remembered, so the account is not even asked about.
+    const again = setup(demoApi());
+    await again.user.type(screen.getByLabelText('What do you need?'), 'x');
+    expect(again.api.account).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Demo area:/)).toBeNull();
+  });
+
+  it('does not move a demo account that already chose a place of its own', async () => {
+    sessionStorage.setItem(
+      'km-find-draft',
+      JSON.stringify({ query: '', wantsDelivery: false, address: '', lat: '12.97', lng: '77.59' }),
+    );
+    const { api } = setup(demoApi());
+    await waitFor(() => expect(api.account).toHaveBeenCalled());
+    expect(screen.queryByText(/Demo area:/)).toBeNull();
+  });
+
+  it('a demo number that logs in after pressing Find is searched in the demo area at once', async () => {
+    const gps = watchGps();
+    const { user, api, onFound } = setup(demoApi(), { loggedIn: false });
+    await user.type(screen.getByLabelText('What do you need?'), 'chini');
+    await user.click(screen.getByRole('button', { name: 'Find nearby' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Log in to send your request' });
+    await user.type(within(sheet).getByLabelText('Mobile number'), '9000000208');
+    await user.click(within(sheet).getByRole('button', { name: 'Send code' }));
+    await user.type(await within(sheet).findByLabelText('6-digit code'), '123456');
+    await user.click(within(sheet).getByRole('button', { name: 'Log in' }));
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    expect(api.createRequest).toHaveBeenCalledExactlyOnceWith(expect.objectContaining(DEMO_AREA));
+    expect(gps).not.toHaveBeenCalled();
   });
 });

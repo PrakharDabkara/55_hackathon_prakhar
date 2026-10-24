@@ -21,6 +21,7 @@ import {
   MARK_PIN,
   MARK_RADIUS,
   MARK_SIZE,
+  MARK_SLATS,
 } from '../src/ui/brandMarkGeometry.ts';
 
 const COLORS = { brand: '#0d5a43', paper: '#fbf5e6', ink: '#1c2a52', marigold: '#f2a516' };
@@ -34,6 +35,7 @@ function svg({ rounded, inset }: { rounded: boolean; inset: number }): string {
   <g transform="translate(${shift} ${shift}) scale(${scale})">
     <path d="${MARK_PAPER}" fill="${COLORS.paper}"/>
     ${MARK_LINES.map((d) => `<path d="${d}" fill="none" stroke="${COLORS.ink}" stroke-width="2.4" stroke-linecap="round"/>`).join('\n    ')}
+    ${MARK_SLATS.map((d) => `<path d="${d}" fill="none" stroke="${COLORS.ink}" stroke-width="1.3" stroke-linecap="round" opacity="0.55"/>`).join('\n    ')}
     <path d="${MARK_PIN}" fill="${COLORS.marigold}" stroke="${COLORS.brand}" stroke-width="1.5" stroke-linejoin="round"/>
     <circle cx="${MARK_HOLE.cx}" cy="${MARK_HOLE.cy}" r="${MARK_HOLE.r}" fill="${COLORS.brand}"/>
   </g>

@@ -1,5 +1,6 @@
 import type { Category } from '@askbuy/shared';
 import { customerEn, customerHi, type CustomerStrings } from './customerStrings.js';
+import { authEn, authHi, type AuthStrings } from './authStrings.js';
 import { shopEn, shopHi, type ShopStrings } from './shopStrings.js';
 
 /** The distance bands the API sends, as written there. */
@@ -12,6 +13,8 @@ export interface Label {
 }
 
 export interface Strings {
+  /** What both login and account screens share. */
+  auth: AuthStrings;
   /** The shop app's own copy (ADR-0041). */
   shop: ShopStrings;
   /** The customer app's own copy (ADR-0042). */
@@ -28,7 +31,6 @@ export interface Strings {
   demoTitle: string;
   demoNote: string;
   demoFill: string;
-  errBadPhone: string;
   errTooManyOtp: string;
   errBadCode: string;
   errNoDemoCode: string;
@@ -259,6 +261,7 @@ export interface Strings {
 
 /** Hindi: the one-tap words are Devanagari with the Latin spelling below; running text stays Latin so no keyboard switch is needed. */
 export const hi: Strings = {
+  auth: authHi,
   shop: shopHi,
   c: customerHi,
   appName: 'AskBuy',
@@ -271,7 +274,6 @@ export const hi: Strings = {
   demoTitle: 'Demo mode',
   demoNote: 'Koi SMS nahi jaata. OTP yahan se bharein.',
   demoFill: 'Demo OTP bharein',
-  errBadPhone: 'Mobile number sahi nahi hai. 10 ank ka number likhein.',
   errTooManyOtp: 'OTP bahut baar manga gaya. Thodi der baad dobara try karein.',
   errBadCode: 'OTP galat hai ya purana ho gaya. Naya OTP mangwayein.',
   errNoDemoCode: 'Demo OTP nahi mila. Pehle OTP bhejo dabayein.',
@@ -529,6 +531,7 @@ export const hi: Strings = {
 };
 
 export const en: Strings = {
+  auth: authEn,
   shop: shopEn,
   c: customerEn,
   appName: 'AskBuy',
@@ -541,7 +544,6 @@ export const en: Strings = {
   demoTitle: 'Demo mode',
   demoNote: 'No SMS is sent. Fill the OTP from here.',
   demoFill: 'Fill demo OTP',
-  errBadPhone: 'That mobile number is not right. Enter a 10-digit number.',
   errTooManyOtp: 'Too many OTPs were requested. Please try again in a few minutes.',
   errBadCode: 'That OTP is wrong or has expired. Ask for a new one.',
   errNoDemoCode: 'No demo OTP yet. Tap Send OTP first.',

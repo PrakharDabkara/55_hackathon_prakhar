@@ -8,10 +8,12 @@ import { Button } from '../../ui/Button.js';
 import { CategoryPicker } from '../ui/CategoryPicker.js';
 import { Field } from '../../ui/Field.js';
 import { Icon } from '../../ui/Icon.js';
+import { checkDelivery, emptyDeliveryForm, type DeliveryForm } from '../lib/delivery.js';
+import { DeliveryFields } from '../ui/DeliveryFields.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
 
 interface Props {
-  api: Pick<ShopApi, 'createShop' | 'uploadLogo'>;
+  api: Pick<ShopApi, 'createShop' | 'uploadLogo' | 'updateShop'>;
   onDone: (shop: MyShop) => void;
   /** For tests: stand-ins for the phone's location and the canvas shrink. */
   locate?: () => Promise<LatLng | null>;
@@ -29,15 +31,16 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
   const [logo, setLogo] = useState<{ blob: Blob; preview: string } | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [delivery, setDelivery] = useState<DeliveryForm>(emptyDeliveryForm);
+  const [deliveryErrors, setDeliveryErrors] = useState<{ fee?: true; km?: true }>({});
 
-  const missing =
-    name.trim() === ''
-      ? s.needName
-      : categories.length === 0
-        ? s.needCategory
-        : place === null
-          ? s.needLocation
-          : null;
+  /** Everything the shop must still do before Start works, in the order of the screen. */
+  const missing = [
+    ...(name.trim() === '' ? [s.missingName] : []),
+    ...(categories.length === 0 ? [s.missingCategory] : []),
+    ...(place === null ? [s.missingLocation] : []),
+  ];
 
   async function pickLogo(file: File | undefined) {
     if (!file) return;
@@ -50,7 +53,13 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
   }
 
   async function start() {
-    if (missing !== null || place === null) return;
+    if (missing.length > 0 || place === null) return;
+    const checked = checkDelivery(delivery);
+    setDeliveryErrors(checked.ok ? {} : checked.errors);
+    if (!checked.ok) {
+      setDeliveryOpen(true);
+      return;
+    }
     setBusy(true);
     setFailed(false);
     try {
@@ -59,7 +68,16 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
         lat: place.lat,
         lng: place.lng,
         categories,
+        ...(checked.delivery && { delivery: checked.delivery }),
       });
+      if (checked.maxKm !== null) {
+        // The shop exists now; a distance that fails to save can be set later in Delivery.
+        try {
+          shop = await api.updateShop({ deliveryMaxKm: checked.maxKm });
+        } catch {
+          // Keep going.
+        }
+      }
       if (logo) {
         // The shop exists now; a logo that fails to upload can be added later in Shop settings.
         try {
@@ -117,22 +135,52 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
         label={s.shopName}
         autoComplete="organization"
         maxLength={80}
+        required
         value={name}
         onChange={(event) => setName(event.target.value)}
       />
-      <CategoryPicker title={s.sellTitle} value={categories} onChange={setCategories} />
-      <LocationPicker value={place} onChange={setPlace} {...(locate && { locate })} />
+      <CategoryPicker title={s.sellTitle} value={categories} onChange={setCategories} required />
+      <LocationPicker value={place} onChange={setPlace} required {...(locate && { locate })} />
+
+      <section className="sh-card sh-stack">
+        <button
+          type="button"
+          className="sh-disclosure"
+          aria-expanded={deliveryOpen}
+          aria-controls="setup-delivery"
+          onClick={() => setDeliveryOpen((open) => !open)}
+        >
+          <span>
+            {s.iDeliver} · {s.optional}
+          </span>
+          <Icon name="chevron" />
+        </button>
+        {deliveryOpen && (
+          <div id="setup-delivery" className="sh-stack">
+            <DeliveryFields value={delivery} onChange={setDelivery} errors={deliveryErrors} />
+          </div>
+        )}
+      </section>
 
       {failed && (
         <p className="sh-alert" role="alert">
           {s.createFailed}
         </p>
       )}
-      {missing && <p className="sh-helper">{missing}</p>}
+      {missing.length > 0 && (
+        <div className="sh-missing sh-helper">
+          <p>{s.missingHeading}</p>
+          <ul>
+            {missing.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <Button
         variant="primary"
         className="sh-btn--block"
-        disabled={missing !== null || busy}
+        disabled={missing.length > 0 || busy}
         onClick={() => void start()}
       >
         {s.startReceiving}

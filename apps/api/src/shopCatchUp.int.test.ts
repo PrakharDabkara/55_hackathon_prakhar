@@ -204,6 +204,15 @@ describe('catch-up pings for a shop that opens late', () => {
     expect(await catchUp(far.shopId)).toMatchObject({ sent: 0 }); // outside the 2 km radius
   });
 
+  it('asks a general store about a stationery item too (S-06)', async () => {
+    const store = await makeShop(['general_store'], 0.3);
+    const id = await pinging('notebook');
+    expect(await catchUp(store.shopId)).toMatchObject({ sent: 1 });
+    expect(await pingCount(id, store.shopId)).toBe(1);
+    const hardware = await makeShop(['hardware'], 0.3);
+    expect(await catchUp(hardware.shopId)).toMatchObject({ sent: 0 });
+  });
+
   it('does nothing for a shop that is still closed', async () => {
     const shop = await makeShop(['grocery'], 0.3, false);
     const id = await pinging();

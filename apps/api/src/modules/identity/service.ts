@@ -95,6 +95,25 @@ async function consumeOtp(db: Queryable, phone: string, code: string): Promise<b
   return used.rowCount === 1;
 }
 
+/**
+ * Tries left on the newest code after a wrong guess (0 once it is locked), or null when there is no
+ * live code to count (none asked, expired or used). Only called after a failed verify.
+ */
+export async function attemptsLeft(db: Queryable, phone: string): Promise<number | null> {
+  const { rows } = await db.query<OtpRow>(
+    `SELECT id, code_hash, expires_at, attempts, consumed_at FROM otp_codes
+      WHERE phone = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
+    [phone],
+  );
+  const otp = rows[0];
+  if (!otp) return null;
+  const status = otpStatus(
+    { expiresAt: otp.expires_at, attempts: otp.attempts, consumedAt: otp.consumed_at },
+    new Date(),
+  );
+  return status === 'ok' || status === 'locked' ? Math.max(0, MAX_ATTEMPTS - otp.attempts) : null;
+}
+
 export interface LoginResult {
   token: string;
   user: User;

@@ -1,68 +1,38 @@
-import { useState, type FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { BRAND_NAME } from '../../brand.js';
 import { useT } from '../../i18n/index.js';
-import { ApiError, type ShopApi } from '../../lib/api.js';
+import { loginMessage, useOtpLogin, type LoginApi } from '../../lib/useOtpLogin.js';
 import { BrandMark } from '../../ui/BrandMark.js';
 import { Button } from '../../ui/Button.js';
+import { DemoNumbers } from '../../ui/DemoNumbers.js';
 import { Field } from '../../ui/Field.js';
 
-export type LoginApi = Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp'>;
+export type { LoginApi };
 
 interface Props {
   api: LoginApi;
   onLoggedIn: (token: string) => void;
 }
 
-/** An Indian mobile as people type it: 10 digits, optionally with +91, 91 or 0 in front. */
-const PHONE = /^(?:\+?91|0)?[6-9]\d{9}$/;
-
 /** Screen A: the brand at the top, the phone number at the bottom where the thumb is. */
 export function Login({ api, onLoggedIn }: Props) {
   const { t } = useT();
   const s = t.shop;
-  const [step, setStep] = useState<'phone' | 'code'>('phone');
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  // Whatever the shop typed, the server gets the 10 digits.
-  const typed = phone.replace(/[\s-]/g, '');
-  const digits = typed.replace(/^(?:\+?91|0)/, '');
-
-  async function guard(work: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await work();
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 429) setError(s.errTooMany);
-      else if (e instanceof ApiError && e.code === 'invalid_code') setError(s.errBadCode);
-      else if (e instanceof ApiError && e.status === 400) setError(s.errBadPhone);
-      else setError(s.errGeneric);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function sendCode(event: FormEvent) {
-    event.preventDefault();
-    if (!PHONE.test(typed)) {
-      setError(s.errBadPhone);
-      return;
-    }
-    void guard(async () => {
-      await api.requestOtp(digits);
-      setStep('code');
+  const login = useOtpLogin(api, onLoggedIn);
+  const { problem } = login;
+  const message =
+    problem &&
+    loginMessage(problem, t.auth, {
+      tooMany: s.errTooMany,
+      badCode: s.errBadCode,
+      noDemoCode: s.errNoDemo,
+      generic: s.errGeneric,
     });
-  }
 
-  function verify(event: FormEvent) {
+  function submit(event: FormEvent) {
     event.preventDefault();
-    void guard(async () => {
-      const { token } = await api.verifyOtp(digits, code);
-      onLoggedIn(token);
-    });
+    if (login.step === 'phone') login.sendCode();
+    else login.verify();
   }
 
   return (
@@ -73,23 +43,31 @@ export function Login({ api, onLoggedIn }: Props) {
         <p className="sh-body sh-muted">{s.forShops}</p>
       </header>
 
-      <form className="sh-login__form" onSubmit={step === 'phone' ? sendCode : verify}>
+      <form className="sh-login__form" onSubmit={submit}>
         <Field
           label={s.mobileNumber}
           type="tel"
           inputMode="tel"
           autoComplete="tel"
           prefix="+91"
-          value={phone}
-          readOnly={step === 'code'}
-          {...(step === 'phone' && { helper: s.codeHelper })}
-          onChange={(event) => setPhone(event.target.value)}
+          value={login.phone}
+          readOnly={login.step === 'code'}
+          onChange={(event) => login.setPhone(event.target.value)}
         />
 
-        {step === 'phone' ? (
-          <Button type="submit" variant="primary" className="sh-btn--block" disabled={busy}>
-            {s.sendCode}
-          </Button>
+        {login.step === 'phone' ? (
+          <>
+            {login.demo?.demo && problem?.kind !== 'demoMode' && (
+              <DemoNumbers
+                numbers={login.demo.numbers}
+                selected={login.digits}
+                onPick={login.setPhone}
+              />
+            )}
+            <Button type="submit" variant="primary" className="sh-btn--block" disabled={login.busy}>
+              {s.sendCode}
+            </Button>
+          </>
         ) : (
           <>
             <Field
@@ -97,24 +75,14 @@ export function Login({ api, onLoggedIn }: Props) {
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
-              helper={s.codeSentTo(digits)}
-              value={code}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+              helper={s.codeSentTo(login.digits ?? '')}
+              value={login.code}
+              onChange={(event) => login.setCode(event.target.value.replace(/\D/g, ''))}
             />
             {/* OTP_MODE=simulated is the only mode (ADR-0013); this box goes with the inbox endpoint. */}
             <section className="sh-demo" aria-label={s.demoTitle}>
               <p className="sh-label">{s.demoTitle}</p>
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() =>
-                  void guard(async () => {
-                    const demo = await api.devInbox(digits);
-                    if (demo === null) setError(s.errNoDemo);
-                    else setCode(demo);
-                  })
-                }
-              >
+              <Button variant="secondary" disabled={login.busy} onClick={login.fillDemoCode}>
                 {s.demoFill}
               </Button>
             </section>
@@ -122,22 +90,21 @@ export function Login({ api, onLoggedIn }: Props) {
               type="submit"
               variant="primary"
               className="sh-btn--block"
-              disabled={busy || code.length !== 6}
+              disabled={login.busy || login.code.length !== 6}
             >
               {s.verify}
             </Button>
-            <Button
-              variant="quiet"
-              disabled={busy}
-              onClick={() => void guard(() => api.requestOtp(digits))}
-            >
+            <Button variant="quiet" disabled={login.busy} onClick={login.resend}>
               {s.resend}
+            </Button>
+            <Button variant="quiet" disabled={login.busy} onClick={login.changeNumber}>
+              {t.auth.changeNumber}
             </Button>
           </>
         )}
-        {error && (
+        {message && (
           <p className="sh-alert" role="alert">
-            {error}
+            {message}
           </p>
         )}
       </form>

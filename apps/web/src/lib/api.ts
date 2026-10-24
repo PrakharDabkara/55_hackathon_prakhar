@@ -22,6 +22,12 @@ export class ApiError extends Error {
   }
 }
 
+export interface DemoNumbers {
+  demo: boolean;
+  /** 10-digit numbers, safe to show to anyone. */
+  numbers: string[];
+}
+
 export interface ShopPing {
   id: string;
   item: { slug: string; nameEn: string; nameHi: string };
@@ -148,6 +154,10 @@ export interface ShopApi extends PhotoApi, PushApi {
   /** Demo mode: the code the server would have sent by SMS, or null if there is none. */
   devInbox(phone: string): Promise<string | null>;
   verifyOtp(phone: string, code: string): Promise<{ token: string }>;
+  /** The public demo numbers for this app's login chips, and whether the server is in demo mode. */
+  demoNumbers(): Promise<DemoNumbers>;
+  /** Who is logged in: the phone with most digits hidden (the full number never leaves the server). */
+  account(): Promise<{ phoneMasked: string | null; demo?: boolean }>;
   /** null when this account has no shop yet. Throws ApiError 403 for a customer account. */
   getMyShop(): Promise<MyShop | null>;
   createShop(input: NewShop): Promise<MyShop>;
@@ -273,6 +283,8 @@ export function createApi(options: ClientOptions): ShopApi {
       });
       return { token: data.token };
     },
+    demoNumbers: () => call<DemoNumbers>('GET', '/auth/demo-numbers?role=shop'),
+    account: () => call<{ phoneMasked: string | null; demo?: boolean }>('GET', '/account'),
     async getMyShop() {
       try {
         return await call<MyShop>('GET', '/shops/me');

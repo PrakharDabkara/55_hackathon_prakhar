@@ -238,6 +238,13 @@ describe('decide: a shop says yes only to items of its own categories (live: a h
     expect(new Set(ask(['stationery'], ['grocery'], null))).toEqual(new Set(['no']));
   });
 
+  it('a general store can say yes to household, personal care and stationery, but not hardware (S-06)', () => {
+    for (const kind of ['household_kitchen', 'personal_care', 'stationery']) {
+      expect(ask([kind], ['general_store'])).toContain('yes');
+    }
+    expect(new Set(ask(['hardware'], ['general_store']))).toEqual(new Set(['no']));
+  });
+
   it('without category information (an older server) it behaves as before', () => {
     const rng = createRng(3);
     const d = decide(profile({ replyProbability: 1 }), { refPricePaise: 5000 }, rng, 1);

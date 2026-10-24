@@ -1,3 +1,5 @@
+import { coveredCategories } from '@askbuy/shared';
+
 export interface Candidate {
   shopId: string;
   categories: string[];
@@ -31,7 +33,8 @@ export function selectPingTargets<T extends Candidate>(candidates: T[], opts: Op
   const ofKind = inRadius.filter(
     (c) =>
       opts.anyCategory === true ||
-      c.categories.some((category) => opts.itemCategories.includes(category)),
+      // A general store also takes everyday household, personal care and stationery items (S-06).
+      coveredCategories(c.categories).some((category) => opts.itemCategories.includes(category)),
   );
   const matching = ofKind
     .filter((c) => !opts.excludeShopIds.has(c.shopId))

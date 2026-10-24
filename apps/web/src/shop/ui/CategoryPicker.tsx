@@ -8,15 +8,17 @@ interface Props {
   title: string;
   value: Category[];
   onChange: (next: Category[]) => void;
+  /** Marks the title with * (the shop cannot start without it). */
+  required?: boolean;
 }
 
 /** Up to three kinds of goods. At three, the rest are switched off and the helper says why. */
-export function CategoryPicker({ title, value, onChange }: Props) {
+export function CategoryPicker({ title, value, onChange, required = false }: Props) {
   const { t } = useT();
   const full = value.length >= MAX_CATEGORIES;
   return (
     <fieldset className="sh-fieldset">
-      <legend className="sh-label">{title}</legend>
+      <legend className={`sh-label${required ? ' sh-label--required' : ''}`}>{title}</legend>
       <div className="sh-chips">
         {CATEGORIES.map((category) => {
           const chosen = value.includes(category);

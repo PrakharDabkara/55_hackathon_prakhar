@@ -21,6 +21,9 @@ export const testConfig = (overrides: Partial<Config> = {}): Config => ({
   demoAutopilot: false,
   demoAutopilotMaxPerMinute: 30,
   demoPhones: [],
+  publicDemoShopPhones: [],
+  publicDemoCustomerPhones: [],
+  publicDemoDropped: 0,
   otpInboxOpen: true,
   trustProxyHops: 1,
   // The tests make far more calls than a person would; the ones about the limits set this to 1.

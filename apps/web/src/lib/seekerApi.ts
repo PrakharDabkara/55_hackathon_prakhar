@@ -1,5 +1,5 @@
 import type { QuantityUnit } from '@askbuy/shared';
-import { createCaller, type ClientOptions, type ShopApi } from './api.js';
+import { createCaller, type ClientOptions, type DemoNumbers, type ShopApi } from './api.js';
 import { createListApi, type ListApi } from './listApi.js';
 import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
@@ -80,6 +80,8 @@ export interface NewRequest {
   lat: number;
   lng: number;
   targetPricePaise?: number;
+  /** How far to look, in metres (the server allows up to 5000; it asks 2000 by default). */
+  radiusM?: number;
   /** The item the customer picked after a question: skips matching the text. */
   itemId?: string;
   /** What they did with "Kya aapka matlab…?": said yes, or changed it. Counted by the server. */
@@ -234,7 +236,7 @@ export interface NewErrand {
 /** Everything the customer app asks of the server. */
 export interface SeekerApi
   extends
-    Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'>,
+    Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'demoNumbers' | 'eventTicket'>,
     PhotoApi,
     PickupApi,
     PushApi,
@@ -269,7 +271,7 @@ export interface SeekerApi
   collectOrder(id: string): Promise<SeekerOrder>;
   forgetAddress(): Promise<void>;
   /** Who the customer is, as the Account screen may show it: the phone partly hidden. */
-  account(): Promise<{ phoneMasked: string | null }>;
+  account(): Promise<{ phoneMasked: string | null; demo?: boolean }>;
   /** Ends this login on the server, and forgets this browser's alerts if its endpoint is given. */
   logout(pushEndpoint?: string | null): Promise<void>;
   /** Ends every login of this account, forgets all alerts and closes live streams (ADR-0060). */
@@ -329,6 +331,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
       });
       return { token: data.token };
     },
+    demoNumbers: () => call<DemoNumbers>('GET', '/auth/demo-numbers?role=seeker'),
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
@@ -392,7 +395,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, RECENT_COUNT);
     },
-    account: () => call<{ phoneMasked: string | null }>('GET', '/account'),
+    account: () => call<{ phoneMasked: string | null; demo?: boolean }>('GET', '/account'),
     async logout(pushEndpoint) {
       await call('POST', '/account/logout', pushEndpoint ? { pushEndpoint } : {});
     },

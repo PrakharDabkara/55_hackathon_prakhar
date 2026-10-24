@@ -34,7 +34,6 @@ export interface ShopStrings {
   /** The line under the brand on the shop login. It does not repeat the brand. */
   forShops: string;
   mobileNumber: string;
-  codeHelper: string;
   sendCode: string;
   codeLabel: string;
   codeSentTo: (phone: string) => string;
@@ -42,7 +41,6 @@ export interface ShopStrings {
   resend: string;
   demoTitle: string;
   demoFill: string;
-  errBadPhone: string;
   errTooMany: string;
   errBadCode: string;
   errGeneric: string;
@@ -64,6 +62,11 @@ export interface ShopStrings {
   needName: string;
   needCategory: string;
   needLocation: string;
+  /** The list under a disabled Start button: what is still missing (S-01). */
+  missingHeading: string;
+  missingName: string;
+  missingCategory: string;
+  missingLocation: string;
   startReceiving: string;
   createFailed: string;
   // Home
@@ -280,9 +283,8 @@ export const shopEn: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'For shops: lift your shutter online in a minute.',
+  forShops: "Let's lift your shutter online!",
   mobileNumber: 'Mobile number',
-  codeHelper: "We'll send a 6-digit code by SMS.",
   sendCode: 'Send code',
   codeLabel: '6-digit code',
   codeSentTo: (phone) => `Code sent to +91 ${phone}`,
@@ -290,28 +292,31 @@ export const shopEn: ShopStrings = {
   resend: 'Send code again',
   demoTitle: 'Demo mode',
   demoFill: 'Fill the code',
-  errBadPhone: 'Enter a 10-digit mobile number.',
   errTooMany: 'Too many tries. Wait a few minutes and try again.',
   errBadCode: 'That code is wrong. Check it and try again.',
   errGeneric: 'Something went wrong. Check your connection and try again.',
-  errNoDemo: 'No demo code here. Use the code from the SMS.',
+  errNoDemo: 'No demo code yet. Tap Send code first.',
   errNotShop: 'This number belongs to a customer account. Log in with a shop number.',
   otherNumber: 'Use another number',
 
   setupTitle: 'Set up your shop',
   setupHelper: 'Customers near you will see this name.',
-  logoCaption: 'Upload logo · optional',
+  logoCaption: 'Upload logo',
   shopName: 'Shop name',
   sellTitle: 'What do you sell? Pick up to 3.',
   sellLimit: 'You can pick up to 3. Remove one to pick another.',
   locationTitle: 'Shop location',
   useLocation: 'Use my current location',
   pinHelper: 'Stand inside your shop, or drag the pin to it.',
-  pinHelperDenied: 'Drag the pin to your shop.',
+  pinHelperDenied: 'Location is blocked. Drag the pin to your shop.',
   mapLabel: 'Shop location map. Press the arrow keys to move the pin.',
   needName: 'Add your shop name to continue.',
   needCategory: 'Pick what you sell to continue.',
   needLocation: 'Set your shop location to continue.',
+  missingHeading: 'To start, you still need to:',
+  missingName: 'Add your shop name',
+  missingCategory: 'Pick what you sell',
+  missingLocation: 'Set your shop location: use your location or drag the pin',
   startReceiving: 'Start getting requests',
   createFailed: "Couldn't create your shop. Check your connection and try again.",
 
@@ -533,9 +538,8 @@ export const shopHi: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'Dukaandaar ke liye: ek minute mein apni dukaan online kholein.',
+  forShops: 'Chaliye, apni dukaan ka shutter online uthayein!',
   mobileNumber: 'Mobile number',
-  codeHelper: 'Hum SMS se 6 ank ka code bhejenge.',
   sendCode: 'Code bhejo',
   codeLabel: '6 ank ka code',
   codeSentTo: (phone) => `Code +91 ${phone} par bheja`,
@@ -543,28 +547,31 @@ export const shopHi: ShopStrings = {
   resend: 'Code dobara bhejo',
   demoTitle: 'Demo mode',
   demoFill: 'Code bharein',
-  errBadPhone: '10 ank ka mobile number daalein.',
   errTooMany: 'Bahut koshish ho gayi. Kuch minute rukkar dobara karein.',
   errBadCode: 'Code galat hai. Check karke dobara daalein.',
   errGeneric: 'Kuch gadbad ho gayi. Internet check karke dobara koshish karein.',
-  errNoDemo: 'Yahan demo code nahi hai. SMS wala code daalein.',
+  errNoDemo: 'Demo code abhi nahi hai. Pehle code bhejein.',
   errNotShop: 'Ye number grahak ka hai. Dukaan ke number se login karein.',
   otherNumber: 'Doosra number',
 
   setupTitle: 'Apni dukaan set up karein',
   setupHelper: 'Aas-paas ke grahak ye naam dekhenge.',
-  logoCaption: 'Logo daalein · zaroori nahi',
+  logoCaption: 'Logo daalein',
   shopName: 'Dukaan ka naam',
   sellTitle: 'Aap kya bechte hain? 3 tak chunein.',
   sellLimit: '3 tak chun sakte hain. Doosra chunne ke liye ek hatayein.',
   locationTitle: 'Dukaan ki location',
   useLocation: 'Meri abhi ki location use karein',
   pinHelper: 'Dukaan ke andar khade hon, ya pin ko dukaan par khinchein.',
-  pinHelperDenied: 'Pin ko apni dukaan par khinchein.',
+  pinHelperDenied: 'Location band hai. Pin ko apni dukaan par khinchein.',
   mapLabel: 'Dukaan ki location ka map. Pin hilane ke liye arrow keys dabayein.',
   needName: 'Aage badhne ke liye dukaan ka naam likhein.',
   needCategory: 'Aage badhne ke liye kuch chunein.',
   needLocation: 'Aage badhne ke liye dukaan ki location set karein.',
+  missingHeading: 'Shuru karne ke liye abhi ye baaki hai:',
+  missingName: 'Dukaan ka naam likhein',
+  missingCategory: 'Kya bechte hain, chunein',
+  missingLocation: 'Dukaan ki location set karein: apni location lein ya pin khinchein',
   startReceiving: 'Sawaal lena shuru karein',
   createFailed: 'Dukaan nahi bani. Internet check karke dobara koshish karein.',
 

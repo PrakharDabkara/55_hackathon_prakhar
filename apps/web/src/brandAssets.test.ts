@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { MARK_SLATS } from './ui/brandMarkGeometry.js';
 
 // PR P: the AskBuy mark as icons: the PWA icons, a maskable one and the favicon, generated once
 // from the same drawing by apps/web/scripts/make-icons.ts and committed.
@@ -23,6 +24,15 @@ describe('AskBuy icons', () => {
     const svg = readFileSync(file('../public/favicon.svg'), 'utf8');
     expect(svg).toMatch(/<svg/);
     expect(svg).not.toMatch(/kahan/i);
+  });
+
+  it('draws the shutter slats in the favicon and in the landing header too (A-07)', () => {
+    const favicon = readFileSync(file('../public/favicon.svg'), 'utf8');
+    const landing = readFileSync(file('../landing.html'), 'utf8');
+    for (const d of MARK_SLATS) {
+      expect(favicon).toContain(`d="${d}"`);
+      expect(landing).toContain(`d="${d}"`);
+    }
   });
 
   it('lists them in the manifest, the maskable one on its own', () => {

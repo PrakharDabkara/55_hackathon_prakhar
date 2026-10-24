@@ -4,6 +4,7 @@ import { ReplyCard, RememberedCard } from '../components/ReplyCard.js';
 import { StopAskingSheet } from '../components/StopAskingSheet.js';
 import { RequestParchi } from '../components/RequestParchi.js';
 import { ResultsMap } from '../components/ResultsMap.js';
+import { DEMO_PLACE, inDemoArea } from '../lib/demoPlace.js';
 import { ScreenBar } from '../customer/ScreenBar.js';
 import { useT } from '../i18n/index.js';
 import type { LiveOptions } from '../lib/live.js';
@@ -30,6 +31,9 @@ interface Props {
 }
 
 const CLOCK_MS = 30_000;
+/** The widest area the server will search (POST /requests allows up to 5 km). */
+const WIDE_RADIUS_M = 5000;
+const km = (metres: number) => String(Math.round(metres / 100) / 10);
 
 function useOnline(): boolean {
   const [online, setOnline] = useState(() => navigator.onLine !== false);
@@ -58,6 +62,8 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [choosing, setChoosing] = useState<ShopResult | null>(null);
   const [showNo, setShowNo] = useState(false);
+  const [widening, setWidening] = useState(false);
+  const [wideFailed, setWideFailed] = useState(false);
   const online = useOnline();
   const alive = useRef(true);
 
@@ -134,6 +140,43 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
     onDone();
   }
 
+  /** Nobody was asked and nobody remembered has it: ask again over the widest area the server allows. */
+  const askedNobody = request.pingStats.sent === 0;
+  const canWiden =
+    askedNobody &&
+    origin !== null &&
+    request.radiusM < WIDE_RADIUS_M &&
+    request.wantsDelivery !== true &&
+    !!request.typed?.trim();
+
+  /** The demo area is offered to anyone who is somewhere else (or whose place is not known). */
+  const canDemo =
+    askedNobody &&
+    request.wantsDelivery !== true &&
+    !!request.typed?.trim() &&
+    !(origin !== null && inDemoArea(origin));
+
+  /** Asks the same words again from another place, or over a wider area, and opens that search. */
+  async function searchAgain(place: { lat: number; lng: number }, radiusM?: number) {
+    if (!request.typed) return;
+    setWidening(true);
+    setWideFailed(false);
+    try {
+      const next = await api.createRequest({
+        q: request.typed,
+        lat: place.lat,
+        lng: place.lng,
+        ...(radiusM !== undefined && { radiusM }),
+      });
+      navigate(`/app/request/${next.id}`);
+    } catch {
+      if (alive.current) {
+        setWideFailed(true);
+        setWidening(false);
+      }
+    }
+  }
+
   const openOrder = (shopId: string) => {
     const order = orderForShop(orders, shopId);
     return order && (isActiveOrder(order) || order.state === 'DELIVERED') ? order : undefined;
@@ -203,6 +246,44 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
                 />
               ))}
             </ul>
+          ) : askedNobody && learnedRows.length > 0 ? (
+            <div className="cu-empty">
+              <p className="sh-heading">{t.c.knownTitle}</p>
+              <p className="sh-body">{t.c.knownHelp}</p>
+            </div>
+          ) : askedNobody ? (
+            <div className="cu-empty">
+              <p className="sh-heading">{t.c.noShopsTitle(km(request.radiusM))}</p>
+              <p className="sh-body">{t.c.noShopsHelp}</p>
+              <div className="cu-stack">
+                <Button variant="secondary" onClick={onDone}>
+                  {t.c.noShopsWords}
+                </Button>
+                {canDemo && (
+                  <Button
+                    variant="secondary"
+                    disabled={widening}
+                    onClick={() => void searchAgain(DEMO_PLACE)}
+                  >
+                    {t.c.noShopsDemo}
+                  </Button>
+                )}
+                {canWiden && (
+                  <Button
+                    variant="solid"
+                    disabled={widening}
+                    onClick={() => origin && void searchAgain(origin, WIDE_RADIUS_M)}
+                  >
+                    {t.c.noShopsWider(km(WIDE_RADIUS_M))}
+                  </Button>
+                )}
+              </div>
+              {wideFailed && (
+                <p className="sh-alert" role="alert">
+                  {t.c.noShopsWiderFailed}
+                </p>
+              )}
+            </div>
           ) : (
             <div className="cu-empty">
               <p className="sh-heading">{ended ? t.c.noneFoundTitle : t.c.noneYetTitle}</p>
