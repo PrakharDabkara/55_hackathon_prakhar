@@ -121,3 +121,18 @@ describe('the workflows and caches on a self-hosted runner', () => {
     );
   });
 });
+
+describe('.github/workflows/evals.yml: the resolve job takes the model by hand too (PR R2)', () => {
+  const job = block('evals');
+
+  it('reads the model from the dispatch input, and is primary on a pull request', () => {
+    expect(job).toMatch(/EVAL_MODEL:.*workflow_dispatch.*inputs\.model.*\|\| 'primary'/);
+    expect(block('workflow_dispatch')).toMatch(/options:\s*\[primary, fallback\]/);
+  });
+
+  it('runs every set with the gate on a pull request, and only the chosen set by hand', () => {
+    expect(job).toMatch(/EVAL_SET:.*inputs\.set == 'dev' && 'dev'.*\|\| 'all'/);
+    // dev has no gate set to check; the final-gate set keeps the gate
+    expect(job).toMatch(/EVAL_GATE:.*inputs\.set == 'dev' && '0' \|\| '1'/);
+  });
+});
