@@ -160,8 +160,13 @@ describe('the shop stylesheets', () => {
 
   it.each(shopCss)('$path: motion stays at 200 ms or less', ({ text }) => {
     const times = [...text.matchAll(/(?:transition|animation)[^;{]*?(\d*\.?\d+)(ms|s)\b/g)];
-    for (const [, amount, unit] of times) {
+    for (const [whole, amount, unit] of times) {
       const ms = Number(amount) * (unit === 's' ? 1000 : 1);
+      // The one-off shutter after a shop logs in (A-08) may take up to 900 ms; it is skippable.
+      if (whole.includes('sh-shutter-up')) {
+        expect(ms).toBeLessThanOrEqual(900);
+        continue;
+      }
       // The skeleton shimmer is a loop, not a transition of movement the eye has to wait for.
       if (ms > 200) expect(text).toMatch(/sh-skeleton[\s\S]*?animation:\s*sh-shimmer/);
     }
