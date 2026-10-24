@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { screenProblems } from './a11y.js';
+import { forgetDemoStock } from './db.js';
 import {
   ask,
   goTo,
@@ -372,4 +373,67 @@ test.describe('screenshots of the changed screens', () => {
       });
     }
   }
+});
+
+test.describe('the demo area (X-01)', () => {
+  test.beforeEach(forgetDemoStock);
+
+  /** One of the ten demo customer numbers, so a rerun within ten minutes rarely meets a used one. */
+  const demoPhone = () => `9000000${201 + Math.floor(Math.random() * 10)}`;
+
+  test('a demo customer starts in Vijay Nagar with a banner; Change gives the choice back', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: VIEWPORT,
+      reducedMotion: 'reduce',
+      geolocation: newCorner(),
+      permissions: ['geolocation'],
+    });
+    const page = await context.newPage();
+    await page.goto('/app/orders');
+    const sheet = page.getByRole('dialog', { name: 'Log in to send your request' });
+    await sheet.getByLabel('Mobile number').fill(demoPhone());
+    await sheet.getByRole('button', { name: 'Send code' }).click();
+    await sheet.getByRole('button', { name: 'Fill demo OTP' }).click();
+    await sheet.getByRole('button', { name: 'Log in' }).click();
+    await expect(page.getByRole('heading', { name: 'My orders' })).toBeVisible();
+
+    await page.goto('/app/');
+    await expect(page.getByText('Demo area: Vijay Nagar, Indore')).toBeVisible();
+    await ask(page, 'chini');
+    await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
+    await expect(page.getByText(/^Sent to [1-9]\d* shops? · 2 km$/)).toBeVisible();
+
+    await page.goto('/app/');
+    await page.getByRole('button', { name: 'Change' }).click();
+    await expect(page.getByRole('dialog', { name: 'Change location' })).toBeVisible();
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(page.getByText(/Demo area:/)).toHaveCount(0);
+    // The choice sticks for the session.
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Find nearby' })).toBeVisible();
+    await expect(page.getByText(/Demo area:/)).toHaveCount(0);
+    expect(await screenProblems(page)).toEqual([]);
+    await context.close();
+  });
+
+  test('nothing nearby offers the demo area, and it finds the demo shops', async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: VIEWPORT,
+      reducedMotion: 'reduce',
+      geolocation: newCorner(),
+      permissions: ['geolocation'],
+    });
+    const page = await context.newPage();
+    await login(page, '/app/');
+    await ask(page, 'chini');
+    await expect(page.getByText('No shops asked · 2 km')).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Use the demo area (Indore)' }).click();
+    await expect(page.getByText(/^Sent to [1-9]\d* shops? · 2 km$/)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByRole('button', { name: 'Use the demo area (Indore)' })).toHaveCount(0);
+    await context.close();
+  });
 });

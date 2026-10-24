@@ -44,6 +44,8 @@ export default defineConfig({
       // production never opens (ADR-0058). One machine does all the logins, so the per-IP limits
       // are lifted too.
       OTP_INBOX_OPEN: 'true',
+      // The demo customer numbers (X-01): a customer on one starts in the demo area.
+      DEMO_PHONES: Array.from({ length: 10 }, (_, i) => `9000000${201 + i}`).join(','),
       OTP_IP_REQUEST_MAX: '100000',
       OTP_IP_VERIFY_MAX: '100000',
       OTP_IP_INBOX_MAX: '100000',

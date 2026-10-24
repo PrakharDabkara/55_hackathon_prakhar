@@ -15,11 +15,13 @@ Two phones, one test. A real number got a code screen it could never finish. Typ
 5. **A general store is also asked about `household_kitchen`, `personal_care` and `stationery` items** (`coveredCategories` in shared). It applies in ping targeting, the catch-up SQL, the demand SQL, the simulated shops' answers and the errand eval harness. Stored categories do not change.
 6. **The phone on Account starts hidden** (`+91 ••••• •••••`); an eye button shows the server's partly hidden form. The full number still never leaves the server.
 7. **Nothing nearby is said plainly.** No pings sent: the parchi says "No shops asked", the page says why, and offers different words or a 5 km search (the server already allows `radiusM` up to 5000). The remembered-shops section is labelled "Had it recently, not asked this time".
+8. **Demo accounts start in the demo area (X-01, Prakhar's decision).** `GET /account` adds `demo: true` when the caller's number is on `DEMO_PHONES` (its owner only). Find then searches from `DEMO_PLACE` (Vijay Nagar, Indore; one constant in `packages/shared`, used by the demo seed and the web app) and shows "Demo area: Vijay Nagar, Indore · Change". Change opens the location choices and, for the session (`sessionStorage`), the demo area is not applied again. A demo account that already chose a place is left alone. Everyone else is unaffected. On the nothing-nearby screen "Use the demo area (Indore)" asks the same words again there, for anyone not already within 3 km of it.
 
 ## Alternatives rejected
 
 - **Same 202 for every number (ADR-0058).** Kept strangers from learning which numbers are demo numbers, but sent real users to a dead end.
 - **Return the full number behind the eye.** Needs a server change to ADR-0054; not asked for.
+- **Snap demo accounts' requests to the demo place on the server.** It would misreport where a request came from; the client default is visible (banner) and reversible (Change).
 - **Copy the general-store rule into the stored categories.** It would change what shops see in Settings and need a migration.
 
 ## Consequences
