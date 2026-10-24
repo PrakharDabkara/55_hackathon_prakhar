@@ -714,8 +714,10 @@ describe('Find: the demo area for demo accounts (X-01)', () => {
     expect(first.api.createRequest).toHaveBeenCalledWith(expect.objectContaining({ lat: 12.97 }));
     first.unmount();
 
+    // The choice is remembered, so the account is not even asked about.
     const again = setup(demoApi());
-    await waitFor(() => expect(again.api.account).toHaveBeenCalled());
+    await again.user.type(screen.getByLabelText('What do you need?'), 'x');
+    expect(again.api.account).not.toHaveBeenCalled();
     expect(screen.queryByText(/Demo area:/)).toBeNull();
   });
 
