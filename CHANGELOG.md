@@ -14,6 +14,12 @@ _None yet._
 
 Everything since the start. This is the "Unreleased" section until v1.0.0 is tagged; until then new entries go here.
 
+### Tests (PR F1: failure modes, assumed vs observed)
+
+- Real failures replayed through our own error handling: Gemini 503/429/timeout/`ECONNRESET` from 16 CI dev eval runs, Redis full (`noeviction`) and stopped, Postgres SQLSTATEs and killed connections, all recorded from throwaway containers into `apps/api/src/testing/observed/`.
+- `scripts/probe/gemini-quota-probe.sh` and `gemini-free-triggers.sh` (run by hand with the evals key) capture the raw Gemini 429, invalid-key, unknown-model and oversize-input responses; the contract tests that replay them switch on when the files are committed.
+- `docs/failure-modes.md`: assumed vs observed table and seven bugs found (none fixed here). Known bug pinned with `it.fails`: the demo seed/reset lock connection has no `error` listener.
+
 ### Fixed (PR R1: running unattended, ADR-0064)
 
 - Redis no longer fills up: every queue (expiry, ping fan-out, push, errand, demo autopilot) now keeps finished jobs 1 hour or 200 and failed jobs 7 days or 500, from one helper (`workers/jobRetention.ts`); the 60 s sweep scheduler had no limit and left about 1,440 jobs a day. At start-up the workers clear old completed jobs, in capped batches, leaving waiting, active, delayed and failed ones alone.
