@@ -22,12 +22,14 @@ const openAccount = async (page: Page) => {
   await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible();
 };
 
-test('Account opens from the header, shows the phone partly hidden, and fits 360 px', async ({
+test('Account opens from the header, hides the phone until the eye is pressed, and fits 360 px', async ({
   page,
 }) => {
   await login(page, '/app/');
   await openAccount(page);
   await expect(page.getByText('Logged in as')).toBeVisible();
+  await expect(page.getByText(/^\+91 ••••• •••••$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Show phone number' }).click();
   await expect(page.getByText(/^\+91 \d{2}••• ••\d{3}$/)).toBeVisible();
   await expect(page.getByText('No address yet')).toBeVisible();
   await expect(page.getByText('Shopkeeper? Open the shop app')).toBeVisible();
@@ -184,6 +186,7 @@ test('delete my account: refused with an open order, then it erases and logs out
   await expect(sheet.getByText('Finish or cancel your open order first.')).toBeVisible();
   // Still logged in.
   await sheet.getByRole('button', { name: 'Cancel' }).click();
+  await customer.getByRole('button', { name: 'Show phone number' }).click();
   await expect(customer.getByText(/^\+91 \d{2}••• ••\d{3}$/)).toBeVisible();
 
   // Cancel the order from My orders, then delete.
