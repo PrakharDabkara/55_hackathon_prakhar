@@ -152,7 +152,7 @@ describe('Login: a wrong code (A-06)', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/3 tries left/);
     await act(async () => finish());
     expect((await screen.findByRole('alert')).textContent).toMatch(/2 tries left/);
-    await user.type(screen.getByLabelText('6-digit code'), '1');
+    await user.type(screen.getByLabelText('6-digit code'), '{backspace}');
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
