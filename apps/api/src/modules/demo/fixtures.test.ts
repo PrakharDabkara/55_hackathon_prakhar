@@ -1,4 +1,4 @@
-import { CATEGORIES } from '@askbuy/shared';
+import { CATEGORIES, DEMO_PLACE as SHARED_DEMO_PLACE } from '@askbuy/shared';
 import { describe, expect, it } from 'vitest';
 import catalog from '../catalog/catalog.seed.json' with { type: 'json' };
 import {
@@ -106,5 +106,11 @@ describe('demo fixtures (ADR-0062)', () => {
     }
     for (const [i] of DEMO_SHOPS.entries())
       expect(DEMO_STOCK.filter((r) => r.shop === i).length).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('the demo place has one source', () => {
+  it('is the shared one the web app also uses (X-01)', () => {
+    expect(DEMO_PLACE).toBe(SHARED_DEMO_PLACE);
   });
 });

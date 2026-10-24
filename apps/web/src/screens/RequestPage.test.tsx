@@ -708,3 +708,43 @@ describe('nobody was asked (C-03, C-04)', () => {
     expect(screen.queryByText('Nobody was asked this time')).toBeNull();
   });
 });
+
+describe('nobody was asked: the demo area (X-01)', () => {
+  const none = () =>
+    seekerRequest({
+      state: 'ANSWERED',
+      typed: 'chini 2 kg',
+      results: [],
+      pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },
+    });
+  const DEMO_AREA = { lat: 22.7196, lng: 75.8577 };
+
+  it('offers the demo area to someone who is somewhere else, and asks again there', async () => {
+    const createRequest = vi.fn(async () => seekerRequest({ id: 'demo-1' }));
+    const { user, navigate } = show(
+      none(),
+      { createRequest },
+      { origin: { lat: 12.97, lng: 77.59 } },
+    );
+    await user.click(screen.getByRole('button', { name: 'Use the demo area (Indore)' }));
+    expect(createRequest).toHaveBeenCalledWith({ q: 'chini 2 kg', ...DEMO_AREA });
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/app/request/demo-1'));
+  });
+
+  it('offers it when the place is not known (opened from a link)', () => {
+    show(none(), {}, { origin: undefined });
+    expect(screen.getByRole('button', { name: 'Use the demo area (Indore)' })).toBeTruthy();
+  });
+
+  it('does not offer it to someone already in the demo area', () => {
+    show(none(), {}, { origin: { lat: 22.72, lng: 75.858 } });
+    expect(screen.queryByRole('button', { name: 'Use the demo area (Indore)' })).toBeNull();
+  });
+
+  it('says so when it fails, and can be tried again', async () => {
+    const createRequest = vi.fn().mockRejectedValue(new Error('offline'));
+    const { user } = show(none(), { createRequest }, { origin: { lat: 12.97, lng: 77.59 } });
+    await user.click(screen.getByRole('button', { name: 'Use the demo area (Indore)' }));
+    expect(await screen.findByRole('alert')).toBeTruthy();
+  });
+});

@@ -89,6 +89,24 @@ describe('customer account (ADR-0054)', () => {
     expect((await request(app).get('/account')).status).toBe(401);
   });
 
+  it('says whether the account is a demo number, for its own owner only (X-01)', async () => {
+    const demoPhone = '9000000208';
+    const demoApp = createApp({
+      config: testConfig({ demoPhones: [`+91${demoPhone}`] }),
+      logger: quiet,
+      db: pool,
+      realtime: createRealtime({ redisUrl: null, logger: quiet }),
+    });
+    const demo = await loginAs(demoApp, 'seeker', demoPhone);
+    const asDemo = await request(demoApp).get('/account').set(auth(demo));
+    expect(asDemo.body.demo).toBe(true);
+    const other = await newSeeker();
+    const asOther = await request(demoApp).get('/account').set(auth(other));
+    expect(asOther.body.demo).toBe(false);
+    // The default app has no demo numbers at all.
+    expect((await request(app).get('/account').set(auth(other))).body.demo).toBe(false);
+  });
+
   it('log out makes the old token fail', async () => {
     const u = await newSeeker();
     expect((await request(app).get('/orders').set(auth(u))).status).toBe(200);
