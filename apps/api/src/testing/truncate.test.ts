@@ -1,3 +1,4 @@
+import type { Pool } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { truncateKeepingShops } from './truncate.js';
 import { waitForQuietDb } from './waitForQuietDb.js';
@@ -17,7 +18,7 @@ const fakePool = (truncateFailures: string[]) => {
     },
     release: () => log.push('release'),
   };
-  return { pool: { connect: async () => client }, log };
+  return { pool: { connect: async () => client } as unknown as Pick<Pool, 'connect'>, log };
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -47,9 +48,10 @@ describe('truncateKeepingShops', () => {
 });
 
 describe('waitForQuietDb', () => {
-  const poolReturning = (batches: { query: string }[][]) => ({
-    query: async () => ({ rows: batches.length > 1 ? batches.shift() : batches[0] }),
-  });
+  const poolReturning = (batches: { query: string }[][]) =>
+    ({
+      query: async () => ({ rows: batches.length > 1 ? batches.shift() : batches[0] }),
+    }) as unknown as Pick<Pool, 'query'>;
 
   it('returns once no other backend is running a query', async () => {
     await waitForQuietDb(poolReturning([[{ query: 'SELECT 1' }], []]), 2000);
