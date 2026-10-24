@@ -1,0 +1,221 @@
+{
+  "image": "postgres:17-alpine",
+  "results": [
+    {
+      "label": "23505 unique_violation",
+      "ok": false,
+      "ms": 2,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "duplicate key value violates unique constraint \"u_k_key\"",
+        "code": "23505",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "ERROR",
+        "constraint": "u_k_key"
+      }
+    },
+    {
+      "label": "22P02 invalid_text_representation",
+      "ok": false,
+      "ms": 7,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "invalid input syntax for type integer: \"abc\"",
+        "code": "22P02",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "ERROR",
+        "constraint": null
+      }
+    },
+    {
+      "label": "23502 not_null_violation",
+      "ok": false,
+      "ms": 8,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "null value in column \"id\" of relation \"u\" violates not-null constraint",
+        "code": "23502",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "ERROR",
+        "constraint": null
+      }
+    },
+    {
+      "label": "42P01 undefined_table",
+      "ok": false,
+      "ms": 6,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "relation \"missing\" does not exist",
+        "code": "42P01",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "ERROR",
+        "constraint": null
+      }
+    },
+    {
+      "label": "57014 query_canceled by statement_timeout",
+      "ok": false,
+      "ms": 207,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "canceling statement due to statement timeout",
+        "code": "57014",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "ERROR",
+        "constraint": null
+      }
+    },
+    {
+      "label": "40P01 deadlock_detected (one of the two transactions)",
+      "outcomes": [
+        {
+          "name": "error",
+          "constructor": "DatabaseError",
+          "message": "deadlock detected",
+          "code": "40P01",
+          "errno": null,
+          "syscall": null,
+          "causeCode": null,
+          "severity": "ERROR",
+          "constraint": null
+        },
+        "ok"
+      ]
+    },
+    {
+      "label": "40001 serialization_failure",
+      "outcomes": [
+        "ok",
+        {
+          "name": "error",
+          "constructor": "DatabaseError",
+          "message": "could not serialize access due to read/write dependencies among transactions",
+          "code": "40001",
+          "errno": null,
+          "syscall": null,
+          "causeCode": null,
+          "severity": "ERROR",
+          "constraint": null
+        }
+      ]
+    },
+    {
+      "label": "53300 too_many_connections",
+      "ok": false,
+      "ms": 504,
+      "error": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "sorry, too many clients already",
+        "code": "53300",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "FATAL",
+        "constraint": null
+      }
+    },
+    {
+      "label": "pool \"error\" events after pg_terminate_backend of an idle client",
+      "events": [
+        {
+          "name": "error",
+          "constructor": "DatabaseError",
+          "message": "terminating connection due to administrator command",
+          "code": "57P01",
+          "errno": null,
+          "syscall": null,
+          "causeCode": null,
+          "severity": "FATAL",
+          "constraint": null
+        }
+      ]
+    },
+    {
+      "label": "next pool.query after the idle client was killed",
+      "ok": true,
+      "ms": 2,
+      "value": "ok"
+    },
+    {
+      "label": "57P01 admin_shutdown: backend terminated while a query runs",
+      "outcome": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "terminating connection due to administrator command",
+        "code": "57P01",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "FATAL",
+        "constraint": null
+      }
+    },
+    {
+      "label": "container stopped (SIGTERM then SIGKILL) while a query runs",
+      "outcome": {
+        "name": "error",
+        "constructor": "DatabaseError",
+        "message": "terminating connection due to administrator command",
+        "code": "57P01",
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": "FATAL",
+        "constraint": null
+      }
+    },
+    {
+      "label": "'error' events on the CHECKED-OUT client after the container stopped (pool.on('error') does not cover these)",
+      "events": [
+        {
+          "name": "Error",
+          "constructor": "Error",
+          "message": "Connection terminated unexpectedly",
+          "code": null,
+          "errno": null,
+          "syscall": null,
+          "causeCode": null,
+          "severity": null,
+          "constraint": null
+        }
+      ]
+    },
+    {
+      "label": "pool.query with Postgres gone (refused)",
+      "ok": false,
+      "ms": 3,
+      "error": {
+        "name": "Error",
+        "constructor": "Error",
+        "message": "connect ECONNREFUSED 127.0.0.1:33604",
+        "code": "ECONNREFUSED",
+        "errno": -111,
+        "syscall": "connect",
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "pool \"error\" events overall after the container stopped",
+      "events": []
+    }
+  ]
+}

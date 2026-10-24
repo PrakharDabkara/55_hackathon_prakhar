@@ -1,0 +1,150 @@
+{
+  "maxmemory": "2mb",
+  "policy": "noeviction",
+  "results": [
+    {
+      "label": "filled keys before first refusal",
+      "value": 0,
+      "firstRefusal": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      },
+      "usedMemory": "2185632",
+      "maxmemory": "2097152"
+    },
+    {
+      "label": "SET when full",
+      "ok": false,
+      "ms": 0,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "GET when full (reads still work)",
+      "ok": true,
+      "ms": 1,
+      "value": "null"
+    },
+    {
+      "label": "INCR when full",
+      "ok": false,
+      "ms": 0,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "EVAL INCR+PEXPIRE (the ip-limit script) when full",
+      "ok": false,
+      "ms": 1,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'. script: 418e308a4c2a10eb906138a550acc9f110a45420, on @user_script:1.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "BullMQ queue.add when full",
+      "ok": false,
+      "ms": 2,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'. script: a2746c9c49a80628d790a3fea39ee283270f25bc, on @user_script:520.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "BullMQ queue.add with delay when full",
+      "ok": false,
+      "ms": 1,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'. script: f5012d7265b73be685a2a3569f5912de610fd355, on @user_script:550.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "BullMQ queue.add after freeing space",
+      "ok": false,
+      "ms": 0,
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'. script: a2746c9c49a80628d790a3fea39ee283270f25bc, on @user_script:520.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "worker error event while full",
+      "error": {
+        "name": "ReplyError",
+        "constructor": "SimpleError",
+        "message": "OOM command not allowed when used memory > 'maxmemory'. script: d96ca626f1ea141b44a856b312fc636d99aa9ea9, on @user_script:217.",
+        "code": null,
+        "errno": null,
+        "syscall": null,
+        "causeCode": null,
+        "severity": null,
+        "constraint": null
+      }
+    },
+    {
+      "label": "job queued before the fill, due 2.5 s later: state after 5 s of a full Redis",
+      "processedByWorker": 1,
+      "jobCounts": {
+        "wait": 0,
+        "active": 0,
+        "delayed": 0,
+        "completed": 1,
+        "failed": 0
+      }
+    }
+  ]
+}
