@@ -45,9 +45,10 @@ async function tallPng(page: Page): Promise<Buffer> {
   return Buffer.from(url.split(',')[1] ?? '', 'base64');
 }
 
-async function shoot(page: Page, name: string) {
+/** Overlays (a drawer, a sheet) are fixed to the window, so they are shot as the window shows them. */
+async function shoot(page: Page, name: string, fullPage = true) {
   mkdirSync(OUT, { recursive: true });
-  await page.screenshot({ path: join(OUT, `${name}.png`), fullPage: true });
+  await page.screenshot({ path: join(OUT, `${name}.png`), fullPage });
 }
 
 test.describe('login in both apps (A-01..A-06, A-09)', () => {
@@ -220,10 +221,17 @@ test.describe('shop set-up (S-01..S-04)', () => {
 });
 
 test.describe('a map stays under the menu and the sheets (X-02)', () => {
+  /** Where the map pokes through `selector`; `overlaps` is false when the map is not behind it at all. */
   const coveredByMap = (page: Page, selector: string) =>
     page.evaluate((sel) => {
       const box = document.querySelector(sel)?.getBoundingClientRect();
-      if (!box) return ['missing'];
+      const map = document.querySelector('.leaflet-container')?.getBoundingClientRect();
+      if (!box || !map) return { bad: ['missing'], overlaps: false };
+      const overlaps =
+        map.left < box.right &&
+        box.left < map.right &&
+        map.top < box.bottom &&
+        box.top < map.bottom;
       const bad: string[] = [];
       for (const fx of [0.2, 0.5, 0.8]) {
         for (const fy of [0.15, 0.4, 0.65, 0.9]) {
@@ -231,7 +239,7 @@ test.describe('a map stays under the menu and the sheets (X-02)', () => {
           if (hit?.closest('.leaflet-container')) bad.push(`${fx},${fy}`);
         }
       }
-      return bad;
+      return { bad, overlaps };
     }, selector);
 
   test('the shop drawer over Settings, and the customer sheet over the replies map', async ({
@@ -248,9 +256,11 @@ test.describe('a map stays under the menu and the sheets (X-02)', () => {
     await onboardShop(shop, uniqueName('Round One Maps'));
     await goTo(shop, 'settings');
     await expect(shop.locator('.leaflet-container')).toBeVisible();
+    await shop.locator('.leaflet-container').scrollIntoViewIfNeeded();
     await shop.getByRole('button', { name: 'Menu' }).click();
     await expect(shop.getByRole('dialog', { name: 'Main menu' })).toBeVisible();
-    expect(await coveredByMap(shop, '.sh-drawer')).toEqual([]);
+    await shop.waitForTimeout(500); // the drawer slides in
+    expect(await coveredByMap(shop, '.sh-drawer')).toEqual({ bad: [], overlaps: true });
     await context.close();
 
     const customerContext = await browser.newContext({
@@ -267,7 +277,8 @@ test.describe('a map stays under the menu and the sheets (X-02)', () => {
     await expect(customer.locator('.leaflet-container')).toBeVisible();
     await customer.getByRole('button', { name: 'Stop asking' }).click();
     await expect(customer.getByRole('dialog')).toBeVisible();
-    expect(await coveredByMap(customer, '.sh-sheet')).toEqual([]);
+    await customer.waitForTimeout(500); // the sheet slides up
+    expect(await coveredByMap(customer, '.sh-sheet')).toEqual({ bad: [], overlaps: true });
     await customerContext.close();
   });
 });
@@ -340,7 +351,9 @@ test.describe('screenshots of the changed screens', () => {
         await expect(page.locator('.leaflet-container')).toBeVisible();
         await shoot(page, `shop-settings-${tag}`);
         await page.getByRole('button', { name: 'Menu' }).click();
-        await shoot(page, `shop-drawer-over-map-${tag}`);
+        await expect(page.getByRole('dialog', { name: 'Main menu' })).toBeVisible();
+        await page.waitForTimeout(500); // the drawer slides in
+        await shoot(page, `shop-drawer-over-map-${tag}`, false);
 
         const customer = await context.newPage();
         await customer.goto('/app/');

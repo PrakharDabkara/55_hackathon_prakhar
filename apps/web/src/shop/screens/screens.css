@@ -423,6 +423,7 @@ a.sh-tile:hover .sh-tile__label {
 .sh-missing ul {
   margin: var(--space-1) 0 0;
   padding-left: var(--space-6);
+  list-style: disc;
 }
 .sh-disclosure {
   display: flex;
