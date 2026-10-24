@@ -34,6 +34,30 @@ afterEach(() => {
 const app = (api = fakeApi(), session = memorySession('t')) =>
   renderApp(<App api={api} session={session} live={live} />, 'en');
 
+describe('App: after a shop logs in (A-08)', () => {
+  const logIn = async (user: ReturnType<typeof renderApp>['user']) => {
+    await user.type(screen.getByLabelText('Mobile number'), '9876543210');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await user.type(await screen.findByLabelText('6-digit code'), '123456');
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+  };
+
+  it('rolls the shutter up over the shop home, and a tap clears it', async () => {
+    const { user } = renderApp(<App api={fakeApi()} session={memorySession()} live={live} />, 'en');
+    await logIn(user);
+    const shutter = await screen.findByTestId('shutter-intro');
+    expect(await screen.findByText('Sharma Kirana')).toBeTruthy();
+    await user.click(shutter);
+    expect(screen.queryByTestId('shutter-intro')).toBeNull();
+  });
+
+  it('does not show it to a shop that was already logged in', async () => {
+    app();
+    expect(await screen.findByText('Sharma Kirana')).toBeTruthy();
+    expect(screen.queryByTestId('shutter-intro')).toBeNull();
+  });
+});
+
 describe('App: getting in', () => {
   it('starts at the login screen when there is no session', () => {
     renderApp(<App api={fakeApi()} session={memorySession()} live={live} />, 'en');
