@@ -706,7 +706,7 @@ describe('Find: the demo area for demo accounts (X-01)', () => {
     const first = setup(demoApi());
     await first.user.click(await screen.findByRole('button', { name: 'Change' }));
     expect(screen.queryByText(/Demo area:/)).toBeNull();
-    expect(screen.getByRole('dialog', { name: 'Where are you?' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Change location' })).toBeTruthy();
     await first.user.click(screen.getByRole('button', { name: 'Done' }));
     await first.user.type(screen.getByLabelText('What do you need?'), 'chini');
     await first.user.click(screen.getByRole('button', { name: 'Find nearby' }));
