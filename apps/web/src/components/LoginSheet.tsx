@@ -1,22 +1,20 @@
-import { useState, type FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import '../customer/find.css';
 import { useT } from '../i18n/index.js';
-import { ApiError } from '../lib/api.js';
 import type { SeekerApi } from '../lib/seekerApi.js';
+import { loginMessage, useOtpLogin } from '../lib/useOtpLogin.js';
 import { BottomSheet } from '../ui/BottomSheet.js';
 import { BrandMark } from '../ui/BrandMark.js';
 import { Button } from '../ui/Button.js';
+import { DemoNumbers } from '../ui/DemoNumbers.js';
 import { Field } from '../ui/Field.js';
 
 interface Props {
-  api: Pick<SeekerApi, 'requestOtp' | 'devInbox' | 'verifyOtp'>;
+  api: Pick<SeekerApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'demoNumbers'>;
   open: boolean;
   onClose: () => void;
   onLoggedIn: (token: string) => void;
 }
-
-/** An Indian mobile as people type it: 10 digits, optionally with +91, 91 or 0 in front. */
-const PHONE = /^(?:\+?91|0)?[6-9]\d{9}$/;
 
 const FORM = 'login-sheet-form';
 
@@ -28,59 +26,21 @@ export function LoginSheet({ open, ...rest }: Props) {
 function Sheet({ api, onClose, onLoggedIn }: Omit<Props, 'open'>) {
   const { t } = useT();
   const c = t.c;
-  const [step, setStep] = useState<'phone' | 'code'>('phone');
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const cleanPhone = phone.replace(/[\s-]/g, '');
-
-  async function guard(work: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await work();
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 429) setError(t.errTooManyOtp);
-      else if (e instanceof ApiError && e.code === 'invalid_code') setError(t.errBadCode);
-      else if (e instanceof ApiError && e.status === 400) setError(t.errBadPhone);
-      else setError(t.errGeneric);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function sendOtp() {
-    if (!PHONE.test(cleanPhone)) {
-      setError(t.errBadPhone);
-      return;
-    }
-    void guard(async () => {
-      await api.requestOtp(cleanPhone);
-      setStep('code');
+  const login = useOtpLogin(api, onLoggedIn);
+  const { problem } = login;
+  const message =
+    problem &&
+    loginMessage(problem, t.auth, {
+      tooMany: t.errTooManyOtp,
+      badCode: t.errBadCode,
+      noDemoCode: t.errNoDemoCode,
+      generic: t.errGeneric,
     });
-  }
-
-  function verify() {
-    void guard(async () => {
-      const { token } = await api.verifyOtp(cleanPhone, code);
-      onLoggedIn(token);
-    });
-  }
-
-  function fillDemoCode() {
-    void guard(async () => {
-      const demo = await api.devInbox(cleanPhone);
-      if (demo === null) setError(t.errNoDemoCode);
-      else setCode(demo);
-    });
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (step === 'phone') sendOtp();
-    else verify();
+    if (login.step === 'phone') login.sendCode();
+    else login.verify();
   }
 
   return (
@@ -94,9 +54,9 @@ function Sheet({ api, onClose, onLoggedIn }: Omit<Props, 'open'>) {
           form={FORM}
           variant="solid"
           className="sh-btn--block"
-          disabled={busy || (step === 'code' && code.length !== 6)}
+          disabled={login.busy || (login.step === 'code' && login.code.length !== 6)}
         >
-          {step === 'phone' ? c.loginSendCode : c.loginSubmit}
+          {login.step === 'phone' ? c.loginSendCode : c.loginSubmit}
         </Button>
       }
     >
@@ -111,11 +71,18 @@ function Sheet({ api, onClose, onLoggedIn }: Omit<Props, 'open'>) {
           inputMode="tel"
           autoComplete="tel"
           prefix="+91"
-          value={phone}
-          readOnly={step === 'code'}
-          onChange={(event) => setPhone(event.target.value)}
+          value={login.phone}
+          readOnly={login.step === 'code'}
+          onChange={(event) => login.setPhone(event.target.value)}
         />
-        {step === 'code' && (
+        {login.step === 'phone' && login.demo?.demo && problem?.kind !== 'demoMode' && (
+          <DemoNumbers
+            numbers={login.demo.numbers}
+            selected={login.digits}
+            onPick={login.setPhone}
+          />
+        )}
+        {login.step === 'code' && (
           <>
             <Field
               label={c.loginCode}
@@ -123,29 +90,28 @@ function Sheet({ api, onClose, onLoggedIn }: Omit<Props, 'open'>) {
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}
-              value={code}
-              onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
+              value={login.code}
+              onChange={(event) => login.setCode(event.target.value.replace(/\D/g, ''))}
             />
             {/* OTP_MODE=simulated is the only mode (ADR-0013); this box goes with the inbox endpoint. */}
             <section className="cu-find__demo" aria-label={c.loginDemoTitle}>
               <p className="sh-label">{c.loginDemoTitle}</p>
               <p className="sh-helper">{c.loginDemoNote}</p>
-              <Button variant="secondary" disabled={busy} onClick={fillDemoCode}>
+              <Button variant="secondary" disabled={login.busy} onClick={login.fillDemoCode}>
                 {c.loginDemoFill}
               </Button>
             </section>
-            <Button
-              variant="quiet"
-              disabled={busy}
-              onClick={() => void guard(() => api.requestOtp(cleanPhone))}
-            >
+            <Button variant="quiet" disabled={login.busy} onClick={login.resend}>
               {c.loginResend}
+            </Button>
+            <Button variant="quiet" disabled={login.busy} onClick={login.changeNumber}>
+              {t.auth.changeNumber}
             </Button>
           </>
         )}
-        {error && (
+        {message && (
           <p className="sh-alert" role="alert">
-            {error}
+            {message}
           </p>
         )}
         <p className="sh-helper">{c.loginPrivacy}</p>

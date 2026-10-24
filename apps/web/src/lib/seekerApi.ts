@@ -1,5 +1,5 @@
 import type { QuantityUnit } from '@askbuy/shared';
-import { createCaller, type ClientOptions, type ShopApi } from './api.js';
+import { createCaller, type ClientOptions, type DemoNumbers, type ShopApi } from './api.js';
 import { createListApi, type ListApi } from './listApi.js';
 import type { NewOrder, OrderSource, SeekerOrder } from './orders.js';
 import { createPhotoApi, type PhotoApi } from './photoApi.js';
@@ -234,7 +234,7 @@ export interface NewErrand {
 /** Everything the customer app asks of the server. */
 export interface SeekerApi
   extends
-    Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'eventTicket'>,
+    Pick<ShopApi, 'requestOtp' | 'devInbox' | 'verifyOtp' | 'demoNumbers' | 'eventTicket'>,
     PhotoApi,
     PickupApi,
     PushApi,
@@ -329,6 +329,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
       });
       return { token: data.token };
     },
+    demoNumbers: () => call<DemoNumbers>('GET', '/auth/demo-numbers?role=seeker'),
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },

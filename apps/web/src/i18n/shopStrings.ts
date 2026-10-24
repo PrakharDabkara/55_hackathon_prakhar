@@ -34,7 +34,6 @@ export interface ShopStrings {
   /** The line under the brand on the shop login. It does not repeat the brand. */
   forShops: string;
   mobileNumber: string;
-  codeHelper: string;
   sendCode: string;
   codeLabel: string;
   codeSentTo: (phone: string) => string;
@@ -42,7 +41,6 @@ export interface ShopStrings {
   resend: string;
   demoTitle: string;
   demoFill: string;
-  errBadPhone: string;
   errTooMany: string;
   errBadCode: string;
   errGeneric: string;
@@ -280,9 +278,8 @@ export const shopEn: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'For shops: lift your shutter online in a minute.',
+  forShops: "Let's lift your shutter online!",
   mobileNumber: 'Mobile number',
-  codeHelper: "We'll send a 6-digit code by SMS.",
   sendCode: 'Send code',
   codeLabel: '6-digit code',
   codeSentTo: (phone) => `Code sent to +91 ${phone}`,
@@ -290,11 +287,10 @@ export const shopEn: ShopStrings = {
   resend: 'Send code again',
   demoTitle: 'Demo mode',
   demoFill: 'Fill the code',
-  errBadPhone: 'Enter a 10-digit mobile number.',
   errTooMany: 'Too many tries. Wait a few minutes and try again.',
   errBadCode: 'That code is wrong. Check it and try again.',
   errGeneric: 'Something went wrong. Check your connection and try again.',
-  errNoDemo: 'No demo code here. Use the code from the SMS.',
+  errNoDemo: 'No demo code yet. Tap Send code first.',
   errNotShop: 'This number belongs to a customer account. Log in with a shop number.',
   otherNumber: 'Use another number',
 
@@ -533,9 +529,8 @@ export const shopHi: ShopStrings = {
   logout: 'Log out',
   poweredBy: 'Powered by',
 
-  forShops: 'Dukaandaar ke liye: ek minute mein apni dukaan online kholein.',
+  forShops: 'Chaliye, apni dukaan ka shutter online uthayein!',
   mobileNumber: 'Mobile number',
-  codeHelper: 'Hum SMS se 6 ank ka code bhejenge.',
   sendCode: 'Code bhejo',
   codeLabel: '6 ank ka code',
   codeSentTo: (phone) => `Code +91 ${phone} par bheja`,
@@ -543,11 +538,10 @@ export const shopHi: ShopStrings = {
   resend: 'Code dobara bhejo',
   demoTitle: 'Demo mode',
   demoFill: 'Code bharein',
-  errBadPhone: '10 ank ka mobile number daalein.',
   errTooMany: 'Bahut koshish ho gayi. Kuch minute rukkar dobara karein.',
   errBadCode: 'Code galat hai. Check karke dobara daalein.',
   errGeneric: 'Kuch gadbad ho gayi. Internet check karke dobara koshish karein.',
-  errNoDemo: 'Yahan demo code nahi hai. SMS wala code daalein.',
+  errNoDemo: 'Demo code abhi nahi hai. Pehle code bhejein.',
   errNotShop: 'Ye number grahak ka hai. Dukaan ke number se login karein.',
   otherNumber: 'Doosra number',
 
