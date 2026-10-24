@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import { fakeSeekerApi } from '../test/fakes.js';
@@ -88,5 +88,75 @@ describe('LoginSheet', () => {
     const { user, onClose } = open();
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+const BAD = "That doesn't look like an Indian mobile number.";
+const DEMO = "AskBuy is in demo mode. Real numbers can't receive codes yet.";
+
+describe('LoginSheet: round 1 (A-02..A-06)', () => {
+  const toCode = async (user: ReturnType<typeof open>['user']) => {
+    await user.type(screen.getByLabelText('Mobile number'), '9000000202');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    await screen.findByLabelText('6-digit code');
+  };
+
+  it.each(['9999999999', '1234567890', '5876543210'])(
+    'refuses %s with the one message',
+    async (n) => {
+      const { user, api } = open();
+      await user.type(screen.getByLabelText('Mobile number'), n);
+      await user.click(screen.getByRole('button', { name: 'Send code' }));
+      expect(screen.getByRole('alert').textContent).toBe(BAD);
+      expect(api.requestOtp).not.toHaveBeenCalled();
+    },
+  );
+
+  it('says it is demo mode and fills a customer demo number from a chip', async () => {
+    const { user } = open();
+    expect(await screen.findByText(DEMO)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: '9000000203' }));
+    expect((screen.getByLabelText('Mobile number') as HTMLInputElement).value).toBe('9000000203');
+  });
+
+  it('tells a real number it is demo mode at once, with no code screen', async () => {
+    const requestOtp = vi.fn().mockRejectedValue(new ApiError(403, 'demo_mode', 'x'));
+    const { user } = open(fakeSeekerApi({ requestOtp }));
+    await user.type(screen.getByLabelText('Mobile number'), '9876543210');
+    await user.click(screen.getByRole('button', { name: 'Send code' }));
+    expect((await screen.findByRole('alert')).textContent).toBe(DEMO);
+    expect(screen.queryByLabelText('6-digit code')).toBeNull();
+  });
+
+  it('has Change number, which clears the code and the error and frees the field', async () => {
+    const { user } = open();
+    await toCode(user);
+    await user.type(screen.getByLabelText('6-digit code'), '12');
+    await user.click(screen.getByRole('button', { name: 'Change number' }));
+    expect((screen.getByLabelText('Mobile number') as HTMLInputElement).readOnly).toBe(false);
+    expect(screen.queryByLabelText('6-digit code')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('goes back to the number on the browser back button', async () => {
+    const { user } = open();
+    await toCode(user);
+    act(() => window.history.back());
+    await waitFor(() => expect(screen.queryByLabelText('6-digit code')).toBeNull());
+  });
+
+  it('keeps a wrong-code error, with the tries left, until the code is edited', async () => {
+    const verifyOtp = vi
+      .fn()
+      .mockRejectedValue(new ApiError(401, 'invalid_code', 'x', { attemptsLeft: 2 }));
+    const { user } = open(fakeSeekerApi({ verifyOtp }));
+    await toCode(user);
+    await user.type(screen.getByLabelText('6-digit code'), '000000');
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/2 tries left/);
+    await user.click(screen.getByRole('button', { name: 'Log in' }));
+    expect(screen.getByRole('alert').textContent).toMatch(/2 tries left/);
+    await user.type(screen.getByLabelText('6-digit code'), '{backspace}');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

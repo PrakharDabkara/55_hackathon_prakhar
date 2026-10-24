@@ -22,11 +22,10 @@ describe('Login', () => {
   it('shows the brand once, who it is for, a +91 field, a helper and the one primary button', () => {
     renderApp(<Login api={fakeApi()} onLoggedIn={vi.fn()} />, 'en');
     expect(screen.getByRole('heading', { name: 'AskBuy' })).toBeTruthy();
-    expect(screen.getByText('For shops: lift your shutter online in a minute.')).toBeTruthy();
+    expect(screen.getByText("Let's lift your shutter online!")).toBeTruthy();
     expect(document.querySelector('.sh-login__brand svg.brand-mark')).toBeTruthy();
     expect(screen.getByLabelText('Mobile number')).toBeTruthy();
     expect(screen.getByText('+91')).toBeTruthy();
-    expect(screen.getByText("We'll send a 6-digit code by SMS.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Send code' }).className).toContain(
       'sh-btn--primary',
     );
@@ -79,7 +78,7 @@ describe('Login', () => {
     const { user } = renderApp(<Login api={api} onLoggedIn={vi.fn()} />, 'en');
     await user.type(screen.getByLabelText('Mobile number'), '123');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
-    expect(screen.getByText('Enter a 10-digit mobile number.')).toBeTruthy();
+    expect(screen.getByText("That doesn't look like an Indian mobile number.")).toBeTruthy();
     await user.clear(screen.getByLabelText('Mobile number'));
     await user.type(screen.getByLabelText('Mobile number'), '9876543210');
     await user.click(screen.getByRole('button', { name: 'Send code' }));
@@ -231,6 +230,29 @@ describe('Setup', () => {
       (screen.getByRole('button', { name: 'Start getting requests' }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+});
+
+describe('Settings: the account (A-09)', () => {
+  it('shows who is logged in with the number hidden until the eye is pressed', async () => {
+    const api = fakeApi();
+    const { user } = renderApp(
+      <ToastProvider>
+        <Settings
+          api={api}
+          shop={shop({ name: 'Sharma Kirana' })}
+          onSaved={vi.fn()}
+          onLoggedOut={vi.fn()}
+          prepareLogo={async (f) => f}
+          locate={here}
+        />
+      </ToastProvider>,
+      'en',
+    );
+    expect(await screen.findByText('Logged in as')).toBeTruthy();
+    expect(screen.queryByText('+91 90••• ••102')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show phone number' }));
+    expect(screen.getByText('+91 90••• ••102')).toBeTruthy();
   });
 });
 
