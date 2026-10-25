@@ -100,7 +100,9 @@ describe('C-09: a Find that is being understood never looks frozen', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let finish: (v: ReturnType<typeof seekerRequest>) => void = () => undefined;
     const { user } = setup({
-      createRequest: vi.fn(() => new Promise((resolve) => (finish = resolve))),
+      createRequest: vi.fn(
+        () => new Promise<ReturnType<typeof seekerRequest>>((resolve) => (finish = resolve)),
+      ),
     });
     await find(user, 'Mobile phone');
     expect(await screen.findByText('Reading your request…')).toBeTruthy();
@@ -299,7 +301,9 @@ describe('C-08, C-10: up to three active searches', () => {
     });
     const hint = await screen.findByRole('button', { name: 'Need several things? Make a list' });
     await first.user.click(hint);
-    expect(screen.getByRole('radio', { name: 'List' })).toHaveProperty('checked', true);
+    expect(screen.getByRole('button', { name: 'A list' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
     first.unmount();
     setup({
       activeSearches: vi.fn(async () => ({ limit: 3, searches: [card(1), card(2), card(3)] })),
@@ -347,7 +351,7 @@ describe('C-08, C-10: up to three active searches', () => {
     await screen.findAllByRole('link', { name: /· View/ });
     await find(user, 'rice');
     const sheet = await screen.findByRole('dialog');
-    await user.click(within(sheet).getByRole('button', { name: 'Stop Shopping list' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Stop Shopping list · 3 items' }));
     await waitFor(() => expect(api.stopList).toHaveBeenCalledWith('l-1'));
   });
 

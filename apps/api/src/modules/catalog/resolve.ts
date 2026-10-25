@@ -255,7 +255,8 @@ export async function resolveItem(
     bounded.userId
   ) {
     // The open catalog gives the final word: "not a product" there is a real "unclear".
-    const { aiFailed: _earlier, ...rest } = found;
+    const rest = { ...found };
+    delete rest.aiFailed;
     found = await openCatalog(db, bounded.ai, query, text, rest, bounded);
   }
 

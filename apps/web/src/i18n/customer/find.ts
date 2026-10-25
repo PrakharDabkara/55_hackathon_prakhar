@@ -54,6 +54,28 @@ export interface FindStrings {
   findPhotoNetwork: string;
   findPhotoFull: string;
   findPhotoFailed: string;
+  /** The photo could not be attached to the search: it is dropped and the search can go without it. */
+  findPhotoLost: string;
+  /** Appended to an error so the customer can quote it. */
+  refLine: (ref: string) => string;
+  /** The AI could not be asked or ran out of time: not a verdict on the item. */
+  errAiBusy: string;
+  // Progress while a Find is being understood
+  findStepReading: string;
+  findStepMatching: string;
+  findStepAsking: string;
+  // Active searches (up to three)
+  activeHeading: string;
+  activeReplies: (n: number) => string;
+  activeNoReplies: string;
+  activeView: string;
+  activeList: (lines: number) => string;
+  activeListHint: string;
+  limitTitle: string;
+  limitHelp: string;
+  limitStop: (name: string) => string;
+  limitCancel: string;
+  limitStopFailed: string;
   // Login sheet
   loginTitle: string;
   loginPhone: string;
@@ -130,6 +152,24 @@ export const findEn: FindStrings = {
   findPhotoNetwork: 'No internet. Please try again.',
   findPhotoFull: "Photos can't be added right now. Carry on without one.",
   findPhotoFailed: 'The photo could not be uploaded. Please try again.',
+  findPhotoLost:
+    "We couldn't attach your photo, so nothing was sent. Add it again, or search without it.",
+  refLine: (ref) => `Ref: ${ref}`,
+  errAiBusy: 'Our assistant is busy right now. Please try again in a minute.',
+  findStepReading: 'Reading your request…',
+  findStepMatching: 'Finding the right item…',
+  findStepAsking: 'Asking shops nearby…',
+  activeHeading: 'Your searches',
+  activeReplies: (n) => (n === 1 ? '1 reply' : `${n} replies`),
+  activeNoReplies: 'No replies yet',
+  activeView: 'View',
+  activeList: (lines) => `Shopping list · ${lines} ${lines === 1 ? 'item' : 'items'}`,
+  activeListHint: 'Need several things? Make a list',
+  limitTitle: 'You can have 3 searches at a time',
+  limitHelp: 'Stop one to start this search. Shops stop being asked about it.',
+  limitStop: (name) => `Stop ${name}`,
+  limitCancel: 'Cancel',
+  limitStopFailed: "Couldn't stop it. Check your connection and try again.",
   loginTitle: 'Log in to send your request',
   loginPhone: 'Mobile number',
   loginSendCode: 'Send code',
@@ -204,6 +244,25 @@ export const findHi: FindStrings = {
   findPhotoNetwork: 'Internet nahi chal raha. Dobara try karein.',
   findPhotoFull: 'Abhi photo nahi le sakte. Bina photo ke aage badhein.',
   findPhotoFailed: 'Photo upload nahi ho payi. Dobara try karein.',
+  findPhotoLost:
+    'Photo jodi nahi ja saki, isliye kuch nahi bheja. Photo dobara jodein, ya bina photo ke dhoondhein.',
+  refLine: (ref) => `Ref: ${ref}`,
+  errAiBusy: 'Hamara assistant abhi busy hai. Ek minute baad dobara try karein.',
+  findStepReading: 'Aapki baat padh rahe hain…',
+  findStepMatching: 'Sahi cheez dhoondh rahe hain…',
+  findStepAsking: 'Paas ki dukaanon se pooch rahe hain…',
+  activeHeading: 'Aapki khoj',
+  activeReplies: (n) => `${n} jawab`,
+  activeNoReplies: 'Abhi koi jawab nahi',
+  activeView: 'Dekhein',
+  activeList: (lines) => `Khareedari list · ${lines} cheezein`,
+  activeListHint: 'Kai cheezein chahiye? List bana lein',
+  limitTitle: 'Ek saath 3 khoj ho sakti hain',
+  limitHelp:
+    'Nayi khoj ke liye ek rok dein. Dukaanon se uske baare mein poochna band ho jaata hai.',
+  limitStop: (name) => `${name} rokein`,
+  limitCancel: 'Rehne dein',
+  limitStopFailed: 'Rok nahi paye. Internet check karke dobara try karein.',
   loginTitle: 'Request bhejne ke liye login karein',
   loginPhone: 'Mobile number',
   loginSendCode: 'OTP bhejo',

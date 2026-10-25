@@ -375,7 +375,9 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
     createRequest: ({ idempotencyKey: key, ...input }) =>
-      call<SeekerRequest>('POST', '/requests', input, { 'Idempotency-Key': key ?? idempotencyKey() }),
+      call<SeekerRequest>('POST', '/requests', input, {
+        'Idempotency-Key': key ?? idempotencyKey(),
+      }),
     askShopsNow: (requestId) => call<SeekerRequest>('POST', `/requests/${id(requestId)}/ask`),
     activeSearches: () => call<ActiveSearches>('GET', '/searches/active'),
     getRequest: (requestId) => call<SeekerRequest>('GET', `/requests/${id(requestId)}`),

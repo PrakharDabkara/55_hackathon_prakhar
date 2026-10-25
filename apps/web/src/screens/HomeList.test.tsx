@@ -196,8 +196,8 @@ describe('Find a list', () => {
     });
     await typeList(user, 'atta');
     await user.click(screen.getByRole('button', { name: 'Find 1 item nearby' }));
-    expect((await screen.findByRole('alert')).textContent).toBe(
-      'Keep each item under 80 characters.',
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /^Keep each item under 80 characters\. Ref: \S+$/,
     );
   });
 
