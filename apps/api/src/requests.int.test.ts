@@ -2,7 +2,7 @@ import { Writable } from 'node:stream';
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import {
@@ -68,6 +68,12 @@ describe('requests', () => {
 
   afterAll(async () => {
     await testDb?.stop();
+  });
+  // A customer keeps three searches at most: every test starts with none live.
+  beforeEach(async () => {
+    await pool.query(
+      `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+    );
   });
 
   const auth = (u: { token: string }) => ({ Authorization: `Bearer ${u.token}` });

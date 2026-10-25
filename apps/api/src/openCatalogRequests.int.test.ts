@@ -176,7 +176,12 @@ describe('open catalog over HTTP', () => {
       'wxzel',
       'yqmbo',
     ];
-    for (const word of words) expect((await ask(`${word} kit`)).status, word).toBe(201);
+    for (const word of words) {
+      expect((await ask(`${word} kit`)).status, word).toBe(201);
+      await pool.query(
+        `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+      );
+    }
     const res = await ask('one more kit');
     expect(res.status).toBe(429);
     expect(res.body.error).toMatchObject({ code: 'new_item_limit', scope: 'day' });
