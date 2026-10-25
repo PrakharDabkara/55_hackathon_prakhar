@@ -25,9 +25,9 @@ test('a typo is confirmed with "Did you mean…?" before the shops are asked', a
   // "Yes, this one" asks the shops: the replies screen opens with the item on the parchi.
   await yes.click();
   await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
-  // The customer's own words lead; the item they matched is small underneath (ADR-0047).
-  await expect(page.locator('.sh-parchi__item')).toContainText('bottle brsh');
-  await expect(page.locator('.sh-parchi__alias')).toContainText(/bottle brush/i);
+  // The item they chose is the request; their own words are small underneath (C-11).
+  await expect(page.locator('.sh-parchi__item')).toContainText(/bottle brush/i);
+  await expect(page.locator('.sh-parchi__alias')).toHaveText('you typed: bottle brsh');
 });
 
 test('"Something else" searches those words exactly, as typed, and opens the replies', async ({

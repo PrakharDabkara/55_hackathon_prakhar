@@ -249,6 +249,24 @@ describe('C-11: did you mean', () => {
   });
 });
 
+describe('C-08: the place chosen for one search is still there for the next', () => {
+  it('a second Find does not ask for the location again', async () => {
+    here();
+    const first = setup();
+    await find(first.user, 'haldi');
+    await waitFor(() => expect(first.onFound).toHaveBeenCalled());
+    first.unmount();
+    sessionStorage.removeItem('km-find-draft'); // what sending does to the draft
+    vi.stubGlobal('navigator', { ...navigator, geolocation: undefined });
+    const second = setup();
+    await find(second.user, 'chini');
+    await waitFor(() => expect(second.api.createRequest).toHaveBeenCalled());
+    expect(second.api.createRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ q: 'chini', lat: 12.97, lng: 77.59 }),
+    );
+  });
+});
+
 describe('C-08, C-10: up to three active searches', () => {
   const card = (n: number, over: Partial<Extract<ActiveSearch, { kind: 'request' }>> = {}) =>
     ({

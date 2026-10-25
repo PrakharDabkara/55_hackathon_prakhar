@@ -31,6 +31,31 @@ export async function ageAnswers(shopName: string) {
   );
 }
 
+/** Forgets the shop (and its pings) a demo number made in an earlier run, so Setup shows again. */
+export async function forgetShopOf(phone: string) {
+  await withDb(async (client) => {
+    const owner = `(SELECT id FROM users WHERE phone = $1)`;
+    await client.query(
+      `DELETE FROM pings WHERE shop_id IN (SELECT id FROM shops WHERE owner_user_id = ${owner})`,
+      [`+91${phone}`],
+    );
+    await client.query(`DELETE FROM shops WHERE owner_user_id = ${owner}`, [`+91${phone}`]);
+  });
+}
+
+/** Where the shop of this name stands, from the database itself. */
+export async function shopPlace(name: string): Promise<{ lat: number; lng: number }> {
+  return withDb(async (client) => {
+    const { rows } = await client.query<{ lat: number; lng: number }>(
+      `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng
+         FROM shops WHERE name = $1`,
+      [name],
+    );
+    if (!rows[0]) throw new Error(`no shop named ${name}`);
+    return rows[0];
+  });
+}
+
 /** The demo place in Indore, where the simulated shops stand. */
 const DEMO = { latitude: 22.7196, longitude: 75.8577 };
 
