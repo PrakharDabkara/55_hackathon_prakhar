@@ -140,13 +140,13 @@ describe('open catalog over HTTP', () => {
     expect(res.body.error.code).toBe('item_blocked');
   });
 
-  it('fails closed with 503 item_unavailable when the classifier is down: nothing is sent', async () => {
+  it('fails closed with 503 ai_busy when the classifier is down: nothing is sent', async () => {
     provider.onGenerate(() => {
       throw new Error('down');
     });
     const res = await ask('foam glitter sheet');
     expect(res.status).toBe(503);
-    expect(res.body.error.code).toBe('item_unavailable');
+    expect(res.body.error.code).toBe('ai_busy');
     expect((await pool.query(`SELECT 1 FROM requests`)).rowCount).toBe(0);
     expect((await pool.query(`SELECT 1 FROM items WHERE source = 'user'`)).rowCount).toBe(0);
   });

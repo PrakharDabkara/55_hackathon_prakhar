@@ -114,7 +114,7 @@ describe('asking the customer which item they mean (422 item_ambiguous) and the 
       const res = await ask({ q: 'zzq down' });
       // The catalog has no answer and the safety classifier is down: fail closed (ADR-0029).
       expect(res.status).toBe(503);
-      expect(res.body.error.code).toBe('item_unavailable');
+      expect(res.body.error.code).toBe('ai_busy');
       const ok = await ask({ q: 'chini' }); // the dictionary still answers
       expect(ok.status).toBe(201);
     });
