@@ -379,7 +379,7 @@ Nothing here is needed to build or run the app. Approve one (`npm install-script
 - **Migrations run on deploy** (CD job, before the new code). Migration 014 only adds columns, a table and wider category checks, so the previous release keeps working against it. Nothing to set by hand.
 - **The deploy's embedding step can fail without stopping the deploy.** Look in the job summary of the deploy run ("Catalog embeddings not finished: N items still un-embedded"). Search still works; only the closest-meaning step skips those items. The next deploy embeds exactly the missing ones. To do it sooner by hand: `LLM_PROVIDER=gemini npm run ai:embed-catalog` with your own key.
 - **New items.** `SELECT slug, name_en, category, unverified, created_at FROM items WHERE source = 'user' ORDER BY created_at DESC` lists what customers added; `new_item_attempts` shows created and blocked attempts (the rule only, never the text). Logs: search `new_item_blocked` and `new_item_created`. To remove one: `DELETE FROM items WHERE id = ...` (its stock and synonyms go with it).
-- **Blocked item that should be allowed:** add an `ALLOWED_PHRASES` entry and a test in `modules/safety/denyList.ts`. **Safety check down** shows as `item_unavailable` (503); `/admin/ai/ping` shows each model by purpose.
+- **Blocked item that should be allowed:** add an `ALLOWED_PHRASES` entry and a test in `modules/safety/denyList.ts`. **Safety check down or AI failing** shows as `ai_busy` (503, "Our assistant is busy"); `/admin/ai/ping` shows each model by purpose.
 
 ## Photos (Day 15)
 

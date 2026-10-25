@@ -21,6 +21,7 @@ export { REQUEST_TIMEOUT_MS, withRequestTimeout } from './timeout.js';
 export { QuotaWatch, rateLimitInfo, watchProvider } from './quota.js';
 export type { RateLimitInfo } from './quota.js';
 export { createUserLimiter } from './limiter.js';
+export { RESOLVE_BUDGET_MS, withDeadline } from './deadline.js';
 export type { UserLimiter } from './limiter.js';
 export {
   buildResolvePrompt,
@@ -61,6 +62,8 @@ export interface AiContext {
   embedThreshold: number;
   /** ...and ahead of the second best by at least this much. */
   embedMargin: number;
+  /** The most a Find waits on the AI in total (default 15 s, see withDeadline). */
+  resolveBudgetMs?: number;
 }
 
 interface Options {
@@ -72,6 +75,7 @@ interface Options {
   /** Default: a Redis counter if `redis` is given, else no limit. */
   limiter?: UserLimiter;
   redis?: RedisCounter | null;
+  resolveBudgetMs?: number;
   client?: {
     timeoutMs?: number;
     purposeTimeoutMs?: Partial<Record<Purpose, number>>;
@@ -90,6 +94,7 @@ export function createAi({
   embedMargin,
   limiter,
   redis = null,
+  resolveBudgetMs,
   client = {},
 }: Options): AiContext {
   const aiClient = createAiClient({ provider, recorder: dbRecorder(db), logger, ...client });
@@ -99,5 +104,6 @@ export function createAi({
     limiter: limiter ?? createUserLimiter({ redis, logger }),
     embedThreshold,
     embedMargin,
+    ...(resolveBudgetMs !== undefined && { resolveBudgetMs }),
   };
 }

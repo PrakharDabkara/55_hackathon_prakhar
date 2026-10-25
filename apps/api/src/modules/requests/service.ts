@@ -7,6 +7,7 @@ import { ApiError } from '../../http/errors.js';
 import type { EventPublisher } from '../realtime/index.js';
 import type { AiContext } from '../ai/index.js';
 import {
+  aiBusyError,
   getItem,
   normaliseQuery,
   refusalError,
@@ -253,6 +254,8 @@ export async function createRequest(
   });
   if (resolution.refused) throw refusalError(resolution.refused);
   if (!resolution.item) {
+    // The AI failing is not a verdict on the words: only a truly unclear text is "unresolved".
+    if (resolution.aiFailed) throw aiBusyError();
     throw new ApiError(422, 'item_unresolved', 'We could not tell which item you mean');
   }
 

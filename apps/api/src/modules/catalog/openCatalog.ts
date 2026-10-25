@@ -111,14 +111,18 @@ export async function createUserItem(
     if (error instanceof AiUnavailableError) return unavailable();
     throw error;
   }
-  if (verdict.verdict === 'nonsense' || verdict.verdict === 'unsure') return { kind: 'none' };
+  if (verdict.verdict === 'nonsense') return { kind: 'none' };
+  // The customer chose "exactly what I typed": a classifier that is merely unsure still files the
+  // words under the catch-all, so clear text is never answered with "we couldn't understand".
+  if (verdict.verdict === 'unsure' && !opts.asTyped) return { kind: 'none' };
   if (verdict.verdict === 'blocked') return blocked(db, opts, 'classifier', 'classifier');
 
   const slug = slugForUserItem(text);
+  const bestFit = verdict.verdict === 'allowed' ? verdict.category : 'other';
   // "other": filed under general_store (so every shop check still holds) and marked uncategorised,
   // so a request for it goes to the nearest open shops of any kind (ADR-0046).
-  const uncategorised = verdict.category === 'other';
-  const category = uncategorised ? 'general_store' : verdict.category;
+  const uncategorised = bestFit === 'other';
+  const category = uncategorised ? 'general_store' : bestFit;
   const inserted = await db.query<ItemRow>(
     `INSERT INTO items (slug, name_en, name_hi, category, categories, source, unverified, created_by, uncategorised)
      VALUES ($1, $2, $2, $3::text, ARRAY[$3::text], 'user', true, $4, $5)
@@ -144,7 +148,7 @@ export async function createUserItem(
     outcome: 'created',
   });
   opts.logger?.info(
-    { event: 'new_item_created', requestId: opts.requestId, category: verdict.category },
+    { event: 'new_item_created', requestId: opts.requestId, category: bestFit },
     'new item created',
   );
   row = { ...row };
@@ -176,17 +180,17 @@ const unavailable = (): UserItemOutcome => ({
   refusal: { reason: 'unavailable' },
 });
 
+/** The AI could not be asked or ran out of time: not a verdict on the item (C-15). */
+export const aiBusyError = (): ApiError =>
+  new ApiError(503, 'ai_busy', 'Our assistant is busy right now. Please try again in a minute.');
+
 /** The API error for a refusal: what the customer is told, in the words the screens use (ADR-0029). */
 export function refusalError(refusal: Refusal): ApiError {
   switch (refusal.reason) {
     case 'blocked':
       return new ApiError(422, 'item_blocked', "We can't send this item to shops.");
     case 'unavailable':
-      return new ApiError(
-        503,
-        'item_unavailable',
-        "We can't send this item to shops right now. Try again later.",
-      );
+      return aiBusyError();
     case 'limit':
       return new ApiError(
         429,
