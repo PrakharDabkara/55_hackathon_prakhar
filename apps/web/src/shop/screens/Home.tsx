@@ -23,6 +23,7 @@ import { PingSlip } from '../ui/PingSlip.js';
 import { Skeleton } from '../../ui/Skeleton.js';
 import { useToast } from '../../ui/Toast.js';
 import { AnswerSheet } from './AnswerSheet.js';
+import { UndoBar } from '../ui/UndoBar.js';
 import { WantsDeliverySheet } from './WantsDeliverySheet.js';
 
 interface Props {
@@ -37,6 +38,8 @@ interface Props {
 
 /** The stamp lands, then 300 ms later the deck moves on (UI spec C). */
 const STAMP_MS = 300;
+/** A Not available answer waits this long, with an Undo bar, before it is sent (S-07). */
+const UNDO_MS = 5000;
 /** An answered list shows its stamp for about a second (the stamp itself does not move under reduced motion). */
 const LIST_STAMP_MS = 1000;
 /** A list that closed stays in front of the shop this long, saying so, then leaves. */
@@ -58,12 +61,31 @@ export function Home({ api, data, now, pushClient, openAt }: Props) {
   /** Taps already sent, by order, action and state: a double tap sends once. */
   const sentOrder = useRef(new Set<string>());
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** A Not available answer in its 5 seconds: sent when they pass, never if undone. */
+  const [holding, setHolding] = useState<{ ping: ShopPing; body: AnswerBody } | null>(null);
+  const hold = useRef<{
+    ping: ShopPing;
+    body: AnswerBody;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
   const scheduledClosed = useRef(new Set<string>());
   const opened = useRef(false);
   const today = useDemand(api, 1);
   const push = usePush(api, pushClient);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(
+    () => () => {
+      timers.current.forEach(clearTimeout);
+      // Leaving the screen makes the waiting answer final: it was given, and the customer waits for it.
+      const waiting = hold.current;
+      if (waiting) {
+        clearTimeout(waiting.timer);
+        hold.current = null;
+        void api.answerPing(waiting.ping.id, waiting.body).catch(() => undefined);
+      }
+    },
+    [api],
+  );
 
   const slips = useMemo(
     () =>
@@ -105,7 +127,41 @@ export function Home({ api, data, now, pushClient, openAt }: Props) {
       history.replaceState(null, '', `${location.pathname}${location.hash}`);
   }, [openAt, slips]);
 
+  /** Not available: close the sheet, show Undo, and send only when the 5 seconds have passed. */
   async function submitAnswer(ping: ShopPing, body: AnswerBody) {
+    // A new answer for the same question replaces the waiting one; for another question it sends it.
+    if (hold.current?.ping.id === ping.id) undoHold();
+    if (body.answer !== 'no') return sendAnswer(ping, body);
+    await releaseHold();
+    setSheetFor(null);
+    const timer = setTimeout(() => void releaseHold(), UNDO_MS);
+    hold.current = { ping, body, timer };
+    setHolding({ ping, body });
+  }
+
+  /** Sends the waiting Not available now (a second answer, or the time passing). */
+  async function releaseHold(): Promise<void> {
+    const waiting = hold.current;
+    if (!waiting) return;
+    clearTimeout(waiting.timer);
+    hold.current = null;
+    setHolding(null);
+    try {
+      await sendAnswer(waiting.ping, waiting.body);
+    } catch {
+      toast(s.sendFailed);
+    }
+  }
+
+  function undoHold() {
+    const waiting = hold.current;
+    if (!waiting) return;
+    clearTimeout(waiting.timer);
+    hold.current = null;
+    setHolding(null);
+  }
+
+  async function sendAnswer(ping: ShopPing, body: AnswerBody) {
     try {
       await api.answerPing(ping.id, body);
     } catch (error) {
@@ -364,6 +420,8 @@ export function Home({ api, data, now, pushClient, openAt }: Props) {
             onSubmit={(body) => submitAnswer(sheetFor, body)}
           />
         ))}
+
+      {holding && <UndoBar onUndo={undoHold} />}
     </>
   );
 }

@@ -126,6 +126,9 @@ describe('my orders, recent work and the address (ADR-0033)', () => {
           .set(auth(seeker))
           .set('Idempotency-Key', `key-${i}`)
           .send({ q: 'chini', lat: ORIGIN.lat, lng: ORIGIN.lng });
+        await pool.query(
+          `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+        );
       }
       await request(app)
         .post('/requests')

@@ -387,6 +387,10 @@ describe('shopping lists (S35 to S43)', () => {
       for (let i = 0; i < LIST_HOURLY_LIMIT; i++) {
         const sorted = await sort(['chini'], me);
         expect((await send(sorted.body.id, {}, me)).status).toBe(200);
+        // Three searches at most: the hourly limit is what this test is about.
+        await pool.query(`UPDATE shopping_lists SET state = 'STOPPED' WHERE user_id = $1`, [
+          me.userId,
+        ]);
       }
       const over = await send((await sort(['chini'], me)).body.id, {}, me);
       expect(over.status).toBe(429);

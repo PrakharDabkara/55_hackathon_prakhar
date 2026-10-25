@@ -5,6 +5,18 @@ export interface RepliesStrings {
   sentTo: (shops: number, km: string) => string;
   /** The parchi line when nobody was asked. */
   sentToNone: (km: string) => string;
+  /** While the server has not yet chosen the shops (the parchi line and the status line). */
+  askingNearby: string;
+  /** The parchi line while the shops are being chosen. */
+  withinKm: (km: string) => string;
+  /** Under the parchi when nobody was asked. */
+  statusNoShops: string;
+  /** "All shops have replied." plus how many said no. */
+  allRepliedNo: (n: number) => string;
+  askNow: string;
+  askNowFailed: string;
+  /** Small line under a chosen item: what the customer typed. */
+  youTyped: (words: string) => string;
   /** Nobody was asked, and nobody remembered has it either: why, and what to do next. */
   noShopsTitle: (km: string) => string;
   noShopsHelp: string;
@@ -48,8 +60,6 @@ export interface RepliesStrings {
   showWay: string;
   recentHeading: string;
   hadIt: (days: number, price: string | null) => string;
-  noCount: (n: number) => string;
-  noBody: string;
   loadFailedRetry: string;
   chooseTitle: string;
   sheetItem: (item: string, qty: string | null) => string;
@@ -83,6 +93,13 @@ export const repliesEn: RepliesStrings = {
   itemFallback: 'Your item',
   sentTo: (shops, km) => `Sent to ${shops} ${plural(shops, 'shop', 'shops')} · ${km} km`,
   sentToNone: (km) => `No shops asked · ${km} km`,
+  askingNearby: 'Asking shops nearby…',
+  withinKm: (km) => `Within ${km} km`,
+  statusNoShops: 'No shops were asked.',
+  allRepliedNo: (n) => `All shops have replied. ${n} said they don't have it.`,
+  askNow: 'Ask shops now',
+  askNowFailed: "Couldn't ask the shops. Check your connection and try again.",
+  youTyped: (words) => `you typed: ${words}`,
   noShopsTitle: (km) => `No open shops within ${km} km sell this kind of item yet`,
   noShopsHelp: 'Try different words, or look in a wider area.',
   noShopsWords: 'Try different words',
@@ -131,8 +148,6 @@ export const repliesEn: RepliesStrings = {
     const when = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
     return price ? `Had it ${when} at ${price}` : `Had it ${when}`;
   },
-  noCount: (n) => (n === 1 ? "1 shop doesn't have it" : `${n} shops don't have it`),
-  noBody: "These shops said they don't have it.",
   loadFailedRetry: 'Try again',
   chooseTitle: 'Choose this shop',
   sheetItem: (item, qty) => (qty ? `${item} · ${qty}` : item),
@@ -167,6 +182,13 @@ export const repliesHi: RepliesStrings = {
   itemFallback: 'Aapki cheez',
   sentTo: (shops, km) => `${shops} dukaanon ko bheja · ${km} km`,
   sentToNone: (km) => `Kisi dukaan se nahi poocha · ${km} km`,
+  askingNearby: 'Paas ki dukaanon se pooch rahe hain…',
+  withinKm: (km) => `${km} km ke andar`,
+  statusNoShops: 'Kisi dukaan se nahi poocha gaya.',
+  allRepliedNo: (n) => `Sab dukaanon ne jawab de diya. ${n} ne kaha nahi hai.`,
+  askNow: 'Abhi dukaanon se poochein',
+  askNowFailed: 'Dukaanon se pooch nahi paye. Internet check karke dobara try karein.',
+  youTyped: (words) => `aapne likha: ${words}`,
   noShopsTitle: (km) => `${km} km ke andar abhi koi khuli dukaan ye cheez nahi bechti`,
   noShopsHelp: 'Doosre shabd try karein, ya bada ilaaka dekhein.',
   noShopsWords: 'Doosre shabd try karein',
@@ -219,8 +241,6 @@ export const repliesHi: RepliesStrings = {
     const when = days <= 0 ? 'aaj' : days === 1 ? 'kal' : `${days} din pehle`;
     return price ? `${when} thi, ${price} mein` : `${when} thi`;
   },
-  noCount: (n) => `${n} dukaanon ke paas nahi hai`,
-  noBody: 'In dukaanon ne kaha ki unke paas nahi hai.',
   loadFailedRetry: 'Phir se try karein',
   chooseTitle: 'Ye dukaan chunein',
   sheetItem: (item, qty) => (qty ? `${item} · ${qty}` : item),

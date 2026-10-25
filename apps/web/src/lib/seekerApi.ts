@@ -62,6 +62,10 @@ export interface SeekerRequest {
   radiusM: number;
   /** The customer's own words, as typed (ADR-0047). */
   typed?: string;
+  /** The customer chose the item from a question: show the item, with their words small. */
+  picked?: boolean;
+  /** The server has not yet chosen the shops to ask: show "Asking shops nearby…", never "no shops". */
+  asking?: boolean;
   /** The everyday catalog word those words matched ("Maida"), when it is not the item's own name. */
   displayName?: string;
   /** What the customer typed after the item ("2 kg"); the server's parse, unit as the query wrote it. */
@@ -93,6 +97,37 @@ export interface NewRequest {
   /** "Deliver to me": with the id of one of the customer's saved addresses. */
   wantsDelivery?: true;
   deliveryAddressId?: string;
+  /** The same key for a retry of the same search, so a request the server did finish is not made twice. */
+  idempotencyKey?: string;
+}
+
+/** One live search of the customer: a request or a sent list (errands are apart). */
+export type ActiveSearch =
+  | {
+      kind: 'request';
+      id: string;
+      state: SeekerRequest['state'];
+      typed: string;
+      item: { nameEn: string; nameHi: string };
+      displayName?: string;
+      replies: number;
+      createdAt: string;
+      expiresAt: string;
+    }
+  | {
+      kind: 'list';
+      id: string;
+      lineCount: number;
+      lines: string[];
+      replies: number;
+      createdAt: string;
+      expiresAt: string;
+    };
+
+export interface ActiveSearches {
+  /** How many searches the customer may keep live at once. */
+  limit: number;
+  searches: ActiveSearch[];
 }
 
 /** One row of the customer's errand list: just enough to find the way back. */
@@ -244,6 +279,10 @@ export interface SeekerApi
   createRequest(input: NewRequest): Promise<SeekerRequest>;
   getRequest(id: string): Promise<SeekerRequest>;
   closeRequest(id: string): Promise<SeekerRequest>;
+  /** "Ask shops now": a request answered from memory goes to the live shops too. */
+  askShopsNow(id: string): Promise<SeekerRequest>;
+  /** The customer's live searches (requests and lists), newest first: the cards on Find. */
+  activeSearches(): Promise<ActiveSearches>;
   createErrand(input: NewErrand): Promise<{ id: string; state: ErrandState }>;
   getErrand(id: string): Promise<ErrandView>;
   answerErrand(id: string, answer: ErrandAnswer): Promise<ErrandView>;
@@ -335,8 +374,12 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
     async eventTicket() {
       return (await call<{ ticket: string }>('POST', '/events/ticket')).ticket;
     },
-    createRequest: (input) =>
-      call<SeekerRequest>('POST', '/requests', input, { 'Idempotency-Key': idempotencyKey() }),
+    createRequest: ({ idempotencyKey: key, ...input }) =>
+      call<SeekerRequest>('POST', '/requests', input, {
+        'Idempotency-Key': key ?? idempotencyKey(),
+      }),
+    askShopsNow: (requestId) => call<SeekerRequest>('POST', `/requests/${id(requestId)}/ask`),
+    activeSearches: () => call<ActiveSearches>('GET', '/searches/active'),
     getRequest: (requestId) => call<SeekerRequest>('GET', `/requests/${id(requestId)}`),
     closeRequest: (requestId) => call<SeekerRequest>('POST', `/requests/${id(requestId)}/close`),
     createErrand: (input) => call<{ id: string; state: ErrandState }>('POST', '/errands', input),

@@ -155,7 +155,9 @@ describe('the status line', () => {
   });
 
   it('says all shops replied, or that the request ended', () => {
-    const done = show(answeredRequest([liveYes()]));
+    const done = show(
+      answeredRequest([liveYes()], { pingStats: { sent: 1, yes: 1, no: 0, pending: 0 } }),
+    );
     expect(screen.getByText('All shops have replied.')).toBeTruthy();
     done.unmount();
     show(answeredRequest([liveYes()], { state: 'CLOSED' }));
@@ -342,25 +344,6 @@ describe('had it recently', () => {
   });
 });
 
-describe("shops that don't have it", () => {
-  it('is a collapsed disclosure with the count, and opens to a plain line', async () => {
-    const { user } = show(
-      answeredRequest([liveYes()], { pingStats: { sent: 6, yes: 1, no: 5, pending: 0 } }),
-    );
-    const toggle = screen.getByRole('button', { name: "5 shops don't have it" });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.queryByText("These shops said they don't have it.")).toBeNull();
-    await user.click(toggle);
-    expect(toggle.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText("These shops said they don't have it.")).toBeTruthy();
-  });
-
-  it('is hidden when no shop said no', () => {
-    show(answeredRequest([liveYes()], { pingStats: { sent: 1, yes: 1, no: 0, pending: 0 } }));
-    expect(screen.queryByRole('button', { name: /have it/ })).toBeNull();
-  });
-});
-
 describe('List and Map', () => {
   it('shows the list first and swaps to the map with one pin per shop', async () => {
     const { user } = show(
@@ -506,8 +489,8 @@ describe('stop asking', () => {
     await user.click(screen.getByRole('button', { name: 'Stop asking' }));
     const sheet = screen.getByRole('dialog', { name: 'Stop asking shops?' });
     await user.click(within(sheet).getByRole('button', { name: 'Stop asking' }));
-    expect((await within(sheet).findByRole('alert')).textContent).toBe(
-      "Couldn't stop. Check your connection and try again.",
+    expect((await within(sheet).findByRole('alert')).textContent).toMatch(
+      /^Couldn't stop\. Check your connection and try again\. Ref: \S+$/,
     );
     expect(onDone).not.toHaveBeenCalled();
     await user.click(within(sheet).getByRole('button', { name: 'Stop asking' }));

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { DEMO_PLACE } from '@askbuy/shared';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../lib/api.js';
 import { fakeApi, shop } from '../../test/fakes.js';
 import { renderApp } from '../../test/render.js';
@@ -11,8 +12,16 @@ import { Setup } from './Setup.js';
 
 // jsdom cannot draw a map: this stand-in moves the pin with a button.
 vi.mock('../ui/PinMap.js', () => ({
-  PinMap: ({ onMove }: { onMove: (p: { lat: number; lng: number }) => void }) => (
-    <button onClick={() => onMove({ lat: 22.75, lng: 75.9 })}>place pin</button>
+  PinMap: ({
+    pin,
+    onMove,
+  }: {
+    pin: { lat: number; lng: number };
+    onMove: (p: { lat: number; lng: number }) => void;
+  }) => (
+    <button data-pin={JSON.stringify(pin)} onClick={() => onMove({ lat: 22.75, lng: 75.9 })}>
+      place pin
+    </button>
   ),
 }));
 
@@ -159,6 +168,67 @@ describe('Setup', () => {
     ) as HTMLElement;
     expect(within(section).getByText(/Location is blocked/)).toBeTruthy();
     expect(within(section).getByText('place pin')).toBeTruthy();
+  });
+
+  describe('the demo area for demo accounts (X-03)', () => {
+    const demoApi = (demo: boolean | undefined = true) =>
+      fakeApi({
+        account: vi.fn(async () => ({ phoneMasked: '+91 90••• ••102', ...(demo && { demo }) })),
+      });
+    beforeEach(() => sessionStorage.clear());
+
+    it('starts a demo shop on the demo place, says so, and Start needs only a name and a category', async () => {
+      const { user, api, onDone } = setup(demoApi());
+      expect(await screen.findByText(/Demo area: Vijay Nagar, Indore/)).toBeTruthy();
+      expect(JSON.parse(screen.getByText('place pin').getAttribute('data-pin') as string)).toEqual({
+        lat: DEMO_PLACE.lat,
+        lng: DEMO_PLACE.lng,
+      });
+      expect(document.querySelector('.sh-missing')?.textContent).not.toContain('location');
+      await user.type(screen.getByLabelText('Shop name'), 'Demo Kirana');
+      await user.click(screen.getByRole('button', { name: 'Grocery' }));
+      await user.click(screen.getByRole('button', { name: 'Start getting requests' }));
+      await waitFor(() => expect(onDone).toHaveBeenCalled());
+      expect(api.createShop).toHaveBeenCalledWith(
+        expect.objectContaining({ lat: DEMO_PLACE.lat, lng: DEMO_PLACE.lng }),
+      );
+    });
+
+    it('Change leaves the demo place: no banner, no place until the shop picks its real one', async () => {
+      const { user } = setup(demoApi());
+      await user.click(await screen.findByRole('button', { name: 'Change' }));
+      expect(screen.queryByText(/Demo area/)).toBeNull();
+      expect(document.querySelector('.sh-missing')?.textContent).toContain('location');
+      await user.click(screen.getByRole('button', { name: 'Use my current location' }));
+      await waitFor(() =>
+        expect(document.querySelector('.sh-missing')?.textContent ?? '').not.toContain('location'),
+      );
+    });
+
+    it('stays changed for the session (a new Setup does not bring the banner back)', async () => {
+      const first = setup(demoApi());
+      await first.user.click(await screen.findByRole('button', { name: 'Change' }));
+      first.unmount();
+      const api = demoApi();
+      setup(api);
+      await waitFor(() => expect(api.account).not.toHaveBeenCalled());
+      expect(screen.queryByText(/Demo area/)).toBeNull();
+    });
+
+    it('leaves an ordinary shop alone', async () => {
+      const api = demoApi(false);
+      setup(api);
+      await waitFor(() => expect(api.account).toHaveBeenCalled());
+      expect(screen.queryByText(/Demo area/)).toBeNull();
+      expect(document.querySelector('.sh-missing')?.textContent).toContain('location');
+    });
+
+    it('a failing account lookup changes nothing', async () => {
+      const api = fakeApi({ account: vi.fn(async () => Promise.reject(new Error('offline'))) });
+      setup(api);
+      await waitFor(() => expect(api.account).toHaveBeenCalled());
+      expect(screen.queryByText(/Demo area/)).toBeNull();
+    });
   });
 
   describe('I deliver (S-02)', () => {

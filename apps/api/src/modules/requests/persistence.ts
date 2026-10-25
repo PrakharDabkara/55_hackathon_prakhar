@@ -28,6 +28,12 @@ export interface RequestRecord {
   misc: boolean;
   /** The catalog word the customer's text matched, if any (ADR-0047). Never the customer's text. */
   matchedAlias: string | null;
+  /** When the shops were chosen and shown the ping (also when there were none); null until then. */
+  fannedOutAt: Date | null;
+  /** "Ask shops now": shops that already remembered the item are asked too. */
+  askAll: boolean;
+  /** The customer chose the item from a question: it is the request's item, not their words. */
+  picked: boolean;
   /** Past its deadline by the database clock. */
   overdue: boolean;
 }
@@ -50,6 +56,9 @@ interface Row {
   delivery_address_id: string | null;
   misc: boolean;
   matched_alias: string | null;
+  fanned_out_at: Date | null;
+  ask_all: boolean;
+  picked: boolean;
   overdue: boolean;
 }
 
@@ -57,6 +66,7 @@ const SELECT = `SELECT r.id, r.user_id, r.item_id, r.raw_query, r.quantity, r.ta
        r.version, r.expires_at, r.created_at,
        ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
        r.wants_delivery, r.delivery_address_id, r.misc, r.matched_alias,
+       r.fanned_out_at, r.ask_all, r.picked,
        (r.expires_at <= now()) AS overdue
   FROM requests r`;
 
@@ -78,6 +88,9 @@ const toRecord = (r: Row): RequestRecord => ({
   deliveryAddressId: r.delivery_address_id,
   misc: r.misc,
   matchedAlias: r.matched_alias,
+  fannedOutAt: r.fanned_out_at,
+  askAll: r.ask_all,
+  picked: r.picked,
   overdue: r.overdue,
 });
 
@@ -230,7 +243,7 @@ export async function findUnpingedRequestIds(
 ): Promise<string[]> {
   const { rows } = await db.query<{ id: string }>(
     `SELECT r.id FROM requests r
-      WHERE r.state = 'PINGING' AND r.expires_at > now()
+      WHERE r.state = 'PINGING' AND r.expires_at > now() AND r.fanned_out_at IS NULL
         AND r.created_at < now() - make_interval(secs => $1::double precision)
         AND NOT EXISTS (SELECT 1 FROM pings p WHERE p.request_id = r.id)
       ORDER BY r.created_at LIMIT $2`,

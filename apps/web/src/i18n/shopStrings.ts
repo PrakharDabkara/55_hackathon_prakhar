@@ -7,6 +7,12 @@ export interface ShopStrings {
   loadFailed: string;
   offline: string;
   sendFailed: string;
+  /** The bar after Not available: the answer is sent in 5 seconds unless the shop undoes it. */
+  undoNotAvailable: string;
+  /** The banner on shop setup for a demo account, and its button to use the real location. */
+  demoAreaBanner: (place: string) => string;
+  demoAreaChange: string;
+  undo: string;
   priceInvalid: string;
   save: string;
   saved: string;
@@ -259,6 +265,10 @@ export const shopEn: ShopStrings = {
   loadFailed: "Couldn't load. Check your connection and try again.",
   offline: "You're offline. Reconnect to answer.",
   sendFailed: "Couldn't send. Check your connection and try again.",
+  undoNotAvailable: 'Marked as not available',
+  demoAreaBanner: (place) => `Demo area: ${place}`,
+  demoAreaChange: 'Change',
+  undo: 'Undo',
   priceInvalid: 'Price must be a number, like 45.',
   save: 'Save',
   saved: 'Saved.',
@@ -514,6 +524,10 @@ export const shopHi: ShopStrings = {
   loadFailed: 'Load nahi hua. Internet check karke dobara koshish karein.',
   offline: 'Internet nahi hai. Jawab dene ke liye internet chalu karein.',
   sendFailed: 'Bhej nahi paaye. Internet check karke dobara koshish karein.',
+  undoNotAvailable: 'Nahi hai mark kiya',
+  demoAreaBanner: (place) => `Demo ilaaka: ${place}`,
+  demoAreaChange: 'Badlein',
+  undo: 'Wapas karein',
   priceInvalid: 'Daam ek number hona chahiye, jaise 45.',
   save: 'Save karein',
   saved: 'Save ho gaya.',

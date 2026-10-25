@@ -4,6 +4,7 @@ import {
   AiUnavailableError,
   buildResolvePrompt,
   looksLikeInstruction,
+  withDeadline,
   resolveAnswerSchema,
   validateAnswer,
   type AiContext,
@@ -93,6 +94,11 @@ export interface Resolution {
    * default row, never the customer's own text (ADR-0047). Absent when no catalog word matched.
    */
   matchedAlias?: string;
+  /**
+   * Nothing was found and the AI could not be asked (it failed, ran out of time or the customer is
+   * over the limit): the text may well be clear. Not set when the text is truly unclear.
+   */
+  aiFailed?: true;
 }
 
 export interface ResolveOptions {
@@ -149,6 +155,7 @@ export interface Found {
   refused?: Refusal;
   alternatives?: ItemRow[];
   matchedAlias?: string;
+  aiFailed?: true;
   /** Only with `stopBeforeAi`: the free steps found nothing, here is what the AI steps would need. */
   pendingAi?: { fuzzy: ItemRow[]; considered: number; similar: number };
 }
@@ -237,15 +244,21 @@ export async function resolveItem(
   const query = firstLine(raw);
   const { text, quantity } = normaliseQuery(query);
   const none: Found = { item: null, matchedBy: null, similarity: 0 };
-  let found: Found = text && !opts.asTyped ? await findItem(db, text, opts, query) : none;
+  // One deadline for every AI step of this Find, so a failing AI never keeps a person waiting.
+  const bounded: ResolveOptions = opts.ai ? { ...opts, ai: withDeadline(opts.ai) } : opts;
+  let found: Found = text && !opts.asTyped ? await findItem(db, text, bounded, query) : none;
   if (
     text &&
     (opts.asTyped || (!found.item && !found.ambiguous)) &&
-    opts.openCatalog &&
-    opts.ai &&
-    opts.userId
-  )
-    found = await openCatalog(db, opts.ai, query, text, found, opts);
+    bounded.openCatalog &&
+    bounded.ai &&
+    bounded.userId
+  ) {
+    // The open catalog gives the final word: "not a product" there is a real "unclear".
+    const rest = { ...found };
+    delete rest.aiFailed;
+    found = await openCatalog(db, bounded.ai, query, text, rest, bounded);
+  }
 
   await db.query(
     `INSERT INTO search_queries (user_id, raw_text, normalised, item_id, matched_by)
@@ -446,6 +459,7 @@ export async function findItem(
 
   // d) Embeddings: the closest items by meaning. Skipped if the catalog has none yet.
   let nearest: ItemRow[] = [];
+  let embedFailed = false;
   if (await hasEmbeddings(db)) {
     try {
       const { vectors } = await ai.client.embed([text], 'embed_query', opts.requestId);
@@ -456,6 +470,7 @@ export async function findItem(
       );
     } catch (error) {
       if (!(error instanceof AiUnavailableError)) throw error;
+      embedFailed = true;
     }
   }
   const top = acceptEmbedding(nearest, support, ai);
@@ -481,8 +496,8 @@ export async function findItem(
     if (shortlistRows.size < MAX_SHORTLIST && !shortlistRows.has(row.id))
       shortlistRows.set(row.id, row);
   }
-  if (shortlistRows.size === 0) return none;
-  if (opts.userId && !(await ai.limiter.allow(opts.userId))) return none;
+  if (shortlistRows.size === 0) return embedFailed ? { ...none, aiFailed: true } : none;
+  if (opts.userId && !(await ai.limiter.allow(opts.userId))) return { ...none, aiFailed: true };
   return askLlm(db, ai, text, [...shortlistRows.values()], opts.requestId, fits);
 }
 
@@ -529,7 +544,7 @@ async function askLlm(
       ...(requestId && { requestId }),
     });
   } catch (error) {
-    if (error instanceof AiUnavailableError) return none;
+    if (error instanceof AiUnavailableError) return { ...none, aiFailed: true };
     throw error;
   }
 

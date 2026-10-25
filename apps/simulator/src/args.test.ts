@@ -35,7 +35,7 @@ describe('parseCli', () => {
       count: 100,
       speed: 1,
       seed: 1,
-      radiusM: 3000,
+      radiusM: 1500,
       centre: { lat: 22.7196, lng: 75.8577 },
       reset: false,
     });

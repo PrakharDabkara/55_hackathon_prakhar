@@ -7,13 +7,13 @@ import { ResultsMap } from '../components/ResultsMap.js';
 import { DEMO_PLACE, inDemoArea } from '../lib/demoPlace.js';
 import { ScreenBar } from '../customer/ScreenBar.js';
 import { useT } from '../i18n/index.js';
+import { withRef } from '../lib/errorRef.js';
 import type { LiveOptions } from '../lib/live.js';
 import { isActiveOrder, orderForShop, type SeekerOrder } from '../lib/orders.js';
 import { bestPriceShopId, learnedReplies, liveReplies, pinsFor } from '../lib/results.js';
 import type { SeekerApi, SeekerRequest, ShopResult } from '../lib/seekerApi.js';
 import { useLive } from '../lib/useLive.js';
 import { Button } from '../ui/Button.js';
-import { Icon } from '../ui/Icon.js';
 import { SegmentedControl } from '../ui/SegmentedControl.js';
 import { Skeleton } from '../ui/Skeleton.js';
 import '../customer/replies.css';
@@ -31,6 +31,8 @@ interface Props {
 }
 
 const CLOCK_MS = 30_000;
+/** How often to look again while the shops are still being chosen. */
+const ASKING_POLL_MS = 2_000;
 /** The widest area the server will search (POST /requests allows up to 5 km). */
 const WIDE_RADIUS_M = 5000;
 const km = (metres: number) => String(Math.round(metres / 100) / 10);
@@ -61,9 +63,10 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   const [closeError, setCloseError] = useState<string | null>(null);
   const [orders, setOrders] = useState<SeekerOrder[]>([]);
   const [choosing, setChoosing] = useState<ShopResult | null>(null);
-  const [showNo, setShowNo] = useState(false);
+  const [askingNow, setAskingNow] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
   const [widening, setWidening] = useState(false);
-  const [wideFailed, setWideFailed] = useState(false);
+  const [wideFailed, setWideFailed] = useState<string | null>(null);
   const online = useOnline();
   const alive = useRef(true);
 
@@ -111,6 +114,14 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
       .catch(() => undefined);
     loadOrders();
   }, [api, initial.id, loadOrders]);
+  // Until the server has chosen the shops, look again soon: its hint may have gone out before
+  // this screen was listening, and "Asking shops nearby…" must not outlast the truth.
+  const settling = request.asking === true;
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setInterval(refresh, ASKING_POLL_MS);
+    return () => clearInterval(timer);
+  }, [settling, refresh]);
   const getTicket = useCallback(() => api.eventTicket(), [api]);
   const isLive = useLive({ getTicket, refresh, pollMs, live });
 
@@ -121,8 +132,20 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
 
   const { pending, no } = request.pingStats;
   const ended = request.state === 'CLOSED' || request.state === 'EXPIRED';
-  const status =
-    !ended && pending > 0 ? t.c.stillChecking(pending) : ended ? t.c.requestEnded : t.c.allReplied;
+  /** The server has not yet chosen the shops: never "no shops" (nor "all replied") before it has. */
+  const waiting = request.asking === true && !ended;
+  const askedNobody = request.pingStats.sent === 0 && !waiting;
+  const status = ended
+    ? t.c.requestEnded
+    : waiting
+      ? t.c.askingNearby
+      : askedNobody
+        ? t.c.statusNoShops
+        : pending > 0
+          ? t.c.stillChecking(pending)
+          : no > 0
+            ? t.c.allRepliedNo(no)
+            : t.c.allReplied;
 
   /** Closing is what lets the account be deleted, so a failure is shown and can be tried again. */
   async function finish() {
@@ -130,9 +153,9 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
     setCloseError(null);
     try {
       await api.closeRequest(request.id);
-    } catch {
+    } catch (failure) {
       if (alive.current) {
-        setCloseError(t.c.stopFailed);
+        setCloseError(withRef(t.c.stopFailed, failure, t.c.refLine));
         setClosing(false);
       }
       return;
@@ -141,7 +164,6 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   }
 
   /** Nobody was asked and nobody remembered has it: ask again over the widest area the server allows. */
-  const askedNobody = request.pingStats.sent === 0;
   const canWiden =
     askedNobody &&
     origin !== null &&
@@ -160,8 +182,10 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   async function searchAgain(place: { lat: number; lng: number }, radiusM?: number) {
     if (!request.typed) return;
     setWidening(true);
-    setWideFailed(false);
+    setWideFailed(null);
     try {
+      // The empty search is stopped first: it would otherwise hold one of the customer's three places.
+      await api.closeRequest(request.id).catch(() => undefined);
       const next = await api.createRequest({
         q: request.typed,
         lat: place.lat,
@@ -169,11 +193,25 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
         ...(radiusM !== undefined && { radiusM }),
       });
       navigate(`/app/request/${next.id}`);
-    } catch {
+    } catch (failure) {
       if (alive.current) {
-        setWideFailed(true);
+        setWideFailed(withRef(t.c.noShopsWiderFailed, failure, t.c.refLine));
         setWidening(false);
       }
+    }
+  }
+
+  /** Shops had it recently and nobody was asked: ask the live shops in range now. */
+  async function askNow() {
+    setAskingNow(true);
+    setAskError(null);
+    try {
+      const next = await api.askShopsNow(request.id);
+      if (alive.current) setRequest(next);
+    } catch (failure) {
+      if (alive.current) setAskError(withRef(t.c.askNowFailed, failure, t.c.refLine));
+    } finally {
+      if (alive.current) setAskingNow(false);
     }
   }
 
@@ -250,6 +288,16 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
             <div className="cu-empty">
               <p className="sh-heading">{t.c.knownTitle}</p>
               <p className="sh-body">{t.c.knownHelp}</p>
+              {!ended && (
+                <Button variant="solid" disabled={askingNow} onClick={() => void askNow()}>
+                  {t.c.askNow}
+                </Button>
+              )}
+              {askError && (
+                <p className="sh-alert" role="alert">
+                  {askError}
+                </p>
+              )}
             </div>
           ) : askedNobody ? (
             <div className="cu-empty">
@@ -280,7 +328,7 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
               </div>
               {wideFailed && (
                 <p className="sh-alert" role="alert">
-                  {t.c.noShopsWiderFailed}
+                  {wideFailed}
                 </p>
               )}
             </div>
@@ -311,21 +359,6 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
                 />
               ))}
             </ul>
-          </section>
-        )}
-
-        {no > 0 && (
-          <section className="cu-section">
-            <button
-              type="button"
-              className="cu-disclosure"
-              aria-expanded={showNo}
-              onClick={() => setShowNo((open) => !open)}
-            >
-              <span>{t.c.noCount(no)}</span>
-              <Icon name="chevron" size={20} />
-            </button>
-            {showNo && <p className="sh-body sh-muted">{t.c.noBody}</p>}
           </section>
         )}
 

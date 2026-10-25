@@ -43,7 +43,8 @@ test("the shop sees today's numbers, what was asked for and missed, and the area
   await ask(second, 'chini');
   await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
   await shop.getByRole('button', { name: 'Not available' }).click();
-  await expect(shop.getByText('No requests right now')).toBeVisible();
+  // Not available waits 5 seconds with an Undo bar before it is final (S-07).
+  await expect(shop.getByText('No requests right now')).toBeVisible({ timeout: 15_000 });
 
   await goTo(shop, 'insights');
   await shop.reload();

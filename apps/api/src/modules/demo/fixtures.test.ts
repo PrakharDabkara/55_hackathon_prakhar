@@ -49,6 +49,11 @@ describe('demo fixtures (ADR-0062)', () => {
     }
   });
 
+  it('keeps every seeded and simulated demo shop within 2 km of the demo place (X-03)', () => {
+    for (const shop of DEMO_SHOPS) expect(metres(shop, DEMO_PLACE)).toBeLessThanOrEqual(2000);
+    expect(DEMO_SIMULATED_SHOPS.radiusM).toBeLessThanOrEqual(2000);
+  });
+
   it('has two shops that deliver (₹20 and ₹30) and three that are pickup only', () => {
     const fees = DEMO_SHOPS.filter((s) => s.delivery).map((s) => s.delivery?.feePaise);
     expect(fees.sort()).toEqual([2000, 3000]);

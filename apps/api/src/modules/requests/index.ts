@@ -1,15 +1,20 @@
 export {
   DEFAULT_RADIUS_M,
   applyRequestEvent,
+  askShopsNow,
   closeRequest,
+  countActiveRequests,
   createRequest,
   expireRequest,
   findOverdueRequestIds,
   findUnpingedRequestIds,
   getRequestStatus,
+  listActiveRequests,
   listRecentRequests,
+  searchLimitError,
 } from './service.js';
 export type {
+  ActiveRequest,
   CreateRequestInput,
   PingStats,
   RecentRequest,

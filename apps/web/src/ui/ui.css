@@ -46,7 +46,8 @@ body,
 .km-app .leaflet-control-attribution a {
   color: var(--paper-ink);
 }
-.km-app .cu-order-status {
+.km-app .cu-order-status,
+.km-app .sh-undo {
   --focus: var(--focus-on-dark);
 }
 .km-app p,
@@ -587,6 +588,32 @@ body,
   font: 600 14px/20px var(--font-ui);
   box-shadow: var(--shadow-slip);
   animation: sh-fade var(--motion) ease;
+}
+
+/* Undo bar (after Not available): above the toast, same family. */
+.sh-undo {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--space-6) + var(--space-12));
+  z-index: 60;
+  display: flex;
+  max-width: 440px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--ink);
+  color: var(--bg);
+  font: 600 14px/20px var(--font-ui);
+  box-shadow: var(--shadow-slip);
+  animation: sh-fade var(--motion) ease;
+}
+.sh-undo__btn.sh-btn {
+  color: var(--bg);
+  text-decoration: underline;
 }
 
 /* Skeleton */

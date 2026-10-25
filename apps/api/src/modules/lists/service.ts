@@ -1,5 +1,10 @@
 import type { Logger } from 'pino';
-import { LIST_HOURLY_LIMIT, LIST_TTL_MIN, MAX_LIST_ANSWERS } from '@askbuy/shared';
+import {
+  ACTIVE_SEARCH_LIMIT,
+  LIST_HOURLY_LIMIT,
+  LIST_TTL_MIN,
+  MAX_LIST_ANSWERS,
+} from '@askbuy/shared';
 import { withTransaction, type Database, type Queryable } from '../../db/queryable.js';
 import { ApiError } from '../../http/errors.js';
 import type { AiContext } from '../ai/index.js';
@@ -19,6 +24,7 @@ import {
   distanceBand,
   MISC_FANOUT_MAX,
   ownsSavedAddress,
+  searchLimitError,
   selectPingTargets,
 } from '../requests/index.js';
 import { findShopsWithinRadius, recordStockYes } from '../shops/index.js';
@@ -48,6 +54,8 @@ export interface ListsContext {
   /** Embeddings and the LLM for sorting. Without it only the free steps run. */
   ai?: AiContext | undefined;
   events?: EventPublisher | undefined;
+  /** How many searches the customer has live (requests and lists): sending a list is one more. */
+  activeSearches?: ((userId: string) => Promise<number>) | undefined;
 }
 
 const ordersCtx = (ctx: ListsContext): OrdersContext => ({
@@ -236,6 +244,9 @@ export async function sendList(
     if (list.state !== 'DRAFT') return [];
     if (list.overdue)
       throw new ApiError(409, 'list_expired', 'This list is too old. Sort it again.');
+    // A sent list is one of the customer's three searches (C-08).
+    if (ctx.activeSearches && (await ctx.activeSearches(userId)) >= ACTIVE_SEARCH_LIMIT)
+      throw searchLimitError();
 
     const lines = await listLines(tx, id);
     const choices = new Map((input.choices ?? []).map((c) => [c.position, c]));

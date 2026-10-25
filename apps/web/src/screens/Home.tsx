@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { ActiveSearchCards } from '../components/ActiveSearchCards.js';
+import { SearchLimitSheet } from '../components/SearchLimitSheet.js';
 import { ActiveOrderStrip } from '../components/ActiveOrderStrip.js';
 import { ErrandResume } from '../components/ErrandResume.js';
 import { FollowUpSheet, type FollowUp, type FollowUpOption } from '../components/FollowUpSheet.js';
@@ -11,8 +13,9 @@ import '../customer/find.css';
 import '../customer/lists.css';
 import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
+import { withRef } from '../lib/errorRef.js';
 import { declineDemoArea, DEMO_PLACE, demoAreaDeclined } from '../lib/demoPlace.js';
-import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
+import { clearDraft, loadDraft, loadPlace, savePlace, saveDraft } from '../lib/draft.js';
 import { resumableErrand } from '../lib/errand.js';
 import type { ListView } from '../lib/listApi.js';
 import {
@@ -29,6 +32,7 @@ import {
 } from '../lib/lists.js';
 import { isActiveOrder, type SeekerOrder } from '../lib/orders.js';
 import type {
+  ActiveSearch,
   ErrandListItem,
   NewRequest,
   SavedAddress,
@@ -45,6 +49,14 @@ import { Skeleton } from '../ui/Skeleton.js';
 import { Switch } from '../ui/Switch.js';
 
 const MIN_ADDRESS = 5;
+
+/** The answers that mean this photo cannot be part of the search (already used, or gone). */
+const PHOTO_PROBLEMS = new Set(['photo_taken', 'photo_not_found', 'invalid_image']);
+
+/** How often Find looks again at the customer's live searches while it is open. */
+const SEARCHES_POLL_MS = 15_000;
+/** When the progress words change while a Find is being understood (honest: it is still working). */
+const STEP_MS = [3_000, 8_000] as const;
 
 /** The demo works anywhere because the shops are simulated around here (and demo accounts start here). */
 const DEMO = DEMO_PLACE;
@@ -124,14 +136,26 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
   const { t } = useT();
   const c = t.c;
   const draft = useRef(loadDraft()).current;
+  // The place of the last search, unless the draft has one: a second Find needs no new location.
+  const lastPlace = useRef(loadPlace()).current;
   const [query, setQuery] = useState(draft.query);
   const [mode, setMode] = useState<FindMode>(loadFindMode);
   const [rows, setRows] = useState<string[]>(() => editorRows(loadListDraft()));
   const [wantsDelivery, setWantsDelivery] = useState(draft.wantsDelivery);
   const [typedAddress, setTypedAddress] = useState(draft.address);
-  const [lat, setLat] = useState(draft.lat);
-  const [lng, setLng] = useState(draft.lng);
+  const [lat, setLat] = useState(draft.lat || lastPlace.lat);
+  const [lng, setLng] = useState(draft.lng || lastPlace.lng);
   const [photoId, setPhotoId] = useState<string | null>(null);
+  /** Remounts the photo picker when a photo is dropped, so its thumbnail goes too. */
+  const [pickerKey, setPickerKey] = useState(0);
+  const [searches, setSearches] = useState<ActiveSearch[]>([]);
+  const [searchLimit, setSearchLimit] = useState(3);
+  /** The customer already has the most searches: the sheet asks which to stop. */
+  const [limitOpen, setLimitOpen] = useState(false);
+  const afterStop = useRef<(() => void) | null>(null);
+  /** The same key for a retry of the same search, so a search the server finished is not made twice. */
+  const retryKey = useRef<{ signature: string; key: string } | null>(null);
+  const [step, setStep] = useState(0);
   const [saved, setSaved] = useState<SavedAddress | null>(null);
   /** The saved-address request has answered (or failed) at least once for this login. */
   const [savedLoaded, setSavedLoaded] = useState(false);
@@ -214,6 +238,36 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
       alive = false;
     };
   }, [api, loggedIn]);
+
+  // Signed in: the searches still live (up to three) get a card each. Best effort; refreshed while open.
+  const loadSearches = useRef<() => Promise<ActiveSearch[]>>(async () => []);
+  loadSearches.current = async () => {
+    try {
+      const found = await api.activeSearches();
+      setSearches(found.searches);
+      setSearchLimit(found.limit);
+      return found.searches;
+    } catch {
+      return searches;
+    }
+  };
+  useEffect(() => {
+    if (!loggedIn) {
+      setSearches([]);
+      return;
+    }
+    void loadSearches.current();
+    const timer = setInterval(() => void loadSearches.current(), SEARCHES_POLL_MS);
+    return () => clearInterval(timer);
+  }, [api, loggedIn]);
+
+  // While a Find is being understood, the words change, so it never looks frozen.
+  useEffect(() => {
+    setStep(0);
+    if (!busy) return;
+    const timers = STEP_MS.map((ms, i) => setTimeout(() => setStep(i + 1), ms));
+    return () => timers.forEach(clearTimeout);
+  }, [busy]);
 
   // Signed in: an errand still running (or a fresh plan) gets a way back. Best effort.
   useEffect(() => {
@@ -373,10 +427,21 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
           input.deliveryAddressId = addressId;
         }
       }
+      // A retry of this very search reuses its key: if the server finished it and only the answer
+      // was lost, the finished search comes back instead of a second one (or a used-photo error).
+      const signature = JSON.stringify([input, options.asTyped === true]);
+      if (retryKey.current?.signature !== signature)
+        retryKey.current = {
+          signature,
+          key: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
+        };
+      input.idempotencyKey = retryKey.current.key;
       const request = await api.createRequest(input);
       rewrote.current = false;
       sent.current = true;
+      retryKey.current = null;
       clearDraft();
+      savePlace({ lat: latValue, lng: lngValue });
       onFound(request, { lat: latValue, lng: lngValue });
     } catch (e) {
       const asked =
@@ -389,19 +454,36 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
       else if (e instanceof ApiError && e.status === 401) {
         sendAfterLogin.current = true;
         setLoginOpen(true);
+      } else if (e instanceof ApiError && e.code === 'search_limit') {
+        // The cards had not caught up: ask which search to stop, then send this one again.
+        await loadSearches.current();
+        afterStop.current = () => void send(options);
+        setFollowUp(null);
+        setLimitOpen(true);
       } else {
-        const message =
-          e instanceof ApiError && e.code === 'item_unresolved'
+        const code = e instanceof ApiError ? e.code : '';
+        const photoProblem = photoId !== null && PHOTO_PROBLEMS.has(code);
+        const base = photoProblem
+          ? c.findPhotoLost
+          : code === 'item_unresolved'
             ? t.errUnresolved
-            : e instanceof ApiError && e.code === 'item_blocked'
+            : code === 'item_blocked'
               ? t.errItemBlocked
-              : e instanceof ApiError && e.code === 'item_unavailable'
-                ? t.errItemUnavailable
-                : e instanceof ApiError && e.code === 'new_item_limit'
-                  ? t.errNewItemLimit(String(e.details['scope'] ?? 'day'))
+              : code === 'ai_busy'
+                ? c.errAiBusy
+                : code === 'new_item_limit'
+                  ? t.errNewItemLimit(String((e as ApiError).details['scope'] ?? 'day'))
                   : e instanceof ApiError && e.status === 403
                     ? t.errNotSeeker
                     : t.errGeneric;
+        const message = withRef(base, e, c.refLine);
+        // A photo that cannot be attached is dropped (its thumbnail too), so a text-only retry
+        // works; any other failure keeps the photo, which was not sent.
+        if (photoProblem) {
+          setPhotoId(null);
+          setPickerKey((n) => n + 1);
+          retryKey.current = null;
+        }
         // With the question sheet open, the reason shows inside it: the customer is not dropped
         // back on Find, and can pick again or change the words.
         if (followUpOpen.current) setSheetError(message);
@@ -454,15 +536,24 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
         setLoginOpen(true);
       } else {
         const code = e instanceof ApiError ? e.code : '';
-        setError(
-          code === 'line_too_long'
-            ? c.listErrTooLong
-            : code === 'too_many_lines'
-              ? c.listErrTooMany
-              : code === 'list_rate_limited' || (e instanceof ApiError && e.status === 429)
-                ? c.listErrRate
-                : c.listErrGeneric,
-        );
+        if (code === 'search_limit') {
+          await loadSearches.current();
+          afterStop.current = () => void submitList();
+          setLimitOpen(true);
+        } else
+          setError(
+            withRef(
+              code === 'line_too_long'
+                ? c.listErrTooLong
+                : code === 'too_many_lines'
+                  ? c.listErrTooMany
+                  : code === 'list_rate_limited' || (e instanceof ApiError && e.status === 429)
+                    ? c.listErrRate
+                    : c.listErrGeneric,
+              e,
+              c.refLine,
+            ),
+          );
       }
       setBusy(false);
     } finally {
@@ -491,6 +582,11 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
         setLoginOpen(true);
         return;
       }
+      if (searches.length >= searchLimit) {
+        afterStop.current = () => void submitList();
+        setLimitOpen(true);
+        return;
+      }
       void submitList();
       return;
     }
@@ -510,7 +606,25 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
       setLoginOpen(true);
       return;
     }
+    if (searches.length >= searchLimit) {
+      afterStop.current = () => void send();
+      setLimitOpen(true);
+      return;
+    }
     void send();
+  }
+
+  /** Stops one of the live searches so another can start; the held search is then sent. */
+  async function stopSearch(search: ActiveSearch): Promise<void> {
+    if (search.kind === 'request') await api.closeRequest(search.id);
+    else await api.stopList(search.id);
+    const left = await loadSearches.current();
+    if (left.length < searchLimit) {
+      setLimitOpen(false);
+      const next = afterStop.current;
+      afterStop.current = null;
+      next?.();
+    }
   }
 
   function loggedInFromSheet(token: string) {
@@ -584,6 +698,13 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
           </p>
         )}
 
+        <ActiveSearchCards
+          searches={searches}
+          limit={searchLimit}
+          navigate={navigate}
+          {...(mode === 'one' && { onMakeList: () => changeMode('list') })}
+        />
+
         <form
           className="cu-find__form"
           onSubmit={(event) => {
@@ -645,7 +766,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
                 />
                 <div className="cu-find__box-foot">
                   {loggedIn ? (
-                    <PhotoPicker api={api} role="request" onChange={setPhotoId} />
+                    <PhotoPicker
+                      key={pickerKey}
+                      api={api}
+                      role="request"
+                      onChange={(id) => {
+                        setPhotoId(id);
+                        retryKey.current = null;
+                      }}
+                    />
                   ) : (
                     <Button
                       variant="quiet"
@@ -708,6 +837,12 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
                 </Button>
               )}
             </>
+          )}
+
+          {busy && mode === 'one' && (
+            <p className="sh-helper cu-find__progress" role="status">
+              {[c.findStepReading, c.findStepMatching, c.findStepAsking][step]}
+            </p>
           )}
 
           {nudge && (
@@ -798,6 +933,17 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
         onAsTyped={(text, from) => {
           if (from === 'else') setQuery(text);
           void send({ q: text, asTyped: true });
+        }}
+      />
+
+      <SearchLimitSheet
+        open={limitOpen}
+        searches={searches}
+        limit={searchLimit}
+        onStop={stopSearch}
+        onClose={() => {
+          afterStop.current = null;
+          setLimitOpen(false);
         }}
       />
 

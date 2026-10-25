@@ -129,13 +129,18 @@ describe('POST /requests with asTyped', () => {
     expect(await userItems()).toEqual([]);
   });
 
-  it('a model "unsure" or "nonsense" verdict still ends in "we could not tell"', async () => {
-    for (const verdict of ['unsure', 'nonsense']) {
-      provider.onGenerate(() => ({ verdict }));
-      const res = await ask({ q: 'blue moon dust', asTyped: true });
-      expect(res.status, verdict).toBe(422);
-      expect(res.body.error.code, verdict).toBe('item_unresolved');
-    }
+  it('a model "nonsense" verdict still ends in "we could not tell"', async () => {
+    provider.onGenerate(() => ({ verdict: 'nonsense' }));
+    const res = await ask({ q: 'blue moon dust', asTyped: true });
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('item_unresolved');
+  });
+
+  it('a model "unsure" verdict asks general stores: clear words are never "we could not tell" (C-11)', async () => {
+    provider.onGenerate(() => ({ verdict: 'unsure' }));
+    const res = await ask({ q: 'blue moon dust', asTyped: true });
+    expect(res.status).toBe(201);
+    expect(res.body.item).toMatchObject({ nameEn: 'Blue moon dust', category: 'general_store' });
   });
 
   it('still counts against the new-item limit', async () => {

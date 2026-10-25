@@ -153,6 +153,7 @@ describe('Find', () => {
         q: 'chini',
         lat: 22.7196,
         lng: 75.8577,
+        idempotencyKey: expect.any(String),
       }),
     );
     expect(onFound).toHaveBeenCalledWith(seekerRequest(), { lat: 22.7196, lng: 75.8577 });
@@ -167,7 +168,12 @@ describe('Find', () => {
     await user.type(screen.getByLabelText('What do you need?'), 'aata');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
     await waitFor(() =>
-      expect(api.createRequest).toHaveBeenCalledWith({ q: 'aata', lat: 28.61, lng: 77.2 }),
+      expect(api.createRequest).toHaveBeenCalledWith({
+        q: 'aata',
+        lat: 28.61,
+        lng: 77.2,
+        idempotencyKey: expect.any(String),
+      }),
     );
   });
 
@@ -187,7 +193,12 @@ describe('Find', () => {
     await user.type(screen.getByLabelText('What do you need?'), 'aata');
     await user.click(screen.getByRole('button', { name: 'Find nearby' }));
     await waitFor(() =>
-      expect(api.createRequest).toHaveBeenCalledWith({ q: 'aata', lat: 12.97, lng: 77.59 }),
+      expect(api.createRequest).toHaveBeenCalledWith({
+        q: 'aata',
+        lat: 12.97,
+        lng: 77.59,
+        idempotencyKey: expect.any(String),
+      }),
     );
   });
 
@@ -231,6 +242,7 @@ describe('Find', () => {
         q: 'aata',
         lat: 12.97,
         lng: 77.59,
+        idempotencyKey: expect.any(String),
         wantsDelivery: true,
         deliveryAddressId: 'addr-1',
       }),
@@ -349,6 +361,7 @@ describe('Find: login on first send', () => {
       q: 'javitri',
       lat: 12.97,
       lng: 77.59,
+      idempotencyKey: expect.any(String),
       wantsDelivery: true,
       deliveryAddressId: 'addr-1',
     });
@@ -441,6 +454,7 @@ describe('Find: Did you mean?', () => {
       q: 'chini',
       lat: 12.97,
       lng: 77.59,
+      idempotencyKey: expect.any(String),
       itemId: 'i-2',
     });
   });
@@ -499,6 +513,7 @@ describe('Find: Did you mean?', () => {
         q: 'pencil HB',
         lat: 12.97,
         lng: 77.59,
+        idempotencyKey: expect.any(String),
         understanding: 'changed',
         asTyped: true,
       }),
@@ -528,6 +543,7 @@ describe('Find: Did you mean?', () => {
         q: 'pencil HB',
         lat: 12.97,
         lng: 77.59,
+        idempotencyKey: expect.any(String),
         understanding: 'changed',
         asTyped: true,
       }),
@@ -576,7 +592,7 @@ describe('Find: Did you mean?', () => {
   it.each([
     [new ApiError(422, 'item_unresolved', 'x'), /couldn't understand/i],
     [new ApiError(422, 'item_blocked', 'x'), /can't send this item/i],
-    [new ApiError(503, 'item_unavailable', 'x'), /right now/i],
+    [new ApiError(503, 'ai_busy', 'x'), /assistant is busy/i],
     [new ApiError(429, 'new_item_limit', 'x', { scope: 'day' }), /new item/i],
     [new ApiError(403, 'forbidden', 'x'), /shop/i],
     [new ApiError(500, 'boom', 'x'), /Something went wrong/],

@@ -21,7 +21,7 @@ export const USAGE = `Usage: ADMIN_TOKEN=<token> npm run simulate -- --target <u
   --count <n>           shops to simulate, 1-500 (default 100)
   --speed <x>           time multiplier; 10 makes replies 10x faster (default 1)
   --centre <lat,lng>    middle of the shops (default 22.7196,75.8577, Indore)
-  --radius <metres>     how far from the centre they spread (default 3000)
+  --radius <metres>     how far from the centre they spread (default 1500, inside the 2 km of the demo)
   --seed <n>            same seed, same shops and same behaviour (default 1)
   --state-file <path>   where shop tokens are kept between runs (default apps/simulator/.sim-state.json)
   --reset               ignore the state file and make the shops again
@@ -53,7 +53,7 @@ export function parseCli(
         speed: { type: 'string', default: '1' },
         seed: { type: 'string', default: '1' },
         centre: { type: 'string', default: '22.7196,75.8577' },
-        radius: { type: 'string', default: '3000' },
+        radius: { type: 'string', default: '1500' },
         'state-file': { type: 'string', default: DEFAULT_STATE_FILE },
         reset: { type: 'boolean', default: false },
       },

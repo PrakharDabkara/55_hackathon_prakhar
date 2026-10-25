@@ -4,7 +4,7 @@ import { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 import { pino } from 'pino';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { loadSeedCatalog, seedCatalog } from './modules/catalog/index.js';
 import { createRealtime, type EventPublisher, type Realtime } from './modules/realtime/index.js';
@@ -77,6 +77,12 @@ describe('realtime over SSE', () => {
     seekerB = await loginAs(app, 'seeker', String(phone++));
   }, 300_000);
 
+  // A customer keeps three searches at most: every test starts with none live.
+  beforeEach(async () => {
+    await pool.query(
+      `UPDATE requests SET state = 'CLOSED' WHERE state IN ('OPEN', 'PINGING', 'ANSWERED')`,
+    );
+  });
   afterAll(async () => {
     for (const s of streams) s.close();
     server?.closeAllConnections();
@@ -119,6 +125,13 @@ describe('realtime over SSE', () => {
   const myPings = async (shop: Shop) =>
     (await request(app).get('/shops/me/pings').set(auth(shop))).body as { id: string }[];
   const settle = () => new Promise((resolve) => setTimeout(resolve, 400));
+  /** The next request.updated hint that says the request is `state`: the fan-out sends one too (PINGING). */
+  const updatedTo = async (stream: SseStream, state: string) => {
+    for (;;) {
+      const hit = await stream.waitForEvent('request.updated');
+      if ((hit.data as { state?: string }).state === state) return hit;
+    }
+  };
 
   describe('log out on all devices (ADR-0060)', () => {
     const logoutAll = (u: User, via = app) =>
@@ -313,7 +326,7 @@ describe('realtime over SSE', () => {
         .send({ answer: 'yes', pricePaise: 4500 });
       expect(answered.status).toBe(200);
 
-      const updated = await (sA as SseStream).waitForEvent('request.updated');
+      const updated = await updatedTo(sA as SseStream, 'ANSWERED');
       expect(updated.data).toEqual({ requestId, state: 'ANSWERED' });
       const view = await request(app).get(`/requests/${requestId}`).set(auth(seekerA));
       expect(view.body.state).toBe('ANSWERED');
@@ -335,12 +348,14 @@ describe('realtime over SSE', () => {
       // Wait for the last expected event to arrive; the short settle only backs the "nothing extra" checks.
       await waitFor(
         async () => (sA as SseStream).events.length,
-        (n) => n >= 2,
+        (n) => n >= 3,
       );
       await settle();
       expect((sB as SseStream).events).toEqual([]);
       expect((s3 as SseStream).events).toEqual([]);
+      // PINGING (the shops are settled), ANSWERED, CLOSED.
       expect((sA as SseStream).events.map((e) => e.type)).toEqual([
+        'request.updated',
         'request.updated',
         'request.updated',
       ]);
@@ -420,7 +435,9 @@ describe('realtime over SSE', () => {
       await answerPing({ db: pool, logger: quiet, events: publisher }, shop.userId, pingId, {
         answer: 'yes',
       });
-      const updated = seen.find((e) => e.type === 'request.updated');
+      const updated = seen.find(
+        (e) => e.type === 'request.updated' && e.data['state'] === 'ANSWERED',
+      );
       expect(updated?.data).toEqual({ requestId: r1.id, state: 'ANSWERED' });
       expect(await updated?.atPublish).toBe('ANSWERED');
       const closed = seen.find((e) => e.type === 'ping.closed' && e.data['pingId'] === pingId);

@@ -216,22 +216,63 @@ describe('Home: answering', () => {
     expect(screen.getByText(/Wants delivery/)).toBeTruthy();
   });
 
-  it('sends the answer, stamps the slip, then moves on and drops it', async () => {
+  it('a Not available answer waits 5 seconds with an Undo bar, then is sent, stamped and dropped (S-07)', async () => {
     const { user, api, d } = setup({ pings: [rice, flour] });
     await user.click(screen.getAllByRole('button', { name: 'Answer' })[0] as HTMLElement);
     await user.click(screen.getByRole('button', { name: 'Not available' }));
-    await waitFor(() => expect(api.answerPing).toHaveBeenCalledWith('rice', { answer: 'no' }));
+    // No modal: the sheet is gone, a bar says what happened and offers Undo. Nothing is sent yet.
     expect(screen.queryByRole('dialog')).toBeNull();
+    const bar = screen.getByRole('status', { name: 'Marked as not available' });
+    expect(within(bar).getByRole('button', { name: 'Undo' })).toBeTruthy();
+    expect(api.answerPing).not.toHaveBeenCalled();
+    await act(async () => void (await vi.advanceTimersByTimeAsync(4500)));
+    expect(api.answerPing).not.toHaveBeenCalled();
+
+    await act(async () => void (await vi.advanceTimersByTimeAsync(700)));
+    expect(api.answerPing).toHaveBeenCalledWith('rice', { answer: 'no' });
     expect(await screen.findByText('Not available', { selector: '.sh-stamp' })).toBeTruthy();
+    expect(screen.queryByRole('status', { name: 'Marked as not available' })).toBeNull();
     expect(document.querySelectorAll('.sh-deck__slide')).toHaveLength(2);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(350);
-    });
+    await act(async () => void (await vi.advanceTimersByTimeAsync(350)));
     expect(document.querySelectorAll('.sh-deck__slide')).toHaveLength(1);
     expect(d.removePing).toHaveBeenCalledWith('rice');
     expect(d.refresh).toHaveBeenCalled();
     expect(screen.getByText('1 of 1')).toBeTruthy();
+  });
+
+  it('Undo sends nothing and leaves the question as it was', async () => {
+    const { user, api, d } = setup({ pings: [rice] });
+    await user.click(screen.getByRole('button', { name: 'Answer' }));
+    await user.click(screen.getByRole('button', { name: 'Not available' }));
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    await act(async () => void (await vi.advanceTimersByTimeAsync(10_000)));
+    expect(api.answerPing).not.toHaveBeenCalled();
+    expect(d.removePing).not.toHaveBeenCalled();
+    expect(document.querySelector('.sh-stamp')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Answer' })).toBeTruthy();
+  });
+
+  it('a second Not available sends the first at once; leaving the screen sends the waiting one', async () => {
+    const first = setup({ pings: [rice, flour] });
+    await first.user.click(screen.getAllByRole('button', { name: 'Answer' })[0] as HTMLElement);
+    await first.user.click(screen.getByRole('button', { name: 'Not available' }));
+    first.unmount();
+    expect(first.api.answerPing).toHaveBeenCalledWith('rice', { answer: 'no' });
+  });
+
+  it('says so and keeps the question when the delayed send fails', async () => {
+    const api = fakeApi({ answerPing: vi.fn(async () => Promise.reject(new Error('offline'))) });
+    const { user } = setup({ pings: [rice] }, api);
+    await user.click(screen.getByRole('button', { name: 'Answer' }));
+    await user.click(screen.getByRole('button', { name: 'Not available' }));
+    await act(async () => void (await vi.advanceTimersByTimeAsync(5200)));
+    expect(
+      await screen.findByText("Couldn't send. Check your connection and try again."),
+    ).toBeTruthy();
+    expect(document.querySelector('.sh-stamp')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Answer' })).toBeTruthy();
   });
 
   it('keeps the sheet open and says so when sending fails', async () => {

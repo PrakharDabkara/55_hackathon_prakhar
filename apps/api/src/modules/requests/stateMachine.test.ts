@@ -17,6 +17,7 @@ const TABLE: Record<RequestState, Record<RequestEvent, Expected>> = {
     SHOP_SAID_YES: 'INVALID',
     TIMEOUT: 'INVALID',
     USER_CLOSED: 'CLOSED',
+    ASK_SHOPS: 'INVALID',
   },
   PINGING: {
     STOCK_SUFFICIENT: 'INVALID',
@@ -24,6 +25,7 @@ const TABLE: Record<RequestState, Record<RequestEvent, Expected>> = {
     SHOP_SAID_YES: 'ANSWERED',
     TIMEOUT: 'EXPIRED',
     USER_CLOSED: 'CLOSED',
+    ASK_SHOPS: 'INVALID',
   },
   ANSWERED: {
     STOCK_SUFFICIENT: 'INVALID',
@@ -31,6 +33,7 @@ const TABLE: Record<RequestState, Record<RequestEvent, Expected>> = {
     SHOP_SAID_YES: 'NOOP',
     TIMEOUT: 'CLOSED',
     USER_CLOSED: 'CLOSED',
+    ASK_SHOPS: 'PINGING',
   },
   EXPIRED: {
     STOCK_SUFFICIENT: 'INVALID',
@@ -38,6 +41,7 @@ const TABLE: Record<RequestState, Record<RequestEvent, Expected>> = {
     SHOP_SAID_YES: 'INVALID',
     TIMEOUT: 'INVALID',
     USER_CLOSED: 'INVALID',
+    ASK_SHOPS: 'INVALID',
   },
   CLOSED: {
     STOCK_SUFFICIENT: 'INVALID',
@@ -45,11 +49,12 @@ const TABLE: Record<RequestState, Record<RequestEvent, Expected>> = {
     SHOP_SAID_YES: 'INVALID',
     TIMEOUT: 'INVALID',
     USER_CLOSED: 'INVALID',
+    ASK_SHOPS: 'INVALID',
   },
 };
 
 describe('request state machine', () => {
-  it('knows five states and five events', () => {
+  it('knows five states and six events', () => {
     expect([...STATES]).toEqual(['OPEN', 'PINGING', 'ANSWERED', 'EXPIRED', 'CLOSED']);
     expect([...EVENTS]).toEqual([
       'STOCK_SUFFICIENT',
@@ -57,6 +62,7 @@ describe('request state machine', () => {
       'SHOP_SAID_YES',
       'TIMEOUT',
       'USER_CLOSED',
+      'ASK_SHOPS',
     ]);
   });
 
