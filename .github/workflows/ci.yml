@@ -112,7 +112,8 @@ jobs:
   deploy:
     needs: [ci, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    # The same runner choice as ci and e2e: hosted minutes are used up, so this is the laptop.
+    runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     environment: production
     concurrency:

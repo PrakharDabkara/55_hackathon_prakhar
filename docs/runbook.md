@@ -213,13 +213,13 @@ Probes: `/health` and `/` touch neither Postgres nor Redis; `/ready` runs `SELEC
 
 **After the freeze:** `systemctl --user disable --now askbuy-runner-watchdog.timer`.
 
-**Hotfix with the laptop off:** delete the `RUNNER` repository variable (Settings, Secrets and variables, Actions, Variables) so CI uses GitHub-hosted runners; set it back to `self-hosted` afterwards.
+**Hotfix with the laptop off:** deleting the `RUNNER` repository variable would send CI to GitHub-hosted runners, but **that fallback is unavailable until Nov 1**: the hosted minutes are used up and the $0 budget blocks hosted jobs. Until then, turn the laptop on.
 
 **After Nov 6:** delete the UptimeRobot monitor.
 
 ## Self-hosted runner (CI on the laptop)
 
-The `ci`, `e2e`, `evals` and `agent-evals` jobs run on `runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}`; `deploy` always runs on `ubuntu-latest`. Each job writes its runner name to the run summary.
+The `ci`, `e2e`, `evals` and `agent-evals` jobs run on `runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}`; `deploy` too (it was the one job left on `ubuntu-latest`, so it never started when hosted minutes ran out; `evals/runners.test.ts` now fails if any job names a hosted runner). The deploy job needs only node, npm and curl (no psql, no docker); it takes `NEON_DIRECT_URL` and `RENDER_DEPLOY_HOOK_URL` from the `production` environment, not from a `.env`, and its own concurrency group `deploy-production` never cancels a running deploy. One runner runs one job at a time, so deploy cannot overlap e2e on the laptop. Each job writes its runner name to the run summary.
 
 One-time prep, on the laptop:
 
@@ -233,7 +233,7 @@ Things to know:
 - The laptop must be on and online during CI. A job waits for a runner and fails after the queue limit if it is off.
 - CI never meets your local dev: the e2e job uses its own compose project (`askbuy-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
 - No cache uploads on the laptop: the npm cache (~/.npm is about 12 GB here, 2.9 GB compressed) is skipped on self-hosted, since the disk keeps it. The eval catalog embeddings live in `~/.cache/kahanmilega-evals` there.
-- Back to GitHub's runners: delete the `RUNNER` variable. Nothing else changes.
+- Back to GitHub's runners: delete the `RUNNER` variable. **Not possible until Nov 1** (hosted minutes exhausted, $0 budget); jobs would not start.
 
 ## Runner watchdog
 
