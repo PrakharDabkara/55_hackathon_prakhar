@@ -1,7 +1,8 @@
 import type { Category } from '@askbuy/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../i18n/index.js';
 import type { MyShop, ShopApi } from '../../lib/api.js';
+import { declineDemoArea, DEMO_PLACE, demoAreaDeclined } from '../../lib/demoPlace.js';
 import { blobToDataUrl, shrinkPhoto } from '../../lib/photo.js';
 import type { LatLng } from '../lib/geo.js';
 import { Button } from '../../ui/Button.js';
@@ -13,7 +14,7 @@ import { DeliveryFields } from '../ui/DeliveryFields.js';
 import { LocationPicker } from '../ui/LocationPicker.js';
 
 interface Props {
-  api: Pick<ShopApi, 'createShop' | 'uploadLogo' | 'updateShop'>;
+  api: Pick<ShopApi, 'createShop' | 'uploadLogo' | 'updateShop' | 'account'>;
   onDone: (shop: MyShop) => void;
   /** For tests: stand-ins for the phone's location and the canvas shrink. */
   locate?: () => Promise<LatLng | null>;
@@ -31,9 +32,34 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
   const [logo, setLogo] = useState<{ blob: Blob; preview: string } | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** A demo account starts on the demo place (X-03); Change hands the choice back to the shop. */
+  const [demoArea, setDemoArea] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryForm>(emptyDeliveryForm);
   const [deliveryErrors, setDeliveryErrors] = useState<{ fee?: true; km?: true }>({});
+
+  useEffect(() => {
+    if (demoAreaDeclined()) return;
+    let alive = true;
+    api.account().then(
+      (account) => {
+        if (!alive || account.demo !== true) return;
+        setPlace((chosen) => chosen ?? { lat: DEMO_PLACE.lat, lng: DEMO_PLACE.lng });
+        setDemoArea(true);
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+    // Once per setup: the account does not change under the screen.
+  }, [api]);
+
+  function leaveDemoArea() {
+    declineDemoArea();
+    setDemoArea(false);
+    setPlace(null);
+  }
 
   /** Everything the shop must still do before Start works, in the order of the screen. */
   const missing = [
@@ -140,6 +166,15 @@ export function Setup({ api, onDone, locate, prepareLogo = shrinkPhoto }: Props)
         onChange={(event) => setName(event.target.value)}
       />
       <CategoryPicker title={s.sellTitle} value={categories} onChange={setCategories} required />
+      {demoArea && (
+        <p className="sh-helper" role="status">
+          <span>{s.demoAreaBanner(DEMO_PLACE.label)}</span>
+          <span aria-hidden="true"> · </span>
+          <Button variant="quiet" onClick={leaveDemoArea}>
+            {s.demoAreaChange}
+          </Button>
+        </p>
+      )}
       <LocationPicker value={place} onChange={setPlace} required {...(locate && { locate })} />
 
       <section className="sh-card sh-stack">
