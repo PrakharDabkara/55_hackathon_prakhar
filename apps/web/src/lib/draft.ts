@@ -39,6 +39,29 @@ export function saveDraft(draft: Draft): void {
   }
 }
 
+const PLACE_KEY = 'km-find-place';
+
+/** The place a search was sent from, kept for the tab: the next Find starts from it, not from a prompt. */
+export function loadPlace(): { lat: string; lng: string } {
+  try {
+    const data = JSON.parse(sessionStorage.getItem(PLACE_KEY) ?? '{}') as Record<string, unknown>;
+    return { lat: text(data['lat']), lng: text(data['lng']) };
+  } catch {
+    return { lat: '', lng: '' };
+  }
+}
+
+export function savePlace(place: { lat: number; lng: number }): void {
+  try {
+    sessionStorage.setItem(
+      PLACE_KEY,
+      JSON.stringify({ lat: String(place.lat), lng: String(place.lng) }),
+    );
+  } catch {
+    // Blocked storage: the next Find asks again.
+  }
+}
+
 export function clearDraft(): void {
   try {
     sessionStorage.removeItem(KEY);

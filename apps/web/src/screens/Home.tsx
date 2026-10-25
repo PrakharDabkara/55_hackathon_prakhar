@@ -15,7 +15,7 @@ import { useT } from '../i18n/index.js';
 import { ApiError } from '../lib/api.js';
 import { withRef } from '../lib/errorRef.js';
 import { declineDemoArea, DEMO_PLACE, demoAreaDeclined } from '../lib/demoPlace.js';
-import { clearDraft, loadDraft, saveDraft } from '../lib/draft.js';
+import { clearDraft, loadDraft, loadPlace, savePlace, saveDraft } from '../lib/draft.js';
 import { resumableErrand } from '../lib/errand.js';
 import type { ListView } from '../lib/listApi.js';
 import {
@@ -136,13 +136,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
   const { t } = useT();
   const c = t.c;
   const draft = useRef(loadDraft()).current;
+  // The place of the last search, unless the draft has one: a second Find needs no new location.
+  const lastPlace = useRef(loadPlace()).current;
   const [query, setQuery] = useState(draft.query);
   const [mode, setMode] = useState<FindMode>(loadFindMode);
   const [rows, setRows] = useState<string[]>(() => editorRows(loadListDraft()));
   const [wantsDelivery, setWantsDelivery] = useState(draft.wantsDelivery);
   const [typedAddress, setTypedAddress] = useState(draft.address);
-  const [lat, setLat] = useState(draft.lat);
-  const [lng, setLng] = useState(draft.lng);
+  const [lat, setLat] = useState(draft.lat || lastPlace.lat);
+  const [lng, setLng] = useState(draft.lng || lastPlace.lng);
   const [photoId, setPhotoId] = useState<string | null>(null);
   /** Remounts the photo picker when a photo is dropped, so its thumbnail goes too. */
   const [pickerKey, setPickerKey] = useState(0);
@@ -439,6 +441,7 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
       sent.current = true;
       retryKey.current = null;
       clearDraft();
+      savePlace({ lat: latValue, lng: lngValue });
       onFound(request, { lat: latValue, lng: lngValue });
     } catch (e) {
       const asked =

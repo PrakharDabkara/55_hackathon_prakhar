@@ -46,7 +46,8 @@ body,
 .km-app .leaflet-control-attribution a {
   color: var(--paper-ink);
 }
-.km-app .cu-order-status {
+.km-app .cu-order-status,
+.km-app .sh-undo {
   --focus: var(--focus-on-dark);
 }
 .km-app p,
