@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../lib/api.js';
 import { FakeEventSource, fakeSeekerApi, seekerRequest } from '../test/fakes.js';
@@ -65,6 +65,24 @@ describe('C-07: nothing says "no shops" before the server has asked', () => {
     expect(screen.queryByText(/No open shops within/)).toBeNull();
     expect(screen.queryByText('All shops have replied.')).toBeNull();
     expect(screen.queryByRole('button', { name: /Search 5 km/ })).toBeNull();
+  });
+
+  it('looks again every 2 seconds while asking, so a hint sent before it listened is not missed', async () => {
+    const { api } = show(asking());
+    vi.mocked(api.getRequest).mockResolvedValue(
+      seekerRequest({
+        state: 'PINGING',
+        asking: false,
+        pingStats: { sent: 0, yes: 0, no: 0, pending: 0 },
+      }),
+    );
+    await act(async () => void (await vi.advanceTimersByTimeAsync(2100)));
+    expect(api.getRequest).toHaveBeenCalledWith('req-1');
+    expect(await screen.findByText('No shops were asked.')).toBeTruthy();
+    vi.mocked(api.getRequest).mockClear();
+    await act(async () => void (await vi.advanceTimersByTimeAsync(6000)));
+    // Settled: back to the slow fallback poll only.
+    expect(api.getRequest).not.toHaveBeenCalled();
   });
 
   it('moves on when the server settles the shops (a hint arrives)', async () => {

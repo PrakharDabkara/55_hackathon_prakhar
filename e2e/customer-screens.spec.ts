@@ -190,10 +190,8 @@ test('every customer screen is readable and passes the accessibility scan', asyn
   await expect(page.getByText('Best price nearby')).toHaveCount(1);
   await expect(page.getByText(/Had it .* at ₹38/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Had it .* at ₹50/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole('button', { name: /shops? (doesn't|don't) have it/ })).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole('button', { name: /shops? (doesn't|don't) have it/ }).click();
+  // The shops that said no are a count in the status line, not an empty section (C-06).
+  await expect(page.getByText(/said they don't have it/)).toBeVisible({ timeout: 30_000 });
   await look(page, '4a-replies-list');
   await page.getByRole('button', { name: 'Map' }).click();
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible({ timeout: 15_000 });

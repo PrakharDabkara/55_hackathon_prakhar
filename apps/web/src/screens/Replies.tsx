@@ -31,6 +31,8 @@ interface Props {
 }
 
 const CLOCK_MS = 30_000;
+/** How often to look again while the shops are still being chosen. */
+const ASKING_POLL_MS = 2_000;
 /** The widest area the server will search (POST /requests allows up to 5 km). */
 const WIDE_RADIUS_M = 5000;
 const km = (metres: number) => String(Math.round(metres / 100) / 10);
@@ -112,6 +114,14 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
       .catch(() => undefined);
     loadOrders();
   }, [api, initial.id, loadOrders]);
+  // Until the server has chosen the shops, look again soon: its hint may have gone out before
+  // this screen was listening, and "Asking shops nearby…" must not outlast the truth.
+  const settling = request.asking === true;
+  useEffect(() => {
+    if (!settling) return;
+    const timer = setInterval(refresh, ASKING_POLL_MS);
+    return () => clearInterval(timer);
+  }, [settling, refresh]);
   const getTicket = useCallback(() => api.eventTicket(), [api]);
   const isLive = useLive({ getTicket, refresh, pollMs, live });
 
