@@ -5,6 +5,7 @@ import { ApiError, parse } from '../../http/errors.js';
 import { authOf, createRequireAuth, requireRole } from '../identity/index.js';
 import { answerPing, listShopPings } from './pings.js';
 import {
+  askShopsNow,
   closeRequest,
   createRequest,
   getRequestStatus,
@@ -98,6 +99,17 @@ export function requestsRouter(deps: RequestsContext): Router {
       authOf(req).user.id,
       String(req.params['id']),
       { sort },
+    );
+    if (!request) throw new ApiError(404, 'not_found', 'No such request');
+    res.json(request);
+  });
+
+  // "Ask shops now": a request answered from remembered stock goes to the live shops too.
+  router.post('/requests/:id/ask', requireAuth, requireRole('seeker'), async (req, res) => {
+    const request = await askShopsNow(
+      ctxFor(req.log),
+      authOf(req).user.id,
+      String(req.params['id']),
     );
     if (!request) throw new ApiError(404, 'not_found', 'No such request');
     res.json(request);

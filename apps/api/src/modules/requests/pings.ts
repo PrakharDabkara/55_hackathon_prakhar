@@ -76,6 +76,19 @@ export async function fanOutPings(
     logger.info({ requestId }, 'ping fan-out skipped: request is not live');
     return { targets: 0, sent: 0, skipped: 'not_live' };
   }
+  // Whatever the outcome below (shops asked, or none to ask), the customer is told the shops are
+  // settled: their screen shows "Asking shops nearby…" until then and never "no shops" before it.
+  const settle = async () => {
+    await db.query(`UPDATE requests SET fanned_out_at = now() WHERE id = $1`, [requestId]);
+    deps.events?.publish(
+      {
+        to: { userId: request.userId },
+        type: 'request.updated',
+        data: { requestId, state: request.state },
+      },
+      logger,
+    );
+  };
 
   const item = await getItem(db, request.itemId);
   if (!item) return { targets: 0, sent: 0 };
@@ -90,7 +103,8 @@ export async function fanOutPings(
     {
       itemCategories: item.categories,
       radiusM: request.radiusM,
-      excludeShopIds: new Set(known.map((k) => k.shopId)),
+      // "Ask shops now" asks the shops that remembered the item too.
+      excludeShopIds: new Set(request.askAll ? [] : known.map((k) => k.shopId)),
       // Too few shops of the item's kind (a new item, a small street): the nearest of any kind
       // fill up to this many, so a request is never left with nobody to ask (ADR-0028).
       minTargets: MIN_TARGETS,
@@ -101,6 +115,7 @@ export async function fanOutPings(
   );
   if (targets.length === 0) {
     logger.info({ requestId }, 'no shop to ping; the request will expire normally');
+    await settle();
     return { targets: 0, sent: 0 };
   }
 
@@ -108,7 +123,9 @@ export async function fanOutPings(
   // cap is reached or the candidates run out.
   // A shop whose answer a customer called wrong is asked again even inside the dedupe window: the
   // window was spent on the answer that turned out wrong (ADR-0036). Asked once, it applies again.
-  const askAgain = new Set(await shopsToAskAgain(db, request.itemId));
+  const askAgain = request.askAll
+    ? new Set(targets.map((t) => t.shopId))
+    : new Set(await shopsToAskAgain(db, request.itemId));
   const claimed: string[] = [];
   let asked = 0;
   for (const t of targets) {
@@ -175,6 +192,7 @@ export async function fanOutPings(
     { requestId, considered: asked, deduped: asked - claimed.length, sent: sent.length },
     'ping fan-out',
   );
+  await settle();
   await announcePings(deps, item, sent);
   return { targets: targets.length, sent: sent.length };
 }

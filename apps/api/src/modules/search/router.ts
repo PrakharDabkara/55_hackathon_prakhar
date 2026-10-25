@@ -5,7 +5,10 @@ import type { Queryable } from '../../db/queryable.js';
 import { parse } from '../../http/errors.js';
 import type { AiContext } from '../ai/index.js';
 import { resolveForCustomer } from '../catalog/index.js';
+import { ACTIVE_SEARCH_LIMIT } from '@askbuy/shared';
 import { authOf, createRequireAuth } from '../identity/index.js';
+import { listActiveLists } from '../lists/index.js';
+import { listActiveRequests } from '../requests/index.js';
 import { findLearnedStock } from '../shops/index.js';
 
 const DEFAULT_RADIUS_M = 2000;
@@ -83,6 +86,20 @@ export function searchRouter({ db, trigramThreshold, ai, logger }: SearchDeps): 
       matchedBy: resolution.matchedBy,
       ...(resolution.refused && { refused: resolution.refused }),
     });
+  });
+
+  // The customer's live searches (single Finds and lists, not errands): cards on the home screen.
+  router.get('/searches/active', createRequireAuth(db), async (req, res) => {
+    const userId = authOf(req).user.id;
+    const [requests, lists] = await Promise.all([
+      listActiveRequests(db as never, userId),
+      listActiveLists(db, userId),
+    ]);
+    const searches = [
+      ...requests.map((r) => ({ kind: 'request' as const, ...r })),
+      ...lists.map((l) => ({ kind: 'list' as const, ...l })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    res.json({ limit: ACTIVE_SEARCH_LIMIT, searches });
   });
 
   return router;

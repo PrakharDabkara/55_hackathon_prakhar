@@ -5,6 +5,7 @@ export const EVENTS = [
   'SHOP_SAID_YES',
   'TIMEOUT',
   'USER_CLOSED',
+  'ASK_SHOPS',
 ] as const;
 
 export type RequestState = (typeof STATES)[number];
@@ -22,7 +23,13 @@ export type TransitionResult =
 const MOVES: { [S in RequestState]?: { [E in RequestEvent]?: RequestState } } = {
   OPEN: { STOCK_SUFFICIENT: 'ANSWERED', STOCK_INSUFFICIENT: 'PINGING', USER_CLOSED: 'CLOSED' },
   PINGING: { SHOP_SAID_YES: 'ANSWERED', TIMEOUT: 'EXPIRED', USER_CLOSED: 'CLOSED' },
-  ANSWERED: { SHOP_SAID_YES: 'ANSWERED', TIMEOUT: 'CLOSED', USER_CLOSED: 'CLOSED' },
+  // ASK_SHOPS: answered from remembered stock, the customer wants live answers too (C-05).
+  ANSWERED: {
+    SHOP_SAID_YES: 'ANSWERED',
+    TIMEOUT: 'CLOSED',
+    USER_CLOSED: 'CLOSED',
+    ASK_SHOPS: 'PINGING',
+  },
 };
 
 export function transition(state: RequestState, event: RequestEvent): TransitionResult {

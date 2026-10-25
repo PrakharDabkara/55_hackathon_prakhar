@@ -23,10 +23,14 @@ import { pushRouter } from './modules/push/index.js';
 import { errandsAdminRouter, errandsRouter, limitsFromConfig } from './modules/errands/index.js';
 import { cacheAdminRouter } from './modules/catalog/index.js';
 import { createRealtime, realtimeRouter, type Realtime } from './modules/realtime/index.js';
-import { listsRouter } from './modules/lists/index.js';
+import { countLiveLists, listsRouter } from './modules/lists/index.js';
 import { ordersRouter } from './modules/orders/index.js';
 import { createIdentify, identityRouter } from './modules/identity/index.js';
-import { requestsRouter, type RequestHooks } from './modules/requests/index.js';
+import {
+  countActiveRequests,
+  requestsRouter,
+  type RequestHooks,
+} from './modules/requests/index.js';
 import { demoRouter } from './modules/demo/index.js';
 import { simulationRouter } from './modules/simulation/index.js';
 import { searchRouter } from './modules/search/index.js';
@@ -193,9 +197,13 @@ export function createApp({
   );
   app.use(routingRouter({ db }));
   app.use(searchRouter({ db, trigramThreshold: config.trigramThreshold, ai, logger }));
+  // The customer's three live searches: requests and lists count together, errands do not.
+  const activeSearches = async (userId: string) =>
+    (await countActiveRequests(db, userId)) + (await countLiveLists(db, userId));
   const requestsContext = {
     db,
     logger,
+    activeSearches,
     config: {
       minStockResults: config.minStockResults,
       ttlMinutes: config.requestTtlMinutes,
@@ -222,6 +230,7 @@ export function createApp({
       logger,
       config: { maxPings: config.maxPingsPerRequest, trigramThreshold: config.trigramThreshold },
       events: realtime.events,
+      activeSearches,
       ...(ai && { ai }),
     }),
   );

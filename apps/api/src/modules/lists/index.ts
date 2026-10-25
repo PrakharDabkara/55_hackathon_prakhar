@@ -1,4 +1,5 @@
-export { hasLiveList } from './account.js';
+export { countLiveLists, hasLiveList, listActiveLists } from './account.js';
+export type { ActiveList } from './account.js';
 export { listsRouter } from './router.js';
 export {
   answerListPing,

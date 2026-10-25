@@ -1,4 +1,4 @@
-import type { ExactQuantity } from '@askbuy/shared';
+import { ACTIVE_SEARCH_LIMIT, type ExactQuantity } from '@askbuy/shared';
 import { ownsSavedAddress } from './deliveryAddress.js';
 import { unitFromQuery } from '@askbuy/shared';
 import type { Logger } from 'pino';
@@ -29,6 +29,7 @@ import {
   type RequestRecord,
   type TransitionReason,
 } from './persistence.js';
+import { announceTransition } from './events.js';
 import { onRequestPinging } from './pinging.js';
 import { buildResults, type LiveAnswer, type RequestResult, type SortKey } from './results.js';
 import type { RequestEvent, RequestState } from './stateMachine.js';
@@ -51,6 +52,8 @@ export interface RequestsContext {
   ai?: AiContext | undefined;
   /** Realtime hints to the seeker and the shops (ADR-0018). Published after commits only. */
   events?: EventPublisher | undefined;
+  /** How many searches (requests and lists, not errands) the customer has live: the limit of 3. */
+  activeSearches?: ((userId: string) => Promise<number>) | undefined;
 }
 
 export interface CreateRequestInput {
@@ -92,6 +95,10 @@ export interface RequestView {
   wantsDelivery: boolean;
   /** The customer's own words, as typed: their own data, shown back to them (ADR-0047). */
   typed: string;
+  /** The customer chose the item from a question: show the item, with their words small. */
+  picked: boolean;
+  /** The shops have not been chosen yet: "no shops" must not be shown, nor "all have replied". */
+  asking: boolean;
   /** The everyday catalog word the text matched ("Maida"), when it differs from the item's name. */
   displayName?: string;
   results: RequestResult[];
@@ -200,6 +207,8 @@ async function toView(
     radiusM: r.radiusM,
     wantsDelivery: r.wantsDelivery,
     typed: r.rawQuery,
+    picked: r.picked,
+    asking: r.state === 'PINGING' && r.fannedOutAt === null && !r.overdue,
     ...(r.matchedAlias && { displayName: sentenceCase(r.matchedAlias) }),
     results: buildResults({
       live,
@@ -232,6 +241,15 @@ export async function createRequest(
     const existing = await findRequestByKey(ctx.db, userId, key);
     if (existing) return { created: false, request: await toView(ctx, existing) };
   }
+
+  // A customer keeps three searches at most (errands are apart): checked first, so a refused
+  // fourth costs no AI call and sends nothing to any shop.
+  if (
+    !input.errandId &&
+    ctx.activeSearches &&
+    (await ctx.activeSearches(userId)) >= ACTIVE_SEARCH_LIMIT
+  )
+    throw searchLimitError();
 
   if (input.understanding)
     ctx.logger.info(
@@ -294,9 +312,9 @@ export async function createRequest(
     const inserted = await tx.query<{ id: string }>(
       `INSERT INTO requests (user_id, item_id, raw_query, quantity, location, radius_m,
                              expires_at, idempotency_key, target_price_paise,
-                             wants_delivery, delivery_address_id, misc, matched_alias)
+                             wants_delivery, delivery_address_id, misc, matched_alias, picked)
        VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326)::geography, $7,
-               now() + make_interval(mins => $8::int), $9, $10, $11, $12, $13, $14)
+               now() + make_interval(mins => $8::int), $9, $10, $11, $12, $13, $14, $15)
        ON CONFLICT (user_id, idempotency_key) DO NOTHING
        RETURNING id`,
       [
@@ -314,6 +332,7 @@ export async function createRequest(
         wantsDelivery ? (input.deliveryAddressId ?? null) : null,
         misc,
         matchedAlias,
+        Boolean(input.itemId) && !input.errandId,
       ],
     );
     const row = inserted.rows[0];
@@ -339,6 +358,117 @@ export async function createRequest(
   if (record.state === 'PINGING') onRequestPinging(ctx, record);
 
   return { created: true, request: await toView(ctx, record, { learned: stock }) };
+}
+
+/** 409: the customer already has the most searches they may keep; the client asks which to stop. */
+export const searchLimitError = (): ApiError =>
+  new ApiError(
+    409,
+    'search_limit',
+    `You can have ${ACTIVE_SEARCH_LIMIT} searches at a time. Stop one to start another.`,
+    {
+      limit: ACTIVE_SEARCH_LIMIT,
+    },
+  );
+
+/**
+ * "Ask shops now": a request answered from remembered stock, with nobody asked, goes to the live
+ * shops in range, the ones that remembered it included. The deadline starts again. A request that
+ * already has pings keeps them (409 already_asked); asking twice is the same ask.
+ */
+export async function askShopsNow(
+  ctx: RequestsContext,
+  userId: string,
+  requestId: string,
+): Promise<RequestView | null> {
+  if (!UUID.test(requestId)) return null;
+  const record = await findRequest(ctx.db, requestId);
+  if (!record || record.userId !== userId) return null;
+  if (record.state === 'PINGING') return toView(ctx, record);
+  if (record.state !== 'ANSWERED' || record.overdue)
+    throw new ApiError(409, 'request_ended', 'This search has ended. Start a new one.');
+
+  const result = await withTransaction(ctx.db, async (tx) => {
+    const pinged = await tx.query(`SELECT 1 FROM pings WHERE request_id = $1 LIMIT 1`, [requestId]);
+    if (pinged.rowCount) return null;
+    await tx.query(
+      `UPDATE requests SET ask_all = true, fanned_out_at = NULL,
+              expires_at = now() + make_interval(mins => $2::int)
+        WHERE id = $1`,
+      [requestId, ctx.config.ttlMinutes],
+    );
+    return applyEventIn(tx, requestId, 'ASK_SHOPS', 'user');
+  });
+  if (!result) throw new ApiError(409, 'already_asked', 'Shops were already asked about this');
+  if (result.kind === 'applied') {
+    logTransition(ctx.logger, result);
+    announceTransition(ctx.events, result, ctx.logger);
+    const fresh = (await findRequest(ctx.db, requestId)) as RequestRecord;
+    void ctx.hooks?.scheduleExpiry?.(fresh.id, fresh.expiresAt).catch((err: unknown) => {
+      ctx.logger.warn({ requestId, err }, 'could not queue expiry job');
+    });
+    onRequestPinging(ctx, fresh);
+  }
+  return toView(ctx, (await findRequest(ctx.db, requestId)) as RequestRecord);
+}
+
+/** A search still asking or showing answers, not an errand's, not past its deadline. */
+const LIVE_REQUEST = `r.user_id = $1 AND r.state IN ('OPEN', 'PINGING', 'ANSWERED') AND r.expires_at > now()
+  AND NOT EXISTS (SELECT 1 FROM errand_requests er WHERE er.request_id = r.id)`;
+
+export async function countActiveRequests(db: Database, userId: string): Promise<number> {
+  const { rows } = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM requests r WHERE ${LIVE_REQUEST}`,
+    [userId],
+  );
+  return rows[0]?.n ?? 0;
+}
+
+export interface ActiveRequest {
+  id: string;
+  state: RequestState;
+  /** The customer's own words. */
+  typed: string;
+  item: { nameEn: string; nameHi: string };
+  /** The everyday word the text matched ("Maida"), when it is not the item's own name. */
+  displayName?: string;
+  /** Shops that said yes to this search. */
+  replies: number;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+/** The customer's live searches (requests only), newest first: the cards on the home screen. */
+export async function listActiveRequests(db: Database, userId: string): Promise<ActiveRequest[]> {
+  const { rows } = await db.query<{
+    id: string;
+    state: RequestState;
+    raw_query: string;
+    name_en: string;
+    name_hi: string;
+    matched_alias: string | null;
+    replies: number;
+    created_at: Date;
+    expires_at: Date;
+  }>(
+    `SELECT r.id, r.state, r.raw_query, i.name_en, i.name_hi, r.matched_alias, r.created_at, r.expires_at,
+            (SELECT count(*)::int FROM pings p
+              WHERE p.request_id = r.id AND p.state = 'YES' AND NOT p.late) AS replies
+       FROM requests r JOIN items i ON i.id = r.item_id
+      WHERE ${LIVE_REQUEST}
+      ORDER BY r.created_at DESC`,
+    [userId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    state: r.state,
+    typed: r.raw_query,
+    item: { nameEn: r.name_en, nameHi: r.name_hi },
+    ...(r.matched_alias && { displayName: sentenceCase(r.matched_alias) }),
+    replies: r.replies,
+    createdAt: r.created_at,
+    expiresAt: r.expires_at,
+  }));
 }
 
 /** The request for its owner, or null for anyone else (so existence is not leaked). */
