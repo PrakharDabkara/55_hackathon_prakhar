@@ -35,7 +35,7 @@ export function RequestParchi({ request }: { request: SeekerRequest }) {
       <div className="sh-parchi__meta">
         <span className="sh-caption sh-paper-muted cu-parchi__meta">
           {request.asking === true
-            ? t.c.askingNearby
+            ? t.c.withinKm(kilometres(request.radiusM))
             : request.pingStats.sent === 0
               ? t.c.sentToNone(kilometres(request.radiusM))
               : t.c.sentTo(request.pingStats.sent, kilometres(request.radiusM))}

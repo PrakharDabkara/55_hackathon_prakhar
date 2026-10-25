@@ -59,7 +59,8 @@ describe('C-07: nothing says "no shops" before the server has asked', () => {
 
   it('shows "Asking shops nearby…" and no zero-shops state while the shops are being chosen', () => {
     show(asking());
-    expect(screen.getAllByText('Asking shops nearby…').length).toBeGreaterThan(0);
+    expect(screen.getByRole('status', { name: '' }).textContent).toBe('Asking shops nearby…');
+    expect(screen.getByText('Within 2 km')).toBeTruthy();
     expect(screen.queryByText(/No shops asked/)).toBeNull();
     expect(screen.queryByText(/No open shops within/)).toBeNull();
     expect(screen.queryByText('All shops have replied.')).toBeNull();

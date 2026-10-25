@@ -157,6 +157,7 @@ test.describe('up to three active searches (C-08, C-10)', () => {
     await page.getByRole('button', { name: 'Find nearby' }).click();
     const sheet = page.getByRole('dialog', { name: 'You can have 3 searches at a time' });
     await expect(sheet).toBeVisible();
+    await page.waitForTimeout(500); // the sheet has finished sliding in
     expect(await screenProblems(page)).toEqual([]);
     await sheet
       .getByRole('button', { name: /^Stop / })
@@ -193,12 +194,15 @@ test.describe('the shop (S-07, X-03)', () => {
 
     await shop.getByRole('button', { name: 'Answer' }).click();
     await shop.getByRole('button', { name: 'Not available' }).click();
-    await expect(shop.locator('.sh-stamp')).toContainText('Not available', { timeout: 15_000 });
+    // Still its question for the first seconds, then final: the slip is stamped and leaves.
+    await shop.waitForTimeout(2000);
+    await expect(shop.getByRole('button', { name: 'Answer' })).toBeVisible();
+    await expect(shop.getByText('No requests right now')).toBeVisible({ timeout: 15_000 });
     await context.close();
     await shopContext.close();
   });
 
-  test('a demo shop starts setup on the demo place; Change hands the choice back', async ({
+  test('a demo shop starts setup on the demo place and Start saves it there', async ({
     browser,
   }) => {
     const phone = '9000000108';
@@ -224,10 +228,14 @@ test.describe('the shop (S-07, X-03)', () => {
     expect(Math.abs(place.lat - 22.7196)).toBeLessThan(0.001);
     expect(Math.abs(place.lng - 75.8577)).toBeLessThan(0.001);
     await forgetShopOf(phone);
+    await context.close();
+  });
 
-    // Change: no demo place any more; the real location is the shop's to give.
-    await page.context().clearCookies();
-    await page.evaluate(() => localStorage.clear());
+  test('Change on the demo banner hands the choice back to the shop', async ({ browser }) => {
+    const phone = '9000000109';
+    await forgetShopOf(phone);
+    const context = await browser.newContext({ viewport: VIEWPORT });
+    const page = await context.newPage();
     await page.goto('/app/shop');
     await page.getByLabel(/mobile number/i).fill(phone);
     await page.getByRole('button', { name: 'Send code' }).click();
@@ -275,6 +283,7 @@ test.describe('screenshots of the changed screens', () => {
         await page.getByRole('button', { name: 'Find nearby' }).click();
         const sheet = page.getByRole('dialog', { name: /Did you mean/ });
         await expect(sheet).toBeVisible();
+        await page.waitForTimeout(500);
         await shoot(page, `did-you-mean-${tag}`);
         await sheet.getByRole('button', { name: /Yes, this one/ }).click();
         await expect(page).toHaveURL(/\/app\/request\/[\w-]+$/, { timeout: 30_000 });
@@ -294,6 +303,7 @@ test.describe('screenshots of the changed screens', () => {
         await expect(
           page.getByRole('dialog', { name: 'You can have 3 searches at a time' }),
         ).toBeVisible();
+        await page.waitForTimeout(500); // the sheet has finished sliding in
         await shoot(page, `limit-sheet-${tag}`);
         await context.close();
       });

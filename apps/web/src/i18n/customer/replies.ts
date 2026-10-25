@@ -7,6 +7,8 @@ export interface RepliesStrings {
   sentToNone: (km: string) => string;
   /** While the server has not yet chosen the shops (the parchi line and the status line). */
   askingNearby: string;
+  /** The parchi line while the shops are being chosen. */
+  withinKm: (km: string) => string;
   /** Under the parchi when nobody was asked. */
   statusNoShops: string;
   /** "All shops have replied." plus how many said no. */
@@ -92,6 +94,7 @@ export const repliesEn: RepliesStrings = {
   sentTo: (shops, km) => `Sent to ${shops} ${plural(shops, 'shop', 'shops')} · ${km} km`,
   sentToNone: (km) => `No shops asked · ${km} km`,
   askingNearby: 'Asking shops nearby…',
+  withinKm: (km) => `Within ${km} km`,
   statusNoShops: 'No shops were asked.',
   allRepliedNo: (n) => `All shops have replied. ${n} said they don't have it.`,
   askNow: 'Ask shops now',
@@ -180,6 +183,7 @@ export const repliesHi: RepliesStrings = {
   sentTo: (shops, km) => `${shops} dukaanon ko bheja · ${km} km`,
   sentToNone: (km) => `Kisi dukaan se nahi poocha · ${km} km`,
   askingNearby: 'Paas ki dukaanon se pooch rahe hain…',
+  withinKm: (km) => `${km} km ke andar`,
   statusNoShops: 'Kisi dukaan se nahi poocha gaya.',
   allRepliedNo: (n) => `Sab dukaanon ne jawab de diya. ${n} ne kaha nahi hai.`,
   askNow: 'Abhi dukaanon se poochein',
