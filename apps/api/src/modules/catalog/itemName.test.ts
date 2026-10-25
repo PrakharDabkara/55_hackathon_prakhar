@@ -25,6 +25,15 @@ describe('cleanItemName (name hygiene for new items, ADR-0028)', () => {
     expect(cleanItemName('pen; drop table items')).toBeNull();
   });
 
+  it('treats everyday punctuation as a space ("Walnuts, 500g")', () => {
+    expect(cleanItemName('Walnuts, 500g')).toBe('Walnuts');
+    expect(cleanItemName('pen (blue), 2 pcs')).toBe('Pen blue');
+    expect(cleanItemName('Amul butter - 100 g')).toBe('Amul butter');
+    expect(cleanItemName('salt & pepper')).toBe('Salt pepper');
+    expect(cleanItemName('pen; drop table items')).toBeNull();
+    expect(cleanItemName('pen, www.shop.in')).toBeNull();
+  });
+
   it('rejects URLs and emails', () => {
     expect(cleanItemName('http://evil.example/pen')).toBeNull();
     expect(cleanItemName('www.shop.in pen')).toBeNull();
