@@ -161,10 +161,18 @@ describe('landing.css: the header button (round 3, L-15)', () => {
     expect(cta).toMatch(/padding:\s*[45]px 1[0-4]px/);
   });
 
+  it('uses the short label at every width and keeps the accessible name', () => {
+    const cta = html.slice(html.indexOf('lp-header__cta'), html.indexOf('</header>'));
+    expect(cta).toContain('aria-label="Open your shop"');
+    expect(cta).toContain('>Your shop<');
+    expect(cta).not.toContain('>Open your shop<');
+    expect(css).not.toContain('lp-cta__full');
+  });
+
   it('keeps the 44 px tap area on touch with an invisible extension, not a bigger button', () => {
     const coarse = css.slice(css.indexOf('@media (pointer: coarse)'));
     expect(coarse).toContain('.lp-header__cta::after');
-    expect(coarse.slice(0, coarse.indexOf('.lp-cta__short'))).not.toMatch(
+    expect(coarse.slice(0, coarse.indexOf('}', coarse.indexOf('::after')))).not.toMatch(
       /min-height:\s*var\(--tap\)/,
     );
   });

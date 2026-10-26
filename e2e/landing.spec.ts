@@ -123,15 +123,19 @@ for (const size of [
     expect(style.cf).toBeGreaterThanOrEqual(14);
     expect(style.cf).toBeLessThanOrEqual(15);
     expect(style.cf).toBeLessThan(style.bf);
-    const cta = (await page.locator('.lp-header__cta').boundingBox()) as {
-      width: number;
-      height: number;
-    };
-    const brand = (await page.locator('.lp-brand').boundingBox()) as { height: number };
-    expect(cta.height).toBeGreaterThanOrEqual(32);
-    expect(cta.height).toBeLessThanOrEqual(34);
-    // The label is longer than the name, so compare height: the brand box is the 44 px row.
+    const box = async (selector: string) =>
+      (await page.locator(selector).boundingBox()) as { width: number; height: number };
+    const cta = await box('.lp-header__cta');
+    // The brand group is the logo and the wordmark; the button is smaller in both directions.
+    const brand = await box('.lp-brand');
+    const logo = await box('.lp-brand svg');
+    expect(cta.height).toBeGreaterThanOrEqual(28);
+    expect(cta.height).toBeLessThanOrEqual(32);
+    expect(cta.width).toBeLessThan(brand.width);
     expect(cta.height).toBeLessThan(brand.height);
+    expect(cta.height).toBeLessThan(logo.height);
+    await expect(page.getByRole('link', { name: 'Open your shop' }).first()).toBeVisible();
+    await expect(page.locator('.lp-header__cta')).toHaveText('Your shop');
     await page.screenshot({
       path: `${SHOTS}/landing-header-${size.name}.png`,
       clip: { x: 0, y: 0, width: size.width, height: 80 },
@@ -155,7 +159,7 @@ test('on a touch screen the tap area stays 44 px with an invisible extension (ro
     width: number;
     height: number;
   };
-  expect(cta.height).toBeLessThanOrEqual(34);
+  expect(cta.height).toBeLessThanOrEqual(32);
   const hits = await page.evaluate(({ x, y, width, height }) => {
     const owner = (px: number, py: number) =>
       Boolean(document.elementFromPoint(px, py)?.closest('.lp-header__cta'));

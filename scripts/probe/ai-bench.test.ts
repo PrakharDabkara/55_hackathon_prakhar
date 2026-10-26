@@ -30,7 +30,7 @@ describe('scripts/probe/ai-bench.sh', () => {
 
   it('reads the key with read -rs or GEMINI_PROBE_KEY and loads no settings file', () => {
     const sh = readFileSync(script, 'utf8');
-    const settingsFile = new RegExp(`\\.${'env'}\\b|dotenv|env-file|^\\s*source `, 'm');
+    const settingsFile = new RegExp(`(^|[\\s'"/])\\.${'env'}\\b|dotenv|env-file|^\\s*source `, 'm');
     expect(sh).toContain('probe_read_key');
     expect(sh).toContain('probe_redact');
     expect(sh).not.toMatch(settingsFile);
