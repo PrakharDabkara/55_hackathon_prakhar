@@ -135,8 +135,15 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
   /** The server has not yet chosen the shops: never "no shops" (nor "all replied") before it has. */
   const waiting = request.asking === true && !ended;
   const askedNobody = request.pingStats.sent === 0 && !waiting;
+  /** Over with nobody left: every shop asked said no, or there was nobody to ask (round 3 C-17). */
+  const expiredEmpty = request.state === 'EXPIRED' && liveRows.length === 0;
+  const noMoreShops = askedNobody || expiredEmpty;
   const status = ended
-    ? t.c.requestEnded
+    ? expiredEmpty && request.pingStats.sent > 0 && pending === 0
+      ? no > 0
+        ? t.c.allRepliedNo(no)
+        : t.c.allReplied
+      : t.c.requestEnded
     : waiting
       ? t.c.askingNearby
       : askedNobody
@@ -165,7 +172,7 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
 
   /** Nobody was asked and nobody remembered has it: ask again over the widest area the server allows. */
   const canWiden =
-    askedNobody &&
+    noMoreShops &&
     origin !== null &&
     request.radiusM < WIDE_RADIUS_M &&
     request.wantsDelivery !== true &&
@@ -173,7 +180,7 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
 
   /** The demo area is offered to anyone who is somewhere else (or whose place is not known). */
   const canDemo =
-    askedNobody &&
+    noMoreShops &&
     request.wantsDelivery !== true &&
     !!request.typed?.trim() &&
     !(origin !== null && inDemoArea(origin));
@@ -226,7 +233,7 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
         title={t.c.repliesTitle}
         onBack={onDone}
         right={
-          isLive ? (
+          isLive && !ended ? (
             <span className="cu-live" role="img" aria-label={t.c.liveLabel} title={t.c.liveLabel} />
           ) : undefined
         }
@@ -299,10 +306,12 @@ export function Replies({ api, initial, origin, navigate, onDone, pollMs, live }
                 </p>
               )}
             </div>
-          ) : askedNobody ? (
+          ) : noMoreShops ? (
             <div className="cu-empty">
-              <p className="sh-heading">{t.c.noShopsTitle(km(request.radiusM))}</p>
-              <p className="sh-body">{t.c.noShopsHelp}</p>
+              <p className="sh-heading">
+                {askedNobody ? t.c.noShopsTitle(km(request.radiusM)) : t.c.noneFoundTitle}
+              </p>
+              <p className="sh-body">{askedNobody ? t.c.noShopsHelp : t.c.noneFoundHelp}</p>
               <div className="cu-stack">
                 <Button variant="secondary" onClick={onDone}>
                   {t.c.noShopsWords}

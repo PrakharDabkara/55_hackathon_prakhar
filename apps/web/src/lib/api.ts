@@ -158,6 +158,8 @@ export interface ShopApi extends PhotoApi, PushApi {
   demoNumbers(): Promise<DemoNumbers>;
   /** Who is logged in: the phone with most digits hidden (the full number never leaves the server). */
   account(): Promise<{ phoneMasked: string | null; demo?: boolean }>;
+  /** The whole number of the person logged in, asked for when the eye is pressed (ADR-0068). */
+  revealPhone(): Promise<{ phone: string }>;
   /** null when this account has no shop yet. Throws ApiError 403 for a customer account. */
   getMyShop(): Promise<MyShop | null>;
   createShop(input: NewShop): Promise<MyShop>;
@@ -285,6 +287,7 @@ export function createApi(options: ClientOptions): ShopApi {
     },
     demoNumbers: () => call<DemoNumbers>('GET', '/auth/demo-numbers?role=shop'),
     account: () => call<{ phoneMasked: string | null; demo?: boolean }>('GET', '/account'),
+    revealPhone: () => call<{ phone: string }>('POST', '/account/phone/reveal', {}),
     async getMyShop() {
       try {
         return await call<MyShop>('GET', '/shops/me');

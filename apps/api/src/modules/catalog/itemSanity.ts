@@ -222,3 +222,9 @@ export function checkProductName(text: string): Sanity {
     return { ok: false, reason: 'out_of_scope' };
   return { ok: true };
 }
+
+/** A phone, a vehicle, a flat or a service: on purpose not something shops here are asked for (ADR-0028). */
+export const isOutOfScope = (text: string): boolean => {
+  const check = checkProductName(text.toLowerCase());
+  return !check.ok && check.reason === 'out_of_scope';
+};

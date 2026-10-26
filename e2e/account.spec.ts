@@ -30,7 +30,7 @@ test('Account opens from the header, hides the phone until the eye is pressed, a
   await expect(page.getByText('Logged in as')).toBeVisible();
   await expect(page.getByText(/^\+91 ••••• •••••$/)).toBeVisible();
   await page.getByRole('button', { name: 'Show phone number' }).click();
-  await expect(page.getByText(/^\+91 \d{2}••• ••\d{3}$/)).toBeVisible();
+  await expect(page.getByText(/^\+91 \d{5} \d{5}$/)).toBeVisible();
   await expect(page.getByText('No address yet')).toBeVisible();
   await expect(page.getByText('Shopkeeper? Open the shop app')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open the shop app' })).toHaveAttribute(
@@ -187,7 +187,7 @@ test('delete my account: refused with an open order, then it erases and logs out
   // Still logged in.
   await sheet.getByRole('button', { name: 'Cancel' }).click();
   await customer.getByRole('button', { name: 'Show phone number' }).click();
-  await expect(customer.getByText(/^\+91 \d{2}••• ••\d{3}$/)).toBeVisible();
+  await expect(customer.getByText(/^\+91 \d{5} \d{5}$/)).toBeVisible();
 
   // Cancel the order from My orders, then delete.
   await customer.getByRole('link', { name: 'My orders' }).first().click();

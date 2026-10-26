@@ -25,6 +25,7 @@ interface Props {
   api: Pick<
     SeekerApi,
     | 'account'
+    | 'revealPhone'
     | 'logout'
     | 'logoutAll'
     | 'deleteAccount'
@@ -117,7 +118,13 @@ export function Account({ api, navigate, onBack, onLoggedOut, pushClient }: Prop
           <>
             <section className="cu-account__card">
               <p className="sh-label sh-muted">{c.accountLoggedInAs}</p>
-              {phone && <PhoneReveal masked={phone} className="sh-title cu-account__phone" />}
+              {phone && (
+                <PhoneReveal
+                  masked={phone}
+                  reveal={() => api.revealPhone().then((r) => r.phone)}
+                  className="sh-title cu-account__phone"
+                />
+              )}
             </section>
 
             <section className="cu-account__section" aria-labelledby="account-address">

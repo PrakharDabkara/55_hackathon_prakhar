@@ -16,6 +16,7 @@ import { attachAnswerPhoto } from '../photos/index.js';
 import { distanceBand } from './distanceBand.js';
 import { announceClosedPings, announceTransition } from './events.js';
 import {
+  applyEvent,
   applyEventIn,
   findRequest,
   logTransition,
@@ -113,9 +114,15 @@ export async function fanOutPings(
       anyCategory: request.misc,
     },
   );
+  // Shops left out only because they had it recently stay one tap away ("Ask shops now"): the
+  // request waits for that tap. With nobody else to ask, it ends now rather than waiting.
+  // A shop closed for now may open before the request ends and is then asked (ADR-0038): wait too.
+  const keepsRememberedShops =
+    (!request.askAll && known.length > 0) || (await closedShopInRange(db, request));
   if (targets.length === 0) {
-    logger.info({ requestId }, 'no shop to ping; the request will expire normally');
+    logger.info({ requestId }, 'no shop to ping');
     await settle();
+    if (!keepsRememberedShops) await endUnasked(deps, requestId);
     return { targets: 0, sent: 0 };
   }
 
@@ -193,8 +200,29 @@ export async function fanOutPings(
     'ping fan-out',
   );
   await settle();
+  if (sent.length === 0 && !keepsRememberedShops) await endUnasked(deps, requestId);
   await announcePings(deps, item, sent);
   return { targets: targets.length, sent: sent.length };
+}
+
+async function closedShopInRange(db: Queryable, request: RequestRecord): Promise<boolean> {
+  const { rows } = await db.query<{ found: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM shops s
+        WHERE ST_DWithin(s.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
+          AND s.closed_until > now()
+     ) AS found`,
+    [request.lng, request.lat, request.radiusM],
+  );
+  return rows[0]?.found === true;
+}
+
+/** Nobody was asked and nobody can be: the request is over, never left waiting (round 3 C-17). */
+async function endUnasked(
+  deps: { db: Database; logger: Logger; events?: EventPublisher | undefined },
+  requestId: string,
+): Promise<void> {
+  await applyEvent(deps, requestId, 'NOBODY_LEFT', 'queue');
 }
 
 interface SentPing {
@@ -608,6 +636,17 @@ export async function answerPing(
         if ((live.rows[0]?.n ?? 0) >= MAX_LIVE_OFFERS)
           enough = await withdrawOpenPings(tx, row.request_id);
       }
+    }
+    // The last shop asked said no and nobody said yes: nothing more can come, so the request ends.
+    if (!yes && !row.late) {
+      const left = await tx.query<{ waiting: number; yes: number }>(
+        `SELECT count(*) FILTER (WHERE state IN ('QUEUED', 'SENT'))::int AS waiting,
+                count(*) FILTER (WHERE state = 'YES' AND NOT late)::int AS yes
+           FROM pings WHERE request_id = $1`,
+        [row.request_id],
+      );
+      if (left.rows[0]?.waiting === 0 && left.rows[0].yes === 0)
+        moves.push(await applyEventIn(tx, row.request_id, 'NOBODY_LEFT', 'user'));
     }
     return { answer: toAnswer(row), moves, enough, fresh: true };
   });

@@ -54,13 +54,13 @@ export function createLogger(level: string, destination?: DestinationStream): Lo
       level,
       redact: LOG_REDACT,
       serializers: { err: errorSerializer },
-      // A key that reaches a log line as a plain string field (a `reason`, a `message`) is hidden too.
+      // A key, a phone number or an email that reaches a log line as a plain string field (a `reason`, a `message`) is hidden too.
       formatters: {
         log: (object) =>
           Object.fromEntries(
             Object.entries(object).map(([k, v]) => [
               k,
-              typeof v === 'string' ? redactApiKeys(v) : v,
+              typeof v === 'string' ? redactApiKeys(redactPrivateData(v)) : v,
             ]),
           ),
       },

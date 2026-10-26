@@ -177,3 +177,16 @@ describe('the rules the API ships with (SEC2)', () => {
     expect(rule?.perIp).toBe(perIp);
   });
 });
+
+describe('the reveal route (A-09)', () => {
+  it('is limited to 10 an hour per user in the shared store', () => {
+    expect(ROUTE_RULES).toContainEqual(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/account/phone/reveal',
+        perUser: 10,
+        windowMs: 60 * 60 * 1000,
+      }),
+    );
+  });
+});

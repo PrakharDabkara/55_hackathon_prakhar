@@ -592,6 +592,7 @@ describe('Find: Did you mean?', () => {
   it.each([
     [new ApiError(422, 'item_unresolved', 'x'), /couldn't understand/i],
     [new ApiError(422, 'item_blocked', 'x'), /can't send this item/i],
+    [new ApiError(422, 'item_out_of_scope', 'x'), /can't ask shops for phones/i],
     [new ApiError(503, 'ai_busy', 'x'), /assistant is busy/i],
     [new ApiError(429, 'new_item_limit', 'x', { scope: 'day' }), /new item/i],
     [new ApiError(403, 'forbidden', 'x'), /shop/i],

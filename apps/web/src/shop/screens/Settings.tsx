@@ -14,7 +14,10 @@ import { PhoneReveal } from '../../ui/PhoneReveal.js';
 import { useToast } from '../../ui/Toast.js';
 
 interface Props {
-  api: Pick<ShopApi, 'updateShop' | 'uploadLogo' | 'deleteLogo' | 'logoutAll' | 'account'>;
+  api: Pick<
+    ShopApi,
+    'updateShop' | 'uploadLogo' | 'deleteLogo' | 'logoutAll' | 'account' | 'revealPhone'
+  >;
   shop: MyShop;
   onSaved: (shop: MyShop) => void;
   /** Every login of this shop is over (log out on all devices): forget the token here too. */
@@ -208,7 +211,11 @@ export function Settings({
       {phone && (
         <section className="sh-card sh-stack" aria-label={t.auth.loggedInAs}>
           <p className="sh-label sh-muted">{t.auth.loggedInAs}</p>
-          <PhoneReveal masked={phone} className="sh-heading" />
+          <PhoneReveal
+            masked={phone}
+            reveal={() => api.revealPhone().then((r) => r.phone)}
+            className="sh-heading"
+          />
         </section>
       )}
       <Button variant="quiet" className="sh-btn--block" onClick={() => setAskLogoutAll(true)}>

@@ -418,8 +418,9 @@ describe('Settings: the account (A-09)', () => {
     );
     expect(await screen.findByText('Logged in as')).toBeTruthy();
     expect(screen.queryByText('+91 90••• ••102')).toBeNull();
+    expect(api.revealPhone).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Show phone number' }));
-    expect(screen.getByText('+91 90••• ••102')).toBeTruthy();
+    expect(await screen.findByText('+91 90000 00102')).toBeTruthy();
   });
 });
 

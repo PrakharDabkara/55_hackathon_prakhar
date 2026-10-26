@@ -176,6 +176,82 @@ describe('searches: asking, ask-now, picked items and the limit of 3', () => {
     });
   });
 
+  // App round 3 (C-05): the shop that remembered the item was left out of the first fan-out, and
+  // "Ask shops now" on a request already PINGING changed nothing: sent 0, state PINGING, forever.
+  describe('ask shops now on a PINGING request (round 3 C-05)', () => {
+    it('asks the shop that had it recently, which the first fan-out left out', async () => {
+      const knownShop = await insertShopWithStock(pool, {
+        name: 'Remembered',
+        km: 0.7,
+        itemId: item['sugar'] as string,
+        ageHours: 2,
+      });
+      const a = await ask({ itemId: item['sugar'] });
+      expect(a.body.state).toBe('PINGING');
+      await fanOut(a.body.id);
+      const first = await view(a.body.id);
+      expect(first.body.pingStats.sent).toBe(0);
+      expect(first.body.state).toBe('PINGING');
+      expect(first.body.asking).toBe(false);
+
+      const res = await request(app).post(`/requests/${a.body.id}/ask`).set(auth(seeker));
+      expect(res.status).toBe(200);
+      expect(res.body.asking).toBe(true);
+      await fanOut(a.body.id);
+      const after = await view(a.body.id);
+      expect(after.body.pingStats.sent).toBe(1);
+      const pinged = await pool.query(`SELECT shop_id FROM pings WHERE request_id = $1`, [
+        a.body.id,
+      ]);
+      expect(pinged.rows).toEqual([{ shop_id: knownShop }]);
+    });
+
+    it('asked twice while the first ask is running is still one ask', async () => {
+      await insertShopWithStock(pool, {
+        name: 'Remembered',
+        km: 0.7,
+        itemId: item['sugar'] as string,
+        ageHours: 2,
+      });
+      const a = await ask({ itemId: item['sugar'] });
+      await fanOut(a.body.id);
+      await request(app).post(`/requests/${a.body.id}/ask`).set(auth(seeker));
+      await fanOut(a.body.id);
+      const again = await request(app).post(`/requests/${a.body.id}/ask`).set(auth(seeker));
+      expect(again.status).toBe(200);
+      await fanOut(a.body.id);
+      expect((await view(a.body.id)).body.pingStats.sent).toBe(1);
+    });
+  });
+
+  // App round 3 (C-17): a request nobody can answer is over, not "waiting".
+  describe('a request with nobody left to answer is over (round 3 C-17)', () => {
+    it('goes straight to the final state when the fan-out finds no shop at all', async () => {
+      const a = await ask({ itemId: item['sugar'] });
+      expect(a.body.state).toBe('PINGING');
+      await fanOut(a.body.id);
+      const after = await view(a.body.id);
+      expect(after.body.state).toBe('EXPIRED');
+      expect(after.body.asking).toBe(false);
+      expect(after.body.pingStats).toEqual({ sent: 0, yes: 0, no: 0, pending: 0 });
+    });
+
+    it('goes straight to the final state when "Ask shops now" still finds nobody', async () => {
+      await insertShopWithStock(pool, {
+        name: 'Remembered',
+        km: 0.7,
+        itemId: item['sugar'] as string,
+        ageHours: 2,
+      });
+      const a = await ask({ itemId: item['sugar'] });
+      await fanOut(a.body.id);
+      await request(app).post(`/requests/${a.body.id}/ask`).set(auth(seeker));
+      await pool.query('DELETE FROM shops');
+      await fanOut(a.body.id);
+      expect((await view(a.body.id)).body.state).toBe('EXPIRED');
+    });
+  });
+
   describe('a picked item (C-11a)', () => {
     it('is flagged picked; typed words are not', async () => {
       const picked = await ask({ q: 'chini', itemId: item['sugar'], understanding: 'changed' });

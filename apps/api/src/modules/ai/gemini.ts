@@ -68,6 +68,11 @@ interface Options {
   embedDim: number;
   /** Where a blocked prompt is logged (the reason only). */
   logger?: Pick<Logger, 'warn'>;
+  /**
+   * How much the model thinks before a short JSON answer (resolve, classify). `minimal` (default)
+   * asks for the least a model allows; `model_default` sends nothing and keeps the model's own.
+   */
+  thinking?: 'minimal' | 'model_default';
 }
 
 const TASK_TYPE: Record<EmbedPurpose, string> = {
@@ -83,6 +88,17 @@ function jsonSchemaFor(schema: z.ZodType): Record<string, unknown> {
   const json = z.toJSONSchema(schema) as Record<string, unknown>;
   delete json['$schema'];
   return json;
+}
+
+/**
+ * The thinking setting for a short classification call, by model family: Gemini 3 takes a level,
+ * Gemini 2.5 flash a token budget (0 is off; the pro model cannot be switched off, so it is left
+ * alone). A model of another family gets nothing: an option it does not know would be a 400.
+ */
+function shortCallThinking(model: string): Record<string, unknown> | null {
+  if (/^gemini-3/.test(model)) return { thinkingLevel: 'MINIMAL' };
+  if (/^gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
+  return null;
 }
 
 type Part = Record<string, unknown>;
@@ -209,6 +225,7 @@ export function createGeminiProvider({
   embedModel,
   embedDim,
   logger,
+  thinking = 'minimal',
 }: Options): LlmProvider {
   const ai: GeminiClientLike =
     client ?? (new GoogleGenAI({ apiKey: apiKey as string }) as unknown as GeminiClientLike);
@@ -237,6 +254,9 @@ export function createGeminiProvider({
       const started = Date.now();
       const used = options.model ?? model;
       guard(options.purpose, [options.system, options.user]);
+      // Only the short classification calls; an errand's own JSON calls keep the model's thinking.
+      const short = options.purpose === 'resolve_query' || options.purpose === 'classify_item';
+      const thinkingConfig = thinking === 'minimal' && short ? shortCallThinking(used) : null;
       let response;
       try {
         response = await ai.models.generateContent({
@@ -246,6 +266,7 @@ export function createGeminiProvider({
             systemInstruction: options.system,
             temperature: 0,
             maxOutputTokens: options.maxOutputTokens,
+            ...(thinkingConfig && { thinkingConfig }),
             responseMimeType: 'application/json',
             responseJsonSchema: jsonSchemaFor(options.schema),
             ...(options.signal && { abortSignal: options.signal }),

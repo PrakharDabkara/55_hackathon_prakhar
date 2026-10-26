@@ -103,6 +103,12 @@ interface Options {
    * is not waited for: the fallback model answers instead. Interactive calls get little room.
    */
   waitBudgetMs?: Partial<Record<Purpose, number>>;
+  /**
+   * A short call (resolve, classify) whose primary model has not answered after this many ms also
+   * goes to the fallback model; the first valid answer wins and the other call is cancelled.
+   * 0 turns it off. Default 4000.
+   */
+  hedgeAfterMs?: number;
   /** Called before each retry's pause, so a script can count them. */
   onRetry?: () => void;
   breaker?: { threshold?: number; cooldownMs?: number };
@@ -161,8 +167,27 @@ const wantsFallback = (failure: Failure) =>
   failure.kind === 'network' ||
   (failure.kind === 'http' && (failure.status === 429 || failure.status === 503));
 
-function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
+/** The purposes that are short enough to be worth a second model alongside a slow first one. */
+const HEDGED_PURPOSES = new Set<Purpose>(['resolve_query', 'classify_item']);
+export const DEFAULT_HEDGE_AFTER_MS = 4000;
+
+/** Both models of a hedged call failed. `primary` is the failure the failure rules go by. */
+class HedgeFailed extends Error {
+  constructor(
+    readonly primary: unknown,
+    readonly hedge: unknown,
+  ) {
+    super('both hedged models failed');
+  }
+}
+
+function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  cancel?: AbortSignal,
+): Promise<T> {
   const abort = new AbortController();
+  cancel?.addEventListener('abort', () => abort.abort(), { once: true });
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
@@ -191,6 +216,7 @@ export function createAiClient({
   retries = 1,
   backoffMs = 500,
   random = Math.random,
+  hedgeAfterMs = DEFAULT_HEDGE_AFTER_MS,
   onRetry,
   waitBudgetMs = {},
   breaker: { threshold = 5, cooldownMs = 60_000 } = {},
@@ -276,6 +302,100 @@ export function createAiClient({
     const spare = () =>
       current === primaryModel && fallbackName && health.usable(fallbackName) ? fallbackName : null;
 
+    /**
+     * A failure of a hedged call's side: the rules that mark a model used up or gone hold for it
+     * as for any call, whichever side it was on and whoever answered first.
+     */
+    const noteHedgeFailure = (model: string, error: unknown) => {
+      const failure = classifyError(error);
+      if (failure.modelGone) {
+        if (health.markUnavailable(model, `model not found (${failure.status})`))
+          logger?.error({ purpose, model, status: failure.status }, 'AI model is unavailable');
+      } else if (failure.status === 429 && failure.perDay) {
+        health.markExhausted(
+          model,
+          failure.retryAfterSec !== undefined
+            ? now() + failure.retryAfterSec * 1000
+            : nextMidnightPacific(now()),
+          `daily quota (${failure.quotaId ?? 'per day'})`,
+        );
+      }
+    };
+
+    /**
+     * The primary gets `hedgeAfterMs` to answer alone. After that the fallback model is asked the
+     * same question; the first valid answer wins and the other call is cancelled.
+     */
+    async function hedged(
+      named: string | undefined,
+      fallbackModel: string,
+    ): Promise<{ result: R; hedgedWith: string | null }> {
+      const primaryCancel = new AbortController();
+      const primaryCall = withTimeout(
+        (signal) => call(signal, named),
+        limitMs,
+        primaryCancel.signal,
+      );
+      primaryCall.catch(() => undefined);
+      let timer: NodeJS.Timeout | undefined;
+      const early = await Promise.race([
+        primaryCall.then(
+          (value) => ({ value }),
+          (error: unknown) => ({ error }),
+        ),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), hedgeAfterMs);
+        }),
+      ]).finally(() => clearTimeout(timer));
+      if (early) {
+        if ('error' in early) throw early.error;
+        return { result: early.value, hedgedWith: null };
+      }
+
+      logger?.info(
+        { purpose, requestId, primary: primaryModel, hedge: fallbackModel, afterMs: hedgeAfterMs },
+        'AI hedge started',
+      );
+      const hedgeCancel = new AbortController();
+      const hedgeCall = withTimeout(
+        (signal) => call(signal, fallbackModel),
+        limitMs,
+        hedgeCancel.signal,
+      );
+      return new Promise((resolve, reject) => {
+        const errors: { primary?: unknown; hedge?: unknown } = {};
+        let failed = 0;
+        const finish = (winner: string, result: R, loser: AbortController) => {
+          loser.abort();
+          logger?.info(
+            {
+              purpose,
+              requestId,
+              primary: primaryModel,
+              hedge: fallbackModel,
+              afterMs: hedgeAfterMs,
+              winner,
+            },
+            'AI call hedged',
+          );
+          resolve({ result, hedgedWith: fallbackModel });
+        };
+        const lost = (side: 'primary' | 'hedge', model: string, error: unknown) => {
+          noteHedgeFailure(model, error);
+          errors[side] = error;
+          if (++failed === 2) reject(new HedgeFailed(errors.primary, errors.hedge));
+        };
+        primaryCall.then(
+          (r) => finish(primaryModel, r, hedgeCancel),
+          (e: unknown) => lost('primary', primaryModel, e),
+        );
+        hedgeCall.then(
+          (r) => finish(fallbackModel, r, primaryCancel),
+          (e: unknown) => lost('hedge', fallbackModel, e),
+        );
+      });
+    }
+
     const started = now();
     let waited = 0;
     let bare429 = 0;
@@ -286,7 +406,13 @@ export function createAiClient({
         // The provider's own primary is its default; a per-purpose model is named on every call.
         const named =
           model !== primaryModel ? model : !isEmbed(purpose) && own ? own.model : undefined;
-        const result = await withTimeout((signal) => call(signal, named), limitMs);
+        const hedgeWith =
+          hedgeAfterMs > 0 && HEDGED_PURPOSES.has(purpose) && model === primaryModel
+            ? spare()
+            : null;
+        const result = hedgeWith
+          ? (await hedged(named, hedgeWith)).result
+          : await withTimeout((signal) => call(signal, named), limitMs);
         state.failures = 0;
         const answeredBy =
           result && 'model' in result ? String((result as { model: string }).model) : model;
@@ -305,7 +431,10 @@ export function createAiClient({
           outcome: 'ok',
         });
         return { ...result, callId };
-      } catch (error) {
+      } catch (caught) {
+        // Both models of a hedged call failed: that was the whole try, so nothing is retried.
+        const bothFailed = caught instanceof HedgeFailed;
+        const error = bothFailed ? caught.primary : caught;
         const failure = classifyError(error);
         logger?.warn(
           {
@@ -336,7 +465,9 @@ export function createAiClient({
         };
         const otherwise = (): boolean => attempt < maxRetries && retryable(failure);
 
-        if (failure.kind === 'invalid_output' || failure.requestTooLarge) {
+        if (bothFailed) {
+          // Nothing more to try: both were asked and the health rules were applied to each.
+        } else if (failure.kind === 'invalid_output' || failure.requestTooLarge) {
           // The service worked (or this request can never fit): not a reason to open the breaker.
           state.failures = 0;
         } else if (failure.modelGone) {

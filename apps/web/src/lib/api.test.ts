@@ -242,3 +242,14 @@ describe('the ref in an error (O1)', () => {
     expect(error.message).toBe('Something went wrong · ref B0B0B0');
   });
 });
+
+describe('revealPhone (A-09)', () => {
+  it('asks for the full number with a POST and a login', async () => {
+    const { api, fetchImpl } = setup(() => json(200, { phone: '+91 90000 00102' }));
+    expect(await api.revealPhone()).toEqual({ phone: '+91 90000 00102' });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/\/account\/phone\/reveal$/);
+    expect(init.method).toBe('POST');
+    expect(headersOf(init).get('authorization')).toBe('Bearer tok-1');
+  });
+});

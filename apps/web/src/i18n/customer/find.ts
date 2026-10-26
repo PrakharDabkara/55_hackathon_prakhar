@@ -29,7 +29,6 @@ export interface FindStrings {
   findTagline: string;
   findNeedQuery: string;
   findNeedAddress: string;
-  findSubmitting: string;
   findErrandTitle: string;
   findErrandContinue: string;
   findErrandText: string;
@@ -127,7 +126,6 @@ export const findEn: FindStrings = {
   findTagline: 'Ask the shops nearby, then buy.',
   findNeedQuery: 'Type what you need',
   findNeedAddress: 'Add your delivery address',
-  findSubmitting: 'Finding…',
   findErrandTitle: 'Plan an errand',
   findErrandContinue: 'Continue your errand',
   findErrandText:
@@ -219,7 +217,6 @@ export const findHi: FindStrings = {
   findTagline: 'Paas ki dukaanon se poochho, phir kharido.',
   findNeedQuery: 'Likhein kya chahiye',
   findNeedAddress: 'Ghar ka pata likhein',
-  findSubmitting: 'Dhoondh rahe hain…',
   findErrandTitle: 'Kaam ka plan banayein',
   findErrandContinue: 'Apna kaam jaari rakhein',
   findErrandText:

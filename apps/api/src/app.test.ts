@@ -41,6 +41,8 @@ const config: Config = {
   errandUserHourlyLimit: 5,
   errandTaskMaxChars: 500,
   errandAiTimeoutMs: 30_000,
+  geminiThinking: 'minimal',
+  aiHedgeAfterMs: 4000,
   errandMaxAskShops: 6,
   errandMaxQuestions: 2,
   errandResumeAfterMs: 45_000,

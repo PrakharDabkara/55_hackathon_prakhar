@@ -100,23 +100,80 @@ test('every visible link and button is at least 44 px tall', async ({ page }) =>
   }
 });
 
-test('the header button matches the wordmark and stays one compact row (round 1b)', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto('/');
-  const header = await page.locator('.lp-header').boundingBox();
-  expect(header?.height ?? 999).toBeLessThanOrEqual(64);
-  const style = await page.evaluate(() => {
-    const b = getComputedStyle(document.querySelector('.lp-brand') as Element);
-    const c = getComputedStyle(document.querySelector('.lp-header__cta') as Element);
-    return { bf: b.fontSize, bw: b.fontWeight, cf: c.fontSize, cw: c.fontWeight };
+// Round 3 (L-15): the brand dominates the header. The button is smaller than the logo and wordmark
+// together; on touch its 44 px tap area is invisible.
+const SHOTS = process.env['SCREENS_DIR'] ?? 'e2e/artifacts/app-round3';
+
+for (const size of [
+  { name: '1280', width: 1280, height: 800 },
+  { name: '360', width: 360, height: 800 },
+]) {
+  test(`the header button is smaller than the brand at ${size.name} px (round 3)`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await page.goto('/');
+    const header = await page.locator('.lp-header').boundingBox();
+    expect(header?.height ?? 999).toBeLessThanOrEqual(64);
+    const style = await page.evaluate(() => {
+      const b = getComputedStyle(document.querySelector('.lp-brand') as Element);
+      const c = getComputedStyle(document.querySelector('.lp-header__cta') as Element);
+      return { bf: parseFloat(b.fontSize), cf: parseFloat(c.fontSize) };
+    });
+    expect(style.cf).toBeGreaterThanOrEqual(14);
+    expect(style.cf).toBeLessThanOrEqual(15);
+    expect(style.cf).toBeLessThan(style.bf);
+    const box = async (selector: string) =>
+      (await page.locator(selector).boundingBox()) as { width: number; height: number };
+    const cta = await box('.lp-header__cta');
+    // The brand group is the logo and the wordmark; the button is smaller in both directions.
+    const brand = await box('.lp-brand');
+    const logo = await box('.lp-brand svg');
+    expect(cta.height).toBeGreaterThanOrEqual(28);
+    expect(cta.height).toBeLessThanOrEqual(32);
+    expect(cta.width).toBeLessThan(brand.width);
+    expect(cta.height).toBeLessThan(brand.height);
+    expect(cta.height).toBeLessThan(logo.height);
+    await expect(page.getByRole('link', { name: 'Open your shop' }).first()).toBeVisible();
+    await expect(page.locator('.lp-header__cta')).toHaveText('Your shop');
+    await page.screenshot({
+      path: `${SHOTS}/landing-header-${size.name}.png`,
+      clip: { x: 0, y: 0, width: size.width, height: 80 },
+    });
   });
-  expect(style.cf).toBe(style.bf);
-  expect(style.cw).toBe(style.bw);
-  const cta = await page.locator('.lp-header__cta').boundingBox();
-  expect(cta?.height ?? 0).toBeGreaterThanOrEqual(40);
-  expect(cta?.height ?? 99).toBeLessThanOrEqual(44);
+}
+
+test('on a touch screen the tap area stays 44 px with an invisible extension (round 3)', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 360, height: 800 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await context.newPage();
+  await page.goto('/');
+  const cta = (await page.locator('.lp-header__cta').boundingBox()) as {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  expect(cta.height).toBeLessThanOrEqual(32);
+  const hits = await page.evaluate(({ x, y, width, height }) => {
+    const owner = (px: number, py: number) =>
+      Boolean(document.elementFromPoint(px, py)?.closest('.lp-header__cta'));
+    const cx = x + width / 2;
+    return {
+      above: owner(cx, y - 4.5),
+      below: owner(cx, y + height + 4.5),
+      far: owner(cx, y + height + 12),
+    };
+  }, cta);
+  expect(hits.above).toBe(true);
+  expect(hits.below).toBe(true);
+  expect(hits.far).toBe(false);
+  await context.close();
 });
 
 test('the header link order is For shops, For buyers, Demo', async ({ page }) => {

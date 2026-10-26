@@ -469,13 +469,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
             ? t.errUnresolved
             : code === 'item_blocked'
               ? t.errItemBlocked
-              : code === 'ai_busy'
-                ? c.errAiBusy
-                : code === 'new_item_limit'
-                  ? t.errNewItemLimit(String((e as ApiError).details['scope'] ?? 'day'))
-                  : e instanceof ApiError && e.status === 403
-                    ? t.errNotSeeker
-                    : t.errGeneric;
+              : code === 'item_out_of_scope'
+                ? t.errOutOfScope
+                : code === 'ai_busy'
+                  ? c.errAiBusy
+                  : code === 'new_item_limit'
+                    ? t.errNewItemLimit(String((e as ApiError).details['scope'] ?? 'day'))
+                    : e instanceof ApiError && e.status === 403
+                      ? t.errNotSeeker
+                      : t.errGeneric;
         const message = withRef(base, e, c.refLine);
         // A photo that cannot be attached is dropped (its thumbnail too), so a text-only retry
         // works; any other failure keeps the photo, which was not sent.
@@ -839,12 +841,6 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
             </>
           )}
 
-          {busy && mode === 'one' && (
-            <p className="sh-helper cu-find__progress" role="status">
-              {[c.findStepReading, c.findStepMatching, c.findStepAsking][step]}
-            </p>
-          )}
-
           {nudge && (
             <p id="find-nudge" className="sh-helper" role="status">
               {nudge === 'query' ? c.findNeedQuery : c.findNeedAddress}
@@ -868,8 +864,16 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
               {busy ? c.listSorting : c.listFind(listLines.length)}
             </Button>
           ) : (
-            <Button type="submit" variant="primary" className="sh-btn--block" aria-disabled={busy}>
-              {busy ? c.findSubmitting : c.findSubmit}
+            <Button
+              type="submit"
+              variant="primary"
+              className="sh-btn--block"
+              disabled={busy}
+              aria-live="polite"
+            >
+              {busy
+                ? [c.findStepReading, c.findStepMatching, c.findStepAsking][step]
+                : c.findSubmit}
             </Button>
           )}
         </form>

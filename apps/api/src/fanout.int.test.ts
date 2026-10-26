@@ -261,14 +261,62 @@ describe('fan-out, ping answers and the price check', () => {
       expect(stock.rows).toEqual([{ price_paise: 4200 }]);
     });
 
-    it('a no changes nothing but the ping', async () => {
+    // Shops made by earlier tests would be asked too, and a request ends only when all have answered.
+    const closeOtherShops = () =>
+      pool.query(`UPDATE shops SET closed_until = now() + interval '5 hours'`);
+
+    it('a no teaches nothing; when it is the last answer the request is over (round 3 C-17)', async () => {
+      await closeOtherShops();
       const { shop, requestId, ping } = await pingedShop('salt');
       const res = await answer(shop, ping.id, { answer: 'no' });
       expect(res.body).toMatchObject({ state: 'NO', pricePaise: null });
-      expect((await getRequest(requestId)).body.state).toBe('PINGING');
+      const over = await getRequest(requestId);
+      expect(over.body.state).toBe('EXPIRED');
+      expect(over.body.pingStats).toMatchObject({ sent: 1, no: 1, pending: 0 });
       expect((await myPings(shop)).body).toEqual([]);
       const stock = await pool.query('SELECT 1 FROM shop_stock WHERE shop_id = $1', [shop.shopId]);
       expect(stock.rowCount).toBe(0);
+    });
+
+    it('stays PINGING while a shop has not answered, and ends when the last one says no (round 3 C-17)', async () => {
+      await closeOtherShops();
+      const a = await makeShop(`Two A ${phone}`, 0.2, ['grocery']);
+      const b = await makeShop(`Two B ${phone}`, 0.3, ['grocery']);
+      const req = await ask({ q: 'jaggery' });
+      const [pa, pb] = await Promise.all(
+        [a, b].map(async (shop) => {
+          const rows = await waitFor(
+            async () => (await myPings(shop)).body,
+            (body) => body.length === 1,
+          );
+          return rows[0];
+        }),
+      );
+      await answer(a, pa.id, { answer: 'no' });
+      const mid = await getRequest(req.body.id);
+      expect(mid.body.state).toBe('PINGING');
+      expect(mid.body.pingStats).toMatchObject({ no: 1, pending: 1 });
+      await answer(b, pb.id, { answer: 'no' });
+      expect((await getRequest(req.body.id)).body.state).toBe('EXPIRED');
+    });
+
+    it('does not end the request when a no arrives after a yes', async () => {
+      await closeOtherShops();
+      const a = await makeShop(`Mix A ${phone}`, 0.2, ['grocery']);
+      const b = await makeShop(`Mix B ${phone}`, 0.3, ['grocery']);
+      const req = await ask({ q: 'tea leaves' });
+      const [pa, pb] = await Promise.all(
+        [a, b].map(async (shop) => {
+          const rows = await waitFor(
+            async () => (await myPings(shop)).body,
+            (body) => body.length === 1,
+          );
+          return rows[0];
+        }),
+      );
+      await answer(a, pa.id, { answer: 'yes', pricePaise: 100 });
+      await answer(b, pb.id, { answer: 'no' });
+      expect((await getRequest(req.body.id)).body.state).toBe('ANSWERED');
     });
 
     it("only the ping's own shop may answer; anyone else gets a 404", async () => {

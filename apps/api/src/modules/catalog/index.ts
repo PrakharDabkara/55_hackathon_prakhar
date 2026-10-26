@@ -23,6 +23,7 @@ export type {
 } from './resolve.js';
 export { CATALOG_VERSION, loadSeedCatalog, seedCatalog } from './seed.js';
 export { cleanItemName } from './itemName.js';
+export { isOutOfScope } from './itemSanity.js';
 export { aiBusyError, refusalError } from './openCatalog.js';
 export type { Refusal } from './openCatalog.js';
 export { cacheAdminRouter } from './cacheAdminRouter.js';

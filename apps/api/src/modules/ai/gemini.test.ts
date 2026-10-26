@@ -242,3 +242,64 @@ describe('gemini privacy guard', () => {
     expect(generateContent).toHaveBeenCalledTimes(1);
   });
 });
+
+// App round 3 (C-16a): the short classification calls do not need the model to think first. Left on
+// its default, a Gemini 3 model spends seconds (and billed tokens) thinking about a one-line answer.
+describe('gemini generateJson: thinking for short calls (C-16a)', () => {
+  const configOf = async (
+    model: string,
+    extra: { thinking?: 'minimal' | 'model_default' } = {},
+  ) => {
+    const generateContent = vi.fn<GeminiClientLike['models']['generateContent']>(async () => ({
+      text: '{"itemId":null,"needsClarification":false}',
+    }));
+    const provider = createGeminiProvider({
+      client: { models: { generateContent, embedContent: vi.fn() } } as GeminiClientLike,
+      model,
+      embedModel: 'e',
+      embedDim: 4,
+      ...extra,
+    });
+    await provider.generateJson(opts);
+    return (generateContent.mock.calls[0]?.[0] as { config: Record<string, unknown> }).config;
+  };
+
+  it('asks a Gemini 3 model for the minimal thinking level', async () => {
+    expect((await configOf('gemini-3.1-flash-lite'))['thinkingConfig']).toEqual({
+      thinkingLevel: 'MINIMAL',
+    });
+    expect((await configOf('gemini-3.5-flash-lite'))['thinkingConfig']).toEqual({
+      thinkingLevel: 'MINIMAL',
+    });
+  });
+
+  it('switches thinking off on a Gemini 2.5 flash model, which counts a budget instead', async () => {
+    expect((await configOf('gemini-2.5-flash-lite'))['thinkingConfig']).toEqual({
+      thinkingBudget: 0,
+    });
+  });
+
+  it('sends nothing for a model it does not know, or when the model default is chosen', async () => {
+    expect(await configOf('some-other-model')).not.toHaveProperty('thinkingConfig');
+    expect(
+      await configOf('gemini-3.1-flash-lite', { thinking: 'model_default' }),
+    ).not.toHaveProperty('thinkingConfig');
+  });
+
+  it('follows the model of the call: a fallback is configured for its own family', async () => {
+    const generateContent = vi.fn<GeminiClientLike['models']['generateContent']>(async () => ({
+      text: '{"itemId":null,"needsClarification":false}',
+    }));
+    const provider = createGeminiProvider({
+      client: { models: { generateContent, embedContent: vi.fn() } } as GeminiClientLike,
+      model: 'gemini-3.1-flash-lite',
+      fallbackModel: 'gemini-2.5-flash-lite',
+      embedModel: 'e',
+      embedDim: 4,
+    });
+    await provider.generateJson({ ...opts, model: 'gemini-2.5-flash-lite' });
+    const config = (generateContent.mock.calls[0]?.[0] as { config: Record<string, unknown> })
+      .config;
+    expect(config['thinkingConfig']).toEqual({ thinkingBudget: 0 });
+  });
+});

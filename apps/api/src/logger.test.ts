@@ -85,3 +85,19 @@ describe('the logger (ADR-0060)', () => {
     });
   });
 });
+
+// A-09 (round 3): the whole number, in the form the eye button shows it, is private in a log line.
+describe('the full phone number shown by the eye button', () => {
+  it.each(['+91 98765 43210', '98765 43210', '+919876543210', '9876543210'])(
+    'is hidden as a %s inside a text field, an error message and under the phone key',
+    (form) => {
+      const { lines, logger } = capture();
+      logger.warn({ reason: `lookup failed for ${form}` }, 'bad');
+      logger.error({ err: new Error(`no user ${form}`) }, 'failed');
+      logger.info({ phone: form }, 'revealed');
+      for (const line of lines) {
+        expect(line).not.toMatch(/98765\s?43210|9876543210/);
+      }
+    },
+  );
+});

@@ -1,0 +1,9 @@
+{
+  "source": "production logs, request ref 342D34 (phone test of 2026-10-26, \"Fake rose\" -> assistant busy)",
+  "purpose": "resolve_query",
+  "primary": { "model": "gemini-3.1-flash-lite", "outcome": "timeout", "latencyMs": 8006 },
+  "switchedTo": { "model": "gemini-3.5-flash-lite", "outcome": "timeout", "latencyMs": 8001 },
+  "capMs": 15000,
+  "endedAtMs": 15039,
+  "endedWith": { "status": 503, "code": "ai_busy" }
+}

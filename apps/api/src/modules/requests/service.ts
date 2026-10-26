@@ -9,6 +9,7 @@ import type { AiContext } from '../ai/index.js';
 import {
   aiBusyError,
   getItem,
+  isOutOfScope,
   normaliseQuery,
   refusalError,
   resolveForCustomer,
@@ -274,6 +275,13 @@ export async function createRequest(
   if (!resolution.item) {
     // The AI failing is not a verdict on the words: only a truly unclear text is "unresolved".
     if (resolution.aiFailed) throw aiBusyError();
+    // A phone or a vehicle is refused by a code rule on purpose: say so, never "not understood".
+    if (isOutOfScope(resolution.normalised))
+      throw new ApiError(
+        422,
+        'item_out_of_scope',
+        "AskBuy can't ask shops for phones, vehicles or services yet.",
+      );
     throw new ApiError(422, 'item_unresolved', 'We could not tell which item you mean');
   }
 
@@ -384,6 +392,19 @@ export async function askShopsNow(
   if (!UUID.test(requestId)) return null;
   const record = await findRequest(ctx.db, requestId);
   if (!record || record.userId !== userId) return null;
+  if (record.state === 'PINGING' && !record.overdue) {
+    // Already PINGING: the first fan-out left out the shops that remembered the item, and may have
+    // asked nobody. Ask everyone now, once (round 3 C-05); a second tap finds ask_all already set.
+    if (!record.askAll) {
+      const flagged = await ctx.db.query(
+        `UPDATE requests SET ask_all = true, fanned_out_at = NULL
+          WHERE id = $1 AND state = 'PINGING' AND NOT ask_all`,
+        [requestId],
+      );
+      if (flagged.rowCount) onRequestPinging(ctx, record);
+    }
+    return toView(ctx, (await findRequest(ctx.db, requestId)) as RequestRecord);
+  }
   if (record.state === 'PINGING') return toView(ctx, record);
   if (record.state !== 'ANSWERED' || record.overdue)
     throw new ApiError(409, 'request_ended', 'This search has ended. Start a new one.');

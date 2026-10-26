@@ -135,6 +135,10 @@ const schema = z
     ERRAND_USER_HOURLY_LIMIT: z.coerce.number().int().min(1).max(1000).default(5),
     // How long one errand model call (with tool schemas) may take; resolve calls keep their 8 s.
     ERRAND_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+    // Short resolve/classify calls: how much a Gemini model thinks first (round 3 C-16a), and when a
+    // slow primary gets the fallback model alongside it in ms; 0 turns the hedge off (C-16b).
+    GEMINI_THINKING: z.enum(['minimal', 'model_default']).default('minimal'),
+    AI_HEDGE_AFTER_MS: z.coerce.number().int().min(0).max(8000).default(4000),
     ERRAND_TASK_MAX_CHARS: z.coerce.number().int().min(20).max(2000).default(500),
     // Day 13 (ADR-0024 amendment): asking shops, waiting, asking the user.
     ERRAND_MAX_ASK_SHOPS: z.coerce.number().int().min(1).max(10).default(6),
@@ -303,6 +307,8 @@ export interface Config {
   errandTaskMaxChars: number;
   /** Time limit of one errand model call, in milliseconds. */
   errandAiTimeoutMs: number;
+  geminiThinking: 'minimal' | 'model_default';
+  aiHedgeAfterMs: number;
   /** Requests one errand may open with ask_shops (one per item). */
   errandMaxAskShops: number;
   /** Questions one errand may put to the user. */
@@ -404,6 +410,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     errandUserHourlyLimit: e.ERRAND_USER_HOURLY_LIMIT,
     errandTaskMaxChars: e.ERRAND_TASK_MAX_CHARS,
     errandAiTimeoutMs: e.ERRAND_AI_TIMEOUT_MS,
+    geminiThinking: e.GEMINI_THINKING,
+    aiHedgeAfterMs: e.AI_HEDGE_AFTER_MS,
     errandMaxAskShops: e.ERRAND_MAX_ASK_SHOPS,
     errandMaxQuestions: e.ERRAND_MAX_QUESTIONS,
     errandResumeAfterMs: e.ERRAND_RESUME_AFTER_MS,
