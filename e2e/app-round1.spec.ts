@@ -117,11 +117,11 @@ test.describe('login in both apps (A-01..A-06, A-09)', () => {
   test('the phone on Account sits behind an eye button, in both apps', async ({ page }) => {
     await login(page, '/app/account');
     await expect(page.getByText('Logged in as')).toBeVisible();
-    await expect(page.getByText(/^\+91 \d\d••• ••\d{3}$/)).toHaveCount(0);
+    await expect(page.getByText(/^\+91 \d{5} \d{5}$/)).toHaveCount(0);
     await page.getByRole('button', { name: 'Show phone number' }).click();
-    await expect(page.getByText(/^\+91 \d\d••• ••\d{3}$/)).toBeVisible();
+    await expect(page.getByText(/^\+91 \d{5} \d{5}$/)).toBeVisible();
     await page.getByRole('button', { name: 'Hide phone number' }).click();
-    await expect(page.getByText(/^\+91 \d\d••• ••\d{3}$/)).toHaveCount(0);
+    await expect(page.getByText(/^\+91 \d{5} \d{5}$/)).toHaveCount(0);
   });
 });
 
