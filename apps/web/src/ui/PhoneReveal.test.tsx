@@ -67,6 +67,16 @@ describe('PhoneReveal', () => {
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
   });
 
+  it('does not keep a number that arrives after the page went to the background', async () => {
+    let answer: (value: string) => void = () => undefined;
+    const { user } = setup(vi.fn(() => new Promise<string>((resolve) => (answer = resolve))));
+    await user.click(screen.getByRole('button', { name: 'Show phone number' }));
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    await act(async () => answer(FULL));
+    expect(screen.queryByText(FULL)).toBeNull();
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+  });
+
   it('forgets the number when the screen is left', async () => {
     const { user, unmount } = setup();
     await user.click(screen.getByRole('button', { name: 'Show phone number' }));

@@ -35,9 +35,6 @@ export function PhoneReveal({
     return () => document.removeEventListener('visibilitychange', away);
   }, [full]);
 
-  // A late answer after the screen was left must not touch a gone component.
-  useEffect(() => () => setBusy(false), []);
-
   async function toggle() {
     if (full !== null) {
       setFull(null);
@@ -46,7 +43,9 @@ export function PhoneReveal({
     setBusy(true);
     setFailed(false);
     try {
-      setFull(await reveal());
+      const value = await reveal();
+      // An answer that lands after the page went to the background is not kept.
+      setFull(document.visibilityState === 'hidden' ? null : value);
     } catch {
       setFailed(true);
     } finally {

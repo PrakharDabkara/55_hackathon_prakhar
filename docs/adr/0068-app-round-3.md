@@ -23,5 +23,6 @@ Prakhar's phone test after round 2 found: "Ask shops now" asked nobody (C-05), a
 
 ## Consequences
 
+- The reveal limit is also a route rule (shared store), so several instances do not multiply it; the in-process counter is a backstop.
 - A closed-shop-only area stays PINGING and shows the zero-shops screen until the deadline.
 - The hedge can bill two calls for one Find. Needs a resolve eval and a classify eval (see the PR) before merge.

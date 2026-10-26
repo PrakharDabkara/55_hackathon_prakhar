@@ -52,6 +52,8 @@ export const ROUTE_RULES: RouteRule[] = [
     windowMs: MINUTE_MS,
   },
   { method: 'POST', path: '/photos', name: 'photo', perUser: 20, windowMs: HOUR_MS },
+  // The eye button (ADR-0068): counted in the shared store, so more instances do not add up to more.
+  { method: 'POST', path: '/account/phone/reveal', name: 'reveal', perUser: 10, windowMs: HOUR_MS },
 ];
 
 /** Express matches paths without case and with or without a trailing slash; so must the rules. */
