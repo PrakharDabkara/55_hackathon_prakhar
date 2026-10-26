@@ -224,6 +224,34 @@ describe('searches: asking, ask-now, picked items and the limit of 3', () => {
     });
   });
 
+  // App round 3 (C-17): a request nobody can answer is over, not "waiting".
+  describe('a request with nobody left to answer is over (round 3 C-17)', () => {
+    it('goes straight to the final state when the fan-out finds no shop at all', async () => {
+      const a = await ask({ itemId: item['sugar'] });
+      expect(a.body.state).toBe('PINGING');
+      await fanOut(a.body.id);
+      const after = await view(a.body.id);
+      expect(after.body.state).toBe('EXPIRED');
+      expect(after.body.asking).toBe(false);
+      expect(after.body.pingStats).toEqual({ sent: 0, yes: 0, no: 0, pending: 0 });
+    });
+
+    it('goes straight to the final state when "Ask shops now" still finds nobody', async () => {
+      await insertShopWithStock(pool, {
+        name: 'Remembered',
+        km: 0.7,
+        itemId: item['sugar'] as string,
+        ageHours: 2,
+      });
+      const a = await ask({ itemId: item['sugar'] });
+      await fanOut(a.body.id);
+      await request(app).post(`/requests/${a.body.id}/ask`).set(auth(seeker));
+      await pool.query('DELETE FROM shops');
+      await fanOut(a.body.id);
+      expect((await view(a.body.id)).body.state).toBe('EXPIRED');
+    });
+  });
+
   describe('a picked item (C-11a)', () => {
     it('is flagged picked; typed words are not', async () => {
       const picked = await ask({ q: 'chini', itemId: item['sugar'], understanding: 'changed' });
