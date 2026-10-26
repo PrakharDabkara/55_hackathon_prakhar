@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cleanItemName } from './itemName.js';
 import { checkProductName } from './itemSanity.js';
 
 const why = (text: string) => {
@@ -91,5 +92,32 @@ describe('checkProductName: code-level checks before a new item is made (ADR-002
       'macbook sleeve cover',
     ])
       expect(why(ok), ok).toBeNull();
+  });
+});
+
+// App round 3 (C-11): "Samsung A4 phone" was refused by a local rule and shown as "couldn't
+// understand". Real names with letters and digits pass; a phone is refused on purpose, and says so.
+describe('real-world names (round 3 C-11)', () => {
+  it.each([
+    'Walnuts, 500g',
+    'AA batteries x4',
+    'No. 2 pencil',
+    'a4 paper',
+    '9w led bulb',
+    '5kg atta',
+  ])('lets %s through', (name) => {
+    const clean = cleanItemName(name);
+    expect(clean).not.toBeNull();
+    expect(checkProductName((clean as string).toLowerCase()).ok).toBe(true);
+  });
+
+  it('refuses a phone as out of scope, so the app can say so instead of "not understood"', () => {
+    expect(why('samsung a4 phone')).toBe('out_of_scope');
+    expect(why('iphone 15')).toBe('out_of_scope');
+  });
+
+  it('still lets an accessory for a phone through', () => {
+    expect(why('samsung charger')).toBeNull();
+    expect(why('iphone cover')).toBeNull();
   });
 });
