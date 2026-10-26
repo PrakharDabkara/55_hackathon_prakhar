@@ -320,3 +320,14 @@ describe('createSeekerApi: delivery orders (ADR-0031)', () => {
     expect(await api.recentWork()).toHaveLength(1);
   });
 });
+
+describe('revealPhone (A-09)', () => {
+  it('asks for the full number with a POST, a login and no body', async () => {
+    const { api, last } = setup(() => json(200, { phone: '+91 98765 43210' }));
+    expect(await api.revealPhone()).toEqual({ phone: '+91 98765 43210' });
+    const [url, init] = last();
+    expect(url).toMatch(/\/account\/phone\/reveal$/);
+    expect(init.method).toBe('POST');
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer tok-9');
+  });
+});

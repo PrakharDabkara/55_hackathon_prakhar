@@ -47,14 +47,16 @@ function setup(
 
 describe('Account', () => {
   it('has the title, a way back, and the phone only partly shown', async () => {
-    const { user, onBack } = setup();
+    const { user, onBack, api } = setup();
     expect(screen.getByRole('heading', { name: 'Account' })).toBeTruthy();
     expect(await screen.findByText('Logged in as')).toBeTruthy();
     expect(screen.queryByText('+91 98••• ••210')).toBeNull();
+    expect(api.revealPhone).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Show phone number' }));
-    expect(screen.getByText('+91 98••• ••210')).toBeTruthy();
+    expect(await screen.findByText('+91 98765 43210')).toBeTruthy();
+    expect(api.revealPhone).toHaveBeenCalledTimes(1);
     await user.click(screen.getByRole('button', { name: 'Hide phone number' }));
-    expect(screen.queryByText('+91 98••• ••210')).toBeNull();
+    expect(screen.queryByText('+91 98765 43210')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Back' }));
     expect(onBack).toHaveBeenCalled();
   });
@@ -67,7 +69,7 @@ describe('Account', () => {
     const { user } = setup({ account });
     await user.click(await screen.findByRole('button', { name: 'Try again' }));
     await user.click(await screen.findByRole('button', { name: 'Show phone number' }));
-    expect(await screen.findByText('+91 98••• ••210')).toBeTruthy();
+    expect(await screen.findByText('+91 98765 43210')).toBeTruthy();
   });
 
   it('with no address says so and adds one through the sheet', async () => {
