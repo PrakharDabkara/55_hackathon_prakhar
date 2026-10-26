@@ -145,3 +145,27 @@ describe('landing.html', () => {
     expect(read('./landing/landing.css')).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 });
+
+describe('landing.css: the header button (round 3, L-15)', () => {
+  const css = read('./landing/landing.css');
+  const rule = (selector: string) => {
+    const i = css.indexOf(`${selector} {`);
+    return i < 0 ? '' : css.slice(i, css.indexOf('}', i));
+  };
+
+  it('is smaller than the wordmark: 14 to 15 px text and compact padding', () => {
+    const cta = rule('.lp-header__cta');
+    const size = /font:\s*\d+\s+(\d+)px/.exec(cta)?.[1];
+    expect(Number(size)).toBeGreaterThanOrEqual(14);
+    expect(Number(size)).toBeLessThanOrEqual(15);
+    expect(cta).toMatch(/padding:\s*[45]px 1[0-4]px/);
+  });
+
+  it('keeps the 44 px tap area on touch with an invisible extension, not a bigger button', () => {
+    const coarse = css.slice(css.indexOf('@media (pointer: coarse)'));
+    expect(coarse).toContain('.lp-header__cta::after');
+    expect(coarse.slice(0, coarse.indexOf('.lp-cta__short'))).not.toMatch(
+      /min-height:\s*var\(--tap\)/,
+    );
+  });
+});
