@@ -6,6 +6,8 @@ export const EVENTS = [
   'TIMEOUT',
   'USER_CLOSED',
   'ASK_SHOPS',
+  /** Every shop asked has said no, or there was nobody to ask (round 3 C-17). */
+  'NOBODY_LEFT',
 ] as const;
 
 export type RequestState = (typeof STATES)[number];
@@ -22,7 +24,12 @@ export type TransitionResult =
  */
 const MOVES: { [S in RequestState]?: { [E in RequestEvent]?: RequestState } } = {
   OPEN: { STOCK_SUFFICIENT: 'ANSWERED', STOCK_INSUFFICIENT: 'PINGING', USER_CLOSED: 'CLOSED' },
-  PINGING: { SHOP_SAID_YES: 'ANSWERED', TIMEOUT: 'EXPIRED', USER_CLOSED: 'CLOSED' },
+  PINGING: {
+    SHOP_SAID_YES: 'ANSWERED',
+    TIMEOUT: 'EXPIRED',
+    USER_CLOSED: 'CLOSED',
+    NOBODY_LEFT: 'EXPIRED',
+  },
   // ASK_SHOPS: answered from remembered stock, the customer wants live answers too (C-05).
   ANSWERED: {
     SHOP_SAID_YES: 'ANSWERED',

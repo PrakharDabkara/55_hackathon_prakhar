@@ -261,7 +261,12 @@ describe('fan-out, ping answers and the price check', () => {
       expect(stock.rows).toEqual([{ price_paise: 4200 }]);
     });
 
+    // Shops made by earlier tests would be asked too, and a request ends only when all have answered.
+    const closeOtherShops = () =>
+      pool.query(`UPDATE shops SET closed_until = now() + interval '5 hours'`);
+
     it('a no teaches nothing; when it is the last answer the request is over (round 3 C-17)', async () => {
+      await closeOtherShops();
       const { shop, requestId, ping } = await pingedShop('salt');
       const res = await answer(shop, ping.id, { answer: 'no' });
       expect(res.body).toMatchObject({ state: 'NO', pricePaise: null });
@@ -274,6 +279,7 @@ describe('fan-out, ping answers and the price check', () => {
     });
 
     it('stays PINGING while a shop has not answered, and ends when the last one says no (round 3 C-17)', async () => {
+      await closeOtherShops();
       const a = await makeShop(`Two A ${phone}`, 0.2, ['grocery']);
       const b = await makeShop(`Two B ${phone}`, 0.3, ['grocery']);
       const req = await ask({ q: 'jaggery' });
@@ -295,6 +301,7 @@ describe('fan-out, ping answers and the price check', () => {
     });
 
     it('does not end the request when a no arrives after a yes', async () => {
+      await closeOtherShops();
       const a = await makeShop(`Mix A ${phone}`, 0.2, ['grocery']);
       const b = await makeShop(`Mix B ${phone}`, 0.3, ['grocery']);
       const req = await ask({ q: 'tea leaves' });

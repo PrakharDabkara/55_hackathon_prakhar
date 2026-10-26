@@ -383,7 +383,7 @@ describe('waiting, errors and offline', () => {
 
   it('says plainly when the request ended and no shop has it', () => {
     show(seekerRequest({ state: 'EXPIRED', pingStats: { sent: 4, yes: 0, no: 4, pending: 0 } }));
-    expect(screen.getByText('No shop has it right now')).toBeTruthy();
+    expect(screen.getByText('None of the shops nearby have it')).toBeTruthy();
   });
 
   it('loads the request when no initial one is given, then shows it', async () => {

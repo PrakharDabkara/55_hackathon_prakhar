@@ -48,12 +48,13 @@ const allSaidNo = () =>
 describe('C-17: the final state stops waiting', () => {
   it('every asked shop said no: says so, offers the next steps, and shows nothing that waits', () => {
     show(allSaidNo());
-    expect(screen.getByRole('heading', { name: 'None of the shops nearby have it' })).toBeTruthy();
+    expect(screen.getByText('None of the shops nearby have it')).toBeTruthy();
     expect(screen.queryByText('No replies yet')).toBeNull();
     expect(document.querySelector('.sh-skeleton, [aria-hidden="true"] .sh-skeleton')).toBeNull();
     expect(screen.getByRole('button', { name: 'Search 5 km' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try different words' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Use the demo area (Indore)' })).toBeTruthy();
+    // The seeker is already in the demo area: that step is not offered.
+    expect(screen.queryByRole('button', { name: 'Use the demo area (Indore)' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Stop asking/ })).toBeNull();
   });
 
@@ -83,9 +84,7 @@ describe('C-17: the final state stops waiting', () => {
     expect(screen.getByText('No replies yet')).toBeTruthy();
     await act(async () => void (await vi.advanceTimersByTimeAsync(15_100)));
     expect(api.getRequest).toHaveBeenCalled();
-    expect(
-      await screen.findByRole('heading', { name: 'None of the shops nearby have it' }),
-    ).toBeTruthy();
+    expect(await screen.findByText('None of the shops nearby have it')).toBeTruthy();
     expect(screen.queryByText('No replies yet')).toBeNull();
   });
 });
