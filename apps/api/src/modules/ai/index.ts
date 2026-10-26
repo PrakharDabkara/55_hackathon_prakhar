@@ -82,6 +82,7 @@ interface Options {
     models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
+    hedgeAfterMs?: number;
     onRetry?: () => void;
   };
 }

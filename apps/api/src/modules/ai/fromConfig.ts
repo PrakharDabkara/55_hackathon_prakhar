@@ -19,6 +19,7 @@ export function providerFromConfig(config: Config, logger?: Logger): LlmProvider
         fallbackModel: config.geminiFallbackModel,
         embedModel: config.geminiEmbedModel,
         embedDim: config.embedDim,
+        thinking: config.geminiThinking,
         ...(logger && { logger }),
       }),
     );
@@ -47,6 +48,7 @@ export function aiFromConfig({
     models?: Partial<Record<Purpose, { model: string; fallbackModel: string | null }>>;
     retries?: number;
     backoffMs?: number;
+    hedgeAfterMs?: number;
     onRetry?: () => void;
   };
   /** Lets a script observe every provider call (the evals watch for an exhausted quota). */
@@ -67,6 +69,7 @@ export function aiFromConfig({
     redis,
     client: {
       purposeTimeoutMs: { errand: config.errandAiTimeoutMs },
+      hedgeAfterMs: config.aiHedgeAfterMs,
       // Only the errand agent follows GEMINI_ERRAND_MODEL; resolve keeps GEMINI_MODEL.
       models: { errand: { model: config.errandModel, fallbackModel: config.errandFallbackModel } },
       ...client,

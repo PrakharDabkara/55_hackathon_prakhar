@@ -108,17 +108,6 @@ function clientFor(
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-/** Runs the call and returns how long it took on the fake clock, with its outcome. */
-async function timed<T>(call: Promise<T>) {
-  const start = Date.now();
-  const settled = call.then(
-    (value) => ({ value, error: undefined as unknown }),
-    (error: unknown) => ({ value: undefined, error }),
-  );
-  await vi.advanceTimersByTimeAsync(30_000);
-  const outcome = await settled;
-  return { ...outcome, endedAt: Date.now() - start };
-}
 const finishedAt = async (call: Promise<unknown>, limit = 30_000) => {
   const start = Date.now();
   let done: number | null = null;
@@ -289,10 +278,11 @@ describe('the observed failure of ref 342D34, replayed (C-16c)', () => {
       [FALLBACK]: { after: 60_000 },
     });
     const { client, rows } = clientFor(provider);
-    const result = await timed(client.generateJson(options));
-    expect(result.error).toBeInstanceOf(AiUnavailableError);
-    expect((result.error as AiUnavailableError).kind).toBe('timeout');
-    expect(result.endedAt).toBe(12_000);
+    const call = client.generateJson(options);
+    const failure = call.catch((error: unknown) => error);
+    expect(await finishedAt(call)).toBe(12_000);
+    expect(await failure).toBeInstanceOf(AiUnavailableError);
+    expect(((await failure) as AiUnavailableError).kind).toBe('timeout');
     expect(started).toHaveLength(2);
     expect(rows.map((r) => r.outcome)).toEqual(['timeout']);
   });

@@ -663,3 +663,21 @@ describe('demo autopilot (ADR-0062)', () => {
       expect(() => loadConfig({ ...valid, DEMO_AUTOPILOT_MAX_PER_MINUTE: value })).toThrow();
   });
 });
+
+describe('round 3 C-16 settings', () => {
+  it('thinks minimally and hedges after 4 s by default; both can be changed', () => {
+    const base = valid;
+    const defaults = loadConfig(base);
+    expect(defaults.geminiThinking).toBe('minimal');
+    expect(defaults.aiHedgeAfterMs).toBe(4000);
+    const changed = loadConfig({
+      ...base,
+      GEMINI_THINKING: 'model_default',
+      AI_HEDGE_AFTER_MS: '0',
+    });
+    expect(changed.geminiThinking).toBe('model_default');
+    expect(changed.aiHedgeAfterMs).toBe(0);
+    expect(() => loadConfig({ ...base, GEMINI_THINKING: 'high' })).toThrow(/GEMINI_THINKING/);
+    expect(() => loadConfig({ ...base, AI_HEDGE_AFTER_MS: '20000' })).toThrow(/AI_HEDGE_AFTER_MS/);
+  });
+});

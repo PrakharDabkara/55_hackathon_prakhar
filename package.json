@@ -27,6 +27,7 @@
     "simulate": "npm run build -w @askbuy/shared && node apps/simulator/src/main.ts",
     "test:e2e": "npm run build -w @askbuy/shared -w @askbuy/api -w @askbuy/web && playwright test -c e2e/playwright.config.ts",
     "ai:models": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file=.env apps/api/dist/aiModelsMain.js",
+    "ai:bench": "npm run build -w @askbuy/shared -w @askbuy/api && node apps/api/dist/aiBenchMain.js",
     "ai:embed-catalog": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file-if-exists=.env apps/api/dist/aiEmbedCatalogMain.js",
     "eval:errand": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file-if-exists=.env apps/api/dist/evalErrandMain.js",
     "eval:resolve": "npm run build -w @askbuy/shared -w @askbuy/api && node --env-file-if-exists=.env apps/api/dist/evalResolveMain.js",
