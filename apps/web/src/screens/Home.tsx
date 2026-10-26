@@ -469,13 +469,15 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
             ? t.errUnresolved
             : code === 'item_blocked'
               ? t.errItemBlocked
-              : code === 'ai_busy'
-                ? c.errAiBusy
-                : code === 'new_item_limit'
-                  ? t.errNewItemLimit(String((e as ApiError).details['scope'] ?? 'day'))
-                  : e instanceof ApiError && e.status === 403
-                    ? t.errNotSeeker
-                    : t.errGeneric;
+              : code === 'item_out_of_scope'
+                ? t.errOutOfScope
+                : code === 'ai_busy'
+                  ? c.errAiBusy
+                  : code === 'new_item_limit'
+                    ? t.errNewItemLimit(String((e as ApiError).details['scope'] ?? 'day'))
+                    : e instanceof ApiError && e.status === 403
+                      ? t.errNotSeeker
+                      : t.errGeneric;
         const message = withRef(base, e, c.refLine);
         // A photo that cannot be attached is dropped (its thumbnail too), so a text-only retry
         // works; any other failure keeps the photo, which was not sent.

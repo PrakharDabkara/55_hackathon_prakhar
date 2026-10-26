@@ -70,6 +70,7 @@ export interface Strings {
   understoodYes: string;
   writeSomethingElse: string;
   errItemBlocked: string;
+  errOutOfScope: string;
   errItemUnavailable: string;
   errNewItemLimit: (scope: string) => string;
   newItemNote: string;
@@ -309,6 +310,7 @@ export const hi: Strings = {
   understoodYes: 'Haan, yahi',
   writeSomethingElse: 'Kuch aur likhein',
   errItemBlocked: 'Ye cheez hum dukaanon ko nahi bhej sakte',
+  errOutOfScope: 'AskBuy abhi dukaanon se phone, gaadi ya service ke baare mein nahi pooch sakta',
   errItemUnavailable: 'Abhi ye cheez dukaanon ko nahi bhej sakte',
   errNewItemLimit: (scope) =>
     scope === 'errand'
@@ -579,6 +581,7 @@ export const en: Strings = {
   understoodYes: 'Yes, this one',
   writeSomethingElse: 'Write something else',
   errItemBlocked: "We can't send this item to shops",
+  errOutOfScope: "AskBuy can't ask shops for phones, vehicles or services yet",
   errItemUnavailable: "We can't send this item to shops right now",
   errNewItemLimit: (scope) =>
     scope === 'errand'
