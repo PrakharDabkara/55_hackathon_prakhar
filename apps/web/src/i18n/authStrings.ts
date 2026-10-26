@@ -9,6 +9,7 @@ export interface AuthStrings {
   loggedInAs: string;
   showPhone: string;
   hidePhone: string;
+  revealFailed: string;
 }
 
 export const authEn: AuthStrings = {
@@ -21,6 +22,7 @@ export const authEn: AuthStrings = {
   loggedInAs: 'Logged in as',
   showPhone: 'Show phone number',
   hidePhone: 'Hide phone number',
+  revealFailed: "Couldn't show your number. Try again.",
 };
 
 export const authHi: AuthStrings = {
@@ -33,4 +35,5 @@ export const authHi: AuthStrings = {
   loggedInAs: 'Is number se login',
   showPhone: 'Phone number dikhayein',
   hidePhone: 'Phone number chhupayein',
+  revealFailed: 'Number nahi dikha paye. Dobara try karein.',
 };

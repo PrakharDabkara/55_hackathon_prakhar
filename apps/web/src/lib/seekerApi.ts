@@ -311,6 +311,8 @@ export interface SeekerApi
   forgetAddress(): Promise<void>;
   /** Who the customer is, as the Account screen may show it: the phone partly hidden. */
   account(): Promise<{ phoneMasked: string | null; demo?: boolean }>;
+  /** The whole number of the person logged in, asked for when the eye is pressed (ADR-0068). */
+  revealPhone(): Promise<{ phone: string }>;
   /** Ends this login on the server, and forgets this browser's alerts if its endpoint is given. */
   logout(pushEndpoint?: string | null): Promise<void>;
   /** Ends every login of this account, forgets all alerts and closes live streams (ADR-0060). */
@@ -439,6 +441,7 @@ export function createSeekerApi(options: ClientOptions): SeekerApi {
         .slice(0, RECENT_COUNT);
     },
     account: () => call<{ phoneMasked: string | null; demo?: boolean }>('GET', '/account'),
+    revealPhone: () => call<{ phone: string }>('POST', '/account/phone/reveal', {}),
     async logout(pushEndpoint) {
       await call('POST', '/account/logout', pushEndpoint ? { pushEndpoint } : {});
     },

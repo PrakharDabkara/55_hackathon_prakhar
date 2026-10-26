@@ -19,3 +19,12 @@ export function displayPhone(phone: string): string {
   const digits = phone.slice(3);
   return `+91 ${digits.slice(0, 2)}••• ••${digits.slice(-3)}`;
 }
+
+/**
+ * The person's own whole number, "+91 98765 43210", for the eye button only (ADR-0054, amended by
+ * ADR-0068). Never logged: callers put it in a response body and nowhere else.
+ */
+export function displayFullPhone(phone: string): string {
+  const digits = phone.slice(3);
+  return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+}

@@ -8,6 +8,7 @@ import {
   anonymiseUser,
   authOf,
   createRequireAuth,
+  displayFullPhone,
   displayPhone,
   lockLiveUser,
   phoneOf,
@@ -23,6 +24,7 @@ import { hasLiveRequest } from '../requests/index.js';
 import { createAttemptLimiter, type AttemptLimiter } from './attemptLimit.js';
 
 const logoutAllBody = z.strictObject({});
+const revealBody = z.strictObject({});
 const logoutBody = z.strictObject({ pushEndpoint: z.string().min(1).max(2048).optional() });
 
 /** The customer's account (ADR-0054): who they are, log out, and delete. Every route is the caller's own. */
@@ -32,6 +34,7 @@ export function accountRouter({
   realtime,
   demoPhones = [],
   deleteLimiter = createAttemptLimiter({ max: 5, windowMs: 60 * 60 * 1000 }),
+  revealLimiter = createAttemptLimiter({ max: 10, windowMs: 60 * 60 * 1000 }),
 }: {
   db: Database;
   logger: Logger;
@@ -40,6 +43,7 @@ export function accountRouter({
   /** E.164 demo numbers: their owner is told so (the Find screen starts in the demo area). */
   demoPhones?: readonly string[];
   deleteLimiter?: AttemptLimiter;
+  revealLimiter?: AttemptLimiter;
 }): Router {
   const router = Router();
   const requireAuth = createRequireAuth(db);
@@ -50,6 +54,21 @@ export function accountRouter({
       phoneMasked: phone ? displayPhone(phone) : null,
       demo: phone ? demoPhones.includes(phone) : false,
     });
+  });
+
+  // The eye button (ADR-0068): the caller's own whole number, on an explicit request. A POST, so
+  // nothing prefetches or caches it; the limiter bounds a stolen session reading it in a loop. The
+  // number goes into the body and nowhere else: no log line, no error detail carries it.
+  router.post('/account/phone/reveal', requireAuth, async (req, res) => {
+    parse(revealBody, req.body ?? {});
+    const { user } = authOf(req);
+    res.setHeader('Cache-Control', 'no-store');
+    if (!revealLimiter.allow(user.id)) {
+      throw new ApiError(429, 'rate_limited', 'Too many tries. Try again in an hour.');
+    }
+    const phone = await phoneOf(db, user.id);
+    if (!phone) throw new ApiError(404, 'not_found', 'No such account');
+    res.json({ phone: displayFullPhone(phone) });
   });
 
   // Ends this login for good and forgets this one browser's alerts, in one call: the token dies
