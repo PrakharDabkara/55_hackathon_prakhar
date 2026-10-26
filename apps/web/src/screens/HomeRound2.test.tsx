@@ -95,7 +95,8 @@ describe('C-14, C-15: every error shows its ref, and an AI failure is not "uncle
 });
 
 describe('C-09: a Find that is being understood never looks frozen', () => {
-  it('shows changing progress words', async () => {
+  // Round 3: the words live inside the Find button, which is disabled meanwhile. No line above it.
+  it('shows changing progress words inside the disabled Find button', async () => {
     here();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     let finish: (v: ReturnType<typeof seekerRequest>) => void = () => undefined;
@@ -105,11 +106,17 @@ describe('C-09: a Find that is being understood never looks frozen', () => {
       ),
     });
     await find(user, 'Mobile phone');
-    expect(await screen.findByText('Reading your request…')).toBeTruthy();
+    const button = await screen.findByRole('button', { name: 'Reading your request…' });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText('Reading your request…')).toHaveLength(1);
     await act(async () => void (await vi.advanceTimersByTimeAsync(3500)));
-    expect(screen.getByText('Finding the right item…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Finding the right item…' })).toBe(button);
     await act(async () => void (await vi.advanceTimersByTimeAsync(5000)));
-    expect(screen.getByText('Asking shops nearby…')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Asking shops nearby…' })).toBe(button);
+    expect(document.querySelector('.cu-find__progress')).toBeNull();
+    expect(screen.queryByRole('status', { name: '' })?.textContent ?? '').not.toMatch(
+      /Reading|Finding the right|Asking shops/,
+    );
     await act(async () => finish(seekerRequest()));
   });
 });
