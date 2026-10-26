@@ -144,16 +144,20 @@ a {
 .lp-nav a:hover {
   background: var(--brand-soft);
 }
-/* Compact: the wordmark's size and weight, about its line height. Full tap size on touch only. */
+/* Round 3 (L-15): smaller than the logo and wordmark together, so the brand dominates. About 34 px
+   tall. On touch the 44 px tap area is an invisible extension, not a bigger button. */
 .lp-header__cta {
+  position: relative;
   min-height: 0;
   margin-left: 0;
-  padding: 8px 14px;
-  font: 800 20px/24px var(--font-ui);
+  padding: 5px 12px;
+  font: 700 15px/20px var(--font-ui);
 }
 @media (pointer: coarse) {
-  .lp-header__cta {
-    min-height: var(--tap);
+  .lp-header__cta::after {
+    content: '';
+    position: absolute;
+    inset: -5px -4px;
   }
 }
 .lp-cta__short {
