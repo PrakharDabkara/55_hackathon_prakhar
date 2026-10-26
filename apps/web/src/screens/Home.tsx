@@ -841,12 +841,6 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
             </>
           )}
 
-          {busy && mode === 'one' && (
-            <p className="sh-helper cu-find__progress" role="status">
-              {[c.findStepReading, c.findStepMatching, c.findStepAsking][step]}
-            </p>
-          )}
-
           {nudge && (
             <p id="find-nudge" className="sh-helper" role="status">
               {nudge === 'query' ? c.findNeedQuery : c.findNeedAddress}
@@ -870,8 +864,16 @@ export function Home({ api, loggedIn, onLoggedIn, onFound, onList, navigate }: P
               {busy ? c.listSorting : c.listFind(listLines.length)}
             </Button>
           ) : (
-            <Button type="submit" variant="primary" className="sh-btn--block" aria-disabled={busy}>
-              {busy ? c.findSubmitting : c.findSubmit}
+            <Button
+              type="submit"
+              variant="primary"
+              className="sh-btn--block"
+              disabled={busy}
+              aria-live="polite"
+            >
+              {busy
+                ? [c.findStepReading, c.findStepMatching, c.findStepAsking][step]
+                : c.findSubmit}
             </Button>
           )}
         </form>
