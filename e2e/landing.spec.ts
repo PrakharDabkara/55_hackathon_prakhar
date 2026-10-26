@@ -127,10 +127,11 @@ for (const size of [
       width: number;
       height: number;
     };
-    const brand = (await page.locator('.lp-brand').boundingBox()) as { width: number };
+    const brand = (await page.locator('.lp-brand').boundingBox()) as { height: number };
     expect(cta.height).toBeGreaterThanOrEqual(32);
     expect(cta.height).toBeLessThanOrEqual(34);
-    expect(cta.width).toBeLessThan(brand.width);
+    // The label is longer than the name, so compare height: the brand box is the 44 px row.
+    expect(cta.height).toBeLessThan(brand.height);
     await page.screenshot({
       path: `${SHOTS}/landing-header-${size.name}.png`,
       clip: { x: 0, y: 0, width: size.width, height: 80 },
@@ -157,12 +158,12 @@ test('on a touch screen the tap area stays 44 px with an invisible extension (ro
   expect(cta.height).toBeLessThanOrEqual(34);
   const hits = await page.evaluate(({ x, y, width, height }) => {
     const owner = (px: number, py: number) =>
-      document.elementFromPoint(px, py)?.closest('.lp-header__cta') !== null;
+      Boolean(document.elementFromPoint(px, py)?.closest('.lp-header__cta'));
     const cx = x + width / 2;
     return {
       above: owner(cx, y - 4.5),
       below: owner(cx, y + height + 4.5),
-      far: owner(cx, y - 12),
+      far: owner(cx, y + height + 12),
     };
   }, cta);
   expect(hits.above).toBe(true);

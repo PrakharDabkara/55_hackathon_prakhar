@@ -157,7 +157,7 @@ a {
   .lp-header__cta::after {
     content: '';
     position: absolute;
-    inset: -5px -4px;
+    inset: -7px -4px;
   }
 }
 .lp-cta__short {

@@ -31,9 +31,8 @@ test.describe('asking shops (C-05, C-17)', () => {
     const first = await customerAt(browser, corner);
     await ask(first.page, 'haldi');
     await shop.getByRole('button', { name: 'Answer' }).click({ timeout: 30_000 });
-    await shop.getByRole('radio', { name: 'Have it' }).first().check();
-    await shop.getByLabel('Price', { exact: true }).fill('40');
-    await shop.getByRole('button', { name: 'Confirm' }).click();
+    await shop.getByLabel('Price · optional').fill('40');
+    await shop.getByRole('dialog').getByRole('button', { name: 'Send', exact: true }).click();
     await first.context.close();
 
     // A second customer: one remembered shop is too few, so it is not asked at first.
