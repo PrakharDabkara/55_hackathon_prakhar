@@ -19,10 +19,5 @@ export {
 } from './service.js';
 export type { NewUserSession } from './service.js';
 export { identityRouter } from './router.js';
-export {
-  displayFullPhone,
-  displayPhone,
-  maskPhone,
-  normalisePhone,
-} from './phone.js';
+export { displayFullPhone, displayPhone, maskPhone, normalisePhone } from './phone.js';
 export type { AuthContext, User } from './types.js';
