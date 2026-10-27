@@ -69,6 +69,13 @@ const schema = z
       .default('off')
       .transform((v) => (v.trim() === '' ? 'off' : v.trim()))
       .pipe(z.enum(['on', 'off'])),
+    // Temporary (ADR-0058): 'on' logs a hash of the sign-in limiter's bucket key per request, to see
+    // whether req.ip varies behind the edge. Only the word "on" turns it on.
+    LIMITER_DIAG: z
+      .string()
+      .default('off')
+      .transform((v) => (v.trim() === '' ? 'off' : v.trim()))
+      .pipe(z.enum(['on', 'off'])),
     // Most answers (and order moves) the autopilot starts in one minute; the rest are not answered.
     DEMO_AUTOPILOT_MAX_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(30),
     // Retired (ADR-0058): a phone can no longer become admin. Read only so that production can
@@ -283,6 +290,8 @@ export interface Config {
   /** Multiplies the API rate limits; 1 in production (ADR-0059). */
   rateLimitScale: number;
   trustProxyHops: number;
+  /** Temporary: log the hashed sign-in limiter key per request (LIMITER_DIAG). */
+  limiterDiag: boolean;
   llmProvider: 'gemini' | 'fake';
   /** A file of scripted turns for the fake provider (end-to-end runs only). */
   fakeLlmScenario: string | null;
@@ -392,6 +401,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     },
     rateLimitScale: e.RATE_LIMIT_SCALE,
     trustProxyHops: e.TRUST_PROXY_HOPS,
+    limiterDiag: e.LIMITER_DIAG === 'on',
     llmProvider: e.LLM_PROVIDER ?? 'fake',
     fakeLlmScenario: e.FAKE_LLM_SCENARIO ?? null,
     geminiApiKey: e.GEMINI_API_KEY ?? null,

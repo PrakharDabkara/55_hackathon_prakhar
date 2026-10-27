@@ -50,6 +50,10 @@ services:
       # Set to 'on' in the dashboard; unset means off.
       - key: DEMO_AUTOPILOT
         sync: false
+      # Temporary (ADR-0058): 'on' logs a hash of the sign-in limiter key per request, never the
+      # address. Set it in the dashboard to investigate; unset means off.
+      - key: LIMITER_DIAG
+        sync: false
       # AI query understanding (ADR-0020). Free-tier prompts may be reviewed by Google: only query
       # text and catalog item names are sent. The key is set by hand in the dashboard.
       - key: LLM_PROVIDER
