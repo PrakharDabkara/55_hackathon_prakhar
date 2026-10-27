@@ -1,3 +1,4 @@
+import { Writable } from 'node:stream';
 import { pino } from 'pino';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
@@ -87,6 +88,57 @@ describe('one budget per client, whichever way the address is written', () => {
     for (let i = 0; i < 3; i++) await verify(app, '2001:db8:1:2::1');
     expect((await verify(app, '2001:db8:1:2::1')).status).toBe(429);
     expect((await verify(app, '2001:db8:1:3::1')).status).toBe(400);
+  });
+});
+
+describe('the request limit counts the client, not the phone number', () => {
+  const ask = (app: ReturnType<typeof build>['app'], phone: string, xff: string) =>
+    request(app).post('/auth/otp/request').set('X-Forwarded-For', xff).send({ phone });
+
+  it('stops one client that tries a different number every time, and not another client', async () => {
+    // Not in DEMO_PHONES, so each answers 403 after the IP limit has counted it.
+    const { app } = build({ otpInboxOpen: false });
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i++)
+      statuses.push((await ask(app, `98765000${i}${i}`, '203.0.113.7')).status);
+    expect(statuses).toEqual([403, 403, 403, 429]);
+    expect((await ask(app, '9876500055', '203.0.113.8')).status).toBe(403);
+  });
+});
+
+describe('limiter key diagnostic (LIMITER_DIAG)', () => {
+  function buildLogged(limiterDiag: boolean) {
+    const lines: Record<string, unknown>[] = [];
+    const stream = new Writable({
+      write(chunk, _enc, done) {
+        lines.push(JSON.parse(String(chunk)));
+        done();
+      },
+    });
+    const config = testConfig({ limiterDiag, otpIpLimits: { request: 3, verify: 3, inbox: 2 } });
+    const db = { query: vi.fn(async () => ({ rows: [] })) };
+    const app = createApp({ config, logger: pino({ level: 'info' }, stream), db: db as never });
+    const diag = () => lines.filter((l) => l.msg === 'limiter key');
+    return { app, diag };
+  }
+
+  it('logs one hashed line per sign-in request when on: same client same hash, no address', async () => {
+    const { app, diag } = buildLogged(true);
+    for (const xff of ['203.0.113.7', '203.0.113.7', '203.0.113.8'])
+      await request(app).post('/auth/otp/verify').set('X-Forwarded-For', xff).send({});
+    const lines = diag();
+    expect(lines).toHaveLength(3);
+    expect(lines[0]?.keyHash).toBe(lines[1]?.keyHash);
+    expect(lines[0]?.keyHash).not.toBe(lines[2]?.keyHash);
+    expect(lines[0]).toMatchObject({ limiter: 'verify', family: 'v4', xffEntries: 1 });
+    expect(typeof lines[0]?.reqId === 'string' || typeof lines[0]?.req === 'object').toBe(true);
+    expect(JSON.stringify(lines)).not.toContain('203.0.113');
+  });
+
+  it('logs nothing when off', async () => {
+    const { app, diag } = buildLogged(false);
+    await request(app).post('/auth/otp/verify').set('X-Forwarded-For', '203.0.113.7').send({});
+    expect(diag()).toHaveLength(0);
   });
 });
 
