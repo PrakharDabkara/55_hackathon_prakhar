@@ -88,3 +88,51 @@ describe('trust proxy (Render is one hop)', () => {
     expect((await verify(app, '198.51.100.200')).status).toBe(429);
   });
 });
+
+// The per-IP limit must count every code request and answer before anything else about the number
+// (ADR-0058): a stranger's non-demo number, a demo number and a bad body all spend the same budget,
+// so the request over the limit is always 429 with Retry-After, never 403 demo_mode or 400.
+describe('POST /auth/otp/request: the IP limit comes before the demo check and validation', () => {
+  const DEMO = '9000000101';
+  const NON_DEMO = ['9876512345', '9876512346', '9876512347'];
+  const ask = (app: ReturnType<typeof build>['app'], body: object, xff?: string) => {
+    const req = request(app).post('/auth/otp/request');
+    return (xff ? req.set('X-Forwarded-For', xff) : req).send(body);
+  };
+  const buildSimulated = () =>
+    build({
+      otpInboxOpen: false,
+      demoPhones: [DEMO],
+      otpIpLimits: { request: 3, verify: 3, inbox: 3 },
+    });
+
+  it('counts non-demo and invalid requests, then answers 429 whatever the number is', async () => {
+    const { app, db } = buildSimulated();
+    const first = await ask(app, { phone: NON_DEMO[0] });
+    expect([first.status, first.body.error.code]).toEqual([403, 'demo_mode']);
+    expect((await ask(app, {})).status).toBe(400);
+    expect((await ask(app, { phone: NON_DEMO[1] })).status).toBe(403);
+
+    for (const body of [{ phone: NON_DEMO[2] }, { phone: DEMO }, {}, { phone: 'nope' }]) {
+      const over = await ask(app, body);
+      expect(over.status).toBe(429);
+      expect(over.body.error.code).toBe('rate_limited');
+      expect(Number(over.headers['retry-after'])).toBeGreaterThan(0);
+    }
+    // Nothing past the limiter ran: no code row was read or written, not even for the demo number.
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('is not reset by a spoofed X-Forwarded-For on any of them', async () => {
+    const { app } = buildSimulated();
+    const real = '203.0.113.7';
+    for (let i = 1; i <= 3; i++) {
+      expect((await ask(app, { phone: NON_DEMO[0] }, `198.51.100.${i}, ${real}`)).status).toBe(403);
+    }
+    for (let i = 4; i <= 14; i++) {
+      const over = await ask(app, { phone: NON_DEMO[i % 3] }, `198.51.100.${i}, ${real}`);
+      expect(over.status).toBe(429);
+      expect(over.headers['retry-after']).toBeDefined();
+    }
+  });
+});

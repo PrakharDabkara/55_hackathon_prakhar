@@ -2,6 +2,7 @@ import type { RequestHandler, Response } from 'express';
 import { isIPv6 } from 'node:net';
 import { withTimeout } from '../workers/redis.js';
 import { ApiError } from './errors.js';
+import type { LimiterFallback } from './limiterFallbacks.js';
 
 export interface IpHit {
   /** Requests from this key in the current window, this one included. */
@@ -85,14 +86,24 @@ if ttl < 0 then redis.call('PEXPIRE', KEYS[1], ARGV[1]); ttl = tonumber(ARGV[1])
 return {n, ttl}
 `;
 
-/** Counts in Redis, so every API instance shares a budget. Any Redis failure uses `fallback`. */
+// `rl:<name>:<ip>`: the name is safe to log, the rest is not.
+const bucketOf = (key: string) => key.split(':')[1] ?? 'unknown';
+
+/**
+ * Counts in Redis, so every API instance shares a budget. Any Redis failure uses `fallback` and
+ * tells `onFallback` why and for which limiter (never the key).
+ */
 export function createRedisStore(
   redis: RedisLike,
   fallback: IpLimitStore,
-  { timeoutMs = 1000 }: { timeoutMs?: number } = {},
+  {
+    timeoutMs = 1000,
+    onFallback,
+  }: { timeoutMs?: number; onFallback?: (fallback: LimiterFallback) => void } = {},
 ): IpLimitStore {
   return {
     async hit(key, windowMs) {
+      let reason: LimiterFallback['reason'] = 'error';
       try {
         const reply = await withTimeout(
           redis.eval(COUNT_SCRIPT, 1, key, windowMs),
@@ -102,8 +113,15 @@ export function createRedisStore(
         if (Array.isArray(reply) && typeof reply[0] === 'number' && typeof reply[1] === 'number') {
           return { count: reply[0], retryAfterMs: Math.min(Math.max(reply[1], 1), windowMs) };
         }
+      } catch (error) {
+        // Redis is down or slow: count here instead. The connection logs its own errors. Both our
+        // own timeout and the client's command timeout say "timed out".
+        if (error instanceof Error && /timed out/i.test(error.message)) reason = 'timeout';
+      }
+      try {
+        onFallback?.({ reason, bucket: bucketOf(key) });
       } catch {
-        // Redis is down or slow: count here instead. The connection logs its own errors.
+        // Monitoring must never change who is limited.
       }
       return fallback.hit(key, windowMs);
     },

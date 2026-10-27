@@ -45,6 +45,7 @@ export function adminHealthRouter({
   provider,
   ops,
   ai: aiContext,
+  limiter,
 }: {
   db: Queryable;
   adminToken: string;
@@ -53,6 +54,8 @@ export function adminHealthRouter({
   ops?: OpsProbes | undefined;
   /** Where the per-role model state comes from; absent without an AI provider. */
   ai?: Pick<AiContext, 'client'> | undefined;
+  /** Times the sign-in limiter counted in memory because Redis failed; absent means none. */
+  limiter?: { fallbacksToday(): number } | undefined;
 }): Router {
   const router = Router();
   router.get('/admin/health/details', createRequireAdmin(adminToken), async (_req, res) => {
@@ -94,6 +97,7 @@ export function adminHealthRouter({
         // exhausted until a time, unavailable) and why. In memory, so it starts fresh on a restart.
         models: aiContext?.client.modelStatus() ?? [],
       },
+      limiter: { fallbacksToday: limiter?.fallbacksToday() ?? 0 },
       autopilot: ops?.autopilot() ?? { on: false, lastActivityAt: null },
     });
   });

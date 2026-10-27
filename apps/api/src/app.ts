@@ -57,6 +57,8 @@ interface AppDeps {
   webDistDir?: string;
   /** Counts the per-IP and per-user limits. Default: in this process; production passes a Redis one. */
   ipLimitStore?: IpLimitStore;
+  /** What the sign-in limiter reports to /admin/health/details; absent without Redis. */
+  limiter?: { fallbacksToday(): number };
   /** Tests only: a different budget for the broad per-IP limit. */
   rateLimits?: { apiPerIpPerMinute?: number };
 }
@@ -76,6 +78,7 @@ export function createApp({
   ops,
   webDistDir = DEFAULT_WEB_DIST,
   ipLimitStore = createMemoryStore(),
+  limiter,
   rateLimits = {},
 }: AppDeps) {
   const app = express();
@@ -177,6 +180,7 @@ export function createApp({
         provider: config.llmProvider,
         ops,
         ai,
+        limiter,
       }),
     );
     app.use(aiAdminRouter({ db, adminToken: config.adminToken, ai }));

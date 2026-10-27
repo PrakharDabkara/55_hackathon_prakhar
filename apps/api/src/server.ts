@@ -2,6 +2,7 @@ import webPush from 'web-push';
 import { createApp } from './app.js';
 import { createLogger } from './logger.js';
 import { createMemoryStore, createRedisStore } from './http/ipLimit.js';
+import { createFallbackMonitor } from './http/limiterFallbacks.js';
 import { loadConfig } from './config/config.js';
 import { createPool } from './db/pool.js';
 import { aiFromConfig } from './modules/ai/index.js';
@@ -21,8 +22,11 @@ const realtime = createRealtime({ redisUrl: config.redisUrl, logger });
 const limitRedis = config.redisUrl
   ? connect(config.redisUrl, logger, { maxRetriesPerRequest: 1, commandTimeout: 1000 })
   : null;
+const limiterFallbacks = createFallbackMonitor({ logger });
 const ipLimitStore = limitRedis
-  ? createRedisStore(limitRedis, createMemoryStore())
+  ? createRedisStore(limitRedis, createMemoryStore(), {
+      onFallback: (fallback) => limiterFallbacks.record(fallback),
+    })
   : createMemoryStore();
 const ai = aiFromConfig({ config, db: pool, logger });
 const workers = startWorkers({
@@ -56,6 +60,7 @@ const app = createApp({
   realtime,
   ai,
   ipLimitStore,
+  limiter: limiterFallbacks,
   ...(workers && { requestHooks: workers.hooks, ops: workers.ops }),
   ...(workers?.errands && { errandHooks: { enqueue: workers.errands.enqueue } }),
 });

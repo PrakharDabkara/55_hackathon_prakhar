@@ -57,14 +57,26 @@ done
 report "2 the 11th request is 429 with Retry-After" \
   "$([ "$last" = 429 ] && [ -n "$ra" ] && [ "$ra" != "-" ] && echo 1 || echo 0)" "statuses:$codes, retry-after ${ra:-none}"
 
-# 3. Eleven more, each claiming a different client in X-Forwarded-For: spoofing must not reset it.
-codes=""; allblocked=1
-for i in $(seq 1 11); do
-  read -r s _ <<<"$(ask "198.51.100.$i")"
-  codes="$codes $s"
-  [ "$s" = 429 ] || allblocked=0
+# 3. Spoofing must not reset the limit. First spend whatever budget is left with plain requests (up
+# to 40, until the first 429), so this check does not depend on how check 2 went or on what the
+# limit is; then eleven requests, each claiming a different client in X-Forwarded-For, must all be
+# 429. (Wrong trust-proxy hops: with 2, a spoofed address got its own bucket and every one was 403.)
+plain=0; blocked=0
+for i in $(seq 1 40); do
+  read -r s _ <<<"$(ask)"
+  plain=$i
+  [ "$s" = 429 ] && { blocked=1; break; }
 done
-report "3 spoofed X-Forwarded-For still gets 429" "$allblocked" "statuses:$codes"
+codes=""; allblocked=$blocked
+if [ "$blocked" = 1 ]; then
+  for i in $(seq 1 11); do
+    read -r s _ <<<"$(ask "198.51.100.$i")"
+    codes="$codes $s"
+    [ "$s" = 429 ] || allblocked=0
+  done
+fi
+report "3 spoofed X-Forwarded-For still gets 429" "$allblocked" \
+  "$([ "$blocked" = 1 ] && echo "first 429 after $plain plain requests; spoofed statuses:$codes" || echo "no 429 in $plain plain requests")"
 
 # 4. Admin routes answer 404 without a token and with a wrong one.
 none=$(curl -s -m 60 -o /dev/null -w '%{http_code}' "$B/admin/ai/stats")
