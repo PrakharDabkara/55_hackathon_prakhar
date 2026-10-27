@@ -181,7 +181,11 @@ export function createIpLimiter({
 }): RequestHandler {
   return async (req, res, next) => {
     const key = ipKey(req.ip);
-    diag?.(req, name, key);
+    try {
+      diag?.(req, name, key);
+    } catch {
+      // Diagnostics must never change who is limited.
+    }
     await enforceLimit(res, store, `rl:${name}:${key}`, { max, windowMs });
     next();
   };
