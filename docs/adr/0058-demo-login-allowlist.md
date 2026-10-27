@@ -30,3 +30,11 @@ Status: accepted. Changes ADR-0013 (roles, simulated inbox) and ADR-0018 (admin 
 - A leaked `ADMIN_TOKEN` is full admin until rotated (change it on Render and redeploy). It is not in any log.
 - The first Render deploy should be checked: if Render or a CDN in front adds more than one hop, `req.ip` is that proxy and all clients share one bucket (set `TRUST_PROXY_HOPS`).
 - Real SMS later removes the inbox, `DEMO_PHONES` and `OTP_INBOX_OPEN`; the IP limits and the admin token stay.
+
+## Update 2026-10-27: what the live check showed
+
+- **Order.** On `POST /auth/otp/request` the per-IP limiter runs before the body is validated and before the demo-mode check, and counts every request (demo, non-demo, invalid). The per-phone limit comes last. A test pins this order. A request that gets a 403 has passed the IP limiter.
+- **Numbers.** The window is fixed (opened by the first request, never extended): request 10, verify 20, inbox 30 per 10 minutes. Production refuses to start with a higher `OTP_IP_*_MAX`, so the live limit cannot be above 10.
+- **Hops.** `TRUST_PROXY_HOPS=2` was tried on Render: `scripts/verify-live-security.sh` check 3 then showed every spoofed request answered 403, because Express took the address the client wrote as `req.ip`. Render appends exactly one address, so **1 is correct** and anything higher lets `X-Forwarded-For` spoofing bypass the limit. It is back at 1.
+- **Not explained yet.** With hops at 1 the first live run gave 11 times 403 in check 2, then in check 3 seven 403, three 429, one 403. One fixed-window bucket with limit 10 cannot do that (about 20 requests before the first 429), so the requests were counted in more than one place. Suspected: the Redis store falling back to the per-process memory counter on an error or a 1 s timeout (free Key Value tier). Not confirmed. To see it, a fallback now logs one warn line (`reason` error or timeout, the limiter's name, never an IP or phone; at most one a minute, with the count since the last) and `/admin/health/details` shows `limiter.fallbacksToday`.
+- **The script.** Check 3 now sends plain requests until the first 429, then eleven spoofed ones that must all be 429, so it no longer depends on check 2's budget or on the limit's value.

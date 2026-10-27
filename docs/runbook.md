@@ -33,7 +33,7 @@ Database: migrations are not rolled back with the code. If a migration is the pr
 
 1. **Get the ref.** An error on screen ends in "· ref 7F3A2C". Ask for that, plus the time and which screen.
 2. **Search the ref in Render logs.** `7F3A2C` shows the request line, the error line (`unhandled error`: `errorClass`, `sqlState`, `constraint`) and any job it queued (`job failed`: `queue`, `jobName`, `attempt`). A crash in the browser itself has no ref: search `client error` (warn) for the route and `appVersion`.
-3. **Open `GET /admin/health/details`** with the admin token (`Authorization: Bearer ...`): `db`, `redis`, each queue's `waiting`, `active`, `delayed` and `failedLast24h`, `ai.callsToday`, `ai.failedToday`, `ai.breakerSkipsToday`, `autopilot.on` and `lastActivityAt`, `version.sha`. Counts only.
+3. **Open `GET /admin/health/details`** with the admin token (`Authorization: Bearer ...`): `db`, `redis`, each queue's `waiting`, `active`, `delayed` and `failedLast24h`, `ai.callsToday`, `ai.failedToday`, `ai.breakerSkipsToday`, `limiter.fallbacksToday` (sign-in limits counted in memory because Redis failed; above 0 means the per-IP limits were split across instances or restarts), `autopilot.on` and `lastActivityAt`, `version.sha`. Counts only.
 4. **Common causes.**
    - _Cold start:_ first request after idle is slow or times out; `/health` answers, `/ready` takes a few seconds. Wait a minute and retry; see Free-tier behaviour.
    - _Quota exhausted:_ `ai.failedToday` or `breakerSkipsToday` climbing, `/admin/ai/ping` says 429 or `RESOURCE_EXHAUSTED`. Searches fall back to the free steps; see AI unavailable below. It clears at the provider's daily reset.
