@@ -35,6 +35,25 @@ describe('ipKey', () => {
     expect(ipKey('2001:db8:1:2::1')).not.toBe(ipKey('2001:db8:1:3::1'));
   });
 
+  it('unwraps an IPv4-mapped address however it is written', () => {
+    expect(ipKey('::FFFF:203.0.113.7')).toBe('203.0.113.7');
+    expect(ipKey('::ffff:cb00:7109')).toBe('203.0.113.9');
+    expect(ipKey('0:0:0:0:0:ffff:203.0.113.7')).toBe('203.0.113.7');
+    expect(ipKey('0:0:0:0:0:ffff:cb00:7107')).toBe('203.0.113.7');
+  });
+
+  it('gives one key to one /64 however the address is written', () => {
+    expect(ipKey('2001:DB8:1:2::1')).toBe(ipKey('2001:db8:1:2:0:0:0:1'));
+    expect(ipKey('2001:db8:1:2::1%eth0')).toBe(ipKey('2001:db8:1:2::9'));
+    expect(ipKey('::1')).toBe('0:0:0:0');
+  });
+
+  it('does not collapse unrelated mapped or IPv6 clients into one bucket', () => {
+    expect(ipKey('::ffff:cb00:7109')).not.toBe(ipKey('::ffff:cb00:710a'));
+    expect(ipKey('2001:db8:1:2::1')).not.toBe(ipKey('2001:db8:1:3::1'));
+    expect(ipKey('203.0.113.7')).not.toBe(ipKey('2001:db8:1:2::1'));
+  });
+
   it('never returns an empty key', () => {
     expect(ipKey(undefined)).toBe('unknown');
     expect(ipKey('')).toBe('unknown');
