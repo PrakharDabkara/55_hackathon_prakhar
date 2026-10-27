@@ -118,7 +118,11 @@ export function createRedisStore(
         // own timeout and the client's command timeout say "timed out".
         if (error instanceof Error && /timed out/i.test(error.message)) reason = 'timeout';
       }
-      onFallback?.({ reason, bucket: bucketOf(key) });
+      try {
+        onFallback?.({ reason, bucket: bucketOf(key) });
+      } catch {
+        // Monitoring must never change who is limited.
+      }
       return fallback.hit(key, windowMs);
     },
   };
