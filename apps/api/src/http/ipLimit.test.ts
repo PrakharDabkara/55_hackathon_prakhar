@@ -54,6 +54,11 @@ describe('ipKey', () => {
     expect(ipKey('203.0.113.7')).not.toBe(ipKey('2001:db8:1:2::1'));
   });
 
+  it('never uses text that is not an IP address as a key', () => {
+    expect(ipKey('not an ip')).toBe('unknown');
+    expect(ipKey('x'.repeat(500))).toBe('unknown');
+  });
+
   it('never returns an empty key', () => {
     expect(ipKey(undefined)).toBe('unknown');
     expect(ipKey('')).toBe('unknown');
