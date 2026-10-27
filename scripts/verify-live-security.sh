@@ -5,7 +5,7 @@
 #   scripts/verify-live-security.sh [--ipv4 | --ipv6 | --both] [base-url]
 # --ipv4 / --ipv6 force curl -4 / -6, so a dual-stack machine tests one address family at a time.
 # --both runs every check once per family; IPv6 needs its own sign-in budget (10 minutes apart if
-# both families share one). Without a flag curl picks the family, which may differ per request.
+# both families share one; about 150 requests in all). Exit 2 means a family was skipped. Without a flag curl picks the family, which may differ per request.
 set -u
 mode=""
 while [ $# -gt 0 ]; do
@@ -35,7 +35,7 @@ fake_phone() {
 # Prints "<status> <retry-after or ->" for a request-code call; $1 is an optional X-Forwarded-For.
 ask() {
   local out
-  out=$(curl "${FAM[@]}" -s -m 60 -o /dev/null -D - -X POST "$B/auth/otp/request" -H "$J" \
+  out=$(curl ${FAM[@]+"${FAM[@]}"} -s -m 60 -o /dev/null -D - -X POST "$B/auth/otp/request" -H "$J" \
     ${1:+-H "X-Forwarded-For: $1"} -d "{\"phone\":\"$(fake_phone)\"}")
   printf '%s %s' "$(printf '%s' "$out" | head -1 | awk '{print $2}')" \
     "$(printf '%s' "$out" | tr -d '\r' | awk -F': ' 'tolower($1)=="retry-after"{print $2}' | head -1)"
@@ -45,11 +45,6 @@ report() { # name ok detail
 }
 
 run_checks() {
-  echo "Waking $B (the free instance sleeps)..."
-  for _ in 1 2 3 4 5 6; do
-    [ "$(curl "${FAM[@]}" -s -m 30 -o /dev/null -w '%{http_code}' "$B/health")" = 200 ] && break
-  done
-
   # 1. A non-demo number asks for a code; the inbox must not show it.
   read -r first_status _ <<<"$(ask)"
   if [ "$first_status" = 429 ]; then
@@ -57,8 +52,8 @@ run_checks() {
     return 2
   fi
   phone=$(fake_phone)
-  curl "${FAM[@]}" -s -m 60 -o /dev/null -X POST "$B/auth/otp/request" -H "$J" -d "{\"phone\":\"$phone\"}"
-  inbox=$(curl "${FAM[@]}" -s -m 60 -o /dev/null -w '%{http_code}' "$B/dev/otp-inbox?phone=$phone")
+  curl ${FAM[@]+"${FAM[@]}"} -s -m 60 -o /dev/null -X POST "$B/auth/otp/request" -H "$J" -d "{\"phone\":\"$phone\"}"
+  inbox=$(curl ${FAM[@]+"${FAM[@]}"} -s -m 60 -o /dev/null -w '%{http_code}' "$B/dev/otp-inbox?phone=$phone")
   report "1 inbox for a non-demo number is 404" "$([ "$inbox" = 404 ] && echo 1 || echo 0)" "request $first_status, inbox $inbox"
 
   # 2. Eleven requests with different numbers: the limit is 10 per IP per 10 minutes. Check 1 used two
@@ -93,8 +88,8 @@ run_checks() {
     "$([ "$blocked" = 1 ] && echo "first 429 after $plain plain requests; spoofed statuses:$codes" || echo "no 429 in $plain plain requests")"
 
   # 4. Admin routes answer 404 without a token and with a wrong one.
-  none=$(curl "${FAM[@]}" -s -m 60 -o /dev/null -w '%{http_code}' "$B/admin/ai/stats")
-  wrong=$(curl "${FAM[@]}" -s -m 60 -o /dev/null -w '%{http_code}' "$B/admin/ai/stats" \
+  none=$(curl ${FAM[@]+"${FAM[@]}"} -s -m 60 -o /dev/null -w '%{http_code}' "$B/admin/ai/stats")
+  wrong=$(curl ${FAM[@]+"${FAM[@]}"} -s -m 60 -o /dev/null -w '%{http_code}' "$B/admin/ai/stats" \
     -H "authorization: Bearer $(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')")
   report "4 admin route is 404 with no token and a wrong token" \
     "$([ "$none" = 404 ] && [ "$wrong" = 404 ] && echo 1 || echo 0)" "no token $none, wrong token $wrong"
@@ -102,10 +97,20 @@ run_checks() {
   return 0
 }
 
+wake() {
+  echo "Waking $B (the free instance sleeps)..."
+  for _ in 1 2 3 4 5 6; do
+    [ "$(curl ${FAM[@]+"${FAM[@]}"} -s -m 30 -o /dev/null -w '%{http_code}' "$B/health")" = 200 ] && return 0
+  done
+  return 1
+}
+
 run_all() { # label
   echo "== $1 =="
-  if [ -n "${FAM[0]:-}" ] && ! curl "${FAM[@]}" -s -m 30 -o /dev/null "$B/health"; then
-    echo "SKIP  $1 is not reachable from this machine"
+  if ! wake; then
+    # Nothing was checked: never let that look like a pass.
+    echo "SKIP  $1: $B did not answer /health over this family"
+    skipped=1
     return 0
   fi
   run_checks
@@ -124,5 +129,6 @@ case "$mode" in
   ipv6) FAM=(-6); run_all "IPv6 only" ;;
   *) FAM=(); run_all "curl's choice of family" ;;
 esac
+# A skipped family means something was not checked: exit 2 unless a check already failed.
 [ "$fail" = 0 ] && [ "$skipped" = 1 ] && exit 2
 exit $fail

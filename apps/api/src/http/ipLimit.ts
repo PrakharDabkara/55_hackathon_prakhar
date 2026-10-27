@@ -1,5 +1,5 @@
 import type { RequestHandler, Response } from 'express';
-import { isIPv6 } from 'node:net';
+import { isIPv4, isIPv6 } from 'node:net';
 import { withTimeout } from '../workers/redis.js';
 import { ApiError } from './errors.js';
 import type { LimiterFallback } from './limiterFallbacks.js';
@@ -45,7 +45,7 @@ function ipv6Groups(address: string): number[] | null {
 export function ipKey(ip: string | undefined): string {
   if (!ip) return 'unknown';
   const bare = (ip.split('%')[0] ?? ip).toLowerCase();
-  if (!isIPv6(bare)) return ip;
+  if (!isIPv6(bare)) return isIPv4(ip) ? ip : 'unknown';
   const groups = ipv6Groups(bare);
   if (!groups) return 'unknown';
   if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
