@@ -46,6 +46,17 @@ describe('createRedisStore: telling the monitor about a fallback', () => {
     expect(onFallback).toHaveBeenCalledWith({ reason: 'error', bucket: 'api' });
   });
 
+  it('counts as before even when the monitor throws: logging never changes who is limited', async () => {
+    const onFallback = vi.fn(() => {
+      throw new Error('logger broke');
+    });
+    const redis: RedisLike = { eval: vi.fn(async () => Promise.reject(new Error('down'))) };
+    const store = createRedisStore(redis, createMemoryStore(), { onFallback });
+    expect((await store.hit('rl:request:203.0.113.7', WINDOW_MS)).count).toBe(1);
+    expect((await store.hit('rl:request:203.0.113.7', WINDOW_MS)).count).toBe(2);
+    expect(onFallback).toHaveBeenCalledTimes(2);
+  });
+
   it('says nothing when Redis answers, and counts exactly as before', async () => {
     const onFallback = vi.fn();
     const redis: RedisLike = { eval: vi.fn(async () => [4, 123_000]) };
