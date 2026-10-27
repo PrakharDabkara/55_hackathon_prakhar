@@ -69,6 +69,25 @@ describe('GET /admin/health/details (O1)', () => {
     });
   });
 
+  it('shows how often the sign-in limiter fell back from Redis to memory today', async () => {
+    const withLimiter = createApp({
+      config: testConfig({ adminToken: TEST_ADMIN_TOKEN }),
+      logger: createLogger('silent'),
+      db,
+      limiter: { fallbacksToday: () => 7 },
+      webDistDir: '/nonexistent',
+    });
+    const res = await request(withLimiter)
+      .get('/admin/health/details')
+      .set('Authorization', `Bearer ${TEST_ADMIN_TOKEN}`);
+    expect(res.body.limiter).toEqual({ fallbacksToday: 7 });
+    // Without a monitor (no Redis, so nothing to fall back from) the count is 0.
+    const bare = await request(app(TEST_ADMIN_TOKEN))
+      .get('/admin/health/details')
+      .set('Authorization', `Bearer ${TEST_ADMIN_TOKEN}`);
+    expect(bare.body.limiter).toEqual({ fallbacksToday: 0 });
+  });
+
   it("shows per role the active model, the primary's state and why (R2)", async () => {
     const res = await request(app(TEST_ADMIN_TOKEN))
       .get('/admin/health/details')
