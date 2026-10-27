@@ -19,27 +19,42 @@ export interface RedisLike {
   eval(script: string, numKeys: number, ...args: (string | number)[]): Promise<unknown>;
 }
 
-/** One bucket per client. An IPv6 client owns a whole /64, so rotating inside it gains nothing. */
-export function ipKey(ip: string | undefined): string {
-  if (!ip) return 'unknown';
-  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
-  if (mapped?.[1]) return mapped[1];
-  const bare = ip.split('%')[0] ?? ip;
-  if (!isIPv6(bare)) return ip;
-  const [head = '', tail] = bare.split('::');
+/** The eight 16-bit groups of an IPv6 address, or null if it does not parse. */
+function ipv6Groups(address: string): number[] | null {
+  let text = address;
+  const dotted = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+  if (dotted) {
+    const [a = 0, b = 0, c = 0, d = 0] = dotted.slice(2).map(Number);
+    text = `${dotted[1]}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [head = '', tail, extra] = text.split('::');
+  if (extra !== undefined) return null;
   const first = head ? head.split(':') : [];
   const last = tail ? tail.split(':') : [];
-  const groups =
-    tail === undefined
-      ? first
-      : [
-          ...first,
-          ...Array<string>(Math.max(8 - first.length - last.length, 0)).fill('0'),
-          ...last,
-        ];
+  const fill = tail === undefined ? 0 : 8 - first.length - last.length;
+  const groups = [...first, ...Array<string>(Math.max(fill, 0)).fill('0'), ...last].map((g) =>
+    Number.parseInt(g, 16),
+  );
+  return groups.length === 8 && groups.every((g) => g >= 0 && g <= 0xffff) ? groups : null;
+}
+
+/**
+ * One bucket per client. An IPv4-mapped IPv6 address (`::ffff:a.b.c.d`, however it is written) is
+ * the IPv4 client; any other IPv6 client owns a whole /64, so rotating inside it gains nothing.
+ */
+export function ipKey(ip: string | undefined): string {
+  if (!ip) return 'unknown';
+  const bare = (ip.split('%')[0] ?? ip).toLowerCase();
+  if (!isIPv6(bare)) return ip;
+  const groups = ipv6Groups(bare);
+  if (!groups) return 'unknown';
+  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
+    const [hi = 0, lo = 0] = groups.slice(6);
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
   return groups
     .slice(0, 4)
-    .map((g) => Number.parseInt(g, 16).toString(16))
+    .map((g) => g.toString(16))
     .join(':');
 }
 
