@@ -56,6 +56,40 @@ describe('per-IP limits on sign-in', () => {
   });
 });
 
+describe('one budget per client, whichever way the address is written', () => {
+  // The sign-in limit is 3 here; the 4th request from the same client must be the 429.
+  const fourth = async (addresses: string[]) => {
+    const { app } = build();
+    const out: number[] = [];
+    for (const xff of addresses) out.push((await verify(app, xff)).status);
+    return out;
+  };
+
+  it('shares a budget between an IPv4 address and its IPv4-mapped IPv6 form', async () => {
+    expect(
+      await fourth(['203.0.113.9', '::ffff:203.0.113.9', '203.0.113.9', '::ffff:cb00:7109']),
+    ).toEqual([400, 400, 400, 429]);
+  });
+
+  it('shares a budget across one IPv6 /64, as privacy addresses rotate inside it', async () => {
+    expect(
+      await fourth([
+        '2001:db8:1:2::1',
+        '2001:db8:1:2:aaaa:bbbb:cccc:dddd',
+        '2001:db8:1:2:1111:2222:3333:4444',
+        '2001:DB8:1:2:0:0:0:5',
+      ]),
+    ).toEqual([400, 400, 400, 429]);
+  });
+
+  it('gives a different /64 its own budget', async () => {
+    const { app } = build();
+    for (let i = 0; i < 3; i++) await verify(app, '2001:db8:1:2::1');
+    expect((await verify(app, '2001:db8:1:2::1')).status).toBe(429);
+    expect((await verify(app, '2001:db8:1:3::1')).status).toBe(400);
+  });
+});
+
 describe('trust proxy (Render is one hop)', () => {
   it('sets Express to trust exactly one hop by default', () => {
     expect(build().app.get('trust proxy')).toBe(1);
