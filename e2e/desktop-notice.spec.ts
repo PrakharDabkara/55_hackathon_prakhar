@@ -35,6 +35,13 @@ async function stubOpen(page: Page, blocked = false) {
 const opened = (page: Page) =>
   page.evaluate(() => (window as unknown as { __opened: Opened[] }).__opened);
 
+/** The windows opened so far, each with its features read as numbers. */
+async function windows(page: Page, count: number) {
+  const calls = await opened(page);
+  expect(calls).toHaveLength(count);
+  return calls.map((c) => ({ ...c, f: featureMap(c.features), path: new URL(c.url).pathname }));
+}
+
 function featureMap(features: string): Record<string, number> {
   return Object.fromEntries(
     features.split(',').map((f) => {
@@ -111,15 +118,14 @@ test.describe('at 1280 px', () => {
       await stubOpen(page);
       await page.goto(app.path);
       await notice(page).getByRole('button', { name: 'Open as a phone' }).click();
-      const [call] = await opened(page);
-      expect(new URL(call!.url).pathname).toBe(app.path);
-      expect(call!.name).toBe(`askbuy-${app.name}`);
-      const f = featureMap(call!.features);
-      expect(f['width']).toBe(420);
-      expect(f['height']).toBeGreaterThanOrEqual(600);
-      expect(f['height']).toBeLessThanOrEqual(860);
-      expect(f['left']).toBeGreaterThanOrEqual(0);
-      expect(f['top']).toBeGreaterThanOrEqual(0);
+      const [call] = await windows(page, 1);
+      expect(call?.path).toBe(app.path);
+      expect(call?.name).toBe(`askbuy-${app.name}`);
+      expect(call?.f['width']).toBe(420);
+      expect(call?.f['height']).toBeGreaterThanOrEqual(600);
+      expect(call?.f['height']).toBeLessThanOrEqual(860);
+      expect(call?.f['left']).toBeGreaterThanOrEqual(0);
+      expect(call?.f['top']).toBeGreaterThanOrEqual(0);
       await expect(page.getByText(TIP)).toHaveCount(0);
     });
   }
@@ -130,16 +136,14 @@ test.describe('at 1280 px', () => {
     await stubOpen(page);
     await page.goto('/app/');
     await notice(page).getByRole('button', { name: 'Open buyer + shop side by side' }).click();
-    const [buyer, shop] = await opened(page);
-    expect(new URL(buyer!.url).pathname).toBe('/app/');
-    expect(new URL(shop!.url).pathname).toBe('/app/shop');
-    expect(buyer!.name).not.toBe(shop!.name);
-    const a = featureMap(buyer!.features);
-    const b = featureMap(shop!.features);
-    expect(a['width']).toBe(420);
-    expect(b['width']).toBe(420);
-    expect(a['top']).toBe(b['top']);
-    expect(b['left']! - a['left']!).toBeGreaterThanOrEqual(420);
+    const [buyer, shop] = await windows(page, 2);
+    expect(buyer?.path).toBe('/app/');
+    expect(shop?.path).toBe('/app/shop');
+    expect(buyer?.name).not.toBe(shop?.name);
+    expect(buyer?.f['width']).toBe(420);
+    expect(shop?.f['width']).toBe(420);
+    expect(buyer?.f['top']).toBe(shop?.f['top']);
+    expect((shop?.f['left'] ?? 0) - (buyer?.f['left'] ?? 0)).toBeGreaterThanOrEqual(420);
   });
 
   test('when window.open is blocked, the incognito tip shows instead', async ({ page }) => {
