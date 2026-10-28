@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App, UNAUTHORIZED_EVENT } from './App.js';
+import { DesktopNotice } from './components/DesktopNotice.js';
 import { LangProvider } from './i18n/index.js';
 import { installClientErrorReporter } from './lib/clientErrors.js';
 import { createApi } from './lib/api.js';
@@ -19,14 +20,24 @@ function start() {
       getToken: session.getToken,
       onUnauthorized: () => window.dispatchEvent(new Event(UNAUTHORIZED_EVENT)),
     });
-    return <App api={api} session={session} />;
+    return (
+      <>
+        <DesktopNotice app="shop" />
+        <App api={api} session={session} />
+      </>
+    );
   }
   const session = seekerSession();
   const api = createSeekerApi({
     getToken: session.getToken,
     onUnauthorized: () => window.dispatchEvent(new Event(SEEKER_UNAUTHORIZED_EVENT)),
   });
-  return <SeekerApp api={api} session={session} />;
+  return (
+    <>
+      <DesktopNotice app="buyer" />
+      <SeekerApp api={api} session={session} />
+    </>
+  );
 }
 
 const root = document.getElementById('root');
