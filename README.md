@@ -118,3 +118,7 @@ claude mcp add askbuy -- node "$(pwd)/apps/mcp-server/dist/main.js"
 `ask_shops` pings real shops, so your assistant should ask before using it; it should use `find_item_nearby` first.
 
 To look at the tools without an assistant, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector): `npx @modelcontextprotocol/inspector node apps/mcp-server/dist/main.js`. Tests: `npm run test:integration` includes a contract test that starts the API on a throwaway database and calls every tool through the SDK.
+
+## License
+
+All rights reserved. See [LICENSE](LICENSE).
