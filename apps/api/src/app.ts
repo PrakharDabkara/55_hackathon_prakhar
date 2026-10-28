@@ -7,6 +7,7 @@ import { adminHealthRouter, type OpsProbes } from './http/adminHealth.js';
 import { clientErrorsRouter } from './http/clientErrors.js';
 import { healthRouter } from './http/health.js';
 import { createIpLimiter, createMemoryStore, type IpLimitStore } from './http/ipLimit.js';
+import { createKeyDiag } from './http/limiterDiag.js';
 import { createRouteLimits, ROUTE_RULES, scaleRules } from './http/routeLimits.js';
 import { securityHeaders } from './http/securityHeaders.js';
 import { errorHandler, notFound } from './http/errors.js';
@@ -148,6 +149,7 @@ export function createApp({
       inboxOpen: config.otpInboxOpen,
       ipLimits: config.otpIpLimits,
       ipLimitStore,
+      keyDiag: config.limiterDiag ? createKeyDiag() : undefined,
     }),
   );
   app.use(accountRouter({ db, logger, realtime, demoPhones: config.demoPhones }));

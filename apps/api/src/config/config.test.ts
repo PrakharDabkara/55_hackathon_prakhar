@@ -639,6 +639,15 @@ describe('photo storage cap (ADR-0030)', () => {
   });
 });
 
+describe('limiter key diagnostic (ADR-0058)', () => {
+  it('is off by default and on only for the word "on"', () => {
+    expect(loadConfig(valid).limiterDiag).toBe(false);
+    expect(loadConfig({ ...valid, LIMITER_DIAG: '' }).limiterDiag).toBe(false);
+    expect(loadConfig({ ...valid, LIMITER_DIAG: 'on' }).limiterDiag).toBe(true);
+    expect(() => loadConfig({ ...valid, LIMITER_DIAG: 'true' })).toThrowError(/LIMITER_DIAG/);
+  });
+});
+
 describe('demo autopilot (ADR-0062)', () => {
   it('is off by default, so nothing answers for the simulated shops', () => {
     expect(loadConfig(valid)).toMatchObject({

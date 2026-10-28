@@ -2,6 +2,7 @@ import type { RequestHandler, Response } from 'express';
 import { isIPv4, isIPv6 } from 'node:net';
 import { withTimeout } from '../workers/redis.js';
 import { ApiError } from './errors.js';
+import type { KeyDiag } from './limiterDiag.js';
 import type { LimiterFallback } from './limiterFallbacks.js';
 
 export interface IpHit {
@@ -169,14 +170,23 @@ export function createIpLimiter({
   max,
   windowMs,
   store,
+  diag,
 }: {
   name: string;
   max: number;
   windowMs: number;
   store: IpLimitStore;
+  /** Logs which bucket each request lands in (LIMITER_DIAG). Never the address. */
+  diag?: KeyDiag | undefined;
 }): RequestHandler {
   return async (req, res, next) => {
-    await enforceLimit(res, store, `rl:${name}:${ipKey(req.ip)}`, { max, windowMs });
+    const key = ipKey(req.ip);
+    try {
+      diag?.(req, name, key);
+    } catch {
+      // Diagnostics must never change who is limited.
+    }
+    await enforceLimit(res, store, `rl:${name}:${key}`, { max, windowMs });
     next();
   };
 }

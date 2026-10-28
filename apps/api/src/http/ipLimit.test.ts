@@ -65,6 +65,20 @@ describe('ipKey', () => {
   });
 });
 
+describe('createIpLimiter with a diagnostic', () => {
+  it('limits exactly the same when the diagnostic throws', async () => {
+    const diag = () => {
+      throw new Error('diagnostic broke');
+    };
+    const app = appWith(
+      createIpLimiter({ name: 't', max: 2, windowMs: WINDOW_MS, store: createMemoryStore(), diag }),
+    );
+    const statuses: number[] = [];
+    for (let i = 0; i < 3; i++) statuses.push((await from(app, '203.0.113.1')).status);
+    expect(statuses).toEqual([200, 200, 429]);
+  });
+});
+
 describe('createIpLimiter with the in-memory store', () => {
   it('lets max requests through, then answers 429 with Retry-After', async () => {
     const app = appWith(

@@ -30,6 +30,7 @@ const config: Config = {
   publicDemoDropped: 0,
   otpInboxOpen: true,
   trustProxyHops: 1,
+  limiterDiag: false,
   rateLimitScale: 1000,
   otpIpLimits: { request: 100_000, verify: 100_000, inbox: 100_000 },
   llmProvider: 'fake',

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Database } from '../../db/queryable.js';
 import { ApiError, parse } from '../../http/errors.js';
 import { createIpLimiter, type IpLimitStore } from '../../http/ipLimit.js';
+import type { KeyDiag } from '../../http/limiterDiag.js';
 import { authOf, createRequireAuth } from './middleware.js';
 import { maskPhone, normalisePhone } from './phone.js';
 import { attemptsLeft, latestDevCode, requestOtp, revokeSession, verifyOtp } from './service.js';
@@ -21,6 +22,8 @@ interface IdentityDeps {
   /** Most requests one IP may make per window to each route. */
   ipLimits: { request: number; verify: number; inbox: number };
   ipLimitStore: IpLimitStore;
+  /** Temporary: logs the hashed limiter key of each sign-in request (LIMITER_DIAG). */
+  keyDiag?: KeyDiag | undefined;
 }
 
 const INDIAN_MOBILE_MESSAGE = "That doesn't look like an Indian mobile number.";
@@ -55,11 +58,12 @@ export function identityRouter({
   inboxOpen,
   ipLimits,
   ipLimitStore: store,
+  keyDiag: diag,
 }: IdentityDeps): Router {
   const router = Router();
   const requireAuth = createRequireAuth(db);
   const limit = (name: keyof typeof ipLimits) =>
-    createIpLimiter({ name, max: ipLimits[name], windowMs: IP_LIMIT_WINDOW_MS, store });
+    createIpLimiter({ name, max: ipLimits[name], windowMs: IP_LIMIT_WINDOW_MS, store, diag });
   // Its own bucket, same size as the inbox's: a room of people loading the login screens must not
   // use up the budget of "Fill the code".
   const demoNumbersLimit = createIpLimiter({
@@ -67,6 +71,7 @@ export function identityRouter({
     max: ipLimits.inbox,
     windowMs: IP_LIMIT_WINDOW_MS,
     store,
+    diag,
   });
   // Only these phones can have a readable code. Every other number still gets the same 202 and a
   // hashed code, so nothing tells a stranger whether it is a demo number or has an account.
