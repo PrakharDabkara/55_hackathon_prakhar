@@ -16,7 +16,7 @@ blocks the call and shows stderr to Claude as the reason; exit 0 lets it through
 - **Does:** blocks any `.env` or `.env.*` except `.env.example`, and any path or command that mentions
   `holdout`. File tools are checked by their path fields only; Bash by the command text. The reason
   tells Claude to read `.env.example` or ask you.
-- **Incident:** the ".env and holdout are off-limits" rule was repeated in every prompt for two weeks
+- **Incident:** the ".env and holdout are off-limits" rule was repeated in every prompt for ten days
   and enforced only by the model's goodwill. On Oct 20 an architect-side grep pulled holdout eval case
   lines into a chat (flagged, not used); on Oct 22 a scratch `ci-env.sh` had to be checked by hand for
   `.env` values. The hook turns both rules into a gate.

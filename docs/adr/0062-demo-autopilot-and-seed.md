@@ -5,7 +5,7 @@ Status: accepted. Builds on ADR-0058 (admin token), ADR-0055 (lists) and ADR-004
 ## Context
 
 The simulated shops ran from the owner's laptop (`apps/simulator`), so with the laptop off nobody
-answered a search on the live site. The demo shops (9000000102 to 106) and customers (202 to 206)
+answered a search on the live site. The demo shops and customers on reserved demo numbers
 were empty, and rehearsing a demo left old requests and orders behind.
 
 ## Decision
@@ -36,13 +36,13 @@ were empty, and rehearsing a demo left old requests and orders behind.
    and the scan are not created at all; no code change, just the variable and a restart. Jobs left
    in Redis from an earlier "on" are inert, and re-check the database if it is turned on again.
 8. **`POST /admin/demo/seed`** (ADMIN_TOKEN, idempotent, under a Postgres advisory lock): five demo
-   shops on 9000000102 to 106 around Vijay Nagar, Indore (300 m to 1.5 km apart, two deliver for
+   shops on reserved demo numbers around Vijay Nagar, Indore (300 m to 1.5 km apart, two deliver for
    ₹20 and ₹30, three are pickup only), placeholder initials logos through the logo pipeline,
    learned stock for 40 catalog items from `modules/demo/fixtures.ts` (marked illustrative), eight
-   simulated shops if fewer exist, and a clearly-demo saved address for customers 202 to 206.
+   simulated shops if fewer exist, and a clearly-demo saved address for demo customers.
    `users.is_demo` and `shops.is_demo` (migration 030) mark what it makes.
 9. **`POST /admin/demo/reset`** (ADMIN_TOKEN): removes requests, lists, errands, orders, pickup visits
-   and pings that involve a demo number (101 to 110, 201 to 210), clears the stock demo shops
+   and pings that involve a demo number (the reserved demo numbers), clears the stock demo shops
    learned, then seeds again. It matches on the phone of the customer or shop owner, never on
    `is_demo` alone, so a real customer's request to a real shop is never in the way. It returns
    counts only.
@@ -86,8 +86,7 @@ were empty, and rehearsing a demo left old requests and orders behind.
   there on purpose; it logs a warning at startup and only ever answers `is_simulated` shops, which
   only the admin routes create. Never turn it on for a launch with real shops and customers.
 - Demo numbers are reserved by decision: seed adopts a user already on one (sets its role, marks it
-  demo) and reset removes that number's requests and orders. Do not use 9000000101 to 110 or 201 to
-  210 for real people.
+  demo) and reset removes that number's requests and orders. Do not use the reserved demo numbers for real people.
 - Seed and reset take a try-lock: a second call while one runs gets 409 `demo_busy`. The cap is per
   process (one Render instance); a second instance would double it.
 - Rejected: running the laptop simulator on Render (a second process the free tier does not have),
