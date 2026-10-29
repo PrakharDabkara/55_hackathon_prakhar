@@ -25,6 +25,7 @@ Everything since the start. This is the "Unreleased" section until v1.0.0 is tag
 
 ### Changed (going public)
 
+- LICENSE text split into two paragraphs (same terms); a non-docs change so CI and the deploy run on main, because docs-only pushes are skipped by `paths-ignore`.
 - Docs no longer name the private demo numbers (only the public ones); the AI-tooling incident says "ten days".
 
 ### Fixed (eval harness)
