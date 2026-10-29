@@ -149,7 +149,7 @@ watch -n 2 "curl -s $B/requests/$ID -H 'authorization: Bearer $CUSTOMER' | pytho
 
 The API can answer for the simulated shops itself, so the live site works with the laptop off.
 
-**One-time setup on Render.** Environment → add `DEMO_AUTOPILOT` = `on` (and optionally `DEMO_AUTOPILOT_MAX_PER_MINUTE`, default 30) → Save. Add the demo numbers you want to log in with to `DEMO_PHONES` (9000000102 to 106 for the shops, 9000000202 to 206 for the customers). Set it to `off` (or delete it) and restart to stop it completely: no queue, no listener, no code change. It only ever answers shops marked simulated.
+**One-time setup on Render.** Environment → add `DEMO_AUTOPILOT` = `on` (and optionally `DEMO_AUTOPILOT_MAX_PER_MINUTE`, default 30) → Save. Add the demo numbers you want to log in with to `DEMO_PHONES` (the reserved shop and customer demo numbers in `apps/api/src/modules/demo/fixtures.ts`). Set it to `off` (or delete it) and restart to stop it completely: no queue, no listener, no code change. It only ever answers shops marked simulated.
 
 **Before a demo** (wakes the instance, clears what the last rehearsal left, makes the shops):
 
@@ -158,7 +158,7 @@ read -rs ADMIN_TOKEN && export ADMIN_TOKEN   # paste the token; it is not shown 
 bash scripts/demo.sh reset && bash scripts/demo.sh seed
 ```
 
-Both print counts only. `reset` removes requests, lists, errands, orders and pings that involve a demo number (9000000101 to 110, 201 to 210), clears what the demo shops learned and seeds again; nothing else is touched. `seed` is safe to repeat. The stock prices are invented (see `apps/api/src/modules/demo/fixtures.ts`).
+Both print counts only. `reset` removes requests, lists, errands, orders and pings that involve a demo number (the reserved demo numbers), clears what the demo shops learned and seeds again; nothing else is touched. `seed` is safe to repeat. The stock prices are invented (see `apps/api/src/modules/demo/fixtures.ts`).
 
 **Check it is on.** The log has `demo autopilot is on` at startup, and `demo shop answered a ping` lines (with the request id) as searches arrive. An answer comes 5 to 90 s after the ping. The laptop simulator still works for local runs; do not run both against the same site.
 
