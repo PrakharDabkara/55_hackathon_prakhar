@@ -197,7 +197,7 @@ ADR-0064. Nobody is watching; the API must stay up by itself.
 | SSE heartbeat                                                                                                 | every 20 s per open stream                   |
 | GitHub crons                                                                                                  | none (the evals cron is paused until Oct 30) |
 | CI                                                                                                            | only on a PR or a push                       |
-| Laptop: the runner service and the runner watchdog timer                                                      | watchdog every 5 min                         |
+| Laptop runner and watchdog timer (retired; CI runs on GitHub-hosted runners)                                  | none                                         |
 
 Probes: `/health` and `/` touch neither Postgres nor Redis; `/ready` runs `SELECT 1`. The sweeper alone is about 10 queries a minute, so Neon does not suspend while the API is awake.
 
@@ -211,33 +211,23 @@ Probes: `/health` and `/` touch neither Postgres nor Redis; `/ready` runs `SELEC
 4. Redis: `ADMIN_TOKEN` in the shell, then `scripts/release-check.sh`. The "Redis memory" line warns above 40 % of `maxmemory` and fails above 60 %. The same two numbers are in `/admin/health/details` under `redis.memory` (`"unknown"` if Redis refuses `INFO`; the check then warns). A rising line means a queue is keeping jobs: look at `removed old completed jobs` in the logs and the queue counts.
 5. Models: `ADMIN_TOKEN` in the shell, then `curl -s $B/admin/ai/ping -H "Authorization: Bearer $ADMIN_TOKEN" | jq '{ok, results: [.results[] | {purpose, role, model, ok, kind, status}]}'`. It makes about 5 tiny calls (one per model and purpose, plus one embedding; no breaker, nothing stored), so run it once a week, not in a loop. Every row `ok: true` means each model we name still answers. `status: 404` means the model was retired or renamed (Google keeps retired models in its list but answers "no longer available to new users"): change the env var from `npm run ai:models` and see the failure-modes page. `status: 429` is a quota; the ping does not say which one, so read AI Studio.
 
-**After the freeze:** `systemctl --user disable --now askbuy-runner-watchdog.timer`.
+**After the freeze:** if the retired watchdog timer is still installed on the laptop, remove it: `systemctl --user disable --now askbuy-runner-watchdog.timer`.
 
-**Hotfix with the laptop off:** deleting the `RUNNER` repository variable would send CI to GitHub-hosted runners, but **that fallback is unavailable until Nov 1**: the hosted minutes are used up and the $0 budget blocks hosted jobs. Until then, turn the laptop on.
+**Hotfix:** CI and deploy run on GitHub-hosted runners (free for a public repository), so a hotfix needs no laptop. Merge the PR and the `deploy` job does the rest.
 
 **After Nov 6:** delete the UptimeRobot monitor.
 
-## Self-hosted runner (CI on the laptop)
+## Runners (GitHub-hosted; the laptop runner is retired)
 
-The `ci`, `e2e`, `evals` and `agent-evals` jobs run on `runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}`; `deploy` too (it was the one job left on `ubuntu-latest`, so it never started when hosted minutes ran out; `evals/runners.test.ts` now fails if any job names a hosted runner). The deploy job needs only node, npm and curl (no psql, no docker); it takes `NEON_DIRECT_URL` and `RENDER_DEPLOY_HOOK_URL` from the `production` environment, not from a `.env`, and its own concurrency group `deploy-production` never cancels a running deploy. One runner runs one job at a time, so deploy cannot overlap e2e on the laptop. Each job writes its runner name to the run summary.
+The `ci`, `e2e`, `evals`, `agent-evals` and `deploy` jobs use `runs-on: ${{ vars.RUNNER || 'ubuntu-latest' }}`. The repository is public, so GitHub-hosted runners are free, and the `RUNNER` variable is no longer set. `evals/runners.test.ts` fails if any job names a hosted runner directly, so the variable stays the one switch. The deploy job needs only node, npm and curl; it takes `NEON_DIRECT_URL` and `RENDER_DEPLOY_HOOK_URL` from the `production` environment, not from an env file, and its own concurrency group `deploy-production` never cancels a running deploy. Each job writes its runner name to the run summary.
 
-One-time prep, on the laptop:
+CI never meets your local dev: the e2e job uses its own compose project (`askbuy-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow. Hosted runners start empty, so the npm cache and the saved eval catalog embeddings are cached through `actions/cache`.
 
-1. Playwright's system libraries (needs sudo, which is why CI does not do it): `sudo env "PATH=$PATH" npx playwright install-deps chromium`.
-2. The runner's user is in the `docker` group (`sudo usermod -aG docker $USER`, then log in again). Integration tests (Testcontainers) and the e2e job (`docker compose`) need it. No CI step uses sudo.
-3. Install the runner as a service from `~/actions-runner`: `sudo ./svc.sh install && sudo ./svc.sh start`.
-4. In the repo (Settings, Secrets and variables, Actions, Variables) set `RUNNER` to `self-hosted`.
-
-Things to know:
-
-- The laptop must be on and online during CI. A job waits for a runner and fails after the queue limit if it is off.
-- CI never meets your local dev: the e2e job uses its own compose project (`askbuy-ci`, torn down at the end) and its own ports (Postgres 55432, Redis 56379, app 53100), all set in the workflow, never in `.env`. Keep `npm run db:up` running if you like.
-- No cache uploads on the laptop: the npm cache (~/.npm is about 12 GB here, 2.9 GB compressed) is skipped on self-hosted, since the disk keeps it. The eval catalog embeddings live in `~/.cache/kahanmilega-evals` there.
-- Back to GitHub's runners: delete the `RUNNER` variable. **Not possible until Nov 1** (hosted minutes exhausted, $0 budget); jobs would not start.
+**History.** While the hosted minutes were used up (a $0 budget), the jobs ran for a few days on a self-hosted runner on the laptop (`RUNNER=self-hosted`). That runner needed Playwright's system libraries, Docker group membership for Testcontainers and `docker compose`, and the laptop switched on during CI. It has been removed.
 
 ## Runner watchdog
 
-Oct 23: the runner showed "online, idle" but took no job for about 2 h until restarted. `scripts/ops/runner-watchdog.sh` (user timer, every 5 min) restarts the runner service when a run has been queued over 10 min AND GitHub reports the runner online and not busy; at most once per 30 min. It does nothing when the runner is busy, offline, or nothing waits. Every action is in `~/kahan-tools/watchdog.log`. No token is used: `gh` uses its own login, and the only sudo rule is the one exact restart command.
+**Retired with the laptop runner; kept as history.** Oct 23: the self-hosted runner showed "online, idle" but took no job for about 2 h until restarted. `scripts/ops/runner-watchdog.sh` (a user timer, every 5 min) restarted the runner service when a run had been queued over 10 min AND GitHub reported the runner online and not busy; at most once per 30 min. It did nothing when the runner was busy, offline, or nothing waited. Every action was written to `~/kahan-tools/watchdog.log`. No token is used: `gh` uses its own login, and the only sudo rule is the one exact restart command.
 
 Install (by hand, from the repo root; nothing here prints a token):
 
@@ -348,7 +338,7 @@ The `evals` workflow needs a GitHub environment named `evals` with a `GEMINI_API
 
 ## Evals: timeouts, quota, schedule paused until Oct 30
 
-Eval jobs once ran 20 to 78 minutes while a healthy run takes about 8, and one stuck job held the only self-hosted runner. Now:
+Eval jobs once ran 20 to 78 minutes while a healthy run takes about 8, and one stuck job held the only (self-hosted) runner. Now:
 
 - **Every model or embedding request has 30 s** (`withRequestTimeout`, applied to the Gemini provider everywhere, so also the preflight calls). A timeout is a failure like any other: it is retried and then tried on the fallback model. Production keeps its own, shorter limits (8 s resolve, `ERRAND_AI_TIMEOUT_MS` errands) on top.
 - **At most 3 retries per call.** The pause doubles each time with jitter, never over 30 s; a 429 that says how long to wait (Retry-After) is obeyed, capped at 30 s. A per-day 429 is not retried at all.

@@ -1,6 +1,6 @@
 # AskBuy — Product Brief & Build Plan
 
-Oct 12, 2026 · Prakhar · Source of truth for the hackathon build. Working name; final name decided later.
+Oct 12, 2026 · Prakhar · Source of truth for the hackathon build. Working name; final name decided later. **Status (Oct 30):** built and deployed at https://kahanmilega-api.onrender.com/ (the URL keeps the working name KahanMilega). Try it with the public demo numbers: buyer `9000000208` or `9000000209`, shop `9000000110` (demo mode shows the login code on screen). Eval gates and results: [evals.md](evals.md).
 
 ## Summary
 
@@ -250,7 +250,7 @@ kahanmilega/
 | Decision | Choice | Why |
 | --- | --- | --- |
 | Architecture | Modular monolith | One deployable, clear module boundaries, split later if needed |
-| Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, Cloudflare Pages (web); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
+| Cloud | Free tier (ADR-0009): Render (API, Docker), Neon (Postgres with PostGIS and pgvector), Redis per ADR-0010, web app served by the API (ADR-0017); CD from GitHub Actions. Replaces the AWS EC2 plan (ADR-0002) | Real deploy and CI/CD at zero cost. AWS (ECS, RDS, ElastiCache, CloudFront) is the post-hackathon target |
 | API framework | Express | Already known, so learning time goes to scaling and AI |
 | Login | Phone OTP, simulated (code at a demo inbox endpoint); opaque hashed session tokens (ADR-0013) | Real flow without SMS cost; sessions can be revoked |
 | Models | Gemini Flash-Lite (`gemini-3.1-flash-lite`) on the free tier (the errand agent can be moved to its own model with `GEMINI_ERRAND_MODEL`, ADR-0027; resolve keeps this one), behind an `LlmProvider` port (ADR-0020), for query understanding and, since Day 12, the errand agent (ADR-0024). Claude Haiku 5.5 stays the plan for reply parsing and the digest, as another adapter behind the same port; Sonnet 5.5 only if evals show Haiku falls short | No paid API for now. The port makes a later move to Claude an adapter, not a rewrite |

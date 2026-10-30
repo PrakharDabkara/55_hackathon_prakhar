@@ -1,8 +1,18 @@
-# AskBuy
+# AskBuy (working name KahanMilega, which is why the URL says kahanmilega)
 
 > "Where will I find it?" Ask your neighbourhood for an item and see which nearby shops have it, and at what price.
 
-**Status:** Day 3 (deploy skeleton). API serves `/health` and `/ready`; deploys to Render on merge to main. See [docs/BRIEF.md](docs/BRIEF.md) for the full plan.
+**Live app:** https://kahanmilega-api.onrender.com/ (buyer at `/app/`, shop at `/app/shop`). It runs on a free tier, so the first load can take about 15 s while the server wakes up.
+
+## Try it in 60 seconds
+
+Best on a phone, or on a desktop use the **Open buyer + shop side by side** button in the notice that appears.
+
+1. **Buyer:** open `/app/`, enter `9000000208` (or `9000000209`), tap **OTP bhejo**. Demo mode shows the login code on screen; tap **Demo OTP bharein**, then **Login karein**.
+2. Tap **Demo location (Indore)**, type `chini` (or `aata`, `namak`) and tap **Dhoondho**.
+3. **Shop:** in a second window open `/app/shop` and log in with `9000000110` the same way. The question appears on the shop's card; tap **Haan hai** (add a price if you like) and watch the pin and price appear on the buyer's map.
+
+The simulated demo shops also answer by themselves within a few seconds (ADR-0062). Details of every screen: [Try the shop app](#try-the-shop-app) and [Try the customer app](#try-the-customer-app) below.
 
 ## Problem
 
@@ -26,6 +36,26 @@ Others have reached the same problem, which confirms it is real (checked Oct 12,
 | [NearStock](https://www.nearstock.in/)                                                               | Search nearby shops' stock that shopkeepers keep updated          | We ask shops live instead of relying on them to maintain a catalogue                          |
 | [NearSt](https://www.retail-systems.com/rs/Google_NearSt_Partnership_Local_Shopping_Search.php) (UK) | Reads stock from shops' billing systems and feeds Google search   | Works for shops with no billing system                                                        |
 
+## Where to look
+
+| What                                  | Where                                                                                                                                                                |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture and cost by design       | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)                                                                                                                         |
+| Decisions (68 ADRs)                   | [docs/adr/](docs/adr/)                                                                                                                                               |
+| Product brief and plan                | [docs/BRIEF.md](docs/BRIEF.md)                                                                                                                                       |
+| How we used AI tooling                | [docs/ai-tooling.md](docs/ai-tooling.md), [CLAUDE.md](CLAUDE.md), [.claude/hooks](.claude/hooks), [.claude/agents](.claude/agents), [.claude/skills](.claude/skills) |
+| Evals and the held-out gate           | [docs/evals.md](docs/evals.md)                                                                                                                                       |
+| What fails and what the user sees     | [docs/failure-modes.md](docs/failure-modes.md)                                                                                                                       |
+| Free-tier limits and judge-day budget | [docs/limits.md](docs/limits.md)                                                                                                                                     |
+| Deploy, rollback, operations          | [docs/runbook.md](docs/runbook.md)                                                                                                                                   |
+| Day-by-day build log                  | [docs/journey/](docs/journey/)                                                                                                                                       |
+| CI, deploy and eval workflows         | [ci.yml](.github/workflows/ci.yml), [evals.yml](.github/workflows/evals.yml)                                                                                         |
+| Ops and probe scripts                 | [scripts/ops/](scripts/ops/), [scripts/probe/](scripts/probe/)                                                                                                       |
+
+## Tests
+
+Unit (Vitest), integration (Testcontainers on real Postgres and Redis), Playwright end-to-end with axe accessibility scans, AI evals with a held-out gate, and tests for the Claude Code hooks. About 4,600 automated tests run on every push; see [docs/evals.md](docs/evals.md) for the eval gates.
+
 ## Development
 
 ```sh
@@ -47,15 +77,17 @@ Architecture decisions are in [docs/adr/](docs/adr/). Why the product is called 
 
 Open **https://kahanmilega-api.onrender.com/app/shop** on a phone (the free server sleeps when idle, so the first load can take a minute).
 
-1. Enter any Indian mobile number, tap **OTP bhejo**, then **Demo OTP bharein** (Demo mode: no SMS is sent) and **Login karein**.
-2. The first time, give the shop a name, pick 1 or 2 categories and tap **Meri location use karein**.
+1. Enter the public demo shop number `9000000110`, tap **OTP bhejo**, then **Demo OTP bharein** (Demo mode: no SMS is sent) and **Login karein**.
+2. If the shop is not set up yet, give it a name, pick 1 or 2 categories and tap **Meri location use karein**.
 3. Questions from customers appear on the card by themselves. Tap **Haan hai** (add a price if you like) or **Nahi hai**.
 
-To make a question appear, create a customer request from a terminal; the commands are in [docs/runbook.md](docs/runbook.md#send-a-test-question-to-a-shop). ## Try the customer app
+To make a question appear, create a customer request from a terminal; the commands are in [docs/runbook.md](docs/runbook.md#send-a-test-question-to-a-shop).
 
-Open **https://kahanmilega-api.onrender.com/app/** (the shop app is at `/app/shop`). The free server sleeps when idle, so the first load can take a minute.
+## Try the customer app
 
-1. Log in with a demo number (one of the server's `DEMO_PHONES`; any other number gets no readable code): **OTP bhejo**, **Demo OTP bharein**, **Login karein**.
+Open **https://kahanmilega-api.onrender.com/app/** (the shop app is at `/app/shop`). The free server sleeps when idle, so the first load can take about 15 s.
+
+1. Log in with the public demo buyer number `9000000208` or `9000000209` (any other number gets no readable code on screen): **OTP bhejo**, **Demo OTP bharein**, **Login karein**.
 2. Tap **Demo location (Indore)**, type `chini` (or `aata`, `namak`), optionally add a price you have seen, and tap **Dhoondho**.
 3. Pins and rows appear as shops answer. For answers without real shopkeepers, run the simulator from your laptop (`ADMIN_TOKEN` must be set on the server and exported on your laptop, see [the runbook](docs/runbook.md#run-the-simulator-against-the-live-site)):
 
@@ -79,45 +111,15 @@ No Gemini key? `FAKE_LLM_SCENARIO=e2e/errand-scenario.json` with `LLM_PROVIDER=f
 
 ## Use AskBuy from Claude
 
-An MCP server lets an AI assistant look for an item near you, ask shops, and plan a route, using your own customer login. It talks to the public API only (ADR-0023). Six tools: `resolve_item`, `find_item_nearby`, `ask_shops` (pings real shops), `get_request_status`, `close_request`, `plan_route`.
-
-1. Build it and log in (the live site by default; Node 24 and `npm install` first):
+An MCP server lets an AI assistant look for an item near you, ask shops and plan a route, using your own customer login. It talks to the public API only (ADR-0023) and offers six tools: `resolve_item`, `find_item_nearby`, `ask_shops` (pings real shops), `get_request_status`, `close_request` and `plan_route`.
 
 ```sh
 npm run mcp:build
-npm run mcp:login -- --phone <a DEMO_PHONES number>   # prints only "logged in"
-```
-
-The login is saved in `apps/mcp-server/.askbuy-login.json` (git-ignored, readable only by you). Use a customer number, not a shop's. To point at another server, set `ASKBUY_API_URL` (for example `http://localhost:3000`) for both commands and for the server.
-
-2. Connect it. **Claude Code**, from the repository folder:
-
-```sh
+npm run mcp:login -- --phone 9000000208   # prints only "logged in"
 claude mcp add askbuy -- node "$(pwd)/apps/mcp-server/dist/main.js"
 ```
 
-**Claude Desktop**: add this to `claude_desktop_config.json` (use your real path) and restart the app:
-
-```json
-{
-  "mcpServers": {
-    "askbuy": {
-      "command": "node",
-      "args": ["/absolute/path/to/askbuy/apps/mcp-server/dist/main.js"]
-    }
-  }
-}
-```
-
-3. Try it. With the simulator running (see above) so shops answer, ask:
-
-- "Find milk near the demo location (22.7196, 75.8577) under ₹60."
-- "Ask shops for chini near 22.7196, 75.8577 and tell me the cheapest."
-- "Plan a route to the 3 cheapest shops from there."
-
-`ask_shops` pings real shops, so your assistant should ask before using it; it should use `find_item_nearby` first.
-
-To look at the tools without an assistant, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector): `npx @modelcontextprotocol/inspector node apps/mcp-server/dist/main.js`. Tests: `npm run test:integration` includes a contract test that starts the API on a throwaway database and calls every tool through the SDK.
+Setup for Claude Desktop, the MCP Inspector and example prompts: [apps/mcp-server/README.md](apps/mcp-server/README.md). A contract test calls every tool through the SDK (`npm run test:integration`).
 
 ## License
 
